@@ -5,6 +5,9 @@ node_modules
 dist
 dist-ssr
 *.local
+tsconfig.tsbuildinfo
+.agents
+.astro
 
 # Env (no commitear credenciales ni config local)
 .env
