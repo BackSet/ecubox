@@ -1,0 +1,13 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="markOnlyLightGrad" x1="20" y1="14" x2="94" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2E6BE6" />
+      <stop offset="1" stop-color="#7B3FE4" />
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="#F3EDFF" />
+  <path d="M32 50L64 32L96 50V86L64 104L32 86V50Z" fill="none" stroke="url(#markOnlyLightGrad)" stroke-width="6" stroke-linejoin="round" />
+  <path d="M64 32V64" stroke="url(#markOnlyLightGrad)" stroke-width="6" stroke-linecap="round" />
+  <path d="M32 50L64 68L96 50" stroke="url(#markOnlyLightGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

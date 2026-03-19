@@ -1,0 +1,67 @@
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
+import {
+  getAgenciasDistribuidorAll,
+  getAgenciaDistribuidor,
+  getAgenciasDistribuidorByDistribuidorId,
+  createAgenciaDistribuidor,
+  updateAgenciaDistribuidor,
+  deleteAgenciaDistribuidor,
+} from '@/lib/api/agencias-distribuidor.service';
+import type { AgenciaDistribuidorRequest } from '@/types/despacho';
+
+export const AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY = ['admin', 'agencias-distribuidor'] as const;
+
+export function useAgenciasDistribuidorAdmin() {
+  return useQuery({
+    queryKey: AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY,
+    queryFn: getAgenciasDistribuidorAll,
+  });
+}
+
+export function useAgenciasDistribuidorByDistribuidor(distribuidorId: number | undefined | null) {
+  return useQuery({
+    queryKey: [...AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY, 'por-distribuidor', distribuidorId],
+    queryFn: () => getAgenciasDistribuidorByDistribuidorId(distribuidorId!),
+    enabled: distribuidorId != null && !Number.isNaN(distribuidorId),
+  });
+}
+
+export function useAgenciaDistribuidorAdmin(id: number | undefined | null) {
+  return useQuery({
+    queryKey: [...AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY, id],
+    queryFn: () => getAgenciaDistribuidor(id!),
+    enabled: id != null && !Number.isNaN(id),
+  });
+}
+
+export function useCreateAgenciaDistribuidor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AgenciaDistribuidorRequest) => createAgenciaDistribuidor(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY }),
+  });
+}
+
+export function useUpdateAgenciaDistribuidor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: AgenciaDistribuidorRequest }) =>
+      updateAgenciaDistribuidor(id, body),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: [...AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY, id] });
+    },
+  });
+}
+
+export function useDeleteAgenciaDistribuidor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteAgenciaDistribuidor(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY }),
+  });
+}

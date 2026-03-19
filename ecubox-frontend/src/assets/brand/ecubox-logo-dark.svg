@@ -1,0 +1,18 @@
+<svg width="512" height="128" viewBox="0 0 512 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="markDarkGrad" x1="16" y1="12" x2="84" y2="94" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#64A2FF" />
+      <stop offset="1" stop-color="#B185FF" />
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="16" width="88" height="88" rx="20" fill="#1C2842" />
+  <path d="M28 48L52 35L76 48V76L52 89L28 76V48Z" fill="none" stroke="url(#markDarkGrad)" stroke-width="4.5" stroke-linejoin="round" />
+  <path d="M52 35V59" stroke="url(#markDarkGrad)" stroke-width="4.5" stroke-linecap="round" />
+  <path d="M28 48L52 61L76 48" stroke="url(#markDarkGrad)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <text x="120" y="81" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="52" font-weight="800" letter-spacing="-1.2">
+    <tspan fill="#F5F7FC">ECU</tspan>
+    <tspan fill="#B185FF">BOX</tspan>
+  </text>
+</svg>
