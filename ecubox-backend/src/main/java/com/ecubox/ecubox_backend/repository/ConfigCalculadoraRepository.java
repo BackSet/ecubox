@@ -1,0 +1,7 @@
+package com.ecubox.ecubox_backend.repository;
+
+import com.ecubox.ecubox_backend.entity.ConfigCalculadora;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ConfigCalculadoraRepository extends JpaRepository<ConfigCalculadora, Long> {
+}

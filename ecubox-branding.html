@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECUBOX™ — Brand Identity</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,200;0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:   #0A1628;
+    --blue:   #1246A0;
+    --sky:    #2E6BE6;
+    --purple: #7B3FE4;
+    --violet: #9B6AF0;
+    --ice:    #C8D9F5;
+    --white:  #F5F7FC;
+    --cream:  #F0EEF9;
+    --gold:   #C9A84C;
+    --gray:   #8A95A8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--navy);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(46,107,230,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(46,107,230,0.06) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridFade 3s ease forwards;
+  }
+
+  @keyframes gridFade { from{opacity:0} to{opacity:1} }
+
+  .hero-glow {
+    position: absolute;
+    width: 800px; height: 800px;
+    background: radial-gradient(circle, rgba(123,63,228,0.2) 0%, rgba(18,70,160,0.25) 40%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    font-size: 11px; font-weight: 300; letter-spacing: 0.35em;
+    color: var(--gold); text-transform: uppercase; margin-bottom: 48px;
+    opacity: 0; animation: rise 1s 0.3s ease forwards;
+  }
+
+  .logo-lockup {
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+    opacity: 0; animation: rise 1s 0.6s ease forwards;
+  }
+
+  .logo-mark svg { width: 90px; height: 90px; filter: drop-shadow(0 0 28px rgba(123,63,228,0.45)); }
+
+  .logo-wordmark {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 96px; letter-spacing: 0.15em; color: var(--white); line-height: 1;
+  }
+  .logo-wordmark .blue   { color: var(--sky); }
+  .logo-wordmark .purple { color: var(--violet); }
+
+  .logo-tagline {
+    font-size: 11px; font-weight: 300; letter-spacing: 0.5em;
+    color: var(--gray); text-transform: uppercase; margin-top: 4px;
+  }
+
+  .hero-divider {
+    width: 1px; height: 80px;
+    background: linear-gradient(to bottom, transparent, var(--purple), transparent);
+    margin-top: 60px; opacity: 0; animation: rise 1s 1.2s ease forwards;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── SHARED ─── */
+  section { padding: 120px 80px; max-width: 1400px; margin: 0 auto; }
+
+  .section-label {
+    font-size: 10px; font-weight: 400; letter-spacing: 0.5em;
+    color: var(--gold); text-transform: uppercase; margin-bottom: 48px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; max-width: 80px; height: 1px;
+    background: var(--gold); opacity: 0.4;
+  }
+
+  /* ─── LOGO VERSIONS ─── */
+  .logo-versions { padding: 0; max-width: 100%; }
+
+  .logo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+
+  .logo-card {
+    padding: 56px 40px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px;
+    min-height: 260px; position: relative; overflow: hidden;
+    transition: transform 0.4s ease;
+  }
+  .logo-card:hover { transform: scale(1.01); }
+
+  .logo-card.dark       { background: var(--navy); border: 1px solid rgba(46,107,230,0.12); }
+  .logo-card.gradient   { background: linear-gradient(135deg, #1246A0, #5B1FBF); }
+  .logo-card.purple-bg  { background: #2A0E6B; }
+  .logo-card.light      { background: var(--cream); }
+
+  .logo-card .wm { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.12em; line-height: 1; }
+  .logo-card.dark      .wm, .logo-card.gradient .wm, .logo-card.purple-bg .wm { font-size: 44px; color: var(--white); }
+  .logo-card.dark      .wm .accent { color: var(--violet); }
+  .logo-card.gradient  .wm .accent { color: var(--gold); }
+  .logo-card.purple-bg .wm .accent { color: var(--sky); }
+  .logo-card.light     .wm { font-size: 44px; color: var(--navy); }
+  .logo-card.light     .wm .accent { color: var(--purple); }
+
+  .logo-card .sub { font-size: 9px; letter-spacing: 0.5em; text-transform: uppercase; font-weight: 300; }
+  .logo-card.dark .sub, .logo-card.gradient .sub, .logo-card.purple-bg .sub { color: rgba(255,255,255,0.4); }
+  .logo-card.light .sub { color: rgba(10,22,40,0.4); }
+
+  .card-label { position: absolute; bottom: 14px; right: 16px; font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.25; font-weight: 300; }
+  .logo-card.light .card-label { color: var(--navy); }
+
+  /* ─── COLORS ─── */
+  .colors-section { background: #0C1A30; border-top: 1px solid rgba(123,63,228,0.15); }
+
+  .color-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; }
+
+  .color-chip { display: flex; flex-direction: column; gap: 14px; }
+
+  .swatch {
+    height: 160px; border-radius: 4px; position: relative; overflow: hidden;
+    transition: transform 0.3s ease;
+  }
+  .swatch:hover { transform: translateY(-4px); }
+  .swatch::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.18) 100%);
+  }
+
+  .color-name { font-size: 13px; font-weight: 400; color: var(--white); }
+  .color-hex  { font-size: 11px; font-weight: 300; color: var(--gray); letter-spacing: 0.08em; }
+  .color-role { font-size: 10px; color: var(--gold); letter-spacing: 0.2em; text-transform: uppercase; margin-top: 2px; }
+
+  /* ─── TYPOGRAPHY ─── */
+  .type-section { background: var(--navy); border-top: 1px solid rgba(123,63,228,0.15); }
+
+  .type-showcase { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; }
+
+  .type-display {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 110px; line-height: 0.9; letter-spacing: 0.05em; color: var(--white);
+  }
+  .type-display .b { color: var(--sky); }
+  .type-display .p { color: var(--violet); }
+
+  .type-info { display: flex; flex-direction: column; gap: 36px; padding-top: 16px; }
+  .type-row  { border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 28px; }
+  .type-label { font-size: 9px; letter-spacing: 0.4em; color: var(--gold); text-transform: uppercase; margin-bottom: 10px; }
+  .type-name-big  { font-family: 'Bebas Neue', sans-serif; font-size: 30px; letter-spacing: 0.1em; color: var(--white); }
+  .type-name-body { font-family: 'DM Sans', sans-serif; font-size: 18px; font-weight: 300; color: var(--white); }
+  .type-specimen  { font-size: 11px; font-weight: 300; color: var(--gray); letter-spacing: 0.08em; margin-top: 5px; }
+
+  /* ─── ELEMENTS ─── */
+  .elements-section { background: #0C1A30; border-top: 1px solid rgba(123,63,228,0.15); padding-bottom: 0; }
+
+  .elements-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+
+  .element-card {
+    padding: 64px; min-height: 320px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    position: relative; overflow: hidden;
+    background: var(--navy); border: 1px solid rgba(123,63,228,0.1);
+    transition: border-color 0.3s ease;
+  }
+  .element-card:hover { border-color: rgba(123,63,228,0.4); }
+
+  .element-title { font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
+  .element-desc  { font-size: 14px; font-weight: 300; color: var(--gray); line-height: 1.6; max-width: 320px; }
+
+  .icon-display, .tagline-display, .seal-display {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -65%);
+  }
+
+  .pattern-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(123,63,228,0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(46,107,230,0.1) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .pattern-overlay {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 30%, var(--navy) 80%);
+  }
+
+  .tagline-big { font-family: 'Bebas Neue', sans-serif; font-size: 58px; letter-spacing: 0.1em; color: var(--white); line-height: 1; text-align: center; }
+  .tagline-sub { font-size: 11px; letter-spacing: 0.5em; text-transform: uppercase; color: var(--violet); margin-top: 8px; text-align: center; }
+
+  /* ─── MOCKUPS ─── */
+  .mockup-section { background: var(--navy); border-top: 1px solid rgba(123,63,228,0.15); }
+  .mockup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+
+  .biz-card {
+    aspect-ratio: 1.75; border-radius: 8px; overflow: hidden; position: relative;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+  }
+  .biz-card:hover { transform: translateY(-8px) rotate(-1deg); box-shadow: 0 60px 100px rgba(0,0,0,0.6); }
+
+  .biz-card-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .biz-card-content { position: absolute; inset: 0; padding: 32px 36px; display: flex; flex-direction: column; justify-content: space-between; }
+  .bc-logo { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.15em; color: var(--white); }
+  .bc-info { text-align: right; }
+  .bc-name    { font-size: 13px; font-weight: 400; color: var(--white); letter-spacing: 0.05em; }
+  .bc-role    { font-size: 10px; font-weight: 300; color: var(--ice); letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.7; }
+  .bc-contact { font-size: 10px; font-weight: 300; color: var(--ice); opacity: 0.5; margin-top: 3px; }
+
+  .bc-accent-line { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--sky), var(--gold), var(--violet)); }
+
+  .package-label { background: var(--cream); border-radius: 8px; overflow: hidden; padding: 36px; box-shadow: 0 40px 80px rgba(0,0,0,0.4); transition: transform 0.4s ease; }
+  .package-label:hover { transform: translateY(-8px); }
+
+  .pl-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 2px solid var(--navy); }
+  .pl-logo { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 0.12em; color: var(--navy); }
+  .pl-logo .accent { color: var(--purple); }
+  .pl-badge { background: linear-gradient(135deg, var(--blue), var(--purple)); color: var(--white); font-size: 9px; letter-spacing: 0.3em; padding: 6px 12px; border-radius: 2px; text-transform: uppercase; }
+
+  .pl-body { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .pl-field label { font-size: 8px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--purple); font-weight: 500; display: block; margin-bottom: 4px; }
+  .pl-field p { font-size: 12px; color: var(--navy); font-weight: 400; line-height: 1.4; }
+
+  .pl-barcode { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .barcode-lines { display: flex; gap: 2px; height: 36px; align-items: flex-end; }
+  .barcode-lines span { background: var(--navy); width: 2px; display: block; }
+  .barcode-num { font-size: 9px; letter-spacing: 0.3em; color: var(--gray); }
+
+  /* ─── UI BADGES ─── */
+  .badge-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+
+  .digital-badge {
+    padding: 13px 26px; border-radius: 4px;
+    font-size: 12px; font-weight: 400; letter-spacing: 0.1em;
+    display: flex; align-items: center; gap: 10px;
+    transition: transform 0.2s ease; cursor: default;
+  }
+  .digital-badge:hover { transform: translateY(-2px); }
+  .digital-badge.primary  { background: linear-gradient(135deg, var(--blue), var(--purple)); color: var(--white); }
+  .digital-badge.outline  { border: 1px solid var(--purple); color: var(--violet); }
+  .digital-badge.ghost    { border: 1px solid rgba(255,255,255,0.15); color: var(--white); }
+  .digital-badge.gold-line{ border: 1px solid var(--gold); color: var(--gold); }
+
+  /* ─── FOOTER ─── */
+  .brand-footer { background: var(--navy); border-top: 1px solid rgba(123,63,228,0.15); padding: 80px; display: flex; justify-content: space-between; align-items: center; }
+  .footer-logo { font-family: 'Bebas Neue', sans-serif; font-size: 44px; letter-spacing: 0.15em; background: linear-gradient(135deg, var(--white), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .footer-meta { text-align: right; font-size: 11px; font-weight: 300; color: var(--gray); line-height: 2; letter-spacing: 0.08em; }
+  .footer-year { color: var(--gold); }
+
+  .full-divider { width: 100%; height: 1px; background: linear-gradient(90deg, transparent, rgba(123,63,228,0.5), transparent); }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <p class="hero-badge">Brand Identity System · 2025</p>
+
+  <div class="logo-lockup">
+    <div class="logo-mark">
+      <svg viewBox="0 0 90 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#2E6BE6"/>
+            <stop offset="100%" stop-color="#7B3FE4"/>
+          </linearGradient>
+        </defs>
+        <rect x="8" y="22" width="74" height="54" rx="2" stroke="url(#hg)" stroke-width="2.5"/>
+        <path d="M8 34 L45 44 L82 34" stroke="url(#hg)" stroke-width="2.5" fill="none"/>
+        <rect x="37" y="22" width="16" height="22" rx="1" fill="#7B3FE4" fill-opacity="0.25"/>
+        <line x1="45" y1="22" x2="45" y2="44" stroke="url(#hg)" stroke-width="2.5"/>
+        <path d="M8 22 L20 10 L45 22" stroke="#7B3FE4" stroke-width="1.5" fill="none" opacity="0.5"/>
+        <path d="M82 22 L70 10 L45 22" stroke="#2E6BE6" stroke-width="1.5" fill="none" opacity="0.5"/>
+        <line x1="52" y1="60" x2="74" y2="60" stroke="#C9A84C" stroke-width="2" opacity="0.9"/>
+        <line x1="56" y1="67" x2="74" y2="67" stroke="#C9A84C" stroke-width="1.25" opacity="0.5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-wordmark">ECU<span class="purple">BOX</span></div>
+      <div class="logo-tagline">Logistics · Premium Courier · Ecuador</div>
+    </div>
+  </div>
+
+  <div class="hero-divider"></div>
+</div>
+
+<!-- LOGO VERSIONS -->
+<section class="logo-versions">
+  <div class="logo-grid">
+    <div class="logo-card dark">
+      <svg width="46" height="46" viewBox="0 0 90 90" fill="none">
+        <defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2E6BE6"/><stop offset="100%" stop-color="#7B3FE4"/></linearGradient></defs>
+        <rect x="8" y="22" width="74" height="54" rx="2" stroke="url(#g1)" stroke-width="2.5"/>
+        <path d="M8 34 L45 44 L82 34" stroke="url(#g1)" stroke-width="2.5" fill="none"/>
+        <rect x="37" y="22" width="16" height="22" rx="1" fill="#7B3FE4" fill-opacity="0.3"/>
+        <line x1="45" y1="22" x2="45" y2="44" stroke="url(#g1)" stroke-width="2.5"/>
+        <line x1="52" y1="60" x2="74" y2="60" stroke="#C9A84C" stroke-width="2"/>
+      </svg>
+      <div class="wm">ECU<span class="accent">BOX</span></div>
+      <div class="sub">Versión principal</div>
+      <span class="card-label">Dark</span>
+    </div>
+
+    <div class="logo-card gradient">
+      <svg width="46" height="46" viewBox="0 0 90 90" fill="none">
+        <rect x="8" y="22" width="74" height="54" rx="2" stroke="white" stroke-width="2.5"/>
+        <path d="M8 34 L45 44 L82 34" stroke="white" stroke-width="2.5" fill="none"/>
+        <rect x="37" y="22" width="16" height="22" rx="1" fill="white" fill-opacity="0.2"/>
+        <line x1="45" y1="22" x2="45" y2="44" stroke="white" stroke-width="2.5"/>
+        <line x1="52" y1="60" x2="74" y2="60" stroke="#C9A84C" stroke-width="2"/>
+      </svg>
+      <div class="wm">ECU<span class="accent">BOX</span></div>
+      <div class="sub">Azul → Morado</div>
+      <span class="card-label">Gradient</span>
+    </div>
+
+    <div class="logo-card purple-bg">
+      <svg width="46" height="46" viewBox="0 0 90 90" fill="none">
+        <rect x="8" y="22" width="74" height="54" rx="2" stroke="#9B6AF0" stroke-width="2.5"/>
+        <path d="M8 34 L45 44 L82 34" stroke="#9B6AF0" stroke-width="2.5" fill="none"/>
+        <rect x="37" y="22" width="16" height="22" rx="1" fill="#9B6AF0" fill-opacity="0.25"/>
+        <line x1="45" y1="22" x2="45" y2="44" stroke="#9B6AF0" stroke-width="2.5"/>
+        <line x1="52" y1="60" x2="74" y2="60" stroke="#C9A84C" stroke-width="2"/>
+      </svg>
+      <div class="wm">ECU<span class="accent">BOX</span></div>
+      <div class="sub">Fondo morado</div>
+      <span class="card-label">Purple</span>
+    </div>
+
+    <div class="logo-card light">
+      <svg width="46" height="46" viewBox="0 0 90 90" fill="none">
+        <defs><linearGradient id="g4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1246A0"/><stop offset="100%" stop-color="#7B3FE4"/></linearGradient></defs>
+        <rect x="8" y="22" width="74" height="54" rx="2" stroke="url(#g4)" stroke-width="2.5"/>
+        <path d="M8 34 L45 44 L82 34" stroke="url(#g4)" stroke-width="2.5" fill="none"/>
+        <rect x="37" y="22" width="16" height="22" rx="1" fill="#7B3FE4" fill-opacity="0.1"/>
+        <line x1="45" y1="22" x2="45" y2="44" stroke="url(#g4)" stroke-width="2.5"/>
+        <line x1="52" y1="60" x2="74" y2="60" stroke="#C9A84C" stroke-width="2"/>
+      </svg>
+      <div class="wm">ECU<span class="accent">BOX</span></div>
+      <div class="sub">Fondo claro</div>
+      <span class="card-label">Light</span>
+    </div>
+  </div>
+</section>
+
+<!-- COLORS -->
+<section class="colors-section">
+  <p class="section-label">Paleta de color</p>
+  <div class="color-row">
+    <div class="color-chip">
+      <div class="swatch" style="background:#0A1628;"></div>
+      <div class="color-name">Navy</div>
+      <div class="color-hex">#0A1628</div>
+      <div class="color-role">Principal</div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#1246A0;"></div>
+      <div class="color-name">Azul ECUBOX</div>
+      <div class="color-hex">#1246A0</div>
+      <div class="color-role">Marca</div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#2E6BE6;"></div>
+      <div class="color-name">Sky Tech</div>
+      <div class="color-hex">#2E6BE6</div>
+      <div class="color-role">Acento</div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:linear-gradient(135deg,#7B3FE4,#9B6AF0);"></div>
+      <div class="color-name">Morado ECUBOX</div>
+      <div class="color-hex">#7B3FE4</div>
+      <div class="color-role">Nuevo acento</div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#C9A84C;"></div>
+      <div class="color-name">Gold Premium</div>
+      <div class="color-hex">#C9A84C</div>
+      <div class="color-role">Lujo</div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#F0EEF9;"></div>
+      <div class="color-name">Lavender White</div>
+      <div class="color-hex">#F0EEF9</div>
+      <div class="color-role">Fondo claro</div>
+    </div>
+  </div>
+</section>
+
+<!-- TYPOGRAPHY -->
+<section class="type-section">
+  <p class="section-label">Tipografía</p>
+  <div class="type-showcase">
+    <div>
+      <div class="type-display">E<span class="b">C</span><span class="p">U</span><br><span class="b">B</span><span class="p">O</span>X</div>
+    </div>
+    <div class="type-info">
+      <div class="type-row">
+        <div class="type-label">Tipografía de marca</div>
+        <div class="type-name-big">Bebas Neue</div>
+        <div class="type-specimen">ABCDEFGHIJKLMNOPQRSTUVWXYZ · 0123456789</div>
+        <div class="type-specimen" style="margin-top:4px;font-size:10px;">Títulos · Logos · Wordmarks · Display</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Tipografía corporativa</div>
+        <div class="type-name-body">DM Sans — Light · Regular · Medium</div>
+        <div class="type-specimen">The quick brown fox jumps over the lazy dog</div>
+        <div class="type-specimen" style="margin-top:4px;font-size:10px;">Cuerpo · UI · Comunicaciones</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ELEMENTS -->
+<section class="elements-section">
+  <p class="section-label">Elementos de marca</p>
+  <div class="elements-grid">
+
+    <div class="element-card">
+      <div class="icon-display">
+        <svg width="120" height="120" viewBox="0 0 90 90" fill="none">
+          <defs><linearGradient id="eg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2E6BE6"/><stop offset="100%" stop-color="#7B3FE4"/></linearGradient></defs>
+          <rect x="8" y="22" width="74" height="54" rx="2" stroke="url(#eg)" stroke-width="2"/>
+          <path d="M8 34 L45 44 L82 34" stroke="url(#eg)" stroke-width="2" fill="none"/>
+          <rect x="37" y="22" width="16" height="22" rx="1" fill="#7B3FE4" fill-opacity="0.25"/>
+          <line x1="45" y1="22" x2="45" y2="44" stroke="url(#eg)" stroke-width="2"/>
+          <path d="M8 22 L20 10 L45 22" stroke="#7B3FE4" stroke-width="1.5" fill="none" opacity="0.4"/>
+          <path d="M82 22 L70 10 L45 22" stroke="#2E6BE6" stroke-width="1.5" fill="none" opacity="0.4"/>
+          <line x1="52" y1="60" x2="74" y2="60" stroke="#C9A84C" stroke-width="2"/>
+          <line x1="56" y1="67" x2="74" y2="67" stroke="#C9A84C" stroke-width="1.25" opacity="0.5"/>
+        </svg>
+      </div>
+      <div class="element-title">Ícono de marca</div>
+      <div class="element-desc">Caja premium con gradiente azul → morado. Las líneas doradas representan velocidad y entrega de alto nivel.</div>
+    </div>
+
+    <div class="element-card">
+      <div class="pattern-bg"></div>
+      <div class="pattern-overlay"></div>
+      <div class="element-title">Patrón de fondo</div>
+      <div class="element-desc">Grilla con tonos azul y morado en capas. Tecnología, precisión y escala logística en un solo sistema.</div>
+    </div>
+
+    <div class="element-card">
+      <div class="tagline-display">
+        <div class="tagline-big">DELIVER<br>BEYOND</div>
+        <div class="tagline-sub">Tu paquete. Nuestra promesa.</div>
+      </div>
+      <div class="element-title">Tagline</div>
+      <div class="element-desc">Posicionamiento premium del courier ecuatoriano. Directo, aspiracional, moderno.</div>
+    </div>
+
+    <div class="element-card" style="align-items:center;">
+      <div class="seal-display">
+        <svg width="160" height="160" viewBox="0 0 200 200" fill="none">
+          <defs>
+            <linearGradient id="sc" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#2E6BE6"/>
+              <stop offset="100%" stop-color="#7B3FE4"/>
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="100" r="90" stroke="url(#sc)" stroke-width="1.5" stroke-dasharray="5 3.5"/>
+          <circle cx="100" cy="100" r="78" stroke="url(#sc)" stroke-width="0.75" opacity="0.35"/>
+          <defs>
+            <path id="tA" d="M 100,100 m -68,0 a 68,68 0 1,1 136,0"/>
+            <path id="bA" d="M 100,100 m -68,0 a 68,68 0 0,0 136,0"/>
+          </defs>
+          <text font-family="DM Sans,Arial,sans-serif" font-size="10.5" fill="#C9A84C" font-weight="400" letter-spacing="5">
+            <textPath href="#tA" startOffset="8%">ECUADOR · PREMIUM COURIER</textPath>
+          </text>
+          <text font-family="DM Sans,Arial,sans-serif" font-size="10" fill="#8A95A8" font-weight="300" letter-spacing="4">
+            <textPath href="#bA" startOffset="14%">LOGISTICS · DELIVERY · EXPRESS</textPath>
+          </text>
+          <g transform="translate(68,56) scale(0.75)">
+            <rect x="8" y="22" width="54" height="40" rx="2" stroke="url(#sc)" stroke-width="2" fill="none"/>
+            <path d="M8 32 L35 39 L62 32" stroke="url(#sc)" stroke-width="2" fill="none"/>
+            <line x1="35" y1="22" x2="35" y2="39" stroke="url(#sc)" stroke-width="2"/>
+            <line x1="40" y1="50" x2="56" y2="50" stroke="#C9A84C" stroke-width="2"/>
+          </g>
+          <text x="100" y="128" text-anchor="middle" font-family="Bebas Neue,Arial Black,sans-serif" font-size="26" fill="#F5F7FC" letter-spacing="5">ECUBOX</text>
+          <text x="70"  y="146" text-anchor="middle" font-size="7" fill="#2E6BE6" opacity="0.8">◆</text>
+          <text x="100" y="146" text-anchor="middle" font-size="7" fill="#C9A84C" opacity="0.8">◆</text>
+          <text x="130" y="146" text-anchor="middle" font-size="7" fill="#7B3FE4" opacity="0.8">◆</text>
+        </svg>
+      </div>
+      <div style="margin-top:auto;">
+        <div class="element-title">Sello de marca</div>
+        <div class="element-desc">Certificaciones, etiquetas oficiales y comunicaciones premium con los colores completos de la marca.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MOCKUPS -->
+<section class="mockup-section">
+  <p class="section-label">Aplicaciones de marca</p>
+  <div class="mockup-grid">
+    <div>
+      <div style="font-size:10px;letter-spacing:0.3em;color:var(--gray);text-transform:uppercase;margin-bottom:18px;">Tarjeta de presentación</div>
+      <div class="biz-card">
+        <div class="biz-card-grid"></div>
+        <div class="biz-card-content">
+          <div class="bc-logo">ECUBOX™</div>
+          <div class="bc-info">
+            <div class="bc-name">Carlos Mendoza</div>
+            <div class="bc-role">Director de Operaciones</div>
+            <div class="bc-contact">+593 99 123 4567</div>
+            <div class="bc-contact">ops@ecubox.com.ec</div>
+          </div>
+        </div>
+        <div class="bc-accent-line"></div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:10px;letter-spacing:0.3em;color:var(--gray);text-transform:uppercase;margin-bottom:18px;">Etiqueta de envío</div>
+      <div class="package-label">
+        <div class="pl-header">
+          <div class="pl-logo">ECU<span class="accent">BOX</span></div>
+          <div class="pl-badge">Express Premium</div>
+        </div>
+        <div class="pl-body">
+          <div class="pl-field">
+            <label>Destinatario</label>
+            <p>Ana Lucía Torres<br>Av. República del Salvador N34-183<br>Quito, Pichincha</p>
+          </div>
+          <div class="pl-field">
+            <label>Remitente</label>
+            <p>Tienda Artesanal EC<br>Cuenca, Azuay<br>EC-010101</p>
+          </div>
+        </div>
+        <div class="pl-barcode">
+          <div class="barcode-lines">
+            <span style="height:100%"></span><span style="height:60%"></span><span style="height:100%"></span><span style="height:80%"></span>
+            <span style="height:100%"></span><span style="height:100%"></span><span style="height:50%"></span><span style="height:100%"></span>
+            <span style="height:70%"></span><span style="height:100%"></span><span style="height:60%"></span><span style="height:100%"></span>
+            <span style="height:100%"></span><span style="height:40%"></span><span style="height:100%"></span><span style="height:80%"></span>
+            <span style="height:100%"></span><span style="height:100%"></span><span style="height:60%"></span><span style="height:100%"></span>
+            <span style="height:50%"></span><span style="height:100%"></span><span style="height:100%"></span><span style="height:70%"></span>
+            <span style="height:100%"></span><span style="height:60%"></span><span style="height:100%"></span><span style="height:100%"></span>
+          </div>
+          <div class="barcode-num">ECB · 2025 · 0041829</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:80px;">
+    <p class="section-label">Elementos UI digitales</p>
+    <div class="badge-grid">
+      <div class="digital-badge primary">
+        <svg width="14" height="14" viewBox="0 0 90 90" fill="none"><rect x="8" y="22" width="74" height="54" rx="2" stroke="white" stroke-width="6"/><path d="M8 34 L45 44 L82 34" stroke="white" stroke-width="6" fill="none"/><line x1="45" y1="22" x2="45" y2="44" stroke="white" stroke-width="6"/></svg>
+        Rastrear paquete
+      </div>
+      <div class="digital-badge outline">Cotizar envío</div>
+      <div class="digital-badge ghost">Ver historial</div>
+      <div class="digital-badge gold-line">◆ Premium Express</div>
+    </div>
+  </div>
+</section>
+
+<div class="full-divider"></div>
+
+<div class="brand-footer">
+  <div class="footer-logo">ECUBOX™</div>
+  <div class="footer-meta">
+    Brand Identity System<br>
+    <span class="footer-year">© 2025</span> · Todos los derechos reservados<br>
+    Ecuador · Logística Premium
+  </div>
+</div>
+
+</body>
+</html>

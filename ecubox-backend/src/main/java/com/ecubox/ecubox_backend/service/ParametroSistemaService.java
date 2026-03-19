@@ -1,0 +1,132 @@
+package com.ecubox.ecubox_backend.service;
+
+import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
+import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoDTO;
+import com.ecubox.ecubox_backend.entity.EstadoRastreo;
+import com.ecubox.ecubox_backend.entity.ParametroSistema;
+import com.ecubox.ecubox_backend.exception.BadRequestException;
+import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
+import com.ecubox.ecubox_backend.repository.ParametroSistemaRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class ParametroSistemaService {
+
+    public static final String CLAVE_MENSAJE_WHATSAPP_DESPACHO = "mensaje_whatsapp_despacho";
+
+    public static final String CLAVE_ESTADO_RASTREO_REGISTRO_PAQUETE = "estado_rastreo_registro_paquete";
+    public static final String CLAVE_ESTADO_RASTREO_EN_LOTE_RECEPCION = "estado_rastreo_en_lote_recepcion";
+    public static final String CLAVE_ESTADO_RASTREO_EN_DESPACHO = "estado_rastreo_en_despacho";
+    public static final String CLAVE_ESTADO_RASTREO_EN_TRANSITO = "estado_rastreo_en_transito";
+
+    private final ParametroSistemaRepository parametroSistemaRepository;
+    private final EstadoRastreoRepository estadoRastreoRepository;
+
+    public ParametroSistemaService(ParametroSistemaRepository parametroSistemaRepository,
+                                   EstadoRastreoRepository estadoRastreoRepository) {
+        this.parametroSistemaRepository = parametroSistemaRepository;
+        this.estadoRastreoRepository = estadoRastreoRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public MensajeWhatsAppDespachoDTO getMensajeWhatsAppDespacho() {
+        String valor = parametroSistemaRepository.findById(CLAVE_MENSAJE_WHATSAPP_DESPACHO)
+                .map(ParametroSistema::getValor)
+                .orElse("");
+        return MensajeWhatsAppDespachoDTO.builder()
+                .plantilla(valor != null ? valor : "")
+                .build();
+    }
+
+    @Transactional
+    public MensajeWhatsAppDespachoDTO updateMensajeWhatsAppDespacho(String plantilla) {
+        ParametroSistema param = parametroSistemaRepository.findById(CLAVE_MENSAJE_WHATSAPP_DESPACHO)
+                .orElse(ParametroSistema.builder().clave(CLAVE_MENSAJE_WHATSAPP_DESPACHO).valor("").build());
+        param.setValor(plantilla != null ? plantilla : "");
+        param = parametroSistemaRepository.save(param);
+        return MensajeWhatsAppDespachoDTO.builder()
+                .plantilla(param.getValor() != null ? param.getValor() : "")
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public EstadosRastreoPorPuntoDTO getEstadosRastreoPorPunto() {
+        Long registro = getParametroAsLong(CLAVE_ESTADO_RASTREO_REGISTRO_PAQUETE);
+        Long enLote = getParametroAsLong(CLAVE_ESTADO_RASTREO_EN_LOTE_RECEPCION);
+        Long enDespacho = getParametroAsLong(CLAVE_ESTADO_RASTREO_EN_DESPACHO);
+        if (registro == null) {
+            registro = estadoRastreoRepository.findByCodigo("REGISTRADO")
+                    .map(er -> er.getId())
+                    .orElse(null);
+        }
+        if (registro == null && !estadoRastreoRepository.findAll().isEmpty()) {
+            registro = estadoRastreoRepository.findAll().get(0).getId();
+        }
+        if (enLote == null) enLote = registro;
+        if (enDespacho == null) enDespacho = registro;
+        Long enTransito = getParametroAsLong(CLAVE_ESTADO_RASTREO_EN_TRANSITO);
+        if (enTransito == null) {
+            enTransito = estadoRastreoRepository.findByCodigo("EN_TRANSITO")
+                    .map(EstadoRastreo::getId)
+                    .orElse(enDespacho);
+        }
+        return EstadosRastreoPorPuntoDTO.builder()
+                .estadoRastreoRegistroPaqueteId(registro)
+                .estadoRastreoEnLoteRecepcionId(enLote)
+                .estadoRastreoEnDespachoId(enDespacho)
+                .estadoRastreoEnTransitoId(enTransito)
+                .build();
+    }
+
+    private Long getParametroAsLong(String clave) {
+        String valor = parametroSistemaRepository.findById(clave)
+                .map(ParametroSistema::getValor)
+                .orElse(null);
+        if (valor == null || valor.isBlank()) return null;
+        try {
+            return Long.parseLong(valor.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    @Transactional
+    public EstadosRastreoPorPuntoDTO updateEstadosRastreoPorPunto(Long registroPaqueteId, Long enLoteRecepcionId, Long enDespachoId, Long enTransitoId) {
+        if (registroPaqueteId != null && estadoRastreoRepository.findById(registroPaqueteId).isEmpty()) {
+            throw new BadRequestException("Estado de rastreo para registro de paquete no encontrado");
+        }
+        if (enLoteRecepcionId != null && estadoRastreoRepository.findById(enLoteRecepcionId).isEmpty()) {
+            throw new BadRequestException("Estado de rastreo para lote de recepción no encontrado");
+        }
+        if (enDespachoId != null && estadoRastreoRepository.findById(enDespachoId).isEmpty()) {
+            throw new BadRequestException("Estado de rastreo para despacho no encontrado");
+        }
+        if (enTransitoId != null && estadoRastreoRepository.findById(enTransitoId).isEmpty()) {
+            throw new BadRequestException("Estado de rastreo para en tránsito no encontrado");
+        }
+        EstadosRastreoPorPuntoDTO actuales = getEstadosRastreoPorPunto();
+        Long registro = registroPaqueteId != null ? registroPaqueteId : actuales.getEstadoRastreoRegistroPaqueteId();
+        Long enLote = enLoteRecepcionId != null ? enLoteRecepcionId : actuales.getEstadoRastreoEnLoteRecepcionId();
+        Long enDespacho = enDespachoId != null ? enDespachoId : actuales.getEstadoRastreoEnDespachoId();
+        Long enTransito = enTransitoId != null ? enTransitoId : actuales.getEstadoRastreoEnTransitoId();
+        if (registro == null) {
+            throw new BadRequestException("No existe un estado válido para registro de paquete");
+        }
+        if (enLote == null) enLote = registro;
+        if (enDespacho == null) enDespacho = registro;
+        if (enTransito == null) enTransito = enDespacho;
+        saveParametro(CLAVE_ESTADO_RASTREO_REGISTRO_PAQUETE, String.valueOf(registro));
+        saveParametro(CLAVE_ESTADO_RASTREO_EN_LOTE_RECEPCION, String.valueOf(enLote));
+        saveParametro(CLAVE_ESTADO_RASTREO_EN_DESPACHO, String.valueOf(enDespacho));
+        saveParametro(CLAVE_ESTADO_RASTREO_EN_TRANSITO, String.valueOf(enTransito));
+        return getEstadosRastreoPorPunto();
+    }
+
+    private void saveParametro(String clave, String valor) {
+        ParametroSistema param = parametroSistemaRepository.findById(clave)
+                .orElse(ParametroSistema.builder().clave(clave).valor(valor).build());
+        param.setValor(valor);
+        parametroSistemaRepository.save(param);
+    }
+}

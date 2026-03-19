@@ -1,0 +1,11 @@
+package com.ecubox.ecubox_backend.enums;
+
+public enum TrackingEventType {
+    PAQUETE_REGISTRADO,
+    ESTADO_CAMBIO_MANUAL,
+    ESTADO_CAMBIO_BULK,
+    ESTADO_APLICADO_DESPACHO,
+    ESTADO_APLICADO_LOTE_RECEPCION,
+    ESTADO_APLICADO_PERIODO,
+    INCIDENCIA_LIBERADA
+}
