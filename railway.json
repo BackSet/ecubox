@@ -2,7 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "mvn -f ecubox-backend/pom.xml -DskipTests clean package"
+    "buildCommand": "chmod +x ecubox-backend/mvnw && ./ecubox-backend/mvnw -f ecubox-backend/pom.xml -DskipTests clean package"
   },
   "deploy": {
     "startCommand": "java -Dspring.profiles.active=prod -jar ecubox-backend/target/*.jar",
