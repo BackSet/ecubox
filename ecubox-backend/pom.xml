@@ -32,10 +32,10 @@
 		<springdoc.version>3.0.2</springdoc.version>
 		<!-- Flyway 11.14 (Spring Boot default) no reconoce PostgreSQL 18; usar 12.x -->
 		<flyway.version>12.1.1</flyway.version>
-		<!-- Valores por defecto para flyway-maven-plugin (repair, etc.); override con -Dflyway.url=... -->
-		<flyway.url>jdbc:postgresql://localhost:5432/ecubox_v1</flyway.url>
-		<flyway.user>postgres</flyway.user>
-		<flyway.password>nSpass_01M</flyway.password>
+		<!-- Credenciales Flyway tomadas del entorno para evitar secretos hardcodeados -->
+		<flyway.url>${env.FLYWAY_URL}</flyway.url>
+		<flyway.user>${env.FLYWAY_USER}</flyway.user>
+		<flyway.password>${env.FLYWAY_PASSWORD}</flyway.password>
 	</properties>
 	<dependencies>
 		<dependency>
