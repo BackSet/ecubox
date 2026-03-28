@@ -27,7 +27,7 @@
 		<url/>
 	</scm>
 	<properties>
-		<java.version>25</java.version>
+		<java.version>17</java.version>
 		<jjwt.version>0.13.0</jjwt.version>
 		<springdoc.version>3.0.2</springdoc.version>
 		<!-- Flyway 11.14 (Spring Boot default) no reconoce PostgreSQL 18; usar 12.x -->
