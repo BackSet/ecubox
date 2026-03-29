@@ -25,9 +25,9 @@ Este manual deja ECUBOX corriendo en produccion con 2 servicios separados:
   - `JWT_SECRET` fuerte (recomendado 64+ caracteres aleatorios)
 - Confirmar que existen estos archivos de despliegue:
   - `ecubox-backend/railway.json`
-  - `ecubox-backend/nixpacks.toml`
+  - `ecubox-backend/Dockerfile`
   - `ecubox-frontend/railway.json`
-  - `ecubox-frontend/nixpacks.toml`
+  - `ecubox-frontend/Dockerfile`
   - `ecubox-frontend/Caddyfile`
 
 ## 3) Servicio backend (paso a paso)
@@ -35,12 +35,11 @@ Este manual deja ECUBOX corriendo en produccion con 2 servicios separados:
 1. En Railway: `New Project` -> `Deploy from GitHub Repo`.
 2. Selecciona `BackSet/ecubox`.
 3. Crea servicio `backend` y define `Root Directory = ecubox-backend`.
-4. Railway tomara `ecubox-backend/railway.json`:
-   - Build: `chmod +x mvnw && ./mvnw -DskipTests clean package`
-   - Start: `java -Dspring.profiles.active=prod -jar target/*.jar`
-5. `ecubox-backend/nixpacks.toml` fuerza toolchain:
-   - `maven`
-   - `jdk25`
+4. Configura `Builder = Dockerfile`.
+5. Configura `Dockerfile path = ecubox-backend/Dockerfile`.
+6. Railway tomara `ecubox-backend/railway.json`:
+   - Start: `java -Dspring.profiles.active=prod -jar app.jar`
+   - Healthcheck: `/api/health` (timeout recomendado 120s)
 6. Espera a `Deployment successful`.
 7. Prueba healthcheck:
    - `GET https://<backend-domain>/api/health`
@@ -73,24 +72,24 @@ Despues del primer arranque exitoso, recomendado:
 1. En el mismo proyecto Railway, crea un segundo servicio.
 2. Selecciona el mismo repo.
 3. En settings del servicio, define `Root Directory = ecubox-frontend`.
-4. Railway tomara:
+4. Configura `Builder = Dockerfile`.
+5. Configura `Dockerfile path = ecubox-frontend/Dockerfile`.
+6. Railway tomara:
    - `ecubox-frontend/railway.json`
-   - `ecubox-frontend/nixpacks.toml`
    - `ecubox-frontend/Caddyfile`
-5. Comandos efectivos:
-   - Build: `npm ci && npm run build`
-   - Start: `caddy run --config Caddyfile --adapter caddyfile`
+7. Start efectivo:
+   - `caddy run --config Caddyfile --adapter caddyfile`
 6. Confirma deploy exitoso.
 
 ## 6) Variables de entorno frontend
 
 Configura en Railway -> servicio frontend -> `Variables`:
 
-- `VITE_API_URL=https://<backend-domain>`
+- `VITE_API_URL=https://<backend-domain>/api`
 
 Notas:
 
-- Debe ser URL completa HTTPS del backend publicado.
+- Debe ser URL completa HTTPS del backend publicado, incluyendo `/api`.
 - No colocar secretos en variables `VITE_*` (se embeben en build).
 
 ## 7) Orden correcto de enlace entre servicios
@@ -110,7 +109,7 @@ Si usas dominio propio:
 1. Asigna dominio custom al frontend en Railway.
 2. Asigna dominio/subdominio custom al backend.
 3. Actualiza variables:
-   - Frontend: `VITE_API_URL=https://api.tudominio.com`
+  - Frontend: `VITE_API_URL=https://api.tudominio.com/api`
    - Backend: `CORS_ALLOWED_ORIGINS=https://app.tudominio.com`
 4. Redeploy de ambos servicios.
 5. Verifica certificados TLS activos (Railway los gestiona automaticamente).
@@ -127,11 +126,11 @@ Si usas dominio propio:
 
 ## 10) Troubleshooting rapido
 
-### Error: `mvn: command not found`
+### Error de arranque backend al usar Dockerfile
 
-- Confirmar que existe `ecubox-backend/nixpacks.toml` con:
-  - `nixPkgs = ["maven", "jdk25"]`
-- Confirmar build command con `./mvnw` (ejecutando desde `Root Directory = ecubox-backend`).
+- Confirmar `Builder = Dockerfile`.
+- Confirmar `Dockerfile path = ecubox-backend/Dockerfile`.
+- Confirmar `startCommand = java -Dspring.profiles.active=prod -jar app.jar`.
 - Ejecutar `Redeploy` con `Clear Build Cache`.
 
 ### Error CORS en frontend

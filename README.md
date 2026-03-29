@@ -86,7 +86,7 @@ El frontend arranca en `http://localhost:5173`.
 
 | Variable | Requerida | Descripción |
 |----------|-----------|-------------|
-| `VITE_API_URL` | Sí | URL base de la API (default: `/api`) |
+| `VITE_API_URL` | Sí | URL pública del backend con `/api` (ej: `https://<backend>.up.railway.app/api`) |
 
 ## Documentación
 
@@ -101,8 +101,8 @@ El frontend arranca en `http://localhost:5173`.
 
 Cada servicio debe desplegarse con su propio `Root Directory` y su propia configuración:
 
-- Backend: `Root Directory = ecubox-backend` (usa `ecubox-backend/railway.json` y `ecubox-backend/nixpacks.toml`)
-- Frontend: `Root Directory = ecubox-frontend` (usa `ecubox-frontend/railway.json` y `ecubox-frontend/nixpacks.toml`)
+- Backend: `Root Directory = ecubox-backend`, `Builder = Dockerfile`, `Dockerfile path = ecubox-backend/Dockerfile`
+- Frontend: `Root Directory = ecubox-frontend`, `Builder = Dockerfile`, `Dockerfile path = ecubox-frontend/Dockerfile`
 
 ## Licencia
 
