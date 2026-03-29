@@ -2,10 +2,10 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "chmod +x ecubox-backend/mvnw && ./ecubox-backend/mvnw -f ecubox-backend/pom.xml -DskipTests clean package"
+    "buildCommand": "chmod +x mvnw && ./mvnw -DskipTests clean package"
   },
   "deploy": {
-    "startCommand": "java -Dspring.profiles.active=prod -jar ecubox-backend/target/*.jar",
+    "startCommand": "java -Dspring.profiles.active=prod -jar target/*.jar",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
     "healthcheckPath": "/api/health",

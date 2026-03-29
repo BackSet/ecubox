@@ -24,8 +24,8 @@ Este manual deja ECUBOX corriendo en produccion con 2 servicios separados:
   - Credenciales DB
   - `JWT_SECRET` fuerte (recomendado 64+ caracteres aleatorios)
 - Confirmar que existen estos archivos de despliegue:
-  - `railway.json` (raiz, backend)
-  - `nixpacks.toml` (raiz, backend)
+  - `ecubox-backend/railway.json`
+  - `ecubox-backend/nixpacks.toml`
   - `ecubox-frontend/railway.json`
   - `ecubox-frontend/nixpacks.toml`
   - `ecubox-frontend/Caddyfile`
@@ -34,11 +34,11 @@ Este manual deja ECUBOX corriendo en produccion con 2 servicios separados:
 
 1. En Railway: `New Project` -> `Deploy from GitHub Repo`.
 2. Selecciona `BackSet/ecubox`.
-3. Crea servicio `backend` usando la raiz del repo.
-4. Railway tomara `railway.json` de raiz:
-   - Build: `chmod +x ecubox-backend/mvnw && ./ecubox-backend/mvnw -f ecubox-backend/pom.xml -DskipTests clean package`
-   - Start: `java -Dspring.profiles.active=prod -jar ecubox-backend/target/*.jar`
-5. `nixpacks.toml` de raiz fuerza toolchain:
+3. Crea servicio `backend` y define `Root Directory = ecubox-backend`.
+4. Railway tomara `ecubox-backend/railway.json`:
+   - Build: `chmod +x mvnw && ./mvnw -DskipTests clean package`
+   - Start: `java -Dspring.profiles.active=prod -jar target/*.jar`
+5. `ecubox-backend/nixpacks.toml` fuerza toolchain:
    - `maven`
    - `jdk25`
 6. Espera a `Deployment successful`.
@@ -129,9 +129,9 @@ Si usas dominio propio:
 
 ### Error: `mvn: command not found`
 
-- Confirmar que existe `nixpacks.toml` en raiz con:
+- Confirmar que existe `ecubox-backend/nixpacks.toml` con:
   - `nixPkgs = ["maven", "jdk25"]`
-- Confirmar build command con `./ecubox-backend/mvnw`.
+- Confirmar build command con `./mvnw` (ejecutando desde `Root Directory = ecubox-backend`).
 - Ejecutar `Redeploy` con `Clear Build Cache`.
 
 ### Error CORS en frontend

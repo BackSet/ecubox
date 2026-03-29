@@ -95,6 +95,13 @@ El frontend arranca en `http://localhost:5173`.
 - [UX-UI-DESIGN.md](UX-UI-DESIGN.md) — Sistema de diseño UX/UI
 - [RAILWAY_PRODUCCION_GUIA.md](RAILWAY_PRODUCCION_GUIA.md) — Guía de despliegue en Railway
 
+### Nota de despliegue Railway
+
+Cada servicio debe desplegarse con su propio `Root Directory` y su propia configuración:
+
+- Backend: `Root Directory = ecubox-backend` (usa `ecubox-backend/railway.json` y `ecubox-backend/nixpacks.toml`)
+- Frontend: `Root Directory = ecubox-frontend` (usa `ecubox-frontend/railway.json` y `ecubox-frontend/nixpacks.toml`)
+
 ## Licencia
 
 Proyecto privado. Todos los derechos reservados.
