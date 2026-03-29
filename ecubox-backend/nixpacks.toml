@@ -1,5 +1,0 @@
-[phases.setup]
-nixPkgs = ["maven", "jdk25"]
-
-[start]
-cmd = "java -Dspring.profiles.active=prod -jar target/*.jar"

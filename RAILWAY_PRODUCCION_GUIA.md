@@ -40,8 +40,8 @@ Este manual deja ECUBOX corriendo en produccion con 2 servicios separados:
 6. Railway tomara `ecubox-backend/railway.json`:
    - Start: `java -Dspring.profiles.active=prod -jar app.jar`
    - Healthcheck: `/api/health` (timeout recomendado 120s)
-6. Espera a `Deployment successful`.
-7. Prueba healthcheck:
+7. Espera a `Deployment successful`.
+8. Prueba healthcheck:
    - `GET https://<backend-domain>/api/health`
    - Debe responder `200`.
 
@@ -78,8 +78,8 @@ Despues del primer arranque exitoso, recomendado:
    - `ecubox-frontend/railway.json`
    - `ecubox-frontend/Caddyfile`
 7. Start efectivo:
-   - `caddy run --config Caddyfile --adapter caddyfile`
-6. Confirma deploy exitoso.
+   - `caddy run --config /etc/caddy/Caddyfile --adapter caddyfile`
+8. Confirma deploy exitoso.
 
 ## 6) Variables de entorno frontend
 
