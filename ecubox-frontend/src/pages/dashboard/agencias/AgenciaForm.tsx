@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -50,6 +50,7 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
   const { data: agencia } = useAgencia(id);
   const createMutation = useCreateAgencia();
   const updateMutation = useUpdateAgencia();
+  const [tarifaServicioInput, setTarifaServicioInput] = useState('0');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -79,6 +80,9 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
         diasMaxRetiro: agencia.diasMaxRetiro ?? undefined,
         tarifaServicio: agencia.tarifaServicio ?? 0,
       });
+      setTarifaServicioInput(String(agencia.tarifaServicio ?? 0));
+    } else if (!isEdit) {
+      setTarifaServicioInput('0');
     }
   }, [isEdit, agencia, form]);
 
@@ -254,14 +258,13 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
               type="text"
               inputMode="decimal"
               {...form.register('tarifaServicio')}
-              value={(() => {
-                const v = form.watch('tarifaServicio');
-                return v === undefined || v === null || Number.isNaN(v) ? '' : String(v);
-              })()}
-              onKeyDown={(e) => onKeyDownNumericDecimal(e, String(form.watch('tarifaServicio') ?? ''))}
+              value={tarifaServicioInput}
+              onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaServicioInput)}
               onChange={(e) => {
                 const s = sanitizeNumericDecimal(e.target.value);
-                form.setValue('tarifaServicio', s === '' ? NaN : Number(s), { shouldValidate: true });
+                setTarifaServicioInput(s);
+                const n = s === '' || s === '.' ? NaN : Number(s);
+                form.setValue('tarifaServicio', n, { shouldValidate: true, shouldDirty: true });
               }}
               className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
               placeholder="0.00"

@@ -233,7 +233,7 @@ export function DespachoStepperForm({
     direccion: '',
     horarioAtencion: '',
     diasMaxRetiro: '',
-    tarifa: 0,
+    tarifa: '0',
   });
   const sectionSacasRef = useRef<HTMLDivElement>(null);
   const prevDistribuidorIdRef = useRef<number | null>(null);
@@ -502,7 +502,7 @@ export function DespachoStepperForm({
       direccion: '',
       horarioAtencion: '',
       diasMaxRetiro: '',
-      tarifa: 0,
+      tarifa: '0',
     });
     setCrearAgenciaDistribuidorModalOpen(true);
   }
@@ -520,7 +520,10 @@ export function DespachoStepperForm({
         direccion: modalCrearAgencia.direccion?.trim() || undefined,
         horarioAtencion: modalCrearAgencia.horarioAtencion?.trim() || undefined,
         diasMaxRetiro: modalCrearAgencia.diasMaxRetiro === '' ? undefined : Number(modalCrearAgencia.diasMaxRetiro),
-        tarifa: Number(modalCrearAgencia.tarifa),
+        tarifa:
+          modalCrearAgencia.tarifa === '' || modalCrearAgencia.tarifa === '.'
+            ? 0
+            : Number(modalCrearAgencia.tarifa),
       });
       form.setValue('agenciaDistribuidorId', created.id);
       setCrearAgenciaDistribuidorModalOpen(false);
@@ -1909,11 +1912,11 @@ export function DespachoStepperForm({
               <input
                 type="text"
                 inputMode="decimal"
-                value={modalCrearAgencia.tarifa === 0 ? '' : String(modalCrearAgencia.tarifa)}
-                onKeyDown={(e) => onKeyDownNumericDecimal(e, String(modalCrearAgencia.tarifa))}
+                value={modalCrearAgencia.tarifa}
+                onKeyDown={(e) => onKeyDownNumericDecimal(e, modalCrearAgencia.tarifa)}
                 onChange={(e) => {
                   const s = sanitizeNumericDecimal(e.target.value);
-                  setModalCrearAgencia((prev) => ({ ...prev, tarifa: s === '' ? 0 : Number(s) }));
+                  setModalCrearAgencia((prev) => ({ ...prev, tarifa: s }));
                 }}
                 className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
                 placeholder="0.00"
@@ -1926,7 +1929,7 @@ export function DespachoStepperForm({
             </Button>
             <Button
               type="button"
-              disabled={createAgenciaDistribuidorOperarioMutation.isPending || Number(modalCrearAgencia.tarifa) < 0}
+              disabled={createAgenciaDistribuidorOperarioMutation.isPending || Number(modalCrearAgencia.tarifa || 0) < 0}
               onClick={submitCrearAgenciaDistribuidor}
             >
               {createAgenciaDistribuidorOperarioMutation.isPending ? 'Creando...' : 'Crear agencia'}

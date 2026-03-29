@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -56,6 +56,7 @@ export function DistribuidorForm({ id, onClose, onSuccess }: DistribuidorFormPro
   const { data: distribuidor } = useDistribuidorAdmin(id);
   const createMutation = useCreateDistribuidor();
   const updateMutation = useUpdateDistribuidor();
+  const [tarifaEnvioInput, setTarifaEnvioInput] = useState('0');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -81,6 +82,9 @@ export function DistribuidorForm({ id, onClose, onSuccess }: DistribuidorFormPro
         diasMaxRetiroDomicilio: distribuidor.diasMaxRetiroDomicilio ?? undefined,
         tarifaEnvio: distribuidor.tarifaEnvio ?? 0,
       });
+      setTarifaEnvioInput(String(distribuidor.tarifaEnvio ?? 0));
+    } else if (!isEdit) {
+      setTarifaEnvioInput('0');
     }
   }, [isEdit, distribuidor, form]);
 
@@ -211,14 +215,13 @@ export function DistribuidorForm({ id, onClose, onSuccess }: DistribuidorFormPro
               type="text"
               inputMode="decimal"
               {...form.register('tarifaEnvio')}
-              value={(() => {
-                const v = form.watch('tarifaEnvio');
-                return v === undefined || v === null || Number.isNaN(v) ? '' : String(v);
-              })()}
-              onKeyDown={(e) => onKeyDownNumericDecimal(e, String(form.watch('tarifaEnvio') ?? ''))}
+              value={tarifaEnvioInput}
+              onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaEnvioInput)}
               onChange={(e) => {
                 const s = sanitizeNumericDecimal(e.target.value);
-                form.setValue('tarifaEnvio', s === '' ? NaN : Number(s), { shouldValidate: true });
+                setTarifaEnvioInput(s);
+                const n = s === '' || s === '.' ? NaN : Number(s);
+                form.setValue('tarifaEnvio', n, { shouldValidate: true, shouldDirty: true });
               }}
               className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
               placeholder="0.00"

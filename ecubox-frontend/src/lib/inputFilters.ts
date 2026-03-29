@@ -46,13 +46,17 @@ export function sanitizeNumeric(value: string): string {
 /** Deja solo dígitos y un único separador decimal (normalizado a .). */
 export function sanitizeNumericDecimal(value: string, decimalSeparator = '.'): string {
   const normalized = value.replace(',', '.');
+  const hasTrailingDecimal = normalized.endsWith('.');
   const parts = normalized.split('.');
   if (parts.length <= 1) return sanitizeNumeric(normalized);
   const [intPart, ...decParts] = parts;
   const decPart = decParts.join('');
   const intClean = intPart.replace(/\D/g, '');
   const decClean = decPart.replace(/\D/g, '').slice(0, 10);
-  return decClean === '' ? intClean : `${intClean}${decimalSeparator}${decClean}`;
+  if (decClean === '') {
+    return hasTrailingDecimal ? `${intClean}${decimalSeparator}` : intClean;
+  }
+  return `${intClean}${decimalSeparator}${decClean}`;
 }
 
 /** Bloquea teclas que no sean letras (incl. con acentos) ni espacio. Permite navegación y atajos. */

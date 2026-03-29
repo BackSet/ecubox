@@ -86,6 +86,8 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [generatingRef, setGeneratingRef] = useState(false);
+  const [pesoLbsInput, setPesoLbsInput] = useState('');
+  const [pesoKgInput, setPesoKgInput] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -130,6 +132,16 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
       if (d) setSearchQuery(destinatarioLabel(d));
     }
   }, [isEdit, paquete?.destinatarioFinalId, destinatarios]);
+
+  useEffect(() => {
+    if (paquete) {
+      setPesoLbsInput(paquete.pesoLbs != null ? String(paquete.pesoLbs) : '');
+      setPesoKgInput(paquete.pesoKg != null ? String(paquete.pesoKg) : '');
+    } else {
+      setPesoLbsInput('');
+      setPesoKgInput('');
+    }
+  }, [paquete]);
 
   function handleSelect(d: DestinatarioFinal) {
     form.setValue('destinatarioFinalId', d.id);
@@ -440,21 +452,20 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={(() => {
-                    const v = form.watch('pesoLbs');
-                    return typeof v === 'number' && !Number.isNaN(v) ? String(v) : '';
-                  })()}
-                  onKeyDown={(e) =>
-                    onKeyDownNumericDecimal(e, String(form.watch('pesoLbs') ?? ''))
-                  }
+                  value={pesoLbsInput}
+                  onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoLbsInput)}
                   onChange={(e) => {
                     const s = sanitizeNumericDecimal(e.target.value);
-                    const n = s === '' ? undefined : Number(s);
+                    setPesoLbsInput(s);
+                    const n = s === '' || s === '.' ? undefined : Number(s);
                     form.setValue('pesoLbs', n, { shouldValidate: true, shouldDirty: true });
                     if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
-                      form.setValue('pesoKg', lbsToKg(n), { shouldValidate: false, shouldDirty: true });
+                      const kg = lbsToKg(n);
+                      form.setValue('pesoKg', kg, { shouldValidate: false, shouldDirty: true });
+                      setPesoKgInput(String(kg));
                     } else {
                       form.setValue('pesoKg', undefined, { shouldValidate: false, shouldDirty: true });
+                      setPesoKgInput('');
                     }
                   }}
                   className="input-clean"
@@ -468,21 +479,20 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={(() => {
-                    const v = form.watch('pesoKg');
-                    return typeof v === 'number' && !Number.isNaN(v) ? String(v) : '';
-                  })()}
-                  onKeyDown={(e) =>
-                    onKeyDownNumericDecimal(e, String(form.watch('pesoKg') ?? ''))
-                  }
+                  value={pesoKgInput}
+                  onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoKgInput)}
                   onChange={(e) => {
                     const s = sanitizeNumericDecimal(e.target.value);
-                    const n = s === '' ? undefined : Number(s);
+                    setPesoKgInput(s);
+                    const n = s === '' || s === '.' ? undefined : Number(s);
                     form.setValue('pesoKg', n, { shouldValidate: true, shouldDirty: true });
                     if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
-                      form.setValue('pesoLbs', kgToLbs(n), { shouldValidate: false, shouldDirty: true });
+                      const lbs = kgToLbs(n);
+                      form.setValue('pesoLbs', lbs, { shouldValidate: false, shouldDirty: true });
+                      setPesoLbsInput(String(lbs));
                     } else {
                       form.setValue('pesoLbs', undefined, { shouldValidate: false, shouldDirty: true });
+                      setPesoLbsInput('');
                     }
                   }}
                   className="input-clean"

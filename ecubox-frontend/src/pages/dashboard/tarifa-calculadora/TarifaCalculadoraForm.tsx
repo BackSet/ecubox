@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -21,14 +21,17 @@ type FormValues = z.infer<typeof formSchema>;
 function normalizeTarifaInput(value: string): string {
   const normalized = sanitizeNumericDecimal(value);
   if (!normalized.includes('.')) return normalized;
+  const hasTrailingDecimal = normalized.endsWith('.');
   const [integerPart, decimalPart = ''] = normalized.split('.');
   const decimalLimited = decimalPart.slice(0, 4);
-  return decimalLimited.length > 0 ? `${integerPart}.${decimalLimited}` : integerPart;
+  if (decimalLimited.length > 0) return `${integerPart}.${decimalLimited}`;
+  return hasTrailingDecimal ? `${integerPart}.` : integerPart;
 }
 
 export function TarifaCalculadoraForm() {
   const { data: tarifa, isLoading, error } = useTarifaCalculadora();
   const updateMutation = useUpdateTarifaCalculadora();
+  const [tarifaInput, setTarifaInput] = useState('0');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -40,6 +43,7 @@ export function TarifaCalculadoraForm() {
       form.reset({
         tarifaPorLibra: tarifa.tarifaPorLibra ?? 0,
       });
+      setTarifaInput(String(tarifa.tarifaPorLibra ?? 0));
     }
   }, [tarifa, form]);
 
@@ -80,14 +84,13 @@ export function TarifaCalculadoraForm() {
           type="text"
           inputMode="decimal"
           {...form.register('tarifaPorLibra')}
-          value={(() => {
-            const v = form.watch('tarifaPorLibra');
-            return v === undefined || v === null || Number.isNaN(v) ? '' : String(v);
-          })()}
-          onKeyDown={(e) => onKeyDownNumericDecimal(e, String(form.watch('tarifaPorLibra') ?? ''))}
+          value={tarifaInput}
+          onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaInput)}
           onChange={(e) => {
             const s = normalizeTarifaInput(e.target.value);
-            form.setValue('tarifaPorLibra', s === '' ? NaN : Number(s), { shouldValidate: true });
+            setTarifaInput(s);
+            const n = s === '' || s === '.' ? NaN : Number(s);
+            form.setValue('tarifaPorLibra', n, { shouldValidate: true, shouldDirty: true });
           }}
           className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
         />

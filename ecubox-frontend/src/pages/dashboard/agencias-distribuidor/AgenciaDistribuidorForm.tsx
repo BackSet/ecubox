@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -50,6 +50,7 @@ export function AgenciaDistribuidorForm({ id, onClose, onSuccess }: AgenciaDistr
   const { data: distribuidores = [] } = useDistribuidoresAdmin();
   const createMutation = useCreateAgenciaDistribuidor();
   const updateMutation = useUpdateAgenciaDistribuidor();
+  const [tarifaInput, setTarifaInput] = useState('0');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -75,6 +76,9 @@ export function AgenciaDistribuidorForm({ id, onClose, onSuccess }: AgenciaDistr
         diasMaxRetiro: agencia.diasMaxRetiro ?? undefined,
         tarifa: agencia.tarifa ?? 0,
       });
+      setTarifaInput(String(agencia.tarifa ?? 0));
+    } else if (!isEdit) {
+      setTarifaInput('0');
     }
   }, [isEdit, agencia, form]);
 
@@ -232,14 +236,13 @@ export function AgenciaDistribuidorForm({ id, onClose, onSuccess }: AgenciaDistr
               type="text"
               inputMode="decimal"
               {...form.register('tarifa')}
-              value={(() => {
-                const v = form.watch('tarifa');
-                return v === undefined || v === null || Number.isNaN(v) ? '' : String(v);
-              })()}
-              onKeyDown={(e) => onKeyDownNumericDecimal(e, String(form.watch('tarifa') ?? ''))}
+              value={tarifaInput}
+              onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaInput)}
               onChange={(e) => {
                 const s = sanitizeNumericDecimal(e.target.value);
-                form.setValue('tarifa', s === '' ? NaN : Number(s), { shouldValidate: true });
+                setTarifaInput(s);
+                const n = s === '' || s === '.' ? NaN : Number(s);
+                form.setValue('tarifa', n, { shouldValidate: true, shouldDirty: true });
               }}
               className="input-clean"
               placeholder="0.00"
