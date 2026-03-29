@@ -4,6 +4,8 @@ import com.ecubox.ecubox_backend.entity.Rol;
 import com.ecubox.ecubox_backend.entity.Usuario;
 import com.ecubox.ecubox_backend.repository.RolRepository;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -14,6 +16,7 @@ import java.util.Set;
 
 @Component
 public class AdminBootstrapRunner implements ApplicationRunner {
+    private static final Logger log = LoggerFactory.getLogger(AdminBootstrapRunner.class);
 
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
@@ -28,6 +31,9 @@ public class AdminBootstrapRunner implements ApplicationRunner {
     @Value("${admin.initial.password:}")
     private String adminInitialPassword;
 
+    @Value("${admin.email:}")
+    private String adminEmail;
+
     public AdminBootstrapRunner(UsuarioRepository usuarioRepository,
                                 RolRepository rolRepository,
                                 PasswordEncoder passwordEncoder) {
@@ -41,6 +47,15 @@ public class AdminBootstrapRunner implements ApplicationRunner {
         if (!bootstrapEnabled || adminInitialPassword == null || adminInitialPassword.isBlank()) {
             return;
         }
+        String normalizedAdminEmail = adminEmail == null ? "" : adminEmail.trim();
+        if (normalizedAdminEmail.isBlank()) {
+            log.warn("ADMIN bootstrap habilitado pero ADMIN_EMAIL no está definido. No se creará el usuario ADMIN.");
+            return;
+        }
+        if (!normalizedAdminEmail.contains("@")) {
+            log.warn("ADMIN bootstrap habilitado pero ADMIN_EMAIL no es válido ({}). No se creará el usuario ADMIN.", normalizedAdminEmail);
+            return;
+        }
         if (usuarioRepository.existsByRolesNombre("ADMIN")) {
             return;
         }
@@ -49,6 +64,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
 
         Usuario admin = Usuario.builder()
                 .username(adminUsername)
+                .email(normalizedAdminEmail)
                 .passwordHash(passwordEncoder.encode(adminInitialPassword))
                 .enabled(true)
                 .roles(Set.of(adminRol))

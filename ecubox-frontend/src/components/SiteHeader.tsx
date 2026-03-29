@@ -1,46 +1,79 @@
+import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { Menu } from 'lucide-react';
+import { Menu, X, Moon, Monitor, Sun } from 'lucide-react';
 import { EcuboxLogo } from '@/components/brand';
 import { Button } from '@/components/ui/button';
+import { useThemeStore } from '@/stores/themeStore';
+
+const NAV_LINKS = [
+  { to: '/tracking', label: 'Rastreo' },
+  { to: '/calculadora', label: 'Tarifas' },
+] as const;
 
 export function SiteHeader() {
+  const { theme, toggleTheme } = useThemeStore();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const themeIcon = theme === 'dark' ? <Moon className="h-4 w-4" /> : theme === 'system' ? <Monitor className="h-4 w-4" /> : <Sun className="h-4 w-4" />;
+
   return (
-    <header className="bg-transparent sticky top-0 z-50 border-b border-white/10 backdrop-blur-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <Link to="/" className="flex-shrink-0 p-1.5 -m-1.5 rounded-xl hover:bg-white/5 transition" aria-label="ECUBOX - Inicio">
-          <EcuboxLogo variant="principal" size="lg" asLink={false} iconOnly />
+    <header className="sticky top-0 z-50 border-b border-[var(--color-landing-border)] bg-[color-mix(in_oklab,var(--color-landing-bg)_82%,transparent)] backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+        <Link to="/" className="flex-shrink-0 opacity-90 hover:opacity-100 transition-opacity" aria-label="ECUBOX - Inicio">
+          <EcuboxLogo variant="light" size="lg" asLink={false} />
         </Link>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="md:hidden text-white hover:bg-white/10"
-          aria-label="Menú"
-        >
-          <Menu className="h-6 w-6" />
-        </Button>
-
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-white/90">
-          <Link to="/tracking" className="hover:text-white transition">Rastreo</Link>
-          <Link to="/calculadora" className="hover:text-white transition">Tarifas</Link>
+        {/* Desktop nav */}
+        <nav className="hidden items-center gap-8 text-sm font-medium landing-text md:flex">
+          {NAV_LINKS.map(l => (
+            <Link key={l.to} to={l.to} className="transition hover:text-[var(--color-primary)]">{l.label}</Link>
+          ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-3">
-          <Link
-            to="/login"
-            className="px-4 py-2 rounded-lg border border-[var(--color-ecubox-purple-light)] text-white font-medium text-sm hover:bg-[var(--color-ecubox-purple-light)]/10 transition"
-          >
+        <div className="hidden items-center gap-3 md:flex">
+          <Button type="button" variant="outline" size="icon" className="landing-text" onClick={toggleTheme} aria-label="Cambiar tema">
+            {themeIcon}
+          </Button>
+          <Link to="/login" className="rounded-lg border border-[var(--color-primary)]/45 px-4 py-2 text-sm font-medium landing-text transition hover:bg-[var(--color-primary)]/10">
             Iniciar sesión
           </Link>
-          <Link
-            to="/registro"
-            className="px-4 py-2 rounded-lg bg-[var(--color-ecubox-nuevo-acento)] text-white font-medium text-sm hover:opacity-90 transition"
-          >
+          <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary-foreground)] transition hover:opacity-90">
             Registrarse
           </Link>
         </div>
+
+        {/* Mobile toggle */}
+        <Button type="button" variant="ghost" size="icon" className="landing-text md:hidden" onClick={() => setMobileOpen(o => !o)} aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}>
+          {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </Button>
       </div>
+
+      {/* Mobile panel */}
+      {mobileOpen && (
+        <div className="border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-4 pb-6 pt-4 md:hidden">
+          <nav className="mb-6 flex flex-col gap-3 text-sm font-medium landing-text">
+            {NAV_LINKS.map(l => (
+              <Link key={l.to} to={l.to} className="rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]" onClick={() => setMobileOpen(false)}>
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium landing-text-muted uppercase tracking-wider">Tema</span>
+              <Button type="button" variant="outline" size="icon" className="landing-text" onClick={toggleTheme} aria-label="Cambiar tema">
+                {themeIcon}
+              </Button>
+            </div>
+            <Link to="/login" className="rounded-lg border border-[var(--color-primary)]/45 px-4 py-2.5 text-center text-sm font-medium landing-text transition hover:bg-[var(--color-primary)]/10" onClick={() => setMobileOpen(false)}>
+              Iniciar sesión
+            </Link>
+            <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-center text-sm font-medium text-[var(--color-primary-foreground)] transition hover:opacity-90" onClick={() => setMobileOpen(false)}>
+              Registrarse
+            </Link>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

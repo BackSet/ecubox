@@ -35,17 +35,17 @@ export function Header({ onOpenSearch }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-12 shrink-0 items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-background)] px-3">
+    <header className="dashboard-topbar sticky top-0 z-40 flex h-12 shrink-0 items-center gap-3 px-3">
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         onClick={onOpenSearch}
-        className="flex flex-1 items-center justify-start gap-2 rounded-lg text-left text-sm text-[var(--color-muted-foreground)]"
+        className="dashboard-topbar-search flex h-9 flex-1 items-center justify-start gap-2 rounded-lg px-3 text-left text-sm font-medium"
         aria-label="Buscar (abre paleta de comandos)"
       >
-        <Search className="h-4 w-4 shrink-0" />
-        <span>Buscar...</span>
-        <kbd className="ml-auto hidden rounded bg-[var(--color-muted)] px-1.5 text-[10px] font-medium sm:inline-block">
+        <Search className="dashboard-topbar-search-icon h-4 w-4 shrink-0" />
+        <span className="dashboard-topbar-search-label">Buscar...</span>
+        <kbd className="dashboard-topbar-kbd ml-auto hidden rounded px-1.5 text-[10px] font-semibold sm:inline-block">
           ⌘K
         </kbd>
       </Button>
@@ -53,7 +53,7 @@ export function Header({ onOpenSearch }: HeaderProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="shrink-0 rounded-lg"
+        className="dashboard-topbar-action shrink-0 rounded-lg"
         aria-label="Notificaciones"
       >
         <Bell className="h-5 w-5" />
@@ -63,7 +63,7 @@ export function Header({ onOpenSearch }: HeaderProps) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="flex shrink-0 items-center gap-2 rounded-full px-2 py-1"
+            className="dashboard-topbar-user flex shrink-0 items-center gap-2 rounded-full px-2 py-1"
             aria-label="Menú de usuario"
           >
             <span
@@ -72,7 +72,7 @@ export function Header({ onOpenSearch }: HeaderProps) {
             >
               {getInitials(username)}
             </span>
-            <span className="hidden max-w-[120px] truncate text-left text-sm font-medium sm:block">
+            <span className="hidden max-w-[120px] truncate text-left text-sm font-semibold sm:block">
               {username ?? 'Usuario'}
             </span>
           </Button>

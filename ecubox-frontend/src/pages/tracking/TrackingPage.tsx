@@ -248,7 +248,7 @@ export function TrackingPage() {
       <header className="border-b border-[var(--color-border)]">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition" aria-label="ECUBOX - Inicio">
-            <EcuboxLogo variant="light" size="lg" asLink={false} iconOnly />
+            <EcuboxLogo variant="light" size="lg" asLink={false} />
           </Link>
           <Link
             to="/"

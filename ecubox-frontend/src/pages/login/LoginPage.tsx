@@ -8,10 +8,11 @@ import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 const loginSchema = z.object({
-  username: z.string().min(1, 'El nombre de usuario es requerido'),
+  username: z.string().min(1, 'El correo electrónico es requerido'),
   password: z.string().min(1, 'La contraseña es requerida'),
 });
 
@@ -36,7 +37,7 @@ export function LoginPage() {
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {
-        setError('Usuario o contraseña incorrectos');
+        setError('Correo o contraseña incorrectos');
       } else {
         setError('Error al iniciar sesión. Intenta de nuevo.');
       }
@@ -44,78 +45,47 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] flex flex-col">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
       <header className="border-b border-[var(--color-border)]">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <Link to="/" className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition" aria-label="ECUBOX - Inicio">
-            <EcuboxLogo variant="light" size="lg" asLink={false} iconOnly />
+        <div className="mx-auto max-w-7xl px-6 py-4">
+          <Link to="/" className="-m-1 inline-flex rounded-lg p-1 transition hover:bg-[var(--color-muted)]" aria-label="ECUBOX - Inicio">
+            <EcuboxLogo variant="light" size="lg" asLink={false} />
           </Link>
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-5xl grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="surface-card p-8 hidden lg:block">
-            <h2 className="text-3xl font-semibold tracking-tight text-[var(--color-foreground)]">
-              Centro de operaciones ECUBOX
-            </h2>
-            <p className="mt-3 text-[var(--color-muted-foreground)] leading-relaxed">
-              Gestiona envíos, despachos, lotes y manifiestos en una interfaz rápida y enfocada en operación.
-            </p>
-            <div className="mt-8 grid gap-3">
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
-                <p className="text-sm font-medium text-[var(--color-foreground)]">Operación por módulos</p>
-                <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-                  Paquetes, despachos, lotes y manifiestos con acciones guiadas.
-                </p>
-              </div>
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
-                <p className="text-sm font-medium text-[var(--color-foreground)]">Dark mode nativo</p>
-                <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-                  Mejor visibilidad en turnos largos sin perder contraste.
-                </p>
-              </div>
-            </div>
-          </section>
-          <div className="surface-card p-8">
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
+      <main className="flex flex-1 items-center justify-center p-6">
+        <div className="w-full max-w-md">
+          <SurfaceCard className="p-8">
+            <h1 className="mb-2 text-2xl font-bold text-[var(--color-foreground)]">
               Iniciar sesión
             </h1>
-            <p className="text-[var(--color-muted-foreground)] text-sm mb-6">
+            <p className="mb-6 text-sm text-[var(--color-muted-foreground)]">
               Accede al panel de administración de ECUBOX.
             </p>
 
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               {error && (
-                <div
-                  role="alert"
-                  className="rounded-md bg-[var(--color-destructive)]/10 text-[var(--color-destructive)] text-sm px-4 py-3"
-                >
+                <div role="alert" className="ui-alert ui-alert-error">
                   {error}
                 </div>
               )}
 
               <Form {...form}>
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <FormField
                     control={form.control}
                     name="username"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Usuario</FormLabel>
+                        <FormLabel>Correo electrónico</FormLabel>
                         <FormControl>
-                          <Input
-                            type="text"
-                            autoComplete="username"
-                            className="input-clean"
-                            {...field}
-                          />
+                          <Input type="email" autoComplete="email" placeholder="tu@correo.com" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
                   <FormField
                     control={form.control}
                     name="password"
@@ -123,12 +93,7 @@ export function LoginPage() {
                       <FormItem>
                         <FormLabel>Contraseña</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
-                            autoComplete="current-password"
-                            className="input-clean"
-                            {...field}
-                          />
+                          <Input type="password" autoComplete="current-password" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -137,25 +102,17 @@ export function LoginPage() {
                 </div>
               </Form>
 
-              <Button
-                type="submit"
-                disabled={form.formState.isSubmitting}
-                className="w-full"
-              >
+              <Button type="submit" disabled={form.formState.isSubmitting} className="w-full">
                 {form.formState.isSubmitting ? 'Entrando...' : 'Entrar'}
               </Button>
             </form>
 
             <p className="mt-6 text-center text-sm text-[var(--color-muted-foreground)]">
-              <Link to="/registro" className="hover:underline text-[var(--color-primary)]">
-                Registrarse
-              </Link>
+              <Link to="/registro" className="text-[var(--color-primary)] hover:underline">Registrarse</Link>
               {' · '}
-              <Link to="/" className="hover:underline text-[var(--color-primary)]">
-                Volver al inicio
-              </Link>
+              <Link to="/" className="text-[var(--color-primary)] hover:underline">Volver al inicio</Link>
             </p>
-          </div>
+          </SurfaceCard>
         </div>
       </main>
     </div>

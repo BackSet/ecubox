@@ -8,26 +8,26 @@ import {
 const FAQ_ITEMS = [
   {
     q: '¿Cómo rastreo mi paquete?',
-    a: 'Es muy fácil. Ingresa tu número de guía en la barra de búsqueda o en la página de rastreo y verás en tiempo real el estado de tu envío.',
+    a: 'Ingresa tu número de guía en la página de rastreo y verás en tiempo real el estado de tu envío.',
   },
   {
     q: '¿Qué artículos no puedo enviar?',
-    a: 'No se permiten explosivos, armas, dinero en efectivo, joyas de alto valor o sustancias prohibidas. Revisa nuestra sección de Prohibidos para más detalles.',
+    a: 'No se permiten explosivos, armas, dinero en efectivo, joyas de alto valor o sustancias prohibidas.',
   },
   {
     q: '¿Cuánto tarda en llegar mi compra?',
-    a: 'Desde USA suele tardar entre 5 y 8 días laborables una vez que llega a nuestro almacén en Miami. Despachamos con la mayor rapidez posible.',
+    a: 'Desde USA suele tardar entre 5 y 8 días laborables una vez que llega a nuestro almacén en Miami.',
   },
   {
     q: '¿Cómo funcionan las tarifas?',
-    a: 'Cobramos por peso real según el tipo de servicio. Usa nuestra calculadora para obtener un costo aproximado antes de enviar.',
+    a: 'Cobramos por peso real según el tipo de servicio. Usa nuestra calculadora para obtener un costo aproximado.',
   },
 ];
 
 export function FAQ() {
   return (
-    <section className="max-w-4xl mx-auto px-6 py-16 lg:py-20">
-      <h2 className="text-2xl md:text-3xl font-bold text-white mb-10 text-center">
+    <section className="mx-auto max-w-3xl px-6 py-16 lg:py-20">
+      <h2 className="landing-text mb-10 text-center text-2xl font-bold md:text-3xl">
         Preguntas frecuentes
       </h2>
       <Accordion type="single" collapsible className="space-y-3">
@@ -35,21 +35,12 @@ export function FAQ() {
           <AccordionItem
             key={i}
             value={`item-${i}`}
-            className="rounded-xl bg-[var(--color-landing-card)] border border-white/10 transition-all duration-300 data-[state=open]:border-[var(--color-ecubox-purple-light)]/50"
+            className="landing-card overflow-hidden transition-all duration-200 data-[state=open]:border-[var(--color-primary)]/40"
           >
-            <AccordionTrigger className="flex justify-between items-center w-full p-5 md:p-6 cursor-pointer font-semibold text-white list-none text-left hover:bg-white/5 rounded-xl transition [&[data-state=open]>svg]:rotate-180">
-                <span className="text-left pr-4">{item.q}</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 shrink-0 transition-transform duration-300 text-[var(--color-ecubox-purple-light)]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
+            <AccordionTrigger className="w-full cursor-pointer px-5 py-4 text-left font-semibold landing-text transition hover:bg-[var(--color-landing-card-muted)] md:px-6 md:py-5">
+              {item.q}
             </AccordionTrigger>
-            <AccordionContent className="px-5 md:px-6 pb-5 md:pb-6 text-sm text-white/70 leading-relaxed border-t border-white/10 pt-4 overflow-hidden">
+            <AccordionContent className="border-t border-[var(--color-landing-border)] px-5 pb-5 pt-4 text-sm leading-relaxed landing-text-muted md:px-6 md:pb-6">
               {item.a}
             </AccordionContent>
           </AccordionItem>

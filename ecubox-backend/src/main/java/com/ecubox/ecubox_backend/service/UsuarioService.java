@@ -54,7 +54,7 @@ public class UsuarioService {
                 .username(request.getUsername())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .email(request.getEmail())
-                .enabled(request.getEnabled() != null ? request.getEnabled() : true)
+                .enabled(!Boolean.FALSE.equals(request.getEnabled()))
                 .roles(roles)
                 .build();
         usuario = usuarioRepository.save(usuario);

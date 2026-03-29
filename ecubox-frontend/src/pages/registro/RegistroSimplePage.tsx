@@ -59,7 +59,7 @@ export function RegistroSimplePage() {
       <header className="border-b border-[var(--color-border)]">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <Link to="/" className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition" aria-label="ECUBOX - Inicio">
-            <EcuboxLogo variant="light" size="lg" asLink={false} iconOnly />
+            <EcuboxLogo variant="light" size="lg" asLink={false} />
           </Link>
         </div>
       </header>
@@ -76,10 +76,7 @@ export function RegistroSimplePage() {
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               {error && (
-                <div
-                  role="alert"
-                  className="rounded-md bg-[var(--color-destructive)]/10 text-[var(--color-destructive)] text-sm px-4 py-3"
-                >
+                <div role="alert" className="ui-alert ui-alert-error">
                   {error}
                 </div>
               )}

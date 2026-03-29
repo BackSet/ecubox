@@ -1,0 +1,73 @@
+# ECUBOX — Docker Compose
+#
+# Levanta los 3 servicios del proyecto:
+#   - db:       PostgreSQL 17 con volumen persistente
+#   - backend:  API REST (Spring Boot, Java 25) en puerto 8080
+#   - frontend: SPA (React + Caddy) en puerto 80
+#
+# Uso:
+#   1. Crear .env en la raíz con DB_PASSWORD y JWT_SECRET
+#   2. docker compose up --build -d
+#   3. Acceder: http://localhost (frontend) / http://localhost:8080 (API)
+
+services:
+
+  # ── Base de datos ──────────────────────────────────────
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    volumes:
+      - ecubox-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ecubox_v1
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Definir DB_PASSWORD en .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ecubox_v1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Backend (API REST) ─────────────────────────────────
+  # Build multi-stage: JDK 25 → JRE 25. Perfil prod activo.
+  # Espera a que PostgreSQL esté healthy antes de arrancar.
+  backend:
+    build: ./ecubox-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/ecubox_v1
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${DB_PASSWORD:?Definir DB_PASSWORD en .env}
+      JWT_SECRET: ${JWT_SECRET:?Definir JWT_SECRET en .env (min 32 chars)}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+      # Bootstrap: crea usuario admin en el primer arranque
+      ADMIN_BOOTSTRAP_ENABLED: ${ADMIN_BOOTSTRAP_ENABLED:-true}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-admin123}
+
+  # ── Frontend (SPA) ─────────────────────────────────────
+  # Build multi-stage: Node 22 (npm build) → Caddy 2 (serve).
+  # VITE_API_URL se embebe en el build de Vite.
+  frontend:
+    build:
+      context: ./ecubox-frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    environment:
+      PORT: 80
+
+# ── Volúmenes ──────────────────────────────────────────
+# Datos de PostgreSQL persistentes entre reinicios.
+volumes:
+  ecubox-data:

@@ -3,16 +3,9 @@ import { type ReactNode, useState, useCallback, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { GlobalCommandPalette } from '@/components/GlobalCommandPalette';
-import { useThemeStore } from '@/stores/themeStore';
-import { applyTheme } from '@/stores/themeStore';
 
 export function MainLayout({ content }: { content?: ReactNode }) {
   const [openCommand, setOpenCommand] = useState(false);
-  const theme = useThemeStore((s) => s.theme);
-
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
 
   const openSearch = useCallback(() => {
     setOpenCommand(true);

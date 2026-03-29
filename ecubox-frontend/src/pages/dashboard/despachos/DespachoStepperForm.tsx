@@ -1096,13 +1096,13 @@ export function DespachoStepperForm({
               </div>
               {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_DISTRIBUIDOR') && autoDetectedDestId != null && autoDetectedDest && (
                 <div className="ui-alert ui-alert-success">
-                  <p className="font-medium text-emerald-800 dark:text-emerald-200">
+                  <p className="font-medium">
                     Destinatario detectado: <strong>{autoDetectedDest.nombre}</strong>
                     {(autoDetectedDest.provincia || autoDetectedDest.canton) && (
                       <span className="font-normal"> — {[autoDetectedDest.provincia, autoDetectedDest.canton].filter(Boolean).join(', ')}</span>
                     )}
                   </p>
-                  <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Solo puedes agregar paquetes del destinatario detectado.</p>
+                  <p className="mt-1 text-xs opacity-80">Solo puedes agregar paquetes del destinatario detectado.</p>
                 </div>
               )}
               {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_DISTRIBUIDOR') && autoDetectedDestId == null && (
@@ -1112,10 +1112,10 @@ export function DespachoStepperForm({
               )}
               {tipoEntrega === 'AGENCIA' && provinciaCantonRef != null && (
                 <div className="ui-alert ui-alert-success">
-                  <p className="font-medium text-emerald-800 dark:text-emerald-200">
+                  <p className="font-medium">
                     Ubicación del envío: <strong>{provinciaCantonRef.provincia}, {provinciaCantonRef.canton}</strong>
                   </p>
-                  <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Solo puedes agregar paquetes de la misma provincia y cantón.</p>
+                  <p className="mt-1 text-xs opacity-80">Solo puedes agregar paquetes de la misma provincia y cantón.</p>
                 </div>
               )}
               {tipoEntrega === 'AGENCIA' && provinciaCantonRef == null && (

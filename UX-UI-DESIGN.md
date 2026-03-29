@@ -1,14 +1,14 @@
-# Candas — Diseño UX/UI
+# ECUBOX — Diseño UX/UI
 
-Documento de referencia del diseño de experiencia de usuario (UX) e interfaz (UI) del frontend Candas. Describe el sistema de diseño, el layout global, los patrones de página y los componentes utilizados.
+Documento de referencia del diseño de experiencia de usuario (UX) e interfaz (UI) del frontend ECUBOX. Describe el sistema de diseño, el layout global, los patrones de página y los componentes utilizados.
 
 ---
 
 ## 1. Introducción
 
-**Propósito:** Este documento detalla las decisiones de diseño UX/UI del proyecto Candas para mantener consistencia y servir de guía a desarrolladores y diseñadores.
+**Propósito:** Detalla las decisiones de diseño UX/UI del proyecto ECUBOX para mantener consistencia y servir de guía a desarrolladores.
 
-**Alcance:** Aplica al frontend (`candas-frontend`), construido con React 19, TypeScript, Vite 7 y Tailwind CSS 4. No cubre el backend ni otros clientes.
+**Alcance:** Aplica al frontend (`ecubox-frontend`), construido con React 19, TypeScript 6, Vite 8 y Tailwind CSS 4.
 
 ---
 
@@ -16,208 +16,212 @@ Documento de referencia del diseño de experiencia de usuario (UX) e interfaz (U
 
 ### 2.1 Tema visual
 
-- **Inspiración:** Estética tipo Notion: fondos neutros, bordes suaves, tipografía legible y jerarquía clara.
-- **Modos:** Modo claro y modo oscuro, controlados por el usuario desde el sidebar (toggle Sol/Luna). Las variables CSS cambian según la clase `.dark` en el contenedor.
+- **Estética:** Fondos neutros, bordes suaves, tipografía legible y jerarquía clara. Marca ECUBOX con gradientes azul-púrpura.
+- **Modos:** Modo claro y modo oscuro, controlados por el usuario (toggle Sol/Luna/Monitor en sidebar y header público). Las variables CSS cambian según la clase `.dark`.
+- **Inicialización:** El tema se aplica desde `main.tsx` (antes del render) para evitar FOUC.
 
-Referencia: `candas-frontend/src/index.css` (capas `@layer base` con `:root` y `.dark`).
+Referencia: `ecubox-frontend/src/index.css`, `ecubox-frontend/src/stores/themeStore.ts`.
 
-### 2.2 Colores semánticos
+### 2.2 Tokens de color
 
-Los colores se definen como variables HSL sin el prefijo `hsl()`; Tailwind las usa vía `@theme` en `index.css`:
+Los colores se definen como variables CSS en `:root` (light) y `.dark` (dark) en `index.css`. Grupos principales:
+
+**Tokens base (shadcn):**
 
 | Variable | Uso |
 |----------|-----|
-| `--background` / `--foreground` | Fondo principal y texto principal |
-| `--card` / `--card-foreground` | Tarjetas y contenido en cards |
-| `--popover` / `--popover-foreground` | Popovers y menús desplegables |
-| `--primary` / `--primary-foreground` | Botones principales, enlaces, elemento activo del sidebar |
-| `--secondary` / `--secondary-foreground` | Botones secundarios, fondos hover |
-| `--muted` / `--muted-foreground` | Fondos suaves, texto secundario |
-| `--accent` / `--accent-foreground` | Acentos y hover |
-| `--destructive` / `--destructive-foreground` | Acciones destructivas (ej. eliminar) |
-| `--border` | Bordes generales |
-| `--input` | Bordes de inputs |
-| `--ring` | Anillo de foco |
-| `--error` / `--error-foreground` | Errores de validación |
-| `--success` / `--success-foreground` | Estados de éxito |
-| `--warning` / `--warning-foreground` | Advertencias |
-| `--info` / `--info-foreground` | Información |
-| `--sidebar-*` | Sidebar: background, foreground, muted, hover, active, active-foreground, border |
+| `--color-background` / `--color-foreground` | Fondo y texto principal |
+| `--color-card` / `--color-card-foreground` | Tarjetas |
+| `--color-primary` / `--color-primary-foreground` | Acciones principales, enlaces |
+| `--color-secondary` / `--color-secondary-foreground` | Botones secundarios |
+| `--color-muted` / `--color-muted-foreground` | Fondos suaves, texto secundario |
+| `--color-accent` / `--color-accent-foreground` | Hover, acentos |
+| `--color-destructive` / `--color-destructive-foreground` | Acciones destructivas |
+| `--color-border` / `--color-input` / `--color-ring` | Bordes, inputs, foco |
 
-**Modo claro (resumen):** Fondo blanco (`#FFFFFF`), texto principal `#37352F`, secundario `#F7F6F3`, bordes `#E9E9E6`.
+**Tokens de marca ECUBOX:**
 
-**Modo oscuro:** Fondo `#2F3437`, texto `#EBECED`, secundario `#3F4447`, bordes `#464A4D`.
+| Variable | Uso |
+|----------|-----|
+| `--color-ecubox-blue` | Azul primario de la marca |
+| `--color-ecubox-purple` | Púrpura de la marca |
+| `--color-ecubox-navy` | Azul oscuro para textos |
+
+**Tokens por zona de la UI:**
+
+| Grupo | Ejemplo de variables | Uso |
+|-------|---------------------|-----|
+| `--color-sidebar-*` | background, foreground, hover, active, border | Sidebar del dashboard |
+| `--color-topbar-*` | background, foreground, search-bg, border | Header del dashboard |
+| `--color-landing-*` | bg, text, card, card-muted, border | Páginas públicas |
+| `--color-command-*` | surface, border, input-bg, item-text, item-hover | Command palette |
+| `--color-popover*` | popover, popover-foreground | Popovers y dropdowns |
+
+**Tokens semánticos:**
+
+| Variable | Uso |
+|----------|-----|
+| `--color-error` / `--color-error-foreground` | Errores |
+| `--color-success` / `--color-success-foreground` | Éxito |
+| `--color-warning` / `--color-warning-foreground` | Advertencias |
+| `--color-info` / `--color-info-foreground` | Información |
 
 ### 2.3 Tipografía
 
-- **Familia:** `Inter`, con fallback a `system-ui`, `-apple-system`, `sans-serif` (variable `--font-sans`).
-- **Ajustes:** `font-feature-settings: 'cv11', 'ss01'` y `font-variation-settings: 'opsz' 32` para mejor legibilidad.
-- **Tamaños habituales:** `text-xs`, `text-sm`, `text-[13px]` (sidebar y listas), `text-lg`, `text-xl`, `text-3xl` (títulos).
-- **Pesos:** `font-medium`, `font-semibold`, `font-bold` para jerarquía.
+- **Familia:** `Inter`, con fallback a `system-ui`, `-apple-system`, `sans-serif`.
+- **Tamaños habituales:** `text-xs`, `text-sm`, `text-[13px]` (sidebar), `text-lg`, `text-xl`, `text-3xl` (títulos).
+- **Pesos:** `font-medium`, `font-semibold`, `font-bold`.
 
 ### 2.4 Espaciado y bordes
 
-- **Radios:** `--radius` (0.375rem), `--radius-lg` (8px), `--radius-md` (6px), `--radius-sm` (4px). Botones y cards suelen usar `rounded-md` o `rounded-lg`.
-- **Bordes:** Color `border-border`, a menudo con opacidad (`border-border/40`, `border-sidebar-border/60`).
+- **Radios:** `--radius` (0.375rem), `--radius-lg`, `--radius-md`, `--radius-sm`.
+- **Sombras:** `--shadow-soft` y `--shadow-elevated` con valores diferenciados para light y dark.
 
-### 2.5 Utilidades tipo Notion
+### 2.5 Clases de utilidad
 
-En `index.css` se definen clases de utilidad:
+Definidas en `index.css`:
 
-- **`.notion-border`:** `border border-border`.
-- **`.notion-card`:** `bg-background border border-border rounded-lg`.
-- **`.notion-table`:** Tabla con `w-full border-collapse`; cabeceras `text-left text-xs font-medium text-muted-foreground px-3 py-2 border-b border-border`; celdas `px-3 py-2 text-sm border-b border-border/50`; filas con `hover:bg-muted/50`.
+- **`surface-card`:** Tarjeta con fondo, borde y sombra del tema.
+- **`ui-alert-*`:** Alertas semánticas (info, success, warning, error).
+- **`landing-shell`:** Fondo de la landing page.
+- **`landing-text` / `landing-text-muted`:** Texto en páginas públicas.
+- **`landing-chip` / `landing-card`:** Elementos de la landing.
+- **`dashboard-topbar`:** Barra superior del dashboard.
+- **`command-surface` / `command-item`:** Command palette.
 
 ### 2.6 Clases condicionales
 
-Se usa la utilidad `cn()` (en `lib/utils.ts`: `clsx` + `tailwind-merge`) para combinar clases de forma condicional y evitar conflictos entre estilos de Tailwind.
+Se usa la utilidad `cn()` (en `lib/utils.ts`: `clsx` + `tailwind-merge`) para combinar clases de forma condicional.
 
 ---
 
 ## 3. Layout global
 
-Estructura principal en `MainLayout.tsx`: pantalla completa en flex, sin scroll en el contenedor raíz.
+Estructura principal en `MainLayout.tsx`: pantalla completa en flex.
 
 ### 3.1 Estructura general
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Sidebar (colapsable)  │  Header (barra fija)          │
+│  Sidebar (colapsable)  │  Header (barra fija)           │
 │                        ├────────────────────────────────┤
-│  - Logo "Candas"       │                                │
+│  - Logo "ECUBOX"       │                                │
 │  - Buscar (⌘K)         │  Main (Outlet, scroll interno) │
 │  - Navegación          │                                │
 │  - Toggle tema         │                                │
 └────────────────────────┴────────────────────────────────┘
 ```
 
-- **Sidebar:** Ancho `240px` expandido, `52px` colapsado; transición `duration-200 ease-out`. Borde derecho `border-r border-sidebar-border/60`.
-- **Área principal:** `flex-1 flex-col min-w-0`; dentro, Header fijo y `<main>` con `flex-1 min-h-0 overflow-y-auto`, padding `p-4 md:p-6 lg:p-8`.
+- **Sidebar:** Ancho `220px` expandido, `52px` colapsado; transición `duration-200 ease-out`.
+- **Área principal:** `flex-1 flex-col min-w-0`; dentro, Header fijo y `<main>` con scroll.
 
 ### 3.2 Sidebar
 
-- **Header:** Botón con logo "C" en cuadrado redondeado con gradiente primary, nombre "Candas" y subtítulo "Sistema de Gestión". Botón para colapsar/expandir (chevrones).
-- **Buscar:** Botón que abre la Command Palette; texto "Buscar", atajo `⌘K` visible cuando está expandido.
-- **Navegación:** Secciones con título en mayúsculas y tracking amplio (Gestión, Logística, Operaciones, Admin). Cada ítem: icono Lucide (24px), texto, estado activo con `bg-primary/10 text-primary font-semibold`. Enlaces protegidos por permisos (`ProtectedByPermission`).
-- **Footer:** Toggle tema (Sol/Luna) y etiqueta "Modo Claro" / "Modo Oscuro".
-- **Píldora de colapso:** Botón absoluto a la derecha del sidebar (`-right-3`), visible al hover; alterna entre chevron izquierdo/derecho.
+- **Header:** Logo ECUBOX: cuando expandido muestra wordmark "ECUBOX" (SVG), cuando colapsado muestra isotipo "E" (SVG). Hover con transición de opacidad.
+- **Buscar:** Botón que abre la Command Palette; texto "Buscar", atajo `⌘K`.
+- **Navegación:** Secciones agrupadas (Principal, Operaciones, Catálogos, Administración, Configuración). Cada ítem: icono Lucide, texto, estado activo con `bg-primary/10 text-primary font-semibold`. Visibilidad controlada por permisos.
+- **Footer:** Toggle tema (Sol/Luna/Monitor).
+- **Colapso:** Botón circular en el borde derecho, visible al hover.
 
-Archivo: `candas-frontend/src/app/layout/Sidebar.tsx`.
+Archivo: `ecubox-frontend/src/app/layout/Sidebar.tsx`.
 
 ### 3.3 Header
 
-- **Barra:** `sticky top-0 z-40`, altura `h-12`, `border-b border-border/40`, `bg-background/80 backdrop-blur-xl`.
-- **Búsqueda global:** Input de solo lectura que abre la Command Palette al hacer clic o con ⌘K/Ctrl+K; placeholder "Buscar paquetes, navegar..."; icono lupa y tecla ⌘K a la derecha.
-- **Acciones:** Botón de notificaciones (icono campana), menú de usuario (avatar con iniciales del username, dropdown con nombre, email, roles en badges y opción "Cerrar Sesión").
+- **Barra:** `sticky top-0`, altura `h-12`, fondo con blur.
+- **Búsqueda global:** Botón que abre la Command Palette al hacer clic o con ⌘K/Ctrl+K.
+- **Acciones:** Menú de usuario (avatar con iniciales, dropdown con nombre, email, roles y "Cerrar Sesión").
 
-Archivo: `candas-frontend/src/app/layout/Header.tsx`.
+Archivo: `ecubox-frontend/src/app/layout/Header.tsx`.
 
-### 3.4 Toaster y Command Palette
+### 3.4 Command Palette y Toaster
 
-- **Toaster:** Sonner con `position="top-right"` y `richColors` para feedback de éxito/error/aviso tras acciones.
-- **Command Palette:** Diálogo tipo cmdk; búsqueda de paquetes (por guía) y secciones de navegación rápida (Dashboard, Paquetes, etc.). Atajo global ⌘K / Ctrl+K.
+- **Command Palette:** Diálogo cmdk; búsqueda de paquetes (por guía) y navegación rápida. Atajo global ⌘K/Ctrl+K. Estilos con tokens `command-*` para consistencia dark/light.
+- **Toaster:** Sonner con `position="top-right"` y `richColors`.
 
-Archivos: `MainLayout.tsx` (Toaster), `GlobalCommandPalette.tsx` (Command Palette).
-
----
-
-## 4. Patrones de página
-
-### 4.1 Listados
-
-- **ListToolbar:** Barra superior con búsqueda (icono Search, input con debounce ~300 ms, botón limpiar), filtros opcionales, botón "Filtros avanzados" colapsable y zona de acciones (botones Crear, Importar, etc.).
-- **Tabla:** Estilos tipo Notion (`.notion-table` o clases equivalentes): cabeceras en `text-xs font-medium text-muted-foreground`, filas con hover, bordes discretos.
-- **Paginación:** Componente de paginación reutilizable (ej. `ListPagination`) al pie del listado.
-- **Estados vacío y carga:** `EmptyState` (icono, título "Sin resultados", descripción opcional, acción opcional) y `LoadingState` (spinner, texto "Cargando...") para listas y páginas.
-
-Archivos: `ListToolbar.tsx`, `EmptyState.tsx`, `LoadingState.tsx`.
-
-### 4.2 Páginas de detalle
-
-- **DetailPageLayout:** Contenedor con cabecera fija (borde inferior, fondo con blur) y área de contenido con scroll.
-- **DetailHeader:** Botón "Volver" (ArrowLeft), título (h1, `text-xl sm:text-3xl font-bold`), opcional subtítulo, `StatusBadge` y bloque de acciones a la derecha.
-- **Contenido:** Ancho máximo configurable: `md` (max-w-3xl), `lg` (max-w-4xl), `xl` (max-w-5xl), `2xl` (max-w-6xl), `full` (sin límite). Espaciado vertical entre secciones (`space-y-8`).
-- **Secciones:** Títulos con `SectionTitle` en variante `detail` (texto pequeño, mayúsculas, tracking, muted) o `form` (texto más grande, borde inferior). Tarjetas de información con `InfoCard`, enlaces a entidades relacionadas con `RelatedEntityLink` o `RelatedEntities`.
-
-Archivos: `DetailPageLayout.tsx`, `DetailHeader.tsx`, `SectionTitle.tsx`, `StatusBadge.tsx`.
-
-### 4.3 Formularios
-
-- **Estructura:** Secciones delimitadas por `SectionTitle` (variante `form`), grupos de campos con Label, Input/Select/Textarea/Checkbox, y `FormError` para mensajes de validación.
-- **Validación:** Esquemas Zod y React Hook Form con `zodResolver`; feedback en línea y/o toasts.
-- **Pies de formulario:** Botones primario (Guardar/Crear) y secundario u outline (Cancelar/Volver), típicamente en `DialogFooter` o barra fija al pie.
+Archivos: `GlobalCommandPalette.tsx`, `MainLayout.tsx`.
 
 ---
 
-## 5. Componentes UI y patrones
+## 4. Páginas públicas
 
-### 5.1 Radix UI
+### 4.1 Landing (HomePage)
 
-Componentes headless estilizados con Tailwind:
+- **SiteHeader:** Logo ECUBOX, enlaces de navegación (Rastreo, Tarifas), toggle tema, botones login/registro. Menú móvil responsive.
+- **Hero:** Título, subtítulo, CTAs (Empezar envío, Calculadora).
+- **ServicesGrid:** Tarjetas con iconos Lucide (Package, MapPin, Zap).
+- **FAQ:** Acordeón con preguntas frecuentes.
+- **SiteFooter:** Logo, enlaces de servicios y cuenta, copyright.
 
-- **Dialog:** Modal con overlay oscuro (`bg-black/20`), contenido centrado, animaciones de entrada/salida (fade, zoom), botón cerrar (X) en esquina.
-- **DropdownMenu:** Menús desplegables alineados (ej. `align="end"`), bordes redondeados, separadores.
-- **Select, Checkbox, Accordion, Tabs, ScrollArea, Alert:** Uso consistente con variables de tema (border, muted, etc.).
+Fondo con `landing-shell` y `landing-overlay` (radial gradient sutil).
 
-### 5.2 Botones
+### 4.2 Login y Registro
 
-Variantes (CVA en `button.tsx`):
-
-- **default:** Fondo primary, texto primary-foreground, sin sombra, borde transparente.
-- **destructive:** Fondo y texto destructive.
-- **outline:** Borde border, fondo background, hover secondary.
-- **secondary:** Fondo secondary.
-- **ghost:** Solo hover secondary.
-- **link:** Estilo enlace con subrayado en hover.
-
-Tamaños: `default` (h-9), `sm` (h-8, text-xs), `lg` (h-10), `icon` (h-9 w-9). Focus visible: `ring-1 ring-ring`.
-
-### 5.3 Badges y StatusBadge
-
-- **Badge:** Variantes estándar (default, secondary, outline, destructive, etc.).
-- **StatusBadge:** Variantes semánticas con colores del sistema: `active`/`completed` (success), `in-progress` (info), `pending` (warning), `error` (error), `inactive` (muted). Opcional icono Lucide.
-
-### 5.4 Diálogos
-
-Patrón: `Dialog` > `DialogContent` (max-w-lg por defecto) > `DialogHeader` (DialogTitle, DialogDescription) > contenido > `DialogFooter` (botones). Overlay con transición; botón cerrar accesible y `sr-only` para lectores de pantalla.
-
-### 5.5 Estados de interfaz
-
-- **EmptyState:** Contenedor con borde dashed, fondo muted/5, icono en círculo (por defecto Inbox), título, descripción opcional y acción opcional.
-- **LoadingState:** Variantes `page` (bloque centrado con spinner y texto) e `inline` (fila con spinner y etiqueta).
-- **ErrorState:** Para mostrar errores de carga o permisos (uso en rutas o bloques de error).
+- **LoginPage:** Formulario con correo electrónico y contraseña. Validación Zod. Componentes shadcn (Input, Button, SurfaceCard).
+- **RegistroSimplePage:** Formulario de registro con campos y validación.
 
 ---
 
-## 6. Feedback y accesibilidad
+## 5. Patrones de página (dashboard)
 
-### 6.1 Feedback
+### 5.1 Listados
 
-- **Toasts:** Sonner para confirmaciones (éxito), errores de API o validación y avisos. Posición fija top-right.
-- **Carga:** LoadingState en listados y formularios; posible deshabilitar botones durante submit.
-- **Validación:** Mensajes junto a campos (FormError) y, si aplica, resumen en toast.
+- **ListToolbar:** Barra con búsqueda (Input con debounce), filtros y acciones.
+- **ListTableShell:** Contenedor SurfaceCard para tablas.
+- **Tabla:** Componentes shadcn Table con cabeceras en `text-xs font-medium text-muted-foreground`.
+- **Estados:** EmptyState (icono, título, acción) y LoadingState (spinner).
 
-### 6.2 Atajos de teclado
+### 5.2 Formularios
 
-- **⌘K / Ctrl+K:** Abre/cierra la Command Palette (Header y Sidebar). Esc cierra el diálogo.
+- Secciones con `SectionTitle`, campos con Label/Input/Select/Textarea.
+- Validación: esquemas Zod + React Hook Form con `zodResolver`.
+- Feedback: toasts (Sonner) + mensajes en línea.
+
+### 5.3 Formularios multi-paso (Stepper)
+
+Usado en Despachos: navegación por pasos con botones, campos dependientes (ej. seleccionar Distribuidor antes de Agencia), estados deshabilitados hasta cumplir prerequisitos.
+
+---
+
+## 6. Componentes UI
+
+### 6.1 Primitivos (shadcn/ui + Radix)
+
+- **Button:** Variantes default, destructive, outline, secondary, ghost, link. Tamaños default/sm/lg/icon.
+- **Input / Textarea / Select:** Estilos unificados con bordes, radios y estados focus/disabled consistentes.
+- **Dialog:** Overlay oscuro, contenido centrado, animaciones, botón cerrar.
+- **SurfaceCard:** Tarjeta reutilizable con fondo, borde y sombra del tema.
+
+### 6.2 Feedback
+
+- **Toasts:** Sonner (top-right, richColors).
+- **Alertas:** Clases `ui-alert-*` (info, success, warning, error).
+- **Loading:** LoadingState con spinner y texto.
 
 ### 6.3 Accesibilidad
 
-- **Sidebar:** Botones con `aria-label` ("Expandir sidebar", "Colapsar sidebar"); ítems colapsados con `title` con el nombre del ítem.
-- **Header:** Botones con `aria-label` ("Notifications", "User menu"); menú de usuario con estructura clara (nombre, email, roles, Cerrar sesión).
-- **Diálogos:** Botón cerrar con texto `sr-only` "Close"; Radix expone títulos y descripciones para lectores de pantalla.
-- **Búsqueda:** Placeholder y etiquetas coherentes para identificar la función del campo.
+- Botones con `aria-label` descriptivos.
+- Diálogos con títulos accesibles (Radix).
+- Atajo de teclado ⌘K/Ctrl+K para Command Palette.
 
 ---
 
-## 7. Scrollbars y detalles
+## 7. Marca (Brand)
 
-- **WebKit (Chrome, Safari, Edge):** Scrollbar 8px, track con `--muted`, thumb con `--border` y borde para separar del track; hover del thumb más oscuro. Clase `.no-scrollbar` oculta scrollbar manteniendo scroll.
-- **Firefox:** `scrollbar-width: thin`; `scrollbar-color` con variables del tema.
-- **Modo oscuro:** Thumb más visible (opacidad de `muted-foreground`).
-- **Calendario:** En dark, el indicador del date picker nativo se invierte (`filter: invert(1)`) para contraste.
+### 7.1 Logo
 
-Definido en `index.css` (capas base y utilities).
+- **Wordmark:** SVG con texto "ECUBOX" (ECU en azul navy/claro, BOX en púrpura). Sin icono gráfico en el wordmark.
+- **Isotipo (mark):** Letra "E" estilizada con gradiente azul-púrpura, sin fondo. Para sidebar colapsado y favicons.
+- **Favicons:** Isotipo "E" con fondo redondeado (para visibilidad en pestañas). Versiones light, dark y default.
+
+Componente: `ecubox-frontend/src/components/brand/EcuboxLogo.tsx`.
+Assets: `ecubox-frontend/src/assets/brand/`.
+
+### 7.2 Comportamiento del logo
+
+- `iconOnly={false}` (default): muestra wordmark "ECUBOX".
+- `iconOnly={true}`: muestra isotipo "E" (sidebar colapsado).
+- Selección automática de versión light/dark según el tema activo.
+- Hover con transición de opacidad (sin rectángulo de fondo).
 
 ---
 
@@ -225,14 +229,14 @@ Definido en `index.css` (capas base y utilities).
 
 | Categoría | Tecnología |
 |-----------|------------|
-| Estilos | Tailwind CSS 4, variables CSS (`@theme`), PostCSS |
-| Componentes base | Radix UI (Dialog, Dropdown, Select, Checkbox, Accordion, Tabs, ScrollArea, Alert, etc.) |
-| Iconos | Lucide React |
+| Estilos | Tailwind CSS 4, variables CSS, PostCSS |
+| Componentes base | Radix UI (Dialog, Dropdown, Select, Accordion, etc.) |
+| Iconos | Lucide React 1.7.x |
 | Toasts | Sonner |
-| Command Palette | cmdk (CommandDialog) |
-| Variantes de componentes | class-variance-authority (CVA) |
-| Clases condicionales | clsx + tailwind-merge (utilidad `cn`) |
-| Formularios | React Hook Form, Zod, @hookform/resolvers |
-| Routing | TanStack Router (rutas tipadas) |
+| Command Palette | cmdk |
+| Variantes | class-variance-authority (CVA) |
+| Clases condicionales | clsx + tailwind-merge (`cn`) |
+| Formularios | React Hook Form + Zod |
+| Routing | TanStack Router (type-safe) |
 
-Las versiones exactas y la lista completa de dependencias se encuentran en `candas-frontend/package.json`. Los archivos de componentes y layout citados están bajo `candas-frontend/src/`.
+Las versiones exactas están en `ecubox-frontend/package.json`. Los archivos de componentes y layout están bajo `ecubox-frontend/src/`.

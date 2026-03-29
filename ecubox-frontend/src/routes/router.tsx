@@ -1,5 +1,5 @@
 import { createRootRoute, createRoute, createRouter, RouterProvider, Outlet, redirect } from '@tanstack/react-router';
-import type { ComponentType } from 'react';
+import { useEffect, type ComponentType } from 'react';
 import { Toaster } from 'sonner';
 import { HomePage } from '@/pages/home/HomePage';
 import { LoginPage } from '@/pages/login/LoginPage';
@@ -31,8 +31,15 @@ import { CalculadoraPage } from '@/pages/calculadora/CalculadoraPage';
 import { TarifaCalculadoraPage } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraPage';
 import { ParametrosSistemaPage } from '@/pages/dashboard/parametros-sistema/ParametrosSistemaPage';
 import { useAuthStore } from '@/stores/authStore';
+import { applyTheme, useThemeStore } from '@/stores/themeStore';
 
 function RootLayout() {
+  const theme = useThemeStore((s) => s.theme);
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
   return (
     <>
       <Outlet />

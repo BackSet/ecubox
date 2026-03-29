@@ -8,9 +8,9 @@ import markDark from '@/assets/brand/ecubox-mark-dark.svg';
 export type EcuboxLogoVariant = 'principal' | 'gradient' | 'purple' | 'light' | 'onPurple';
 export type EcuboxLogoSize = 'sm' | 'md' | 'lg';
 const SIZE_CLASSES: Record<EcuboxLogoSize, { icon: string; wordmark: string }> = {
-  sm: { icon: 'h-6 w-6', wordmark: 'h-7' },
-  md: { icon: 'h-8 w-8', wordmark: 'h-9' },
-  lg: { icon: 'h-10 w-10', wordmark: 'h-11' },
+  sm: { icon: 'h-6 w-6', wordmark: 'h-6' },
+  md: { icon: 'h-8 w-8', wordmark: 'h-8' },
+  lg: { icon: 'h-10 w-10', wordmark: 'h-10' },
 };
 
 export interface EcuboxLogoProps {
@@ -34,12 +34,12 @@ export function EcuboxLogo({
   const sizes = SIZE_CLASSES[size];
   const lightSrc = iconOnly ? markLight : logoLight;
   const darkSrc = iconOnly ? markDark : logoDark;
-  const prefersDarkAsset = variant !== 'light';
+  const forceLightAsset = variant === 'onPurple';
   const baseClass = iconOnly ? sizes.icon : cn(sizes.wordmark, 'w-auto');
 
-  const content = prefersDarkAsset ? (
+  const content = forceLightAsset ? (
     <span className={cn('inline-flex items-center', className)} aria-label="ECUBOX">
-      <img src={darkSrc} alt="ECUBOX" className={baseClass} />
+      <img src={lightSrc} alt="ECUBOX" className={baseClass} />
     </span>
   ) : (
     <span className={cn('inline-flex items-center', className)} aria-label="ECUBOX">

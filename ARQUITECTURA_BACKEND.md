@@ -1,8 +1,8 @@
-# Arquitectura del backend Candas
+# Arquitectura del backend ECUBOX
 
-Documento de referencia de la arquitectura del backend del proyecto Candas (candas-backend). Sirve como guía para desarrolladores y onboarding.
+Documento de referencia de la arquitectura del backend del proyecto ECUBOX (ecubox-backend). Sirve como guía para desarrolladores y onboarding.
 
-**Alcance:** backend Java/Spring Boot. Para tecnologías y versiones exactas, ver [TECH-STACK.md](../TECH-STACK.md) (Java 25, Spring Boot 4.0.1, PostgreSQL, jjwt 0.12.5, etc.).
+**Alcance:** backend Java/Spring Boot. Para tecnologías y versiones exactas, ver [TECH-STACK.md](TECH-STACK.md) (Java 25, Spring Boot 4.0.3, PostgreSQL, jjwt 0.13.0, etc.).
 
 ---
 
@@ -21,47 +21,36 @@ Documento de referencia de la arquitectura del backend del proyecto Candas (cand
 
 ## 1. Estructura de paquetes
 
-Base: `com.candas.candas_backend` bajo `candas-backend/src/main/java/`.
+Base: `com.ecubox.ecubox_backend` bajo `ecubox-backend/src/main/java/`.
 
 | Paquete | Contenido |
 |---------|-----------|
-| **controller** | Controllers REST: Auth, Usuario, Cliente, Agencia, Paquete, Despacho, DespachoMasivo, LoteRecepcion, Saca, Ensacado, ListasEtiquetadas, ManifiestoConsolidado, AtencionPaquete, DestinatarioDirecto, Distribuidor, PuntoOrigen, Rol, Permiso |
+| **controller** | Controllers REST: Auth, Usuario, Agencia, Paquete, Despacho, LoteRecepcion, Saca, ManifiestoConsolidado, Distribuidor, AgenciaDistribuidor, Destinatario, Rol, Permiso, Health, ParametrosSistema, etc. |
 | **service** | Lógica de negocio (un servicio por dominio) + JwtService, AuthService |
 | **repository** | Interfaces JpaRepository |
-| **repository/spec** | Especificaciones JPA (JpaSpecification) para filtros complejos |
 | **entity** | Entidades JPA |
-| **entity/enums** | Enums de dominio (EstadoPaquete, TipoPaquete, TipoDestino, etc.) |
+| **entity/enums** | Enums de dominio (EstadoPaquete, TipoPaquete, etc.) |
 | **dto** | DTOs de request/response |
-| **mapper** | Mapper manual Paquete ↔ PaqueteDTO ([PaqueteMapper](candas-backend/src/main/java/com/candas/candas_backend/mapper/PaqueteMapper.java)) |
 | **config** | SecurityConfig, CorsConfig, JwtAuthenticationFilter, JwtAuthenticationEntryPoint, CustomAccessDeniedHandler, SwaggerConfig, DataInitializer, etc. |
-| **security** | CustomUserDetailsService, CustomUserDetails |
+| **security** | CustomUserDetailsService, CustomUserDetails, CurrentUserService |
 | **exception** | GlobalExceptionHandler, ApiErrorResponse, ResourceNotFoundException, BadRequestException |
-| **util** | PermissionConstants, ExcelHelper, PresintoUtil, etc. |
+| **util** | PermissionConstants, helpers |
 
 **Árbol resumido:**
 
 ```
-com.candas.candas_backend/
+com.ecubox.ecubox_backend/
 ├── controller/       # REST controllers
-├── service/         # Lógica de negocio
-├── repository/      # JpaRepository
-│   └── spec/        # JpaSpecification para filtros
-├── entity/          # Entidades JPA
-│   └── enums/       # Enums de dominio
-├── dto/             # Request/Response DTOs
-├── mapper/          # PaqueteMapper (Entity ↔ DTO)
-├── config/          # Spring Security, CORS, JWT filter, Swagger
-├── security/        # UserDetailsService, CustomUserDetails
-├── exception/       # GlobalExceptionHandler, ApiErrorResponse
-└── util/            # Constantes, helpers
+├── service/          # Lógica de negocio
+├── repository/       # JpaRepository
+├── entity/           # Entidades JPA
+│   └── enums/        # Enums de dominio
+├── dto/              # Request/Response DTOs
+├── config/           # Spring Security, CORS, JWT filter, Swagger
+├── security/         # UserDetailsService, CustomUserDetails
+├── exception/        # GlobalExceptionHandler, ApiErrorResponse
+└── util/             # Constantes, helpers
 ```
-
-**Rutas clave de ejemplo (flujo Cliente):**
-
-- Controller: [ClienteController.java](candas-backend/src/main/java/com/candas/candas_backend/controller/ClienteController.java)
-- Service: [ClienteService.java](candas-backend/src/main/java/com/candas/candas_backend/service/ClienteService.java)
-- Repository: [ClienteRepository.java](candas-backend/src/main/java/com/candas/candas_backend/repository/ClienteRepository.java)
-- Specs: [repository/spec/ClienteSpecs.java](candas-backend/src/main/java/com/candas/candas_backend/repository/spec/ClienteSpecs.java)
 
 ---
 
@@ -70,7 +59,7 @@ com.candas.candas_backend/
 **Patrón:** Controller → Service → Repository. Los controllers solo reciben y devuelven DTOs; no exponen entidades JPA.
 
 - **Validación:** Jakarta Bean Validation en los DTOs de entrada; en los controllers se usa `@Valid` en el cuerpo o parámetros.
-- **Mapeo:** El módulo Paquete utiliza [PaqueteMapper](candas-backend/src/main/java/com/candas/candas_backend/mapper/PaqueteMapper.java) (`toEntity`, `updateEntityFromDTO`, `toDTO`). En el resto de módulos el mapeo Entity ↔ DTO se realiza en el service mediante métodos privados.
+- **Mapeo:** El módulo Paquete utiliza `PaqueteMapper` (`toEntity`, `updateEntityFromDTO`, `toDTO`). En el resto de módulos el mapeo Entity — DTO se realiza en el service mediante métodos privados.
 
 **Flujo de una petición HTTP:**
 
@@ -102,80 +91,76 @@ sequenceDiagram
 
 ## 3. Seguridad
 
-- **JWT:** [JwtService](candas-backend/src/main/java/com/candas/candas_backend/service/JwtService.java) (jjwt): generación y validación de tokens. Clave y tiempo de expiración se configuran en `application.properties` (`jwt.secret`, `jwt.expiration`).
+- **JWT:** `JwtService` (jjwt 0.13.0): generación y validación de tokens. Clave y tiempo de expiración se configuran en `application.properties` (`jwt.secret`, `jwt.expiration`).
 
-- **Filtro:** [JwtAuthenticationFilter](candas-backend/src/main/java/com/candas/candas_backend/config/JwtAuthenticationFilter.java) (extiende `OncePerRequestFilter`): lee la cabecera `Authorization: Bearer <token>`, valida el token con JwtService, obtiene el username, carga `UserDetails` con CustomUserDetailsService y establece el `SecurityContext`.
+- **Filtro:** `JwtAuthenticationFilter` (extiende `OncePerRequestFilter`): lee la cabecera `Authorization: Bearer <token>`, valida el token con JwtService, obtiene el username, carga `UserDetails` con CustomUserDetailsService y establece el `SecurityContext`.
 
-- **Configuración Spring Security:** [SecurityConfig](candas-backend/src/main/java/com/candas/candas_backend/config/SecurityConfig.java):
+- **Configuración Spring Security:** `SecurityConfig`:
   - Sesión **stateless** (sin sesión HTTP).
   - CSRF deshabilitado (API REST con JWT).
   - CORS mediante `CorsConfigurationSource` (CorsConfig).
-  - **Endpoints públicos:** `/api/auth/login`, `/api/auth/register`, `/swagger-ui/**`, `/v3/api-docs/**`, `/swagger-ui.html`.
+  - **Endpoints públicos:** `/api/auth/login`, `/api/auth/register`, `/api/health`, `/swagger-ui/**`, `/v3/api-docs/**`.
   - Resto de peticiones: `anyRequest().authenticated()`.
-  - Control fino con `@PreAuthorize` en controllers (roles y permisos), por ejemplo `hasRole('ADMIN')` o `hasAuthority(PermissionConstants.CLIENTES_READ)`.
+  - Control fino con `@PreAuthorize` en controllers (roles y permisos).
 
-- **UserDetails:** [CustomUserDetailsService](candas-backend/src/main/java/com/candas/candas_backend/security/CustomUserDetailsService.java) implementa `UserDetailsService`: carga `Usuario` desde `UsuarioRepository` y construye autoridades (prefijo `ROLE_` para roles y permisos granulares). [CustomUserDetails](candas-backend/src/main/java/com/candas/candas_backend/security/CustomUserDetails.java) es el wrapper que expone usuario y autoridades.
+- **UserDetails:** `CustomUserDetailsService` implementa `UserDetailsService`: carga `Usuario` desde `UsuarioRepository` (busca por username o email) y construye autoridades (prefijo `ROLE_` para roles y permisos granulares).
 
 - **Errores de seguridad:**
-  - [JwtAuthenticationEntryPoint](candas-backend/src/main/java/com/candas/candas_backend/config/JwtAuthenticationEntryPoint.java): responde 401 (token inválido o expirado) con cuerpo JSON.
-  - [CustomAccessDeniedHandler](candas-backend/src/main/java/com/candas/candas_backend/config/CustomAccessDeniedHandler.java): responde 403 cuando el usuario no tiene permisos.
+  - `JwtAuthenticationEntryPoint`: responde 401 con cuerpo JSON.
+  - `CustomAccessDeniedHandler`: responde 403 cuando el usuario no tiene permisos.
 
-- **Permisos:** Constantes en [PermissionConstants](candas-backend/src/main/java/com/candas/candas_backend/util/PermissionConstants.java). Uso típico en controller: `@PreAuthorize("hasAuthority('CLIENTES_READ')")` o `hasRole('ADMIN')`.
+- **Permisos:** Constantes en `PermissionConstants`. Uso típico en controller: `@PreAuthorize("hasAuthority('PAQUETES_READ')")`.
 
 ---
 
 ## 4. Configuración y despliegue
 
-- **Propiedades:** [application.properties](candas-backend/src/main/resources/application.properties):
-  - Aplicación: `spring.application.name=candas-backend`
-  - Datasource: PostgreSQL (`spring.datasource.url`, `username`, `password`), con variables de entorno opcionales (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`)
-  - JPA: `ddl-auto`, dialecto PostgreSQL, `show-sql`, `format_sql`
-  - Flyway: habilitado, `baseline-on-migrate`, placeholders si aplica
+- **Propiedades:** `application.properties`:
+  - Aplicación: `spring.application.name=ecubox-backend`
+  - Datasource: PostgreSQL con variables de entorno (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`)
+  - JPA: `ddl-auto`, dialecto PostgreSQL
+  - Flyway: habilitado, `baseline-on-migrate`
   - JWT: `jwt.secret`, `jwt.expiration`
   - Springdoc: rutas de API docs y Swagger UI
 
-- **CORS:** [CorsConfig](candas-backend/src/main/java/com/candas/candas_backend/config/CorsConfig.java): orígenes permitidos (localhost:5173, localhost:3000, 127.0.0.1:5173, 127.0.0.1:3000), métodos (GET, POST, PUT, DELETE, OPTIONS, PATCH), cabeceras permitidas, `allowCredentials=true`, `maxAge=3600`.
+- **Perfiles:**
+  - `dev` — valores por defecto para desarrollo local, Swagger habilitado
+  - `prod` — todas las variables deben venir del entorno, Swagger desactivado, HSTS habilitado
 
-- **Flyway:** Migraciones en [db/migration](candas-backend/src/main/resources/db/migration/); scripts `V*.sql`.
+- **CORS:** `CorsConfig`: orígenes configurables via `CORS_ALLOWED_ORIGINS`, métodos GET/POST/PUT/DELETE/OPTIONS/PATCH, `allowCredentials=true`.
 
-- **Despliegue en producción:** Ver [docs/DEPLOYMENT.md](DEPLOYMENT.md) para build del JAR, variables de entorno y ejecución.
+- **Flyway:** Migraciones en `src/main/resources/db/migration/`; 39 scripts `V*.sql`.
+
+- **Despliegue en producción:** Ver [RAILWAY_PRODUCCION_GUIA.md](RAILWAY_PRODUCCION_GUIA.md) para build, variables de entorno y configuración.
 
 ---
 
 ## 5. Dominio: entidades principales
 
 | Entidad | Tabla | Responsabilidad |
-|---------|--------|------------------|
-| Paquete | paquete | Paquete de envío: guía, referencia B2, peso, estado, tipo, remitente/destinatario, agencia/destinatario directo, lote, saca, jerarquía (paquete padre) |
-| Cliente | cliente | Cliente (remitente/destinatario): nombre, documento, contacto, dirección |
-| Usuario | usuario | Usuario del sistema (UserDetails): username, email, password, roles, agencia asociada |
+|---------|-------|-----------------|
+| Paquete | paquete | Paquete de envío: guía, peso, estado, tipo, remitente/destinatario |
+| Usuario | usuario | Usuario del sistema: username, email, password, roles |
 | Agencia | agencia | Agencia de distribución/destino |
-| Despacho | despacho | Despacho (manifiesto) asociado a sacas/paquetes |
-| Saca | saca | Saca (agrupación física), vinculada a despacho y paquetes vía PaqueteSaca |
+| AgenciaDistribuidor | agencia_distribuidor | Agencia asociada a un distribuidor |
+| Despacho | despacho | Despacho asociado a sacas/paquetes |
+| Saca | saca | Agrupación física de paquetes, vinculada a despacho |
 | LoteRecepcion | lote_recepcion | Lote de recepción de paquetes |
-| DestinatarioDirecto | destinatario_directo | Destinatario para envío directo |
+| Destinatario | destinatario | Destinatario de envíos |
 | Distribuidor | distribuidor | Distribuidor |
-| PuntoOrigen | punto_origen | Punto de origen de envíos |
+| Manifiesto | manifiesto_consolidado | Manifiesto consolidado |
 | Rol | rol | Rol de usuario |
 | Permiso | permiso | Permiso granular |
-| UsuarioRol | usuario_rol | Relación N:M usuario–rol |
-| RolPermiso | rol_permiso | Relación N:M rol–permiso |
-| AtencionPaquete | atencion_paquete | Atención/incidencias sobre paquetes |
-| ManifiestoConsolidado | manifiesto_consolidado | Manifiesto consolidado |
-| PaqueteNoEncontrado | paquete_no_encontrado | Registro de paquetes no encontrados |
-| PaqueteSaca | paquete_saca | Relación N:M paquete–saca (con orden) |
-| DespachoMasivoSesion | despacho_masivo_sesion | Sesión de despacho masivo |
-| EnsacadoSesion | ensacado_sesion | Sesión de ensacado |
-| TelefonoAgencia | telefono_agencia | Teléfonos de agencia |
-| PaqueteSacaId | — | ID compuesto para PaqueteSaca |
+| TrackingEvent | tracking_event | Eventos de rastreo de paquetes |
+| ParametroSistema | parametro_sistema | Parámetros configurables del sistema |
 
-**Enums** (en `entity/enums`): EstadoPaquete, TipoPaquete, TipoDestino, EstadoAtencion, TipoProblemaAtencion, EstadoListaEtiqueta, EstadoGuiaEtiqueta, InstruccionGuiaEtiqueta, TipoLote, TamanoSaca.
+**Enums** (en `entity/enums`): EstadoPaquete, TipoPaquete, TipoDestino, y otros enums de dominio.
 
 ---
 
 ## 6. Manejo de errores
 
-No se utiliza RFC 7807 ProblemDetails. Se usa un DTO propio **[ApiErrorResponse](candas-backend/src/main/java/com/candas/candas_backend/exception/ApiErrorResponse.java)** con:
+Se usa un DTO propio `ApiErrorResponse` con:
 
 - `timestamp` (LocalDateTime)
 - `status` (int)
@@ -183,32 +168,29 @@ No se utiliza RFC 7807 ProblemDetails. Se usa un DTO propio **[ApiErrorResponse]
 - `message` (mensaje principal)
 - `errors` (opcional): mapa campo → mensaje para errores de validación
 
-**[GlobalExceptionHandler](candas-backend/src/main/java/com/candas/candas_backend/exception/GlobalExceptionHandler.java)** (`@RestControllerAdvice`) centraliza las excepciones y devuelve `ResponseEntity<ApiErrorResponse>`:
+`GlobalExceptionHandler` (`@RestControllerAdvice`) centraliza las excepciones:
 
 | Excepción | Código HTTP | Descripción |
 |-----------|-------------|-------------|
 | ResourceNotFoundException | 404 | Recurso no encontrado |
 | BadRequestException | 400 | Solicitud inválida |
-| IllegalArgumentException | 400 | Solicitud inválida |
-| BadCredentialsException | 401 | Usuario o contraseña incorrectos (mensaje genérico) |
-| DataIntegrityViolationException | 409 | Conflicto de datos (mensaje sanitizado: duplicados, FK, etc.) |
-| MethodArgumentNotValidException | 400 | Error de validación; en `errors` el detalle por campo |
+| IllegalArgumentException | 400 | Argumento inválido |
+| BadCredentialsException | 401 | Credenciales incorrectas |
+| DataIntegrityViolationException | 409 | Conflicto de datos (duplicados, FK) |
+| MethodArgumentNotValidException | 400 | Error de validación con detalle por campo |
 | Exception | 500 | Error interno del servidor |
-
-Excepciones de negocio utilizadas: [ResourceNotFoundException](candas-backend/src/main/java/com/candas/candas_backend/exception/ResourceNotFoundException.java), [BadRequestException](candas-backend/src/main/java/com/candas/candas_backend/exception/BadRequestException.java).
 
 ---
 
 ## 7. API y documentación
 
-- **Springdoc OpenAPI 2.7:** Swagger UI en `/swagger-ui.html`, documentación OpenAPI en `/v3/api-docs`.
-
-- **[SwaggerConfig](candas-backend/src/main/java/com/candas/candas_backend/config/SwaggerConfig.java):** Configura el bean `OpenAPI` con título "Candas Backend API", versión, descripción, contacto y licencia; define el esquema de seguridad "Bearer Authentication" (JWT) para que en Swagger se pueda enviar el token obtenido de `/api/auth/login`.
+- **Springdoc OpenAPI 3.0.2:** Swagger UI en `/swagger-ui.html`, OpenAPI spec en `/v3/api-docs`.
+- **SwaggerConfig:** Bean `OpenAPI` con título "ECUBOX Backend API", esquema de seguridad Bearer JWT.
 
 ---
 
 ## 8. Documentos relacionados
 
-- [TECH-STACK.md](../TECH-STACK.md) — Tecnologías y versiones (backend y frontend).
-- [docs/DEPLOYMENT.md](DEPLOYMENT.md) — Despliegue en producción (build, variables de entorno).
-- [candas-backend/docs/JasperReportsUsage.md](../candas-backend/docs/JasperReportsUsage.md) — Uso de JasperReports para reportes PDF.
+- [TECH-STACK.md](TECH-STACK.md) — Tecnologías y versiones (backend y frontend)
+- [RAILWAY_PRODUCCION_GUIA.md](RAILWAY_PRODUCCION_GUIA.md) — Despliegue en producción
+- [UX-UI-DESIGN.md](UX-UI-DESIGN.md) — Diseño UX/UI del frontend

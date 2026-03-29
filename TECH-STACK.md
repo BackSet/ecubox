@@ -1,21 +1,23 @@
-# Candas — Stack tecnológico y librerías
+# ECUBOX — Stack tecnológico
 
-Documentación de las tecnologías y librerías utilizadas en el proyecto Candas (backend y frontend).
+Tecnologías y librerías utilizadas en el proyecto ECUBOX (backend y frontend).
 
 ---
 
-## Backend (candas-backend)
+## Backend (ecubox-backend)
 
 ### Lenguaje y framework base
+
 | Tecnología | Versión | Uso |
 |------------|---------|-----|
 | **Java** | 25 | Lenguaje principal (Virtual Threads, Records, Pattern Matching) |
-| **Spring Boot** | 4.0.1 | Framework base |
+| **Spring Boot** | 4.0.3 | Framework base |
 
 ### Spring Boot starters
+
 | Dependencia | Uso |
 |-------------|-----|
-| `spring-boot-starter-webmvc` | API REST, controladores MVC |
+| `spring-boot-starter-web` | API REST, controladores MVC |
 | `spring-boot-starter-security` | Autenticación y autorización |
 | `spring-boot-starter-data-jpa` | Persistencia con JPA/Hibernate |
 | `spring-boot-starter-validation` | Validación (Jakarta Validation) |
@@ -23,120 +25,108 @@ Documentación de las tecnologías y librerías utilizadas en el proyecto Candas
 | `spring-boot-devtools` | Recarga en desarrollo (opcional) |
 
 ### Base de datos
+
 | Librería | Uso |
 |----------|-----|
 | **PostgreSQL** | Driver JDBC (runtime) |
-| **Flyway** | Migraciones versionadas (schema, datos) |
+| **Flyway** 12.2.0 | Migraciones versionadas (schema, datos) |
 
 ### Seguridad y JWT
+
 | Librería | Versión | Uso |
 |----------|---------|-----|
-| **jjwt-api** | 0.12.5 | API para creación/validación de tokens JWT |
-| **jjwt-impl** | 0.12.5 | Implementación (runtime) |
-| **jjwt-jackson** | 0.12.5 | Serialización JSON de JWT (runtime) |
+| **jjwt-api** | 0.13.0 | API para creación/validación de tokens JWT |
+| **jjwt-impl** | 0.13.0 | Implementación (runtime) |
+| **jjwt-jackson** | 0.13.0 | Serialización JSON de JWT (runtime) |
 
 ### Documentación API
+
 | Librería | Versión | Uso |
 |----------|---------|-----|
-| **springdoc-openapi-starter-webmvc-ui** | 2.7.0 | OpenAPI 3 / Swagger UI |
+| **springdoc-openapi-starter-webmvc-ui** | 3.0.2 | OpenAPI 3 / Swagger UI |
 
-### Mapeo y utilidades
-| Librería | Uso |
-|----------|-----|
-| **Lombok** | (heredada de Spring Boot) Reducción de boilerplate (@Data, @Builder, etc.) |
+### Utilidades
 
-El mapeo Entity ↔ DTO se hace en los services (métodos privados) y con **PaqueteMapper** (mapper manual) para el módulo Paquete.
-
-### Reportes y documentos
 | Librería | Versión | Uso |
 |----------|---------|-----|
-| **Apache POI** | 5.5.1 | Generación de Excel (.xlsx) |
-| **poi-ooxml** | 5.5.1 | Formato OOXML para Excel |
-| **Barbecue** | 1.5-beta1 | Códigos de barras |
+| **Lombok** | 1.18.44 | Reducción de boilerplate (@Data, @Builder, etc.) |
 
-Los PDF se generan en el frontend con **jspdf**. Para reportes PDF en backend ver [candas-backend/docs/JasperReportsUsage.md](candas-backend/docs/JasperReportsUsage.md).
+El mapeo Entity — DTO se hace en los services (métodos privados) y con `PaqueteMapper` (mapper manual) para el módulo Paquete.
 
 ### Testing
+
 | Librería | Uso |
 |----------|-----|
 | **spring-boot-starter-test** | Tests unitarios e integración (scope: test) |
 
 ---
 
-## Frontend (candas-frontend)
+## Frontend (ecubox-frontend)
 
 ### Lenguaje y build
+
 | Tecnología | Versión | Uso |
 |------------|---------|-----|
-| **React** | 19.2.0 | Biblioteca UI |
-| **react-dom** | 19.2.0 | Renderizado en el DOM |
-| **TypeScript** | 5.9.x | Tipado estático (modo strict) |
-| **Vite** | 7.2.x | Bundler y servidor de desarrollo |
-| **@vitejs/plugin-react** | 5.1.x | Soporte React en Vite |
+| **React** | 19.2.x | Biblioteca UI |
+| **react-dom** | 19.2.x | Renderizado en el DOM |
+| **TypeScript** | 6.0.x | Tipado estático (modo strict) |
+| **Vite** | 8.0.x | Bundler y servidor de desarrollo |
+| **@vitejs/plugin-react** | 6.0.x | Soporte React en Vite |
 
 ### Estilos
+
 | Librería | Versión | Uso |
 |----------|---------|-----|
 | **Tailwind CSS** | 4.x | Utilidades CSS (@theme, variables) |
 | **@tailwindcss/postcss** | 4.x | Integración PostCSS |
-| **tailwind-merge** | 3.4.x | Combinación de clases Tailwind |
+| **tailwind-merge** | 3.5.x | Combinación de clases Tailwind |
 | **clsx** | 2.1.x | Construcción condicional de clases |
 | **class-variance-authority** | 0.7.x | Variantes de componentes (CVA) |
+| **tw-animate-css** | 1.4.x | Animaciones CSS para Tailwind |
 
 ### Routing y estado
+
 | Librería | Versión | Uso |
 |----------|---------|-----|
-| **@tanstack/react-router** | 1.95.x | Routing type-safe |
-| **@tanstack/react-query** | 5.90.x | Server state, caché, loading/error |
+| **@tanstack/react-router** | 1.168.x | Routing type-safe |
+| **@tanstack/react-query** | 5.95.x | Server state, caché, loading/error |
 | **Zustand** | 5.x | Estado del cliente |
 
 ### Formularios y validación
+
 | Librería | Versión | Uso |
 |----------|---------|-----|
-| **react-hook-form** | 7.68.x | Formularios controlados |
+| **react-hook-form** | 7.72.x | Formularios controlados |
 | **Zod** | 4.x | Esquemas de validación |
-| **@hookform/resolvers** | 5.2.x | Integración Zod ↔ React Hook Form |
+| **@hookform/resolvers** | 5.2.x | Integración Zod — React Hook Form |
 
 ### Componentes UI e iconos
+
 | Librería | Versión | Uso |
 |----------|---------|-----|
-| **@radix-ui/react-accordion** | 1.2.x | Acordeón |
-| **@radix-ui/react-alert-dialog** | 1.1.x | Diálogos de confirmación |
-| **@radix-ui/react-checkbox** | 1.3.x | Checkbox |
-| **@radix-ui/react-dialog** | 1.1.x | Modales/diálogos |
-| **@radix-ui/react-dropdown-menu** | 2.1.x | Menús desplegables |
-| **@radix-ui/react-scroll-area** | 1.2.x | Área de scroll |
-| **@radix-ui/react-select** | 2.2.x | Select |
-| **@radix-ui/react-slot** | 1.2.x | Composición de componentes |
-| **Lucide React** | 0.561.x | Iconos |
-| **Sonner** | 1.5.x | Toasts/notificaciones |
+| **Radix UI** (accordion, dialog, dropdown, label, popover, separator, slot, tooltip) | 1.x–2.x | Primitivos headless accesibles |
+| **Lucide React** | 1.7.x | Iconos |
+| **Sonner** | 2.x | Toasts/notificaciones |
 | **cmdk** | 1.1.x | Command palette / búsqueda |
 
-### HTTP y datos
+### HTTP
+
 | Librería | Versión | Uso |
 |----------|---------|-----|
-| **Axios** | 1.13.x | Cliente HTTP (interceptores JWT) |
+| **Axios** | 1.14.x | Cliente HTTP (interceptores JWT) |
 
-### Exportación y códigos
+### Exportación PDF
+
 | Librería | Versión | Uso |
 |----------|---------|-----|
 | **jspdf** | 4.x | Generación de PDF en el navegador |
-| **xlsx** | 0.18.x | Lectura/escritura de Excel |
-| **qrcode** | 1.5.x | Generación de códigos QR |
-| **react-barcode** | 1.6.x | Códigos de barras en React |
-
-### Linting y tipos (dev)
-| Librería | Uso |
-|----------|-----|
-| **ESLint** + plugins (react-hooks, react-refresh) | Linting |
-| **typescript-eslint** | Reglas TypeScript |
-| **@types/node**, **@types/react**, **@types/react-dom**, **@types/qrcode**, **@types/xlsx** | Definiciones de tipos |
+| **html2canvas** | 1.4.x | Captura de HTML a canvas para PDF |
 
 ---
 
 ## Resumen rápido
 
-- **Backend:** Java 25 + Spring Boot 4 + JPA/Flyway/PostgreSQL + JWT (jjwt 0.12.5) + Springdoc OpenAPI + Apache POI + Lombok.
-- **Frontend:** React 19 + Vite 7 + TypeScript 5.9 + Tailwind 4 + TanStack Router & Query + Zustand + React Hook Form + Zod + Radix UI + Axios + Sonner + Lucide.
+- **Backend:** Java 25 + Spring Boot 4.0.3 + JPA/Flyway 12.2/PostgreSQL + JWT (jjwt 0.13.0) + Springdoc OpenAPI 3.0.2 + Lombok.
+- **Frontend:** React 19 + Vite 8 + TypeScript 6 + Tailwind 4 + TanStack Router & Query + Zustand + React Hook Form + Zod + Radix UI + Axios + Sonner + Lucide.
 
-Las versiones exactas se mantienen en `candas-backend/pom.xml` y `candas-frontend/package.json`.
+Las versiones exactas se mantienen en `ecubox-backend/pom.xml` y `ecubox-frontend/package.json`.

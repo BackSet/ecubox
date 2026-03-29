@@ -28,9 +28,10 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Usuario usuario = usuarioRepository.findByUsernameWithRolesAndPermisos(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
+    public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
+        Usuario usuario = usuarioRepository.findByUsernameWithRolesAndPermisos(identifier)
+                .or(() -> usuarioRepository.findByEmailIgnoreCaseWithRolesAndPermisos(identifier))
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + identifier));
 
         List<GrantedAuthority> authorities = new ArrayList<>();
         boolean isAdmin = usuario.getRoles().stream()

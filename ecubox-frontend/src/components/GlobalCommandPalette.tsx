@@ -55,16 +55,16 @@ export function GlobalCommandPalette({ open, onOpenChange }: GlobalCommandPalett
         <CommandEmpty className="py-6 text-center text-sm text-[var(--color-muted-foreground)]">
           Sin resultados.
         </CommandEmpty>
-        <CommandGroup heading="Navegación rápida" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--color-muted-foreground)]">
+        <CommandGroup heading="Navegación rápida" className="command-group-heading">
           {items.map(({ to, label, keywords, icon: Icon }) => (
             <CommandItem
               key={to}
               value={`${label} ${keywords?.join(' ') ?? ''}`}
               keywords={keywords}
               onSelect={() => handleSelect(to)}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] outline-none data-[selected=true]:bg-[var(--color-muted)]"
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm"
             >
-              <Icon className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]" />
+              <Icon className="h-4 w-4 shrink-0" />
               {label}
             </CommandItem>
           ))}

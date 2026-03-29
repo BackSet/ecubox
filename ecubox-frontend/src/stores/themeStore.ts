@@ -20,6 +20,7 @@ function applyTheme(theme: Theme) {
   const root = document.documentElement;
   const effective = resolveTheme(theme);
   root.dataset.theme = theme;
+  root.style.colorScheme = effective;
   if (effective === 'dark') {
     root.classList.add('dark');
   } else {
@@ -28,6 +29,38 @@ function applyTheme(theme: Theme) {
 }
 
 export { applyTheme };
+
+function readStoredTheme(): Theme {
+  if (typeof window === 'undefined') return 'system';
+  try {
+    const raw = window.localStorage.getItem('ecubox_theme');
+    if (!raw) return 'system';
+    const parsed = JSON.parse(raw) as { state?: { theme?: Theme } };
+    const saved = parsed.state?.theme;
+    return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+let systemListenerAttached = false;
+
+function attachSystemThemeListener() {
+  if (typeof window === 'undefined' || systemListenerAttached) return;
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  const listener = () => {
+    const current = useThemeStore.getState().theme;
+    if (current === 'system') applyTheme('system');
+  };
+  media.addEventListener('change', listener);
+  systemListenerAttached = true;
+}
+
+export function initializeTheme() {
+  const storedTheme = readStoredTheme();
+  applyTheme(storedTheme);
+  attachSystemThemeListener();
+}
 
 export const useThemeStore = create<ThemeState>()(
   persist(
@@ -49,14 +82,7 @@ export const useThemeStore = create<ThemeState>()(
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         applyTheme(state.theme);
-        if (typeof window !== 'undefined') {
-          const media = window.matchMedia('(prefers-color-scheme: dark)');
-          const listener = () => {
-            const current = useThemeStore.getState().theme;
-            if (current === 'system') applyTheme('system');
-          };
-          media.addEventListener('change', listener);
-        }
+        attachSystemThemeListener();
       },
     }
   )

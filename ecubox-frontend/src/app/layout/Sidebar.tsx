@@ -107,17 +107,14 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
         collapsed ? 'w-[52px]' : 'w-[220px]'
       )}
     >
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--color-sidebar-border)] px-2.5">
+      <div className="flex h-12 shrink-0 items-center border-b border-[var(--color-sidebar-border)] px-2.5">
         <Link
           to="/inicio"
-          className="flex items-center justify-center flex-shrink-0 p-1 -m-1 rounded-lg hover:bg-[var(--color-sidebar-hover)] transition"
+          className="flex items-center flex-shrink-0 opacity-90 hover:opacity-100 transition-opacity"
           aria-label="ECUBOX - Dashboard"
         >
-          <EcuboxLogo variant="light" size="md" asLink={false} iconOnly />
+          <EcuboxLogo variant="light" size="md" asLink={false} iconOnly={collapsed} />
         </Link>
-        {!collapsed && (
-          <span className="text-[11px] font-medium text-[var(--color-sidebar-foreground)]/75 tracking-wide">Sistema de Gestión</span>
-        )}
       </div>
 
       {onOpenSearch && (

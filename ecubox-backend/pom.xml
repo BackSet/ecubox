@@ -31,7 +31,8 @@
 		<jjwt.version>0.13.0</jjwt.version>
 		<springdoc.version>3.0.2</springdoc.version>
 		<!-- Flyway 11.14 (Spring Boot default) no reconoce PostgreSQL 18; usar 12.x -->
-		<flyway.version>12.1.1</flyway.version>
+		<flyway.version>12.2.0</flyway.version>
+		<lombok.version>1.18.44</lombok.version>
 		<!-- Credenciales Flyway tomadas del entorno para evitar secretos hardcodeados -->
 		<flyway.url>${env.FLYWAY_URL}</flyway.url>
 		<flyway.user>${env.FLYWAY_USER}</flyway.user>
@@ -135,7 +136,6 @@
 			<plugin>
 				<groupId>org.flywaydb</groupId>
 				<artifactId>flyway-maven-plugin</artifactId>
-				<version>${flyway.version}</version>
 				<configuration>
 					<url>${flyway.url}</url>
 					<user>${flyway.user}</user>
