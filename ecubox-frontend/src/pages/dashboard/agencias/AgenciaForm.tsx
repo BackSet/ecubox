@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
   Dialog,
@@ -254,20 +254,28 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
             <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
               Tarifa servicio *
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              {...form.register('tarifaServicio')}
-              value={tarifaServicioInput}
-              onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaServicioInput)}
-              onChange={(e) => {
-                const s = sanitizeNumericDecimal(e.target.value);
-                setTarifaServicioInput(s);
-                const n = s === '' || s === '.' ? NaN : Number(s);
-                form.setValue('tarifaServicio', n, { shouldValidate: true, shouldDirty: true });
-              }}
-              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
-              placeholder="0.00"
+            <Controller
+              control={form.control}
+              name="tarifaServicio"
+              render={({ field }) => (
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={tarifaServicioInput}
+                  onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaServicioInput)}
+                  onChange={(e) => {
+                    const s = sanitizeNumericDecimal(e.target.value);
+                    setTarifaServicioInput(s);
+                    const n = s === '' || s === '.' ? NaN : Number(s);
+                    field.onChange(n);
+                  }}
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
+                  placeholder="0.00"
+                />
+              )}
             />
             {form.formState.errors.tarifaServicio && (
               <p className="mt-1 text-sm text-[var(--color-destructive)]">

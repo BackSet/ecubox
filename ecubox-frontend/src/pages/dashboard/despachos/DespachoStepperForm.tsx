@@ -769,9 +769,6 @@ export function DespachoStepperForm({
     const idsNuevas: number[] = [];
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7342/ingest/b3b8a322-1eab-430b-a551-f672b4c099d0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'02d67f'},body:JSON.stringify({sessionId:'02d67f',location:'DespachoStepperForm.tsx:onSubmit',message:'sacasNuevasValidas numeroOrden list',data:{numeroOrdens:sacasNuevasValidas.map(s=>(s.numeroOrden??'').trim()),count:sacasNuevasValidas.length},hypothesisId:'H2',timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       for (const saca of sacasNuevasValidas) {
         const paqueteIdsSaca = saca.paqueteIds ?? [];
         const total = pesoTotalFromPaquetes(paqueteIdsSaca);

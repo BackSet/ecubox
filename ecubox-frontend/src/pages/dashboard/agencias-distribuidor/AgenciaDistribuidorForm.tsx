@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
   Dialog,
@@ -232,20 +232,28 @@ export function AgenciaDistribuidorForm({ id, onClose, onSuccess }: AgenciaDistr
             <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
               Tarifa *
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              {...form.register('tarifa')}
-              value={tarifaInput}
-              onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaInput)}
-              onChange={(e) => {
-                const s = sanitizeNumericDecimal(e.target.value);
-                setTarifaInput(s);
-                const n = s === '' || s === '.' ? NaN : Number(s);
-                form.setValue('tarifa', n, { shouldValidate: true, shouldDirty: true });
-              }}
-              className="input-clean"
-              placeholder="0.00"
+            <Controller
+              control={form.control}
+              name="tarifa"
+              render={({ field }) => (
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={tarifaInput}
+                  onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaInput)}
+                  onChange={(e) => {
+                    const s = sanitizeNumericDecimal(e.target.value);
+                    setTarifaInput(s);
+                    const n = s === '' || s === '.' ? NaN : Number(s);
+                    field.onChange(n);
+                  }}
+                  className="input-clean"
+                  placeholder="0.00"
+                />
+              )}
             />
             {form.formState.errors.tarifa && (
               <p className="mt-1 text-sm text-[var(--color-destructive)]">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useTarifaCalculadora, useUpdateTarifaCalculadora } from '@/hooks/useTarifaCalculadora';
 import { Button } from '@/components/ui/button';
@@ -79,20 +79,28 @@ export function TarifaCalculadoraForm() {
         >
           Tarifa por libra (USD)
         </label>
-        <input
-          id="tarifaPorLibra"
-          type="text"
-          inputMode="decimal"
-          {...form.register('tarifaPorLibra')}
-          value={tarifaInput}
-          onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaInput)}
-          onChange={(e) => {
-            const s = normalizeTarifaInput(e.target.value);
-            setTarifaInput(s);
-            const n = s === '' || s === '.' ? NaN : Number(s);
-            form.setValue('tarifaPorLibra', n, { shouldValidate: true, shouldDirty: true });
-          }}
-          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+        <Controller
+          control={form.control}
+          name="tarifaPorLibra"
+          render={({ field }) => (
+            <input
+              id="tarifaPorLibra"
+              type="text"
+              inputMode="decimal"
+              name={field.name}
+              ref={field.ref}
+              onBlur={field.onBlur}
+              value={tarifaInput}
+              onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaInput)}
+              onChange={(e) => {
+                const s = normalizeTarifaInput(e.target.value);
+                setTarifaInput(s);
+                const n = s === '' || s === '.' ? NaN : Number(s);
+                field.onChange(n);
+              }}
+              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+            />
+          )}
         />
         <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
           Puedes usar punto o coma. Máximo 4 decimales.
