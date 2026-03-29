@@ -1,8 +1,14 @@
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 import { apiClient } from '@/lib/api/client';
+import { clampNonNegative, roundToDecimals, toFiniteNumber } from '@/lib/utils/decimal';
 
 export interface TarifaCalculadora {
   tarifaPorLibra: number;
+}
+
+function normalizeTarifaPorLibra(value: unknown): number {
+  const parsed = toFiniteNumber(value, 0);
+  return roundToDecimals(clampNonNegative(parsed), 4);
 }
 
 /** Construye la URL absoluta del endpoint público de tarifa (sin token). */
@@ -37,7 +43,7 @@ export async function getTarifaCalculadoraPublic(): Promise<TarifaCalculadora> {
   }
   const data = await res.json();
   return {
-    tarifaPorLibra: data.tarifaPorLibra != null ? Number(data.tarifaPorLibra) : 0,
+    tarifaPorLibra: normalizeTarifaPorLibra(data.tarifaPorLibra),
   };
 }
 
@@ -49,7 +55,7 @@ const OPERARIO_BASE = API_ENDPOINTS.operarioConfigTarifaCalculadora;
 export async function getTarifaCalculadora(): Promise<TarifaCalculadora> {
   const { data } = await apiClient.get<TarifaCalculadora>(OPERARIO_BASE);
   return {
-    tarifaPorLibra: data.tarifaPorLibra != null ? Number(data.tarifaPorLibra) : 0,
+    tarifaPorLibra: normalizeTarifaPorLibra(data.tarifaPorLibra),
   };
 }
 
@@ -59,8 +65,11 @@ export async function getTarifaCalculadora(): Promise<TarifaCalculadora> {
 export async function updateTarifaCalculadora(body: {
   tarifaPorLibra: number;
 }): Promise<TarifaCalculadora> {
-  const { data } = await apiClient.put<TarifaCalculadora>(OPERARIO_BASE, body);
+  const requestBody = {
+    tarifaPorLibra: normalizeTarifaPorLibra(body.tarifaPorLibra),
+  };
+  const { data } = await apiClient.put<TarifaCalculadora>(OPERARIO_BASE, requestBody);
   return {
-    tarifaPorLibra: data.tarifaPorLibra != null ? Number(data.tarifaPorLibra) : 0,
+    tarifaPorLibra: normalizeTarifaPorLibra(data.tarifaPorLibra),
   };
 }

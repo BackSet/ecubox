@@ -14,6 +14,7 @@ import { useDestinatarios } from '@/hooks/useDestinatarios';
 import { useCreatePaquete, useUpdatePaquete } from '@/hooks/usePaquetes';
 import { useDestinatariosOperario } from '@/hooks/useOperarioDespachos';
 import { sugerirRef } from '@/lib/api/paquetes.service';
+import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
@@ -437,23 +438,25 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
                   Peso lbs (opcional)
                 </label>
                 <input
-                  type="number"
-                  step="any"
-                  {...((): React.InputHTMLAttributes<HTMLInputElement> => {
-                    const { onChange, ...rest } = form.register('pesoLbs', { valueAsNumber: true });
-                    return {
-                      ...rest,
-                      onChange: (e) => {
-                        onChange(e);
-                        const n = parseFloat(e.target.value);
-                        if (!Number.isNaN(n) && n >= 0) {
-                          form.setValue('pesoKg', lbsToKg(n), { shouldValidate: false });
-                        } else {
-                          form.setValue('pesoKg', undefined, { shouldValidate: false });
-                        }
-                      },
-                    };
+                  type="text"
+                  inputMode="decimal"
+                  value={(() => {
+                    const v = form.watch('pesoLbs');
+                    return typeof v === 'number' && !Number.isNaN(v) ? String(v) : '';
                   })()}
+                  onKeyDown={(e) =>
+                    onKeyDownNumericDecimal(e, String(form.watch('pesoLbs') ?? ''))
+                  }
+                  onChange={(e) => {
+                    const s = sanitizeNumericDecimal(e.target.value);
+                    const n = s === '' ? undefined : Number(s);
+                    form.setValue('pesoLbs', n, { shouldValidate: true, shouldDirty: true });
+                    if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
+                      form.setValue('pesoKg', lbsToKg(n), { shouldValidate: false, shouldDirty: true });
+                    } else {
+                      form.setValue('pesoKg', undefined, { shouldValidate: false, shouldDirty: true });
+                    }
+                  }}
                   className="input-clean"
                   placeholder="0"
                 />
@@ -463,23 +466,25 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
                   Peso kg (opcional)
                 </label>
                 <input
-                  type="number"
-                  step="any"
-                  {...((): React.InputHTMLAttributes<HTMLInputElement> => {
-                    const { onChange, ...rest } = form.register('pesoKg', { valueAsNumber: true });
-                    return {
-                      ...rest,
-                      onChange: (e) => {
-                        onChange(e);
-                        const n = parseFloat(e.target.value);
-                        if (!Number.isNaN(n) && n >= 0) {
-                          form.setValue('pesoLbs', kgToLbs(n), { shouldValidate: false });
-                        } else {
-                          form.setValue('pesoLbs', undefined, { shouldValidate: false });
-                        }
-                      },
-                    };
+                  type="text"
+                  inputMode="decimal"
+                  value={(() => {
+                    const v = form.watch('pesoKg');
+                    return typeof v === 'number' && !Number.isNaN(v) ? String(v) : '';
                   })()}
+                  onKeyDown={(e) =>
+                    onKeyDownNumericDecimal(e, String(form.watch('pesoKg') ?? ''))
+                  }
+                  onChange={(e) => {
+                    const s = sanitizeNumericDecimal(e.target.value);
+                    const n = s === '' ? undefined : Number(s);
+                    form.setValue('pesoKg', n, { shouldValidate: true, shouldDirty: true });
+                    if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
+                      form.setValue('pesoLbs', kgToLbs(n), { shouldValidate: false, shouldDirty: true });
+                    } else {
+                      form.setValue('pesoLbs', undefined, { shouldValidate: false, shouldDirty: true });
+                    }
+                  }}
                   className="input-clean"
                   placeholder="0"
                 />

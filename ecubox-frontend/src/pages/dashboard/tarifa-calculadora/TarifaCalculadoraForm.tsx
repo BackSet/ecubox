@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/LoadingState';
 import { toast } from 'sonner';
 import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
+import { clampNonNegative, roundToDecimals } from '@/lib/utils/decimal';
 
 const formSchema = z.object({
   tarifaPorLibra: z
@@ -44,7 +45,7 @@ export function TarifaCalculadoraForm() {
 
   async function onSubmit(values: FormValues) {
     try {
-      const tarifaNormalizada = Number(values.tarifaPorLibra.toFixed(4));
+      const tarifaNormalizada = roundToDecimals(clampNonNegative(values.tarifaPorLibra), 4);
       await updateMutation.mutateAsync({
         tarifaPorLibra: tarifaNormalizada,
       });

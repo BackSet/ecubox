@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { EcuboxLogo } from '@/components/brand';
 import { getTarifaCalculadoraPublic } from '@/lib/api/tarifa-calculadora.service';
 import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
+import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import { Calculator } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,7 +34,7 @@ export function CalculadoraPage() {
     setPesoLbs(sanitized);
     const n = sanitized === '' ? NaN : Number(sanitized);
     if (!Number.isNaN(n) && n >= 0) {
-      setPesoKg(String(Math.round((n / 2.20462262185) * 100) / 100));
+      setPesoKg(String(lbsToKg(n)));
     } else {
       setPesoKg('');
     }
@@ -44,7 +45,7 @@ export function CalculadoraPage() {
     setPesoKg(sanitized);
     const n = sanitized === '' ? NaN : Number(sanitized);
     if (!Number.isNaN(n) && n >= 0) {
-      setPesoLbs(String(Math.round(n * 2.20462262185 * 100) / 100));
+      setPesoLbs(String(kgToLbs(n)));
     } else {
       setPesoLbs('');
     }
