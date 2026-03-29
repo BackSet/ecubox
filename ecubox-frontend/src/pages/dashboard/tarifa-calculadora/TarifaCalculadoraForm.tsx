@@ -17,6 +17,14 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+function normalizeTarifaInput(value: string): string {
+  const normalized = sanitizeNumericDecimal(value);
+  if (!normalized.includes('.')) return normalized;
+  const [integerPart, decimalPart = ''] = normalized.split('.');
+  const decimalLimited = decimalPart.slice(0, 4);
+  return decimalLimited.length > 0 ? `${integerPart}.${decimalLimited}` : integerPart;
+}
+
 export function TarifaCalculadoraForm() {
   const { data: tarifa, isLoading, error } = useTarifaCalculadora();
   const updateMutation = useUpdateTarifaCalculadora();
@@ -36,8 +44,9 @@ export function TarifaCalculadoraForm() {
 
   async function onSubmit(values: FormValues) {
     try {
+      const tarifaNormalizada = Number(values.tarifaPorLibra.toFixed(4));
       await updateMutation.mutateAsync({
-        tarifaPorLibra: Number(values.tarifaPorLibra),
+        tarifaPorLibra: tarifaNormalizada,
       });
       toast.success('Tarifa guardada correctamente');
     } catch {
@@ -76,11 +85,14 @@ export function TarifaCalculadoraForm() {
           })()}
           onKeyDown={(e) => onKeyDownNumericDecimal(e, String(form.watch('tarifaPorLibra') ?? ''))}
           onChange={(e) => {
-            const s = sanitizeNumericDecimal(e.target.value);
+            const s = normalizeTarifaInput(e.target.value);
             form.setValue('tarifaPorLibra', s === '' ? NaN : Number(s), { shouldValidate: true });
           }}
           className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
         />
+        <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+          Puedes usar punto o coma. Máximo 4 decimales.
+        </p>
         {form.formState.errors.tarifaPorLibra && (
           <p className="mt-1 text-sm text-[var(--color-destructive)]">
             {form.formState.errors.tarifaPorLibra.message}

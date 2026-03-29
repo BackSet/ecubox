@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { Truck, Package, ClipboardList, ArrowRight } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 
 const QUICK_ACTIONS = [
   {
@@ -8,6 +9,7 @@ const QUICK_ACTIONS = [
     icon: Truck,
     to: '/despachos',
     color: 'text-[var(--color-primary)]',
+    permission: 'DESPACHOS_WRITE',
   },
   {
     label: 'Paquetes',
@@ -15,6 +17,7 @@ const QUICK_ACTIONS = [
     icon: Package,
     to: '/paquetes',
     color: 'text-[var(--color-accent)]',
+    permission: 'PAQUETES_READ',
   },
   {
     label: 'Lotes de recepción',
@@ -22,10 +25,16 @@ const QUICK_ACTIONS = [
     icon: ClipboardList,
     to: '/lotes-recepcion',
     color: 'text-[var(--color-success)]',
+    permission: 'DESPACHOS_WRITE',
   },
 ] as const;
 
 export function DashboardPage() {
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const visibleActions = QUICK_ACTIONS.filter((action) =>
+    action.permission ? hasPermission(action.permission) : true
+  );
+
   return (
     <div className="space-y-6">
       <div className="surface-card p-6">
@@ -38,7 +47,7 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {QUICK_ACTIONS.map((action) => {
+        {visibleActions.map((action) => {
           const Icon = action.icon;
           return (
             <Link

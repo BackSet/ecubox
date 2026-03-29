@@ -185,7 +185,6 @@ export function DestinatarioForm({ id, useOperarioApi = false, onClose, onSucces
             </div>
           </section>
           <section className="space-y-4">
-            <h3 className="text-sm font-medium text-[var(--color-foreground)]">Dirección</h3>
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Dirección *
