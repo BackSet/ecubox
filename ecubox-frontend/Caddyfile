@@ -1,7 +1,7 @@
-:{$PORT}
+:80
 
 encode zstd gzip
-root * dist
+root * /srv/dist
 
 @assets {
 	path *.css *.js *.mjs *.ico *.svg *.png *.jpg *.jpeg *.gif *.webp *.woff *.woff2 *.ttf
