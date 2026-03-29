@@ -1,2 +1,17 @@
 .cursor/
 .vscode/
+
+# Monorepo build outputs and caches
+**/target/
+**/dist/
+**/node_modules/
+**/*.tsbuildinfo
+
+# Local env files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Logs
+*.log
+**/logs/

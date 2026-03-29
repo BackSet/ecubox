@@ -11,7 +11,8 @@ ECUBOX/
 ├── ecubox-backend/    # API REST — Java 25, Spring Boot 4.0.3
 ├── ecubox-frontend/   # SPA — React 19, Vite 8, TypeScript 6
 ├── docker-compose.yml # Orquestación local (backend + frontend + PostgreSQL)
-└── docs (*.md)        # TECH-STACK, ARQUITECTURA_BACKEND, UX-UI-DESIGN
+├── docs/branding/     # Activos de branding archivados
+└── *.md               # Documentación principal del proyecto
 ```
 
 ## Prerequisitos
@@ -94,6 +95,7 @@ El frontend arranca en `http://localhost:5173`.
 - [ARQUITECTURA_BACKEND.md](ARQUITECTURA_BACKEND.md) — Arquitectura del backend
 - [UX-UI-DESIGN.md](UX-UI-DESIGN.md) — Sistema de diseño UX/UI
 - [RAILWAY_PRODUCCION_GUIA.md](RAILWAY_PRODUCCION_GUIA.md) — Guía de despliegue en Railway
+- [docs/branding/ecubox-branding.html](docs/branding/ecubox-branding.html) — Archivo histórico de branding
 
 ### Nota de despliegue Railway
 
