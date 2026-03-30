@@ -4,7 +4,7 @@ import { Package, MapPin, Zap } from 'lucide-react';
 const FEATURES = [
   {
     title: 'Casillero USA',
-    description: 'Recibe tus compras en nuestra dirección en Miami y consolida envíos para ahorrar en fletes.',
+    description: 'Recibe tus compras en nuestra dirección en New Jersey y consolida envíos para ahorrar en fletes.',
     icon: Package,
     href: '/registro',
   },
@@ -16,7 +16,7 @@ const FEATURES = [
   },
   {
     title: 'Envíos rápidos',
-    description: 'Despachos frecuentes desde Miami directo a Ecuador. Rapidez y seguridad en cada entrega.',
+    description: 'Despachos frecuentes desde New Jersey directo a Ecuador. Rapidez y seguridad en cada entrega.',
     icon: Zap,
     href: '/calculadora',
   },

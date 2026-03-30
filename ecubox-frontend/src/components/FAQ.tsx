@@ -16,7 +16,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '¿Cuánto tarda en llegar mi compra?',
-    a: 'Desde USA suele tardar entre 5 y 8 días laborables una vez que llega a nuestro almacén en Miami.',
+    a: 'Desde USA suele tardar entre 8 y 12 días laborables una vez que llega a nuestro almacén en New Jersey.',
   },
   {
     q: '¿Cómo funcionan las tarifas?',

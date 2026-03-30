@@ -8,6 +8,9 @@ import { Calculator } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+const MIN_PESO_LBS_RECARGO = 4;
+const RECARGO_ENVIO_MENOR_PESO = 3.5;
+
 export function CalculadoraPage() {
   const [tarifaPorLibra, setTarifaPorLibra] = useState<number | null>(null);
   const [tarifaError, setTarifaError] = useState<string | null>(null);
@@ -54,7 +57,10 @@ export function CalculadoraPage() {
   const pesoLbsNum = pesoLbs === '' ? NaN : Number(pesoLbs);
   const hasValidPeso = !Number.isNaN(pesoLbsNum) && pesoLbsNum > 0;
   const tarifa = tarifaPorLibra ?? 0;
-  const costoEstimado = hasValidPeso && tarifa >= 0 ? pesoLbsNum * tarifa : null;
+  const costoBase = hasValidPeso && tarifa >= 0 ? pesoLbsNum * tarifa : null;
+  const aplicaRecargo = hasValidPeso && pesoLbsNum < MIN_PESO_LBS_RECARGO;
+  const recargoEnvio = aplicaRecargo ? RECARGO_ENVIO_MENOR_PESO : 0;
+  const costoEstimado = costoBase != null ? costoBase + recargoEnvio : null;
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] flex flex-col">
@@ -79,7 +85,7 @@ export function CalculadoraPage() {
               Calculadora de envío
             </h1>
             <p className="text-sm text-[var(--color-muted-foreground)]">
-              Ingresa el peso para obtener un costo estimado (tarifa por libra).
+              Ingresa el peso para obtener un costo estimado todo incluido con transporte Servientrega.
             </p>
           </div>
 
@@ -96,6 +102,9 @@ export function CalculadoraPage() {
             <>
               <div className="surface-card p-4 text-sm text-[var(--color-muted-foreground)]">
                 Tarifa actual: <strong className="text-[var(--color-foreground)]">${tarifa.toFixed(2)} USD / libra</strong>
+                <p className="mt-2">
+                  Transporte Servientrega incluido. Si el paquete pesa menos de {MIN_PESO_LBS_RECARGO} lb, se suma un recargo fijo de ${RECARGO_ENVIO_MENOR_PESO.toFixed(2)}.
+                </p>
               </div>
 
               <div className="surface-card p-5 space-y-4">
@@ -146,9 +155,16 @@ export function CalculadoraPage() {
                   <p className="text-2xl font-bold text-[var(--color-foreground)]">
                     ${costoEstimado.toFixed(2)} USD
                   </p>
-                  <p className="text-sm text-[var(--color-muted-foreground)]">
-                    {pesoLbsNum} lbs × ${tarifa.toFixed(2)}/lb
-                  </p>
+                  {costoBase != null && aplicaRecargo ? (
+                    <div className="space-y-0.5 text-sm text-[var(--color-muted-foreground)]">
+                      <p>{pesoLbsNum} lbs × ${tarifa.toFixed(2)}/lb = ${costoBase.toFixed(2)}</p>
+                      <p>Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lb): +${RECARGO_ENVIO_MENOR_PESO.toFixed(2)}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[var(--color-muted-foreground)]">
+                      {pesoLbsNum} lbs × ${tarifa.toFixed(2)}/lb
+                    </p>
+                  )}
                 </div>
               )}
             </>
