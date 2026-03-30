@@ -8,14 +8,11 @@ import {
   updateEstadoRastreo,
   desactivarEstadoRastreo,
   deleteEstadoRastreo,
-  getTransicionesEstadoRastreo,
-  replaceTransicionesEstadoRastreo,
   reorderTrackingEstadoRastreo,
 } from '@/lib/api/estados-rastreo.service';
 import type {
   EstadoRastreoOrdenTrackingRequest,
   EstadoRastreoRequest,
-  EstadoRastreoTransicionUpsertItem,
   EstadosRastreoPorPuntoRequest,
 } from '@/types/estado-rastreo';
 
@@ -23,10 +20,6 @@ export const ESTADOS_RASTREO_QUERY_KEY = ['estados-rastreo'] as const;
 export const ESTADOS_RASTREO_POR_PUNTO_QUERY_KEY = [
   'estados-rastreo-por-punto',
 ] as const;
-export const ESTADOS_RASTREO_TRANSICIONES_QUERY_KEY = [
-  'estados-rastreo-transiciones',
-] as const;
-
 export function useEstadosRastreo() {
   return useQuery({
     queryKey: ESTADOS_RASTREO_QUERY_KEY,
@@ -96,30 +89,6 @@ export function useDeleteEstadoRastreo() {
     mutationFn: (id: number) => deleteEstadoRastreo(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ESTADOS_RASTREO_QUERY_KEY });
-    },
-  });
-}
-
-export function useTransicionesEstadoRastreo(estadoOrigenId?: number) {
-  return useQuery({
-    queryKey: [...ESTADOS_RASTREO_TRANSICIONES_QUERY_KEY, estadoOrigenId],
-    queryFn: () => getTransicionesEstadoRastreo(estadoOrigenId as number),
-    enabled: typeof estadoOrigenId === 'number',
-  });
-}
-
-export function useReplaceTransicionesEstadoRastreo() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      estadoOrigenId,
-      transiciones,
-    }: {
-      estadoOrigenId: number;
-      transiciones: EstadoRastreoTransicionUpsertItem[];
-    }) => replaceTransicionesEstadoRastreo(estadoOrigenId, transiciones),
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: [...ESTADOS_RASTREO_TRANSICIONES_QUERY_KEY, vars.estadoOrigenId] });
     },
   });
 }

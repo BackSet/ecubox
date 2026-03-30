@@ -164,13 +164,3 @@ export async function buscarPaquetesPorGuias(
   return data;
 }
 
-export async function liberarIncidenciaPaquete(
-  paqueteId: number,
-  motivoAlterno?: string
-): Promise<Paquete> {
-  const { data } = await apiClient.patch<Paquete>(
-    `${OPERARIO_BASE}/${paqueteId}/liberar-incidencia`,
-    { motivoAlterno }
-  );
-  return data;
-}

@@ -3,7 +3,7 @@ export interface TrackingEstadoItem {
   codigo: string;
   nombre: string;
   orden: number;
-  tipoFlujo?: 'NORMAL' | 'ALTERNO' | 'MIXTO';
+  tipoFlujo?: 'NORMAL' | 'ALTERNO';
   leyenda: string | null;
   esActual: boolean;
 }

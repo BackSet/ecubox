@@ -3,10 +3,7 @@ package com.ecubox.ecubox_backend.controller;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoOrdenTrackingRequest;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoRequest;
-import com.ecubox.ecubox_backend.dto.EstadoRastreoTransicionDTO;
-import com.ecubox.ecubox_backend.dto.EstadoRastreoTransicionUpsertRequest;
 import com.ecubox.ecubox_backend.service.EstadoRastreoService;
-import com.ecubox.ecubox_backend.service.EstadoRastreoTransicionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +17,9 @@ import java.util.List;
 public class EstadoRastreoController {
 
     private final EstadoRastreoService estadoRastreoService;
-    private final EstadoRastreoTransicionService estadoRastreoTransicionService;
 
-    public EstadoRastreoController(EstadoRastreoService estadoRastreoService,
-                                   EstadoRastreoTransicionService estadoRastreoTransicionService) {
+    public EstadoRastreoController(EstadoRastreoService estadoRastreoService) {
         this.estadoRastreoService = estadoRastreoService;
-        this.estadoRastreoTransicionService = estadoRastreoTransicionService;
     }
 
     @GetMapping
@@ -70,20 +64,6 @@ public class EstadoRastreoController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         estadoRastreoService.delete(id);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/{id}/transiciones")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_READ') or hasRole('ADMIN') or hasRole('OPERARIO')")
-    public ResponseEntity<List<EstadoRastreoTransicionDTO>> getTransiciones(@PathVariable Long id) {
-        return ResponseEntity.ok(estadoRastreoTransicionService.findByEstadoOrigen(id));
-    }
-
-    @PutMapping("/{id}/transiciones")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_UPDATE') or hasRole('ADMIN') or hasRole('OPERARIO')")
-    public ResponseEntity<List<EstadoRastreoTransicionDTO>> replaceTransiciones(
-            @PathVariable Long id,
-            @Valid @RequestBody EstadoRastreoTransicionUpsertRequest request) {
-        return ResponseEntity.ok(estadoRastreoTransicionService.replaceTransiciones(id, request.getTransiciones()));
     }
 
     @PutMapping("/orden-tracking")

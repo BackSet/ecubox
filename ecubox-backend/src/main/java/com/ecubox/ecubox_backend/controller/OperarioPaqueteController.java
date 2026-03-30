@@ -11,7 +11,6 @@ import com.ecubox.ecubox_backend.dto.PaqueteGuiaEnvioRequest;
 import com.ecubox.ecubox_backend.dto.AsignarGuiaEnvioBulkRequest;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.EstadosDestinoPermitidosRequest;
-import com.ecubox.ecubox_backend.dto.LiberarIncidenciaRequest;
 import com.ecubox.ecubox_backend.service.PaqueteService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -102,11 +101,4 @@ public class OperarioPaqueteController {
         return ResponseEntity.ok(paqueteService.buscarPorNumeroGuias(request.getNumeroGuias()));
     }
 
-    @PatchMapping("/{paqueteId}/liberar-incidencia")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
-    public ResponseEntity<PaqueteDTO> liberarIncidencia(
-            @PathVariable Long paqueteId,
-            @RequestBody(required = false) LiberarIncidenciaRequest request) {
-        return ResponseEntity.ok(paqueteService.liberarIncidencia(paqueteId, request));
-    }
 }

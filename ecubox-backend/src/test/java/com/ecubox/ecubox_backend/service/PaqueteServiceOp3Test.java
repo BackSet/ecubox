@@ -1,9 +1,9 @@
 package com.ecubox.ecubox_backend.service;
 
+import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
-import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
@@ -15,13 +15,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -43,8 +42,6 @@ class PaqueteServiceOp3Test {
     @Mock
     private EstadoRastreoService estadoRastreoService;
     @Mock
-    private EstadoRastreoTransicionService estadoRastreoTransicionService;
-    @Mock
     private TrackingEventService trackingEventService;
 
     private PaqueteService paqueteService;
@@ -58,38 +55,19 @@ class PaqueteServiceOp3Test {
                 loteRecepcionGuiaRepository,
                 parametroSistemaService,
                 estadoRastreoService,
-                estadoRastreoTransicionService,
                 trackingEventService,
                 false
         );
     }
 
     @Test
-    void noPermiteAvanceSiBloqueadoYSinTransicionDeResolucion() {
-        EstadoRastreo origen = EstadoRastreo.builder().id(1L).nombre("Retenido").build();
-        EstadoRastreo destino = EstadoRastreo.builder().id(2L).nombre("En ruta").build();
-        Paquete p = Paquete.builder()
-                .id(10L)
-                .estadoRastreo(origen)
-                .bloqueado(true)
-                .build();
-
-        when(paqueteRepository.findById(10L)).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findEntityById(2L)).thenReturn(destino);
-        when(estadoRastreoTransicionService.isTransicionPermitida(1L, 2L)).thenReturn(true);
-        when(estadoRastreoTransicionService.isTransicionResolucion(1L, 2L)).thenReturn(false);
-
-        assertThrows(BadRequestException.class, () -> paqueteService.cambiarEstadoRastreo(10L, 2L, null));
-    }
-
-    @Test
-    void marcaFlujoAlternoYBloqueoAlEntrarEstadoAlternoBloqueante() {
+    void marcaFlujoAlternoAlEntrarEstadoAlterno() {
         EstadoRastreo origen = EstadoRastreo.builder().id(1L).nombre("En ruta").build();
         EstadoRastreo destinoAlterno = EstadoRastreo.builder()
                 .id(3L)
                 .nombre("Retenido en aduana")
+                .activo(true)
                 .tipoFlujo(TipoFlujoEstado.ALTERNO)
-                .bloqueante(true)
                 .build();
         Paquete p = Paquete.builder()
                 .id(20L)
@@ -98,9 +76,10 @@ class PaqueteServiceOp3Test {
                 .enFlujoAlterno(false)
                 .build();
 
+        when(parametroSistemaService.getEstadosRastreoPorPunto())
+                .thenReturn(EstadosRastreoPorPuntoDTO.builder().build());
         when(paqueteRepository.findById(20L)).thenReturn(Optional.of(p));
         when(estadoRastreoService.findEntityById(3L)).thenReturn(destinoAlterno);
-        when(estadoRastreoTransicionService.isTransicionPermitida(1L, 3L)).thenReturn(true);
         when(paqueteRepository.save(any(Paquete.class))).thenAnswer(inv -> inv.getArgument(0));
 
         paqueteService.cambiarEstadoRastreo(20L, 3L, "Retenido para revisión");
@@ -109,9 +88,9 @@ class PaqueteServiceOp3Test {
         verify(paqueteRepository).save(captor.capture());
         Paquete saved = captor.getValue();
         assertTrue(Boolean.TRUE.equals(saved.getEnFlujoAlterno()));
-        assertTrue(Boolean.TRUE.equals(saved.getBloqueado()));
+        assertFalse(Boolean.TRUE.equals(saved.getBloqueado()));
         assertEquals("Retenido para revisión", saved.getMotivoAlterno());
-        assertTrue(saved.getFechaBloqueoDesde() instanceof LocalDateTime);
+        assertNull(saved.getFechaBloqueoDesde());
     }
 
     @Test
@@ -168,4 +147,3 @@ class PaqueteServiceOp3Test {
         assertTrue(response.getEstados().stream().anyMatch(item -> "RETENIDO".equals(item.getCodigo()) && item.isEsActual()));
     }
 }
-

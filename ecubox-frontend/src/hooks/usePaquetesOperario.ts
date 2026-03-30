@@ -5,7 +5,6 @@ import {
   updateEstadoRastreo,
   cambiarEstadoRastreoBulk,
   getEstadosDestinoPermitidos,
-  liberarIncidenciaPaquete,
   asignarGuiaEnvio as apiAsignarGuiaEnvio,
   asignarGuiaEnvioBulk,
   type PaquetePesoItem,
@@ -59,18 +58,6 @@ export function useEstadosDestinoPermitidos(paqueteIds: number[]) {
     queryKey: [...OPERARIO_PAQUETES_QUERY_KEY, 'estados-destino', paqueteIds.slice().sort((a, b) => a - b).join(',')],
     queryFn: () => getEstadosDestinoPermitidos(paqueteIds),
     enabled: paqueteIds.length > 0,
-  });
-}
-
-export function useLiberarIncidenciaPaquete() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ paqueteId, motivoAlterno }: { paqueteId: number; motivoAlterno?: string }) =>
-      liberarIncidenciaPaquete(paqueteId, motivoAlterno),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: PAQUETES_SIN_SACA_QUERY_KEY });
-    },
   });
 }
 

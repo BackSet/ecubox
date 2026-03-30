@@ -21,6 +21,5 @@ public class EstadoRastreoDTO {
     private Boolean activo;
     private String leyenda;
     private TipoFlujoEstado tipoFlujo;
-    private Boolean bloqueante;
     private Boolean publicoTracking;
 }

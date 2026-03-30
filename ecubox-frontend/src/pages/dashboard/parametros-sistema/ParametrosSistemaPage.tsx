@@ -39,8 +39,6 @@ import {
   useDesactivarEstadoRastreo,
   useDeleteEstadoRastreo,
   useReorderTrackingEstadosRastreo,
-  useTransicionesEstadoRastreo,
-  useReplaceTransicionesEstadoRastreo,
 } from '@/hooks/useEstadosRastreo';
 import {
   VARIABLES_DESPACHO_GROUPS,
@@ -54,7 +52,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
-import type { EstadoRastreo, EstadoRastreoRequest, EstadoRastreoTransicionUpsertItem } from '@/types/estado-rastreo';
+import type { EstadoRastreo, EstadoRastreoRequest } from '@/types/estado-rastreo';
 import { z } from 'zod';
 
 type OpcionActiva =
@@ -70,6 +68,32 @@ const estadoRastreoFormSchema = z.object({
   codigo: z.string().trim().min(1, 'Código obligatorio'),
   nombre: z.string().trim().min(1, 'Nombre obligatorio'),
 });
+
+/** Secuencia de posiciones de tracking que aplicará el backend al guardar (cada base y sus alternos justo después). */
+function buildEffectiveTrackingOrder(
+  baseOrderIds: number[],
+  estadoPorId: Map<number, EstadoRastreo>,
+  alternoAfterById: Record<number, number>,
+  alternosSorted: EstadoRastreo[]
+): EstadoRastreo[] {
+  const alternosTrasBase = new Map<number, EstadoRastreo[]>();
+  for (const baseId of baseOrderIds) {
+    alternosTrasBase.set(baseId, []);
+  }
+  for (const alt of alternosSorted) {
+    const after = alternoAfterById[alt.id];
+    if (after != null) {
+      alternosTrasBase.get(after)?.push(alt);
+    }
+  }
+  const result: EstadoRastreo[] = [];
+  for (const baseId of baseOrderIds) {
+    const base = estadoPorId.get(baseId);
+    if (base) result.push(base);
+    result.push(...(alternosTrasBase.get(baseId) ?? []));
+  }
+  return result;
+}
 
 function ParametrosHeader({
   icon,
@@ -621,10 +645,8 @@ function EstadosRastreoView() {
     activo: true,
     leyenda: '',
     tipoFlujo: 'NORMAL',
-    bloqueante: false,
     publicoTracking: true,
   });
-  const [origenTransiciones, setOrigenTransiciones] = useState<EstadoRastreo | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [desactivarId, setDesactivarId] = useState<number | null>(null);
   const [baseOrderIds, setBaseOrderIds] = useState<number[]>([]);
@@ -720,7 +742,6 @@ function EstadosRastreoView() {
         activo: true,
         leyenda: '',
         tipoFlujo: 'NORMAL',
-        bloqueante: false,
         publicoTracking: true,
       });
     } catch (e: unknown) {
@@ -827,12 +848,18 @@ function EstadosRastreoView() {
     Object.entries(alternoAfterOriginal).some(([k, v]) => alternoAfterById[Number(k)] !== v);
   const trackingOrderDirty = !sameOrder(baseOrderIds, ordenBaseOriginal) || alternoDirty;
   const isDirty = creating || editing != null || trackingOrderDirty;
+  const ordenEfectivoTracking = buildEffectiveTrackingOrder(
+    baseOrderIds,
+    estadoPorId,
+    alternoAfterById,
+    estadosAlternosOrdenados
+  );
   return (
     <div className="space-y-6">
       <ParametrosHeader
         icon={<ListOrdered className="h-7 w-7" />}
         title="Estados de rastreo"
-        description="Catálogo de estados por los que puede pasar un paquete. Crea y edita estados; en cada uno configura las transiciones (a qué estados se puede pasar) y si es de flujo normal o alterno."
+        description="Catálogo de estados por los que puede pasar un paquete. Define flujo normal o alterno, bloqueo y visibilidad en tracking; el orden público se arma con la sección de abajo (numeración base y «después de» para alternos)."
         status={{ label: isDirty ? 'Cambios pendientes' : 'Sin cambios', variant: isDirty ? 'outline' : 'secondary' }}
       />
 
@@ -842,12 +869,12 @@ function EstadosRastreoView() {
         </div>
       )}
 
-      <section className="space-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+      <section className="space-y-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Orden global para tracking público</h3>
+            <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Orden para tracking público</h3>
             <p className="text-xs text-[var(--color-muted-foreground)]">
-              Se numera solo el flujo base. Los alternos se colocan por regla “después de”.
+              Flujo normal: numeración 1…n. Estados alternos: eligen un estado base «después del cual» aparecerán en la línea de tiempo (sin número propio en la tabla).
             </p>
           </div>
           <Button
@@ -858,46 +885,53 @@ function EstadosRastreoView() {
             {reorderMutation.isPending ? 'Guardando orden...' : 'Guardar orden tracking'}
           </Button>
         </div>
-        <div className="space-y-2">
-          {estadosBaseOrdenados.map((estado, index) => (
-            <div
-              key={estado.id}
-              className="flex items-center justify-between rounded-lg border border-[var(--color-border)]/80 px-3 py-2"
-            >
-              <div className="text-sm">
-                <span className="font-semibold text-[var(--color-foreground)]">{index + 1}.</span>{' '}
-                <span className="text-[var(--color-foreground)]">{estado.nombre}</span>{' '}
-                <span className="font-mono text-xs text-[var(--color-muted-foreground)]">({estado.codigo})</span>
+
+        <div className="space-y-2 rounded-lg border border-[var(--color-border)]/70 bg-[var(--color-background)]/40 p-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">
+            Flujo normal
+          </h4>
+          <div className="space-y-2">
+            {estadosBaseOrdenados.map((estado, index) => (
+              <div
+                key={estado.id}
+                className="flex items-center justify-between rounded-lg border border-[var(--color-border)]/80 px-3 py-2"
+              >
+                <div className="text-sm">
+                  <span className="font-semibold text-[var(--color-foreground)]">{index + 1}.</span>{' '}
+                  <span className="text-[var(--color-foreground)]">{estado.nombre}</span>{' '}
+                  <span className="font-mono text-xs text-[var(--color-muted-foreground)]">({estado.codigo})</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => moveBaseOrder(estado.id, -1)}
+                    disabled={!canWrite || index === 0}
+                    aria-label={`Subir ${estado.nombre}`}
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => moveBaseOrder(estado.id, 1)}
+                    disabled={!canWrite || index === estadosBaseOrdenados.length - 1}
+                    aria-label={`Bajar ${estado.nombre}`}
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => moveBaseOrder(estado.id, -1)}
-                  disabled={!canWrite || index === 0}
-                  aria-label={`Subir ${estado.nombre}`}
-                >
-                  <ArrowUp className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => moveBaseOrder(estado.id, 1)}
-                  disabled={!canWrite || index === estadosBaseOrdenados.length - 1}
-                  aria-label={`Bajar ${estado.nombre}`}
-                >
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
+
         {estadosAlternosOrdenados.length > 0 && (
-          <div className="space-y-2 pt-2">
+          <div className="space-y-2 rounded-lg border border-[var(--color-border)]/70 bg-[var(--color-background)]/40 p-3">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">
-              Estados alternos (sin numeración)
+              Estados alternos
             </h4>
             {estadosAlternosOrdenados.map((estado) => (
               <div
@@ -932,17 +966,33 @@ function EstadosRastreoView() {
             ))}
           </div>
         )}
+
+        {ordenEfectivoTracking.length > 0 && (
+          <div className="rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/5 px-3 py-2">
+            <p className="text-xs font-medium text-[var(--color-foreground)]">Orden efectivo en tracking (vista previa)</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+              {ordenEfectivoTracking.map((e, i) => (
+                <span key={e.id}>
+                  {i > 0 ? ' → ' : ''}
+                  <span className="text-[var(--color-foreground)]">{i + 1}. {e.nombre}</span>
+                  {e.tipoFlujo === 'ALTERNO' ? (
+                    <span className="text-[var(--color-muted-foreground)]"> (alterno)</span>
+                  ) : null}
+                </span>
+              ))}
+            </p>
+          </div>
+        )}
       </section>
 
       <div className="surface-card overflow-x-auto p-0">
-        <table className="compact-table min-w-[860px]">
+        <table className="compact-table min-w-[720px]">
           <thead>
             <tr>
               <th>Código</th>
               <th>Nombre</th>
               <th>Orden tracking</th>
               <th>Flujo</th>
-              <th>Bloqueante</th>
               <th>Activo</th>
               {canWrite && <th className="text-right">Acciones</th>}
             </tr>
@@ -960,11 +1010,10 @@ function EstadosRastreoView() {
                     : '—'}
                 </td>
                 <td>
-                  <Badge variant={e.tipoFlujo === 'ALTERNO' ? 'destructive' : e.tipoFlujo === 'MIXTO' ? 'outline' : 'secondary'} className="font-normal">
-                    {e.tipoFlujo === 'ALTERNO' ? 'Alterno' : e.tipoFlujo === 'MIXTO' ? 'Mixto' : 'Normal'}
+                  <Badge variant={e.tipoFlujo === 'ALTERNO' ? 'destructive' : 'secondary'} className="font-normal">
+                    {e.tipoFlujo === 'ALTERNO' ? 'Alterno' : 'Normal'}
                   </Badge>
                 </td>
-                <td>{e.bloqueante ? 'Sí' : 'No'}</td>
                 <td>{e.activo ? 'Sí' : 'No'}</td>
                 {canWrite && (
                   <td className="text-right">
@@ -982,15 +1031,10 @@ function EstadosRastreoView() {
                                 afterEstadoId: e.afterEstadoId ?? null,
                                 activo: e.activo,
                                 leyenda: e.leyenda ?? '',
-                                tipoFlujo: e.tipoFlujo ?? 'NORMAL',
-                                bloqueante: e.bloqueante ?? false,
+                                tipoFlujo: e.tipoFlujo === 'ALTERNO' ? 'ALTERNO' : 'NORMAL',
                                 publicoTracking: e.publicoTracking ?? true,
                               });
                             },
-                          },
-                          {
-                            label: 'Transiciones',
-                            onSelect: () => setOrigenTransiciones(e),
                           },
                           ...(e.activo ? [{ label: 'Desactivar', onSelect: () => setDesactivarId(e.id) }] : []),
                           { label: 'Eliminar', destructive: true, onSelect: () => setDeleteId(e.id) },
@@ -1048,15 +1092,15 @@ function EstadosRastreoView() {
               </Field>
             </div>
             <Field>
-              <FieldHint>El orden del tracking público se gestiona en la sección “Orden global para tracking público”.</FieldHint>
+                    <FieldHint>El orden del tracking público se gestiona en la sección «Orden para tracking público».</FieldHint>
             </Field>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <Field>
                 <Label htmlFor="estado-tipo-flujo">Tipo de flujo</Label>
                 <Select
                   value={form.tipoFlujo ?? 'NORMAL'}
                   onValueChange={(value) =>
-                    setForm((f) => ({ ...f, tipoFlujo: value as 'NORMAL' | 'ALTERNO' | 'MIXTO' }))
+                    setForm((f) => ({ ...f, tipoFlujo: value as 'NORMAL' | 'ALTERNO' }))
                   }
                 >
                   <SelectTrigger id="estado-tipo-flujo">
@@ -1065,25 +1109,11 @@ function EstadosRastreoView() {
                   <SelectContent>
                     <SelectItem value="NORMAL">Normal</SelectItem>
                     <SelectItem value="ALTERNO">Alterno</SelectItem>
-                    <SelectItem value="MIXTO">Mixto</SelectItem>
                   </SelectContent>
                 </Select>
                 <FieldHint>
-                  Normal: ruta habitual (registrado → en lote → despacho → tránsito → entregado). Alterno: incidencia o desvío (ej. retenido en aduana); el paquete queda en flujo alterno hasta resolución. Mixto: puede usarse en ruta normal o en incidencias.
+                  Normal: ruta principal del envío. Alterno: incidencia o desvío; el paquete se marca en flujo alterno y puede mostrarse una nota al cambiar de estado.
                 </FieldHint>
-              </Field>
-              <Field className="rounded-lg border border-[var(--color-border)] p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="estado-bloqueante">Estado bloqueante</Label>
-                    <FieldHint>El paquete quedará bloqueado hasta que se libere la incidencia o se cambie a un estado marcado como resolución.</FieldHint>
-                  </div>
-                  <Switch
-                    id="estado-bloqueante"
-                    checked={form.bloqueante ?? false}
-                    onCheckedChange={(checked) => setForm((f) => ({ ...f, bloqueante: Boolean(checked) }))}
-                  />
-                </div>
               </Field>
               <Field className="rounded-lg border border-[var(--color-border)] p-3">
                 <div className="flex items-center justify-between">
@@ -1159,15 +1189,6 @@ function EstadosRastreoView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <TransicionesEstadoDialog
-        open={origenTransiciones != null}
-        onOpenChange={(open) => {
-          if (!open) setOrigenTransiciones(null);
-        }}
-        origen={origenTransiciones}
-        estados={estados}
-      />
 
       <ConfirmDialog
         open={deleteId != null}
@@ -1357,162 +1378,5 @@ function EstadosRastreoPorPuntoView() {
         </Button>
       </div>
     </div>
-  );
-}
-
-function TransicionesEstadoDialog({
-  open,
-  onOpenChange,
-  origen,
-  estados,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  origen: EstadoRastreo | null;
-  estados: EstadoRastreo[];
-}) {
-  const origenId = origen?.id;
-  const { data: existentes = [], isLoading } = useTransicionesEstadoRastreo(origenId);
-  const replaceMutation = useReplaceTransicionesEstadoRastreo();
-  const [items, setItems] = useState<Record<number, { activo: boolean; requiereResolucion: boolean }>>({});
-
-  function sameItems(
-    a: Record<number, { activo: boolean; requiereResolucion: boolean }>,
-    b: Record<number, { activo: boolean; requiereResolucion: boolean }>
-  ) {
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
-    if (aKeys.length !== bKeys.length) return false;
-    for (const key of aKeys) {
-      const aItem = a[Number(key)];
-      const bItem = b[Number(key)];
-      if (!bItem) return false;
-      if (aItem.activo !== bItem.activo || aItem.requiereResolucion !== bItem.requiereResolucion) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  useEffect(() => {
-    if (!open || !origen) return;
-    const base: Record<number, { activo: boolean; requiereResolucion: boolean }> = {};
-    for (const estado of estados) {
-      if (estado.id === origen.id) continue;
-      base[estado.id] = { activo: false, requiereResolucion: false };
-    }
-    for (const t of existentes) {
-      base[t.estadoDestinoId] = {
-        activo: t.activo,
-        requiereResolucion: t.requiereResolucion,
-      };
-    }
-    setItems((prev) => {
-      const shouldUpdate = !sameItems(prev, base);
-      return shouldUpdate ? base : prev;
-    });
-  }, [open, origen, estados, existentes]);
-
-  const handleSave = async () => {
-    if (!origen) return;
-    const payload: EstadoRastreoTransicionUpsertItem[] = Object.entries(items).map(([destId, value]) => ({
-      estadoDestinoId: Number(destId),
-      activo: value.activo,
-      requiereResolucion: value.requiereResolucion,
-    }));
-    try {
-      await replaceMutation.mutateAsync({ estadoOrigenId: origen.id, transiciones: payload });
-      toast.success('Transiciones guardadas');
-      onOpenChange(false);
-    } catch {
-      toast.error('No se pudieron guardar las transiciones');
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Transiciones permitidas</DialogTitle>
-          <DialogDescription>
-            Estado origen: <strong>{origen?.nombre ?? '—'}</strong>. Desde este estado, el operario solo podrá cambiar los paquetes a los estados que marques aquí.
-          </DialogDescription>
-        </DialogHeader>
-        {isLoading ? (
-          <LoadingState text="Cargando transiciones..." />
-        ) : (
-          <div className="space-y-2">
-            <p className="text-xs text-[var(--color-muted-foreground)]">
-              Marca «Se puede cambiar a este estado» para permitir el paso desde el origen. Marca «Cuenta como resolución de incidencia» en los estados a los que se puede salir cuando un paquete está bloqueado (o usar Liberar incidencia).
-            </p>
-            {estados
-              .filter((e) => e.id !== origenId)
-              .map((estado) => {
-                const current = items[estado.id] ?? { activo: false, requiereResolucion: false };
-                return (
-                  <div
-                    key={estado.id}
-                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 rounded-lg border border-[var(--color-border)] p-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-[var(--color-foreground)]">
-                        {estado.nombre} ({estado.codigo})
-                      </p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id={`trans-activa-${estado.id}`}
-                          checked={current.activo}
-                          onCheckedChange={(checked) =>
-                            setItems((prev) => ({
-                              ...prev,
-                              [estado.id]: {
-                                ...current,
-                                activo: Boolean(checked),
-                                requiereResolucion: Boolean(checked) ? current.requiereResolucion : false,
-                              },
-                            }))
-                          }
-                        />
-                        <label htmlFor={`trans-activa-${estado.id}`} className="text-xs text-[var(--color-foreground)] cursor-pointer">
-                          Se puede cambiar a este estado
-                        </label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id={`trans-resolucion-${estado.id}`}
-                          checked={current.requiereResolucion}
-                          disabled={!current.activo}
-                          onCheckedChange={(checked) =>
-                            setItems((prev) => ({
-                              ...prev,
-                              [estado.id]: {
-                                ...current,
-                                requiereResolucion: Boolean(checked),
-                              },
-                            }))
-                          }
-                        />
-                        <label htmlFor={`trans-resolucion-${estado.id}`} className="text-xs text-[var(--color-foreground)] cursor-pointer">
-                          Cuenta como resolución de incidencia
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        )}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={replaceMutation.isPending}>
-            {replaceMutation.isPending ? 'Guardando...' : 'Guardar transiciones'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

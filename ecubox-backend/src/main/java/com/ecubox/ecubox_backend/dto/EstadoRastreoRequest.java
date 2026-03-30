@@ -37,8 +37,5 @@ public class EstadoRastreoRequest {
     private TipoFlujoEstado tipoFlujo = TipoFlujoEstado.NORMAL;
 
     @Builder.Default
-    private Boolean bloqueante = false;
-
-    @Builder.Default
     private Boolean publicoTracking = true;
 }

@@ -1,4 +1,4 @@
-export type TipoFlujoEstado = 'NORMAL' | 'ALTERNO' | 'MIXTO';
+export type TipoFlujoEstado = 'NORMAL' | 'ALTERNO';
 
 export interface EstadoRastreo {
   id: number;
@@ -10,7 +10,6 @@ export interface EstadoRastreo {
   activo: boolean;
   leyenda?: string | null;
   tipoFlujo?: TipoFlujoEstado;
-  bloqueante?: boolean;
   publicoTracking?: boolean;
 }
 
@@ -23,18 +22,7 @@ export interface EstadoRastreoRequest {
   activo?: boolean;
   leyenda?: string | null;
   tipoFlujo?: TipoFlujoEstado;
-  bloqueante?: boolean;
   publicoTracking?: boolean;
-}
-
-export interface EstadoRastreoTransicion {
-  id?: number;
-  estadoOrigenId: number;
-  estadoDestinoId: number;
-  estadoDestinoCodigo?: string;
-  estadoDestinoNombre?: string;
-  requiereResolucion: boolean;
-  activo: boolean;
 }
 
 export interface EstadoRastreoOrdenTrackingRequest {
@@ -45,12 +33,6 @@ export interface EstadoRastreoOrdenTrackingRequest {
 export interface EstadoRastreoAlternoAfterItem {
   estadoId: number;
   afterEstadoId: number;
-}
-
-export interface EstadoRastreoTransicionUpsertItem {
-  estadoDestinoId: number;
-  requiereResolucion: boolean;
-  activo: boolean;
 }
 
 export interface EstadosRastreoPorPunto {

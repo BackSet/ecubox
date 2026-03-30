@@ -47,10 +47,6 @@ public class EstadoRastreo {
     @Builder.Default
     private TipoFlujoEstado tipoFlujo = TipoFlujoEstado.NORMAL;
 
-    @Column(name = "bloqueante", nullable = false)
-    @Builder.Default
-    private Boolean bloqueante = false;
-
     @Column(name = "publico_tracking", nullable = false)
     @Builder.Default
     private Boolean publicoTracking = true;

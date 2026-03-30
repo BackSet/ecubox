@@ -6,6 +6,7 @@ import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +17,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,12 +27,14 @@ class EstadoRastreoServiceTest {
     private EstadoRastreoRepository estadoRastreoRepository;
     @Mock
     private PaqueteRepository paqueteRepository;
+    @Mock
+    private EntityManager entityManager;
 
     private EstadoRastreoService estadoRastreoService;
 
     @BeforeEach
     void setup() {
-        estadoRastreoService = new EstadoRastreoService(estadoRastreoRepository, paqueteRepository);
+        estadoRastreoService = new EstadoRastreoService(estadoRastreoRepository, paqueteRepository, entityManager);
     }
 
     @Test
@@ -60,7 +64,9 @@ class EstadoRastreoServiceTest {
         when(estadoRastreoRepository.findByActivoTrueOrderByOrdenTrackingAscIdAsc())
                 .thenReturn(List.of(a, b));
 
-        assertThrows(BadRequestException.class, () -> estadoRastreoService.reorderTracking(List.of(1L, 1L), List.of()));
+        var exDup = assertThrows(BadRequestException.class,
+                () -> estadoRastreoService.reorderTracking(List.of(1L, 1L), List.of()));
+        assertTrue(exDup.getMessage().contains("repetidos"));
     }
 
     @Test
@@ -70,6 +76,8 @@ class EstadoRastreoServiceTest {
         when(estadoRastreoRepository.findByActivoTrueOrderByOrdenTrackingAscIdAsc())
                 .thenReturn(List.of(base, alterno));
 
-        assertThrows(BadRequestException.class, () -> estadoRastreoService.reorderTracking(List.of(1L), List.of()));
+        var exAlt = assertThrows(BadRequestException.class,
+                () -> estadoRastreoService.reorderTracking(List.of(1L), List.of()));
+        assertTrue(exAlt.getMessage().contains("alternos"));
     }
 }

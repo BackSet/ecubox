@@ -9,6 +9,7 @@ import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,11 +25,14 @@ public class EstadoRastreoService {
 
     private final EstadoRastreoRepository estadoRastreoRepository;
     private final PaqueteRepository paqueteRepository;
+    private final EntityManager entityManager;
 
     public EstadoRastreoService(EstadoRastreoRepository estadoRastreoRepository,
-                                PaqueteRepository paqueteRepository) {
+                                PaqueteRepository paqueteRepository,
+                                EntityManager entityManager) {
         this.estadoRastreoRepository = estadoRastreoRepository;
         this.paqueteRepository = paqueteRepository;
+        this.entityManager = entityManager;
     }
 
     @Transactional(readOnly = true)
@@ -48,6 +52,14 @@ public class EstadoRastreoService {
     @Transactional(readOnly = true)
     public List<EstadoRastreo> findActivosEntities() {
         return estadoRastreoRepository.findByActivoTrueOrderByOrdenTrackingAscIdAsc();
+    }
+
+    /** Estados activos ordenados por tracking, excluyendo el origen (para cambio de estado masivo). */
+    @Transactional(readOnly = true)
+    public List<EstadoRastreo> findDestinosActivosExcluyendoOrigen(Long estadoOrigenId) {
+        return findActivosEntities().stream()
+                .filter(e -> estadoOrigenId == null || !e.getId().equals(estadoOrigenId))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -104,7 +116,6 @@ public class EstadoRastreoService {
         e.setLeyenda(request.getLeyenda() != null ? request.getLeyenda().trim() : null);
         e.setTipoFlujo(request.getTipoFlujo() != null ? request.getTipoFlujo() : TipoFlujoEstado.NORMAL);
         e.setAfterEstado(resolveAfterEstado(request.getAfterEstadoId(), e.getTipoFlujo(), e.getId()));
-        e.setBloqueante(request.getBloqueante() != null ? request.getBloqueante() : false);
         e.setPublicoTracking(request.getPublicoTracking() != null ? request.getPublicoTracking() : true);
         e = estadoRastreoRepository.save(e);
         return toDTO(e);
@@ -205,6 +216,16 @@ public class EstadoRastreoService {
             }
         }
 
+        // Fase 1: valores temporales únicos para evitar violar uk_estado_rastreo_orden_tracking_activo
+        // al intercambiar posiciones (dos UPDATEs con el mismo orden_tracking intermedio).
+        for (EstadoRastreo e : activos) {
+            int tmp = -e.getId().intValue();
+            e.setOrdenTracking(tmp);
+            e.setOrden(tmp);
+        }
+        estadoRastreoRepository.saveAll(activos);
+        entityManager.flush();
+
         int pos = 1;
         for (EstadoRastreo estado : orderedFinal) {
             estado.setOrdenTracking(pos);
@@ -230,7 +251,6 @@ public class EstadoRastreoService {
                 .activo(r.getActivo() != null ? r.getActivo() : true)
                 .leyenda(r.getLeyenda() != null ? r.getLeyenda().trim() : null)
                 .tipoFlujo(r.getTipoFlujo() != null ? r.getTipoFlujo() : TipoFlujoEstado.NORMAL)
-                .bloqueante(r.getBloqueante() != null ? r.getBloqueante() : false)
                 .publicoTracking(r.getPublicoTracking() != null ? r.getPublicoTracking() : true)
                 .build();
     }
@@ -246,7 +266,6 @@ public class EstadoRastreoService {
                 .activo(e.getActivo())
                 .leyenda(e.getLeyenda())
                 .tipoFlujo(e.getTipoFlujo())
-                .bloqueante(e.getBloqueante())
                 .publicoTracking(e.getPublicoTracking())
                 .build();
     }

@@ -335,8 +335,6 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     } else {
       bodyHeight += lineHeight(t.fonts.label);
     }
-    if (data.bloqueado) bodyHeight += lineHeight(t.fonts.body) + 1;
-
     drawCard('Progreso y plazos', bodyHeight, (x, startY, maxW) => {
       let cursorY = startY;
       drawTextLines(
@@ -388,16 +386,6 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
           PDF_THEME.colors.muted
         );
         cursorY += lineHeight(t.fonts.label) + 0.6;
-      }
-      if (data.bloqueado) {
-        drawTextLines(
-          ['El envío está temporalmente detenido hasta resolver la incidencia.'],
-          x,
-          cursorY,
-          t.fonts.body,
-          PDF_THEME.colors.text,
-          true
-        );
       }
     });
   };

@@ -77,11 +77,6 @@ export function TrackingProgressCard({
           Este envío no tiene un plazo máximo de retiro configurado.
         </p>
       )}
-      {result.bloqueado ? (
-        <p className="text-xs font-medium text-[var(--color-foreground)]">
-          El envío está temporalmente detenido hasta resolver la incidencia.
-        </p>
-      ) : null}
     </section>
   );
 }

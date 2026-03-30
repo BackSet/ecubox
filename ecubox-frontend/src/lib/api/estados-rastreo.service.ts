@@ -4,8 +4,6 @@ import type {
   EstadoRastreo,
   EstadoRastreoRequest,
   EstadoRastreoOrdenTrackingRequest,
-  EstadoRastreoTransicion,
-  EstadoRastreoTransicionUpsertItem,
   EstadosRastreoPorPunto,
   EstadosRastreoPorPuntoRequest,
 } from '@/types/estado-rastreo';
@@ -67,26 +65,6 @@ export async function updateEstadosRastreoPorPunto(
   const { data } = await apiClient.put<EstadosRastreoPorPunto>(
     CONFIG_POR_PUNTO,
     body
-  );
-  return data;
-}
-
-export async function getTransicionesEstadoRastreo(
-  estadoOrigenId: number
-): Promise<EstadoRastreoTransicion[]> {
-  const { data } = await apiClient.get<EstadoRastreoTransicion[]>(
-    `${BASE}/${estadoOrigenId}/transiciones`
-  );
-  return data;
-}
-
-export async function replaceTransicionesEstadoRastreo(
-  estadoOrigenId: number,
-  transiciones: EstadoRastreoTransicionUpsertItem[]
-): Promise<EstadoRastreoTransicion[]> {
-  const { data } = await apiClient.put<EstadoRastreoTransicion[]>(
-    `${BASE}/${estadoOrigenId}/transiciones`,
-    { transiciones }
   );
   return data;
 }

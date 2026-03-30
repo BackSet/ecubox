@@ -2,7 +2,6 @@ package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.CambiarEstadoRastreoBulkResponse;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
-import com.ecubox.ecubox_backend.dto.LiberarIncidenciaRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteCreateRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.dto.PaquetePesoItem;
@@ -42,6 +41,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +57,6 @@ public class PaqueteService {
     private final LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
     private final ParametroSistemaService parametroSistemaService;
     private final EstadoRastreoService estadoRastreoService;
-    private final EstadoRastreoTransicionService estadoRastreoTransicionService;
     private final TrackingEventService trackingEventService;
     private final boolean useEventTimeline;
 
@@ -67,7 +66,6 @@ public class PaqueteService {
                           LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
                           ParametroSistemaService parametroSistemaService,
                           EstadoRastreoService estadoRastreoService,
-                          EstadoRastreoTransicionService estadoRastreoTransicionService,
                           TrackingEventService trackingEventService,
                           @Value("${tracking.timeline.use-events:true}") boolean useEventTimeline) {
         this.paqueteRepository = paqueteRepository;
@@ -76,7 +74,6 @@ public class PaqueteService {
         this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
         this.parametroSistemaService = parametroSistemaService;
         this.estadoRastreoService = estadoRastreoService;
-        this.estadoRastreoTransicionService = estadoRastreoTransicionService;
         this.trackingEventService = trackingEventService;
         this.useEventTimeline = useEventTimeline;
     }
@@ -644,6 +641,7 @@ public class PaqueteService {
 
     @Transactional
     public PaqueteDTO cambiarEstadoRastreo(Long paqueteId, Long estadoRastreoId, String motivoAlterno) {
+        validarEstadoNoReservadoParaPuntosOperativos(estadoRastreoId);
         Paquete p = paqueteRepository.findById(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoRastreoId);
@@ -665,6 +663,7 @@ public class PaqueteService {
 
     @Transactional
     public CambiarEstadoRastreoBulkResponse cambiarEstadoRastreoBulk(List<Long> paqueteIds, Long estadoRastreoId) {
+        validarEstadoNoReservadoParaPuntosOperativos(estadoRastreoId);
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoRastreoId);
         if (Boolean.FALSE.equals(estado.getActivo())) {
             throw new BadRequestException("El estado de rastreo seleccionado no está activo");
@@ -773,7 +772,7 @@ public class PaqueteService {
         }
         Set<Long> interseccion = null;
         for (Paquete paquete : paquetes) {
-            List<EstadoRastreo> destinos = estadoRastreoTransicionService.findDestinosActivos(paquete.getEstadoRastreo().getId());
+            List<EstadoRastreo> destinos = estadoRastreoService.findDestinosActivosExcluyendoOrigen(paquete.getEstadoRastreo().getId());
             Set<Long> destinosIds = destinos.stream().map(EstadoRastreo::getId).collect(Collectors.toSet());
             if (interseccion == null) {
                 interseccion = destinosIds;
@@ -785,34 +784,39 @@ public class PaqueteService {
             return List.of();
         }
         final Set<Long> idsPermitidos = Set.copyOf(interseccion);
+        Set<Long> excluirPorPunto = idsEstadosRastreoGestionadosPorPunto();
         return estadoRastreoService.findActivos().stream()
-                .filter(e -> idsPermitidos.contains(e.getId()))
+                .filter(e -> idsPermitidos.contains(e.getId()) && !excluirPorPunto.contains(e.getId()))
                 .toList();
     }
 
-    @Transactional
-    public PaqueteDTO liberarIncidencia(Long paqueteId, LiberarIncidenciaRequest request) {
-        Paquete p = paqueteRepository.findById(paqueteId)
-                .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
-        if (!Boolean.TRUE.equals(p.getBloqueado())) {
-            throw new BadRequestException("El paquete no está bloqueado en un flujo alterno");
+    /** Registro, lote, despacho y tránsito: solo se asignan en sus flujos automáticos. */
+    private Set<Long> idsEstadosRastreoGestionadosPorPunto() {
+        var cfg = parametroSistemaService.getEstadosRastreoPorPunto();
+        if (cfg == null) {
+            return Set.of();
         }
-        p.setBloqueado(false);
-        p.setFechaBloqueoDesde(null);
-        p.setMotivoAlterno(request != null ? trimOrNull(request.getMotivoAlterno()) : null);
-        p = paqueteRepository.save(p);
-        EstadoRastreo estadoActual = p.getEstadoRastreo();
-        trackingEventService.registrarTransicion(
-                p,
-                estadoActual,
-                estadoActual,
-                TrackingEventType.INCIDENCIA_LIBERADA,
-                "OPERARIO_LIBERACION",
-                p.getMotivoAlterno(),
-                null,
-                buildIdempotencyKey("liberar-incidencia", p.getId(), estadoActual != null ? estadoActual.getId() : null, estadoActual != null ? estadoActual.getId() : null)
-        );
-        return toDTO(p);
+        Set<Long> ids = new HashSet<>();
+        if (cfg.getEstadoRastreoRegistroPaqueteId() != null) {
+            ids.add(cfg.getEstadoRastreoRegistroPaqueteId());
+        }
+        if (cfg.getEstadoRastreoEnLoteRecepcionId() != null) {
+            ids.add(cfg.getEstadoRastreoEnLoteRecepcionId());
+        }
+        if (cfg.getEstadoRastreoEnDespachoId() != null) {
+            ids.add(cfg.getEstadoRastreoEnDespachoId());
+        }
+        if (cfg.getEstadoRastreoEnTransitoId() != null) {
+            ids.add(cfg.getEstadoRastreoEnTransitoId());
+        }
+        return ids;
+    }
+
+    private void validarEstadoNoReservadoParaPuntosOperativos(Long estadoRastreoId) {
+        if (estadoRastreoId != null && idsEstadosRastreoGestionadosPorPunto().contains(estadoRastreoId)) {
+            throw new BadRequestException(
+                    "Ese estado lo asignan el registro de paquete, el lote de recepción, el despacho o el tránsito; no puede aplicarse manualmente.");
+        }
     }
 
     private String renderLeyenda(String leyenda, Integer diasTranscurridos) {
@@ -833,46 +837,28 @@ public class PaqueteService {
     private void aplicarEstadoConReglas(Paquete paquete, EstadoRastreo estadoDestino, String motivoAlterno) {
         EstadoRastreo estadoOrigen = paquete.getEstadoRastreo();
         if (estadoOrigen != null) {
-            validarTransicion(estadoOrigen, estadoDestino, paquete);
+            validarTransicion(estadoOrigen, estadoDestino);
         }
         paquete.setEstadoRastreo(estadoDestino);
         paquete.setFechaEstadoActualDesde(LocalDateTime.now());
 
-        boolean destinoAlterno = estadoDestino.getTipoFlujo() == TipoFlujoEstado.ALTERNO;
-        boolean destinoBloqueante = Boolean.TRUE.equals(estadoDestino.getBloqueante());
-        if (destinoAlterno) {
+        if (estadoDestino.getTipoFlujo() == TipoFlujoEstado.ALTERNO) {
             paquete.setEnFlujoAlterno(true);
             paquete.setMotivoAlterno(trimOrNull(motivoAlterno));
-        }
-        if (destinoBloqueante) {
-            paquete.setBloqueado(true);
-            paquete.setFechaBloqueoDesde(LocalDateTime.now());
-        } else if (paquete.getBloqueado() != null && paquete.getBloqueado()) {
-            // Solo se libera por endpoint dedicado para mantener control operativo.
-            throw new BadRequestException("El paquete está bloqueado y requiere liberación operativa antes de continuar");
         } else {
-            paquete.setBloqueado(false);
-            paquete.setFechaBloqueoDesde(null);
-            if (estadoDestino.getTipoFlujo() == TipoFlujoEstado.NORMAL) {
-                paquete.setEnFlujoAlterno(false);
-                paquete.setMotivoAlterno(null);
-            }
+            paquete.setEnFlujoAlterno(false);
+            paquete.setMotivoAlterno(null);
         }
+        paquete.setBloqueado(false);
+        paquete.setFechaBloqueoDesde(null);
     }
 
-    private void validarTransicion(EstadoRastreo origen, EstadoRastreo destino, Paquete paquete) {
+    private void validarTransicion(EstadoRastreo origen, EstadoRastreo destino) {
         if (origen.getId().equals(destino.getId())) {
             return;
         }
-        boolean permitida = estadoRastreoTransicionService.isTransicionPermitida(origen.getId(), destino.getId());
-        if (!permitida) {
-            throw new BadRequestException("Transición no permitida desde " + origen.getNombre() + " hacia " + destino.getNombre());
-        }
-        if (Boolean.TRUE.equals(paquete.getBloqueado())) {
-            boolean esResolucion = estadoRastreoTransicionService.isTransicionResolucion(origen.getId(), destino.getId());
-            if (!esResolucion) {
-                throw new BadRequestException("El paquete está bloqueado. Debe resolver/liberar la incidencia para continuar.");
-            }
+        if (!Boolean.TRUE.equals(destino.getActivo())) {
+            throw new BadRequestException("El estado destino no está activo");
         }
     }
 
