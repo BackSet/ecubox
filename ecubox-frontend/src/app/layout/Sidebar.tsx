@@ -43,24 +43,27 @@ type NavItem = {
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Principal',
-    items: [{ to: '/inicio', label: 'Inicio', icon: LayoutDashboard, exact: true }],
+    items: [
+      { to: '/inicio', label: 'Inicio', icon: LayoutDashboard, exact: true },
+      { to: '/agencia-eeuu', label: 'Agencia USA', icon: MapPin },
+    ],
   },
   {
     label: 'Operaciones',
     items: [
-      { to: '/destinatarios', label: 'Mis Destinatarios', icon: MapPin, permission: 'DESTINATARIOS_READ' },
-      { to: '/paquetes', label: 'Mis Paquetes', icon: Package, permission: 'PAQUETES_READ' },
+      { to: '/destinatarios', label: 'Destinatarios', icon: MapPin, permission: 'DESTINATARIOS_READ' },
+      { to: '/paquetes', label: 'Paquetes', icon: Package, permission: 'PAQUETES_READ' },
       { to: '/cargar-pesos', label: 'Cargar pesos', icon: Weight, permission: 'PAQUETES_PESO_WRITE' },
-      { to: '/gestionar-estados-paquetes', label: 'Gestionar estados de paquetes', icon: Tag, permission: 'PAQUETES_PESO_WRITE' },
+      { to: '/gestionar-estados-paquetes', label: 'Estados de paquetes', icon: Tag, permission: 'PAQUETES_PESO_WRITE' },
       { to: '/despachos', label: 'Despachos', icon: Truck, permission: 'DESPACHOS_WRITE' },
-      { to: '/lotes-recepcion', label: 'Lotes de recepción', icon: ClipboardList, permission: 'DESPACHOS_WRITE' },
+      { to: '/lotes-recepcion', label: 'Lotes recepción', icon: ClipboardList, permission: 'DESPACHOS_WRITE' },
     ],
   },
   {
     label: 'Catálogos',
     items: [
       { to: '/agencias', label: 'Agencias', icon: Building2, permission: 'AGENCIAS_READ' },
-      { to: '/agencias-distribuidor', label: 'Agencias de distribuidor', icon: Building2, permission: 'AGENCIAS_DISTRIBUIDOR_READ' },
+      { to: '/agencias-distribuidor', label: 'Agencias distribuidor', icon: Building2, permission: 'AGENCIAS_DISTRIBUIDOR_READ' },
       { to: '/distribuidores', label: 'Distribuidores', icon: PackageCheck, permission: 'DISTRIBUIDORES_READ' },
       { to: '/manifiestos', label: 'Manifiestos', icon: FileText, permission: 'MANIFIESTOS_READ' },
     ],
@@ -75,7 +78,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Configuración',
-    items: [{ to: '/parametros-sistema', label: 'Parámetros sistema', icon: Settings, permission: 'DESPACHOS_WRITE' }],
+    items: [{ to: '/parametros-sistema', label: 'Parámetros', icon: Settings, permission: 'DESPACHOS_WRITE' }],
   },
 ];
 
@@ -104,7 +107,7 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
     <aside
       className={cn(
         'group relative flex flex-col border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar-background)] transition-[width] duration-200 ease-out',
-        collapsed ? 'w-[52px]' : 'w-[220px]'
+        collapsed ? 'w-[52px]' : 'w-[252px]'
       )}
     >
       <div className="flex h-12 shrink-0 items-center border-b border-[var(--color-sidebar-border)] px-2.5">
@@ -171,9 +174,9 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
                   key={to}
                   to={to}
                   activeOptions={{ exact: !!exact }}
-                  title={collapsed ? label : undefined}
+                  title={label}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors',
+                    'flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors',
                     isActive(to, exact)
                       ? 'bg-[var(--color-sidebar-active)]/10 text-[var(--color-primary)] font-semibold'
                       : 'text-[var(--color-sidebar-foreground)] hover:bg-[var(--color-sidebar-hover)]',
@@ -181,7 +184,7 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
                   )}
                 >
                   <Icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span>{label}</span>}
+                  {!collapsed && <span className="min-w-0 truncate">{label}</span>}
                 </Link>
               ))}
             </div>

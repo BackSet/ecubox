@@ -1,5 +1,7 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.dto.MensajeAgenciaEeuuDTO;
+import com.ecubox.ecubox_backend.dto.MensajeAgenciaEeuuRequest;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoRequest;
 import com.ecubox.ecubox_backend.dto.TarifaCalculadoraDTO;
@@ -50,6 +52,13 @@ public class OperarioConfigController {
     public ResponseEntity<MensajeWhatsAppDespachoDTO> updateMensajeWhatsAppDespacho(
             @Valid @RequestBody MensajeWhatsAppDespachoRequest request) {
         return ResponseEntity.ok(parametroSistemaService.updateMensajeWhatsAppDespacho(request.getPlantilla()));
+    }
+
+    @PutMapping("/mensaje-agencia-eeuu")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    public ResponseEntity<MensajeAgenciaEeuuDTO> updateMensajeAgenciaEeuu(
+            @Valid @RequestBody MensajeAgenciaEeuuRequest request) {
+        return ResponseEntity.ok(parametroSistemaService.updateMensajeAgenciaEeuu(request.getMensaje()));
     }
 
     @GetMapping("/estados-rastreo-por-punto")

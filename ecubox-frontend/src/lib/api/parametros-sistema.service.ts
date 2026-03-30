@@ -22,3 +22,26 @@ export async function updateMensajeWhatsAppDespacho(body: {
     plantilla: data.plantilla ?? '',
   };
 }
+
+export interface MensajeAgenciaEeuu {
+  mensaje: string;
+}
+
+export async function getMensajeAgenciaEeuu(): Promise<MensajeAgenciaEeuu> {
+  const { data } = await apiClient.get<{ mensaje?: string }>(API_ENDPOINTS.configMensajeAgenciaEeuu);
+  return {
+    mensaje: data.mensaje ?? '',
+  };
+}
+
+export async function updateMensajeAgenciaEeuu(body: {
+  mensaje: string;
+}): Promise<MensajeAgenciaEeuu> {
+  const { data } = await apiClient.put<{ mensaje?: string }>(
+    API_ENDPOINTS.operarioMensajeAgenciaEeuu,
+    body
+  );
+  return {
+    mensaje: data.mensaje ?? '',
+  };
+}

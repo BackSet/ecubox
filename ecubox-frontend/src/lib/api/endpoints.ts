@@ -25,8 +25,10 @@ export const API_ENDPOINTS = {
   operarioLotesRecepcion: '/operario/lotes-recepcion',
   tracking: '/tracking',
   configTarifaCalculadora: '/config/tarifa-calculadora',
+  configMensajeAgenciaEeuu: '/config/mensaje-agencia-eeuu',
   operarioConfigTarifaCalculadora: '/operario/config/tarifa-calculadora',
   operarioMensajeWhatsAppDespacho: '/operario/config/mensaje-whatsapp-despacho',
+  operarioMensajeAgenciaEeuu: '/operario/config/mensaje-agencia-eeuu',
   operarioEstadosRastreo: '/operario/estados-rastreo',
   operarioConfigEstadosRastreoPorPunto: '/operario/config/estados-rastreo-por-punto',
 } as const;

@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
@@ -81,6 +82,19 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleNotReadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(
+                        LocalDateTime.now(),
+                        400,
+                        "Bad Request",
+                        "Cuerpo de la petición inválido o mal formado",
+                        null
+                ));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
@@ -98,7 +112,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
-        String message = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+        Throwable cause = ex.getCause();
+        String message = cause != null ? cause.getMessage() : ex.getMessage();
         if (message != null && message.length() > 200) {
             message = "Conflicto de datos (duplicado o restricción de integridad)";
         }

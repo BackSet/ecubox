@@ -2,18 +2,37 @@
  * Variables disponibles para la plantilla del mensaje WhatsApp de despacho.
  * Clave = placeholder en el texto ({{numeroGuia}}), label = nombre legible en la UI.
  */
-export const VARIABLES_DESPACHO = [
-  { key: 'numeroGuia', label: 'Nº guía' },
-  { key: 'destinatarioNombre', label: 'Destinatario' },
-  { key: 'distribuidorNombre', label: 'Distribuidor' },
-  { key: 'agenciaNombre', label: 'Agencia' },
-  { key: 'observaciones', label: 'Observaciones' },
-  { key: 'codigoPrecinto', label: 'Código precinto' },
-  { key: 'cantidadSacas', label: 'Cantidad de sacas' },
-  { key: 'totalPaquetes', label: 'Total paquetes' },
-  { key: 'numerosSaca', label: 'Números de saca' },
-  { key: 'paquetesPorSaca', label: 'Paquetes por saca' },
+
+export const VARIABLES_DESPACHO_GROUPS = [
+  {
+    category: 'Guía y operación',
+    items: [
+      { key: 'numeroGuia', label: 'Nº guía' },
+      { key: 'observaciones', label: 'Observaciones' },
+      { key: 'codigoPrecinto', label: 'Código precinto' },
+    ],
+  },
+  {
+    category: 'Destinatario y red',
+    items: [
+      { key: 'destinatarioNombre', label: 'Destinatario' },
+      { key: 'distribuidorNombre', label: 'Distribuidor' },
+      { key: 'agenciaNombre', label: 'Agencia' },
+    ],
+  },
+  {
+    category: 'Sacas y carga',
+    items: [
+      { key: 'cantidadSacas', label: 'Cantidad de sacas' },
+      { key: 'totalPaquetes', label: 'Total paquetes' },
+      { key: 'numerosSaca', label: 'Números de saca' },
+      { key: 'paquetesPorSaca', label: 'Paquetes por saca' },
+    ],
+  },
 ] as const;
+
+/** Lista plana para sustitución en preview y tipos. */
+export const VARIABLES_DESPACHO = VARIABLES_DESPACHO_GROUPS.flatMap((g) => [...g.items]);
 
 export type VariableDespachoKey = (typeof VARIABLES_DESPACHO)[number]['key'];
 

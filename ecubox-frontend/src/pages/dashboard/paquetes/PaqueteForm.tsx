@@ -18,7 +18,10 @@ import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilt
 import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MapPin } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useMensajeAgenciaEeuu } from '@/hooks/useMensajeAgenciaEeuu';
+import { parseWhatsAppPreviewToReact } from '@/pages/dashboard/parametros-sistema/whatsappFormatPreview';
 import type { DestinatarioFinal } from '@/types/destinatario';
 import type { Paquete } from '@/types/paquete';
 
@@ -82,6 +85,8 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
 
   const createMutation = useCreatePaquete();
   const updateMutation = useUpdatePaquete();
+  const { data: agenciaMensaje, isLoading: loadingAgenciaMensaje, isError: errorAgenciaMensaje } =
+    useMensajeAgenciaEeuu({ enabled: !isEdit });
   const [searchQuery, setSearchQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -284,6 +289,24 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar paquete' : 'Registrar paquete'}</DialogTitle>
         </DialogHeader>
+        {!isEdit && (
+          <>
+            {loadingAgenciaMensaje ? (
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-3 py-2 text-sm text-[var(--color-muted-foreground)]">
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                Cargando información de la agencia USA…
+              </div>
+            ) : errorAgenciaMensaje ? null : agenciaMensaje?.mensaje?.trim() ? (
+              <Alert className="border-[var(--color-border)] bg-[var(--color-muted)]/15">
+                <MapPin className="h-4 w-4" />
+                <AlertTitle>Destino agencia USA</AlertTitle>
+                <AlertDescription className="whitespace-pre-wrap text-[var(--color-foreground)]">
+                  {parseWhatsAppPreviewToReact(agenciaMensaje.mensaje)}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+          </>
+        )}
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">

@@ -1,5 +1,15 @@
 import { useEffect, useRef, useCallback, useState, type ReactNode } from 'react';
-import { Settings, MessageCircle, ArrowLeft, ArrowDown, ArrowUp, Calculator, MapPin, ListOrdered } from 'lucide-react';
+import {
+  Settings,
+  MessageCircle,
+  ArrowLeft,
+  ArrowDown,
+  ArrowUp,
+  Calculator,
+  MapPin,
+  ListOrdered,
+  ChevronRight,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,6 +21,10 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { LoadingState } from '@/components/LoadingState';
 import { toast } from 'sonner';
+import {
+  useMensajeAgenciaEeuu,
+  useUpdateMensajeAgenciaEeuu,
+} from '@/hooks/useMensajeAgenciaEeuu';
 import {
   useMensajeWhatsAppDespacho,
   useUpdateMensajeWhatsAppDespacho,
@@ -29,11 +43,12 @@ import {
   useReplaceTransicionesEstadoRastreo,
 } from '@/hooks/useEstadosRastreo';
 import {
-  VARIABLES_DESPACHO,
+  VARIABLES_DESPACHO_GROUPS,
   formatVariable,
   plantillaToPreviewText,
   type VariableDespachoKey,
 } from './VARIABLES_DESPACHO';
+import { parseWhatsAppPreviewToReact } from './whatsappFormatPreview';
 import { TarifaCalculadoraForm } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraForm';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
@@ -44,9 +59,12 @@ import { z } from 'zod';
 
 type OpcionActiva =
   | 'mensaje-whatsapp-despacho'
+  | 'mensaje-agencia-eeuu'
   | 'tarifa-calculadora'
   | 'estados-rastreo'
   | 'estados-rastreo-por-punto';
+
+type PendingParametrosNav = OpcionActiva | 'menu';
 
 const estadoRastreoFormSchema = z.object({
   codigo: z.string().trim().min(1, 'Código obligatorio'),
@@ -86,10 +104,12 @@ function ParametrosHeader({
 }
 
 export function ParametrosSistemaPage() {
+  const [vistaLista, setVistaLista] = useState(true);
   const [opcionActiva, setOpcionActiva] = useState<OpcionActiva>('mensaje-whatsapp-despacho');
   const [plantillaLocal, setPlantillaLocal] = useState('');
-  const [opcionPendiente, setOpcionPendiente] = useState<OpcionActiva | null>(null);
-  const [confirmarSalidaWhatsapp, setConfirmarSalidaWhatsapp] = useState(false);
+  const [mensajeAgenciaLocal, setMensajeAgenciaLocal] = useState('');
+  const [opcionPendiente, setOpcionPendiente] = useState<PendingParametrosNav | null>(null);
+  const [confirmarSalidaParametros, setConfirmarSalidaParametros] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { hasPermission, hasRole } = useAuthStore();
 
@@ -101,12 +121,24 @@ export function ParametrosSistemaPage() {
 
   const { data, isLoading, error } = useMensajeWhatsAppDespacho();
   const updateMutation = useUpdateMensajeWhatsAppDespacho();
+  const {
+    data: dataAgencia,
+    isLoading: isLoadingAgencia,
+    error: errorAgencia,
+  } = useMensajeAgenciaEeuu();
+  const updateAgenciaMutation = useUpdateMensajeAgenciaEeuu();
 
   useEffect(() => {
     if (data != null) {
       setPlantillaLocal(data.plantilla ?? '');
     }
   }, [data]);
+
+  useEffect(() => {
+    if (dataAgencia != null) {
+      setMensajeAgenciaLocal(dataAgencia.mensaje ?? '');
+    }
+  }, [dataAgencia]);
 
   const insertVariableAtCursor = useCallback((variableKey: VariableDespachoKey) => {
     const text = formatVariable(variableKey);
@@ -129,7 +161,7 @@ export function ParametrosSistemaPage() {
     }
   }, [plantillaLocal]);
 
-  const handleGuardar = async () => {
+  const handleGuardarWhatsapp = async () => {
     try {
       await updateMutation.mutateAsync({ plantilla: plantillaLocal });
       toast.success('Mensaje de despacho guardado');
@@ -138,34 +170,54 @@ export function ParametrosSistemaPage() {
     }
   };
 
+  const handleGuardarAgencia = async () => {
+    try {
+      await updateAgenciaMutation.mutateAsync({ mensaje: mensajeAgenciaLocal });
+      toast.success('Mensaje de agencia USA guardado');
+    } catch {
+      toast.error('Error al guardar el mensaje');
+    }
+  };
+
   const plantillaOriginal = data?.plantilla ?? '';
+  const plantillaPreviewPlain = plantillaToPreviewText(plantillaLocal);
+  const mensajeAgenciaOriginal = dataAgencia?.mensaje ?? '';
   const whatsappDirty = opcionActiva === 'mensaje-whatsapp-despacho' && plantillaLocal !== plantillaOriginal;
+  const agenciaDirty = opcionActiva === 'mensaje-agencia-eeuu' && mensajeAgenciaLocal !== mensajeAgenciaOriginal;
+  const parametrosDirty = whatsappDirty || agenciaDirty;
   const tabs = [
     {
       key: 'mensaje-whatsapp-despacho',
       label: 'WhatsApp',
-      description: 'Plantilla del mensaje de despacho',
+      description: 'Plantilla despacho WhatsApp',
       icon: <MessageCircle className="h-4 w-4" />,
+      visible: true,
+    },
+    {
+      key: 'mensaje-agencia-eeuu',
+      label: 'Agencia USA',
+      description: 'Dirección USA y horarios',
+      icon: <MapPin className="h-4 w-4" />,
       visible: true,
     },
     {
       key: 'tarifa-calculadora',
       label: 'Tarifa',
-      description: 'Tarifa pública de calculadora',
+      description: 'Tarifa calculadora pública',
       icon: <Calculator className="h-4 w-4" />,
       visible: canSeeTarifaCalculadora,
     },
     {
       key: 'estados-rastreo',
       label: 'Estados',
-      description: 'Catálogo y orden de tracking',
+      description: 'Catálogo tracking',
       icon: <ListOrdered className="h-4 w-4" />,
       visible: canSeeEstadosRastreo,
     },
     {
       key: 'estados-rastreo-por-punto',
       label: 'Estados por punto',
-      description: 'Asignación por hitos operativos',
+      description: 'Hitos operativos',
       icon: <MapPin className="h-4 w-4" />,
       visible: canSeeEstadosRastreo,
     },
@@ -184,53 +236,135 @@ export function ParametrosSistemaPage() {
     }
   }, [visibleTabs, opcionActiva]);
 
-  const requestNavigate = (next: OpcionActiva) => {
-    if (next === opcionActiva) return;
-    if (whatsappDirty) {
+  const abrirModulo = (next: OpcionActiva) => {
+    if (next === opcionActiva) {
+      setVistaLista(false);
+      return;
+    }
+    if (parametrosDirty) {
       setOpcionPendiente(next);
-      setConfirmarSalidaWhatsapp(true);
+      setConfirmarSalidaParametros(true);
       return;
     }
     setOpcionActiva(next);
+    setVistaLista(false);
   };
+
+  const requestVolverLista = () => {
+    if (parametrosDirty) {
+      setOpcionPendiente('menu');
+      setConfirmarSalidaParametros(true);
+      return;
+    }
+    setVistaLista(true);
+  };
+
+  const tabActivaMeta = visibleTabs.find((t) => t.key === opcionActiva);
 
   return (
     <div className="space-y-6">
-      <ParametrosHeader
-        icon={<Settings className="h-7 w-7" />}
-        title="Parámetros del sistema"
-        description="Configura todos los módulos del sistema desde un único espacio de trabajo."
-      />
-
-      <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-2">
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {visibleTabs.map((tab) => {
-            const active = opcionActiva === tab.key;
-            return (
-              <Button
-                key={tab.key}
-                type="button"
-                variant="ghost"
-                onClick={() => requestNavigate(tab.key)}
+      {vistaLista ? (
+        <>
+          <header
+            className={cn(
+              'relative overflow-hidden rounded-2xl border border-[var(--color-border)]',
+              'bg-gradient-to-br from-[var(--color-card)] via-[var(--color-card)] to-[var(--color-primary)]/[0.07]',
+              'px-6 py-8 sm:px-8'
+            )}
+          >
+            <div
+              className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[var(--color-primary)]/[0.09] blur-3xl"
+              aria-hidden
+            />
+            <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+              <div
                 className={cn(
-                  'h-auto rounded-xl border px-3 py-3 text-left transition items-start justify-start',
-                  active
-                    ? 'border-[var(--color-primary)]/50 bg-[var(--color-primary)]/10'
-                    : 'border-transparent hover:border-[var(--color-border)] hover:bg-[var(--color-secondary)]/50'
+                  'flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[var(--color-primary)]/20',
+                  'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
                 )}
               >
-                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
-                  {tab.icon}
-                  {tab.label}
-                </div>
-                <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">{tab.description}</p>
-              </Button>
-            );
-          })}
-        </div>
-      </section>
+                <Settings className="h-7 w-7" strokeWidth={2} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
+                  Configuración global
+                </p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--color-foreground)] sm:text-3xl">
+                  Parámetros del sistema
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--color-muted-foreground)] sm:text-[15px]">
+                  Elige un módulo para editar mensajes, tarifas o estados de rastreo. Los cambios aplican a todo el
+                  sistema.
+                </p>
+              </div>
+            </div>
+          </header>
 
-      <section className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-[var(--color-foreground)]">Módulos disponibles</h2>
+            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleTabs.map((tab) => (
+                <li key={tab.key}>
+                  <button
+                    type="button"
+                    onClick={() => abrirModulo(tab.key)}
+                    className={cn(
+                      'group flex w-full flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-4 text-left shadow-sm transition',
+                      'hover:border-[var(--color-primary)]/35 hover:bg-[var(--color-muted)]/20 hover:shadow-md',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/40'
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div
+                        className={cn(
+                          'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[var(--color-primary)]',
+                          'border border-[var(--color-border)] bg-[var(--color-background)]',
+                          'group-hover:border-[var(--color-primary)]/25 group-hover:bg-[var(--color-primary)]/5',
+                          '[&_svg]:h-5 [&_svg]:w-5'
+                        )}
+                      >
+                        {tab.icon}
+                      </div>
+                      <ChevronRight
+                        className="h-5 w-5 shrink-0 text-[var(--color-muted-foreground)] transition group-hover:translate-x-0.5 group-hover:text-[var(--color-primary)]"
+                        aria-hidden
+                      />
+                    </div>
+                    <p className="mt-3 text-base font-semibold text-[var(--color-foreground)]">{tab.label}</p>
+                    <p className="mt-1 text-sm leading-snug text-[var(--color-muted-foreground)]">{tab.description}</p>
+                    <span className="mt-3 text-xs font-medium text-[var(--color-primary)] opacity-90 group-hover:opacity-100">
+                      Configurar
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      ) : null}
+
+      {!vistaLista ? (
+        <>
+          <div className="flex flex-wrap items-center gap-2 gap-y-1">
+            <Button
+              type="button"
+              variant="ghost"
+              className="gap-2 pl-0 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+              onClick={requestVolverLista}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Volver al listado
+            </Button>
+            {tabActivaMeta ? (
+              <span className="text-sm text-[var(--color-muted-foreground)]">
+                <span className="font-medium text-[var(--color-foreground)]">{tabActivaMeta.label}</span>
+                {' · '}
+                {tabActivaMeta.description}
+              </span>
+            ) : null}
+          </div>
+
+          <section className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 sm:p-6">
         {opcionActiva === 'mensaje-whatsapp-despacho' && (
           <>
             {isLoading ? (
@@ -269,28 +403,35 @@ export function ParametrosSistemaPage() {
                       />
                       <FieldHint>Usa variables para personalizar el mensaje por despacho.</FieldHint>
                     </Field>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <p className="text-sm font-medium text-[var(--color-foreground)]">Variables rápidas</p>
-                      <div className="flex flex-wrap gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3">
-                        {VARIABLES_DESPACHO.map(({ key, label }) => (
-                          <Button
-                            key={key}
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => insertVariableAtCursor(key)}
-                            title={`Insertar ${formatVariable(key)}`}
-                            className={cn(
-                              'h-7 rounded-full px-2.5 text-xs'
-                            )}
-                          >
-                            {label}
-                          </Button>
+                      <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3">
+                        {VARIABLES_DESPACHO_GROUPS.map((group) => (
+                          <div key={group.category} className="space-y-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                              {group.category}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {group.items.map(({ key, label }) => (
+                                <Button
+                                  key={key}
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => insertVariableAtCursor(key)}
+                                  title={`Insertar ${formatVariable(key)}`}
+                                  className="h-7 rounded-full px-2.5 text-xs"
+                                >
+                                  {label}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button onClick={handleGuardar} disabled={updateMutation.isPending}>
+                      <Button onClick={handleGuardarWhatsapp} disabled={updateMutation.isPending}>
                         {updateMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
                       </Button>
                       {whatsappDirty ? (
@@ -304,17 +445,105 @@ export function ParametrosSistemaPage() {
                     <p className="text-sm font-medium text-[var(--color-foreground)]">
                       Vista previa (WhatsApp)
                     </p>
+                    <FieldHint className="text-[11px] leading-snug">
+                      Formato: <code className="rounded bg-[var(--color-muted)]/50 px-1">*negrita*</code>,{' '}
+                      <code className="rounded bg-[var(--color-muted)]/50 px-1">_cursiva_</code>,{' '}
+                      <code className="rounded bg-[var(--color-muted)]/50 px-1">~tachado~</code>,{' '}
+                      <code className="rounded bg-[var(--color-muted)]/50 px-1">`código`</code>, bloques{' '}
+                      <code className="rounded bg-[var(--color-muted)]/50 px-1">```varias líneas```</code>.
+                    </FieldHint>
                     <div className="rounded-2xl bg-[var(--color-muted)]/30 p-4">
                       <div
                         className={cn(
                           'max-w-[90%] rounded-lg rounded-tl-none border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 shadow-sm'
                         )}
                       >
-                        <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-[var(--color-foreground)]">
-                          {plantillaToPreviewText(plantillaLocal) ||
-                            'El mensaje se mostrará aquí con variables reemplazadas.'}
-                        </p>
+                        <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-[var(--color-foreground)]">
+                          {plantillaPreviewPlain.trim()
+                            ? parseWhatsAppPreviewToReact(plantillaPreviewPlain)
+                            : 'El mensaje se mostrará aquí con variables reemplazadas.'}
+                        </div>
                         <p className="mt-1 text-right text-[11px] text-[var(--color-muted-foreground)]">Ahora</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {opcionActiva === 'mensaje-agencia-eeuu' && (
+          <>
+            {isLoadingAgencia ? (
+              <LoadingState text="Cargando mensaje de agencia USA..." />
+            ) : errorAgencia ? (
+              <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+                Error al cargar el mensaje de agencia USA.
+              </div>
+            ) : (
+              <>
+                <ParametrosHeader
+                  icon={<MapPin className="h-7 w-7" />}
+                  title="Agencia en Estados Unidos"
+                  description="Texto que ven los clientes en su panel y al registrar un paquete (dirección, horarios e instrucciones)."
+                  status={{
+                    label: updateAgenciaMutation.isPending
+                      ? 'Guardando...'
+                      : agenciaDirty
+                        ? 'Cambios pendientes'
+                        : 'Sin cambios',
+                    variant: agenciaDirty ? 'outline' : 'secondary',
+                  }}
+                />
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="space-y-4 min-w-0">
+                    <Field>
+                      <Label htmlFor="mensaje-agencia-eeuu">Mensaje</Label>
+                      <Textarea
+                        id="mensaje-agencia-eeuu"
+                        value={mensajeAgenciaLocal}
+                        onChange={(e) => setMensajeAgenciaLocal(e.target.value)}
+                        className="min-h-[220px] font-sans"
+                        rows={12}
+                        placeholder={'Agencia de EEUU:\n\nDirección completa…\n\nHorarios e indicaciones…'}
+                      />
+                      <FieldHint>
+                        Varias líneas. Puedes usar formato estilo WhatsApp: negrita, cursiva, tachado, código (ver
+                        vista previa).
+                      </FieldHint>
+                    </Field>
+                    <div className="flex items-center gap-2">
+                      <Button onClick={handleGuardarAgencia} disabled={updateAgenciaMutation.isPending}>
+                        {updateAgenciaMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
+                      </Button>
+                      {agenciaDirty ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setMensajeAgenciaLocal(mensajeAgenciaOriginal)}
+                        >
+                          Descartar
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="space-y-2 min-w-0">
+                    <p className="text-sm font-medium text-[var(--color-foreground)]">Vista previa</p>
+                    <FieldHint className="text-[11px] leading-snug">
+                      Formato: <code className="rounded bg-[var(--color-muted)]/50 px-1">*negrita*</code>,{' '}
+                      <code className="rounded bg-[var(--color-muted)]/50 px-1">_cursiva_</code>,{' '}
+                      <code className="rounded bg-[var(--color-muted)]/50 px-1">~tachado~</code>,{' '}
+                      <code className="rounded bg-[var(--color-muted)]/50 px-1">`código`</code>, bloques{' '}
+                      <code className="rounded bg-[var(--color-muted)]/50 px-1">```varias líneas```</code>.
+                    </FieldHint>
+                    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-muted)]/25 p-4">
+                      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3 shadow-sm">
+                        <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-[var(--color-foreground)]">
+                          {mensajeAgenciaLocal.trim()
+                            ? parseWhatsAppPreviewToReact(mensajeAgenciaLocal)
+                            : 'El texto se mostrará aquí como lo verá el cliente.'}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -341,27 +570,37 @@ export function ParametrosSistemaPage() {
 
         {opcionActiva === 'estados-rastreo-por-punto' && <EstadosRastreoPorPuntoView />}
       </section>
+        </>
+      ) : null}
 
       <ConfirmDialog
-        open={confirmarSalidaWhatsapp}
-        onOpenChange={(open) => !open && setConfirmarSalidaWhatsapp(false)}
+        open={confirmarSalidaParametros}
+        onOpenChange={(open) => !open && setConfirmarSalidaParametros(false)}
         title="Cambios sin guardar"
-        description="Tienes cambios sin guardar en la plantilla WhatsApp. ¿Deseas guardar antes de cambiar de módulo?"
-        confirmLabel="Guardar y cambiar"
+        description="Tienes cambios sin guardar en este módulo. ¿Deseas guardar antes de volver al listado o abrir otro módulo?"
+        confirmLabel="Guardar y continuar"
         cancelLabel="Cancelar"
         onConfirm={async () => {
           try {
-            await handleGuardar();
-            if (opcionPendiente) {
+            if (opcionActiva === 'mensaje-whatsapp-despacho' && whatsappDirty) {
+              await handleGuardarWhatsapp();
+            }
+            if (opcionActiva === 'mensaje-agencia-eeuu' && agenciaDirty) {
+              await handleGuardarAgencia();
+            }
+            if (opcionPendiente === 'menu') {
+              setVistaLista(true);
+            } else if (opcionPendiente) {
               setOpcionActiva(opcionPendiente);
+              setVistaLista(false);
             }
             setOpcionPendiente(null);
-            setConfirmarSalidaWhatsapp(false);
+            setConfirmarSalidaParametros(false);
           } catch {
             throw new Error('Save before leave failed');
           }
         }}
-        loading={updateMutation.isPending}
+        loading={updateMutation.isPending || updateAgenciaMutation.isPending}
       />
     </div>
   );

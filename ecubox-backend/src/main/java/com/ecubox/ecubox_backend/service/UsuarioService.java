@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -63,7 +64,7 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioDTO update(Long id, UsuarioUpdateRequest request) {
-        Usuario usuario = usuarioRepository.findById(id)
+        Usuario usuario = usuarioRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
         if (request.getEmail() != null) {
             usuario.setEmail(request.getEmail());
@@ -110,7 +111,7 @@ public class UsuarioService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .email(request.getEmail().trim())
                 .enabled(true)
-                .roles(Set.of(clienteRol))
+                .roles(new HashSet<>(List.of(clienteRol)))
                 .build();
         usuario = usuarioRepository.save(usuario);
         return toDTO(usuario);
@@ -129,12 +130,12 @@ public class UsuarioService {
 
     private Set<Rol> resolveRoles(List<Long> roleIds) {
         if (roleIds == null || roleIds.isEmpty()) {
-            return Set.of();
+            return new HashSet<>();
         }
         List<Rol> roles = rolRepository.findAllById(roleIds);
         if (roles.size() != roleIds.size()) {
             throw new BadRequestException("Uno o más roles no existen");
         }
-        return Set.copyOf(roles);
+        return new HashSet<>(roles);
     }
 }

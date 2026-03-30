@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
+import com.ecubox.ecubox_backend.dto.MensajeAgenciaEeuuDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoDTO;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.ParametroSistema;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ParametroSistemaService {
 
     public static final String CLAVE_MENSAJE_WHATSAPP_DESPACHO = "mensaje_whatsapp_despacho";
+    public static final String CLAVE_MENSAJE_AGENCIA_EEUU = "mensaje_agencia_eeuu";
 
     public static final String CLAVE_ESTADO_RASTREO_REGISTRO_PAQUETE = "estado_rastreo_registro_paquete";
     public static final String CLAVE_ESTADO_RASTREO_EN_LOTE_RECEPCION = "estado_rastreo_en_lote_recepcion";
@@ -47,6 +49,27 @@ public class ParametroSistemaService {
         param = parametroSistemaRepository.save(param);
         return MensajeWhatsAppDespachoDTO.builder()
                 .plantilla(param.getValor() != null ? param.getValor() : "")
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public MensajeAgenciaEeuuDTO getMensajeAgenciaEeuu() {
+        String valor = parametroSistemaRepository.findById(CLAVE_MENSAJE_AGENCIA_EEUU)
+                .map(ParametroSistema::getValor)
+                .orElse("");
+        return MensajeAgenciaEeuuDTO.builder()
+                .mensaje(valor != null ? valor : "")
+                .build();
+    }
+
+    @Transactional
+    public MensajeAgenciaEeuuDTO updateMensajeAgenciaEeuu(String mensaje) {
+        ParametroSistema param = parametroSistemaRepository.findById(CLAVE_MENSAJE_AGENCIA_EEUU)
+                .orElse(ParametroSistema.builder().clave(CLAVE_MENSAJE_AGENCIA_EEUU).valor("").build());
+        param.setValor(mensaje != null ? mensaje : "");
+        param = parametroSistemaRepository.save(param);
+        return MensajeAgenciaEeuuDTO.builder()
+                .mensaje(param.getValor() != null ? param.getValor() : "")
                 .build();
     }
 

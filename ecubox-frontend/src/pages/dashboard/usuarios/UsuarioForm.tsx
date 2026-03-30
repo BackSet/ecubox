@@ -7,6 +7,7 @@ import { useUsuario, useCreateUsuario, useUpdateUsuario } from '@/hooks/useUsuar
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -107,6 +108,11 @@ export function UsuarioForm({ id, onClose, onSuccess }: UsuarioFormProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar usuario' : 'Nuevo usuario'}</DialogTitle>
+          <DialogDescription>
+            {isEdit
+              ? 'Actualiza correo, estado de la cuenta y roles asignados.'
+              : 'Define usuario, contraseña y roles para el nuevo acceso.'}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
           {!isEdit && (

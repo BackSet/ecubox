@@ -30,6 +30,7 @@ import { TrackingPage } from '@/pages/tracking/TrackingPage';
 import { CalculadoraPage } from '@/pages/calculadora/CalculadoraPage';
 import { TarifaCalculadoraPage } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraPage';
 import { ParametrosSistemaPage } from '@/pages/dashboard/parametros-sistema/ParametrosSistemaPage';
+import { AgenciaEeuuPage } from '@/pages/dashboard/agencia-eeuu/AgenciaEeuuPage';
 import { useAuthStore } from '@/stores/authStore';
 import { applyTheme, useThemeStore } from '@/stores/themeStore';
 
@@ -128,6 +129,13 @@ const inicioRoute = createRoute({
   path: '/inicio',
   beforeLoad: requireAuth,
   component: withDashboardLayout(DashboardPage),
+});
+
+const agenciaEeuuRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/agencia-eeuu',
+  beforeLoad: requireAuth,
+  component: withDashboardLayout(AgenciaEeuuPage),
 });
 
 const usuariosRoute = createRoute({
@@ -293,6 +301,7 @@ const routeTree = rootRoute.addChildren([
   trackingRoute,
   calculadoraRoute,
   inicioRoute,
+  agenciaEeuuRoute,
   usuariosRoute,
   rolesRoute,
   permisosRoute,
