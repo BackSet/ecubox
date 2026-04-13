@@ -11,8 +11,13 @@ ECUBOX/
 ├── ecubox-backend/    # API REST — Java 25, Spring Boot 4.0.3
 ├── ecubox-frontend/   # SPA — React 19, Vite 8, TypeScript 6
 ├── docker-compose.yml # Orquestación local (backend + frontend + PostgreSQL)
-├── docs/branding/     # Activos de branding archivados
-└── *.md               # Documentación principal del proyecto
+├── docs/              # Documentación (usuario, desarrollo, despliegue, branding)
+│   ├── README.md      # Índice
+│   ├── usuario/
+│   ├── desarrollo/
+│   ├── despliegue/
+│   └── branding/
+└── README.md            # Inicio rápido del monorepo
 ```
 
 ## Prerequisitos
@@ -27,10 +32,10 @@ ECUBOX/
 ## Inicio rápido con Docker
 
 ```bash
-# 1. Crear .env en la raíz con variables sensibles
+# 1. Crear .env en la raíz (valores de ejemplo; sustituir por secretos propios)
 cat > .env <<EOF
-DB_PASSWORD=tu_password_segura
-JWT_SECRET=cambia_esto_minimo_32_caracteres
+DB_PASSWORD=definir_contraseña_ficticia_aqui
+JWT_SECRET=definir_cadena_minimo_32_caracteres_ficticia
 EOF
 
 # 2. Levantar todo
@@ -81,21 +86,26 @@ El frontend arranca en `http://localhost:5173`.
 | `ADMIN_BOOTSTRAP_ENABLED` | No | `true` para crear usuario admin en primer arranque |
 | `ADMIN_USERNAME` | No | Username del admin inicial (default: `admin`) |
 | `ADMIN_INITIAL_PASSWORD` | No | Contraseña del admin inicial |
+| `ADMIN_EMAIL` | Si bootstrap activo | Email del usuario admin inicial |
 
 ### Frontend (`ecubox-frontend/.env`)
 
 | Variable | Requerida | Descripción |
 |----------|-----------|-------------|
-| `VITE_API_URL` | Sí | URL pública del backend con `/api` (ej: `https://<backend>.up.railway.app/api`) |
+| `VITE_API_URL` | Sí | URL pública del backend con `/api` (sustituir por la tuya; ver ejemplos tentativos en la guía) |
+
+Tablas ampliadas con **ejemplos** por entorno: [docs/despliegue/VARIABLES_ENTORNO.md](docs/despliegue/VARIABLES_ENTORNO.md).
 
 ## Documentación
 
-- [API_REFERENCE.md](API_REFERENCE.md) — Referencia completa de la API (99 endpoints)
-- [TECH-STACK.md](TECH-STACK.md) — Tecnologías y versiones
-- [ARQUITECTURA_BACKEND.md](ARQUITECTURA_BACKEND.md) — Arquitectura del backend
-- [UX-UI-DESIGN.md](UX-UI-DESIGN.md) — Sistema de diseño UX/UI
-- [RAILWAY_PRODUCCION_GUIA.md](RAILWAY_PRODUCCION_GUIA.md) — Guía de despliegue en Railway
-- [docs/branding/ecubox-branding.html](docs/branding/ecubox-branding.html) — Archivo histórico de branding
+Índice completo: [docs/README.md](docs/README.md).
+
+| Área | Enlaces |
+|------|---------|
+| Usuario | [Manual de usuario](docs/usuario/MANUAL_USUARIO.md), [Guía de estados y seguimiento](docs/usuario/GUIA_ESTADOS_Y_SEGUIMIENTO.md) |
+| Desarrollo | [API](docs/desarrollo/API_REFERENCE.md), [TECH-STACK](docs/desarrollo/TECH-STACK.md), [Arquitectura backend](docs/desarrollo/ARQUITECTURA_BACKEND.md), [UX/UI](docs/desarrollo/UX-UI-DESIGN.md) |
+| Despliegue | [Variables de entorno](docs/despliegue/VARIABLES_ENTORNO.md), [Railway](docs/despliegue/RAILWAY_PRODUCCION_GUIA.md) |
+| Branding | [docs/branding/ecubox-branding.html](docs/branding/ecubox-branding.html) |
 
 ### Nota de despliegue Railway
 

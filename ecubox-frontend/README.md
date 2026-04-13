@@ -66,5 +66,6 @@ src/
 
 ## Documentación detallada
 
-- [UX-UI-DESIGN.md](../UX-UI-DESIGN.md) — Sistema de diseño UX/UI
-- [TECH-STACK.md](../TECH-STACK.md) — Stack tecnológico completo
+- [UX-UI-DESIGN.md](../docs/desarrollo/UX-UI-DESIGN.md) — Sistema de diseño UX/UI
+- [TECH-STACK.md](../docs/desarrollo/TECH-STACK.md) — Stack tecnológico completo
+- [Variables de entorno](../docs/despliegue/VARIABLES_ENTORNO.md) — Ejemplos (`VITE_API_URL`, etc.)

@@ -65,6 +65,7 @@ En perfil `prod`, Swagger está desactivado.
 
 ## Documentación detallada
 
-- [API_REFERENCE.md](../API_REFERENCE.md) — Referencia completa de la API (99 endpoints)
-- [ARQUITECTURA_BACKEND.md](../ARQUITECTURA_BACKEND.md) — Arquitectura en capas, seguridad y dominio
-- [TECH-STACK.md](../TECH-STACK.md) — Stack tecnológico completo
+- [API_REFERENCE.md](../docs/desarrollo/API_REFERENCE.md) — Referencia completa de la API (99 endpoints)
+- [ARQUITECTURA_BACKEND.md](../docs/desarrollo/ARQUITECTURA_BACKEND.md) — Arquitectura en capas, seguridad y dominio
+- [TECH-STACK.md](../docs/desarrollo/TECH-STACK.md) — Stack tecnológico completo
+- [Variables de entorno](../docs/despliegue/VARIABLES_ENTORNO.md) — Ejemplos por entorno

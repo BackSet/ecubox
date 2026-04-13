@@ -527,6 +527,6 @@ Tabla de permisos usados en `@PreAuthorize` y los endpoints que protegen:
 
 ## Documentación relacionada
 
-- [README.md](README.md) — Inicio rápido
+- [README.md](../../README.md) — Inicio rápido del monorepo
 - [ARQUITECTURA_BACKEND.md](ARQUITECTURA_BACKEND.md) — Arquitectura del backend
 - [TECH-STACK.md](TECH-STACK.md) — Stack tecnológico

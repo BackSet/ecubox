@@ -131,7 +131,7 @@ sequenceDiagram
 
 - **Flyway:** Migraciones en `src/main/resources/db/migration/`; 39 scripts `V*.sql`.
 
-- **Despliegue en producción:** Ver [RAILWAY_PRODUCCION_GUIA.md](RAILWAY_PRODUCCION_GUIA.md) para build, variables de entorno y configuración.
+- **Despliegue en producción:** Ver [RAILWAY_PRODUCCION_GUIA.md](../despliegue/RAILWAY_PRODUCCION_GUIA.md) para build, variables de entorno y configuración.
 
 ---
 
@@ -192,5 +192,5 @@ Se usa un DTO propio `ApiErrorResponse` con:
 ## 8. Documentos relacionados
 
 - [TECH-STACK.md](TECH-STACK.md) — Tecnologías y versiones (backend y frontend)
-- [RAILWAY_PRODUCCION_GUIA.md](RAILWAY_PRODUCCION_GUIA.md) — Despliegue en producción
+- [RAILWAY_PRODUCCION_GUIA.md](../despliegue/RAILWAY_PRODUCCION_GUIA.md) — Despliegue en producción
 - [UX-UI-DESIGN.md](UX-UI-DESIGN.md) — Diseño UX/UI del frontend
