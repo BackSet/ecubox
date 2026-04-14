@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioCards } from '@/components/ui/radio-cards';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   useDistribuidores,
   useAgenciasOperario,
@@ -107,6 +108,8 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
 
   const tipoEntrega = form.watch('tipoEntrega');
   const distribuidorIdForm = form.watch('distribuidorId');
+  const agenciaIdValue = form.watch('agenciaId');
+  const agenciaDistribuidorIdValue = form.watch('agenciaDistribuidorId');
   const { data: agenciasDistribuidor = [] } = useAgenciasDistribuidor(
     tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && distribuidorIdForm != null && distribuidorIdForm > 0 ? distribuidorIdForm : null
   );
@@ -218,17 +221,23 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
             <Label className="mb-1 block">
               Distribuidor
             </Label>
-            <select
-              {...form.register('distribuidorId', { valueAsNumber: true })}
-              className="input-clean"
+            <Select
+              value={distribuidorIdForm > 0 ? String(distribuidorIdForm) : undefined}
+              onValueChange={(value) => {
+                form.setValue('distribuidorId', Number(value), { shouldValidate: true, shouldDirty: true });
+              }}
             >
-              <option value={0}>Seleccione distribuidor</option>
-              {distribuidores.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.nombre} ({d.codigo})
-                </option>
-              ))}
-            </select>
+              <SelectTrigger variant="clean">
+                <SelectValue placeholder="Seleccione distribuidor" />
+              </SelectTrigger>
+              <SelectContent>
+                {distribuidores.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    {d.nombre} ({d.codigo})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {form.formState.errors.distribuidorId && (
               <p className="mt-1 text-sm text-[var(--color-destructive)]">
                 {form.formState.errors.distribuidorId.message}
@@ -301,17 +310,23 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
               <Label className="mb-1 block">
                 Agencia
               </Label>
-              <select
-                {...form.register('agenciaId', { valueAsNumber: true, setValueAs: (v) => (v === '' || Number.isNaN(Number(v)) ? undefined : Number(v)) })}
-                className="input-clean"
+              <Select
+                value={agenciaIdValue != null && agenciaIdValue > 0 ? String(agenciaIdValue) : undefined}
+                onValueChange={(value) => {
+                  form.setValue('agenciaId', Number(value), { shouldValidate: true, shouldDirty: true });
+                }}
               >
-                <option value="">Seleccione agencia</option>
-                {agencias.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nombre} ({a.codigo})
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger variant="clean">
+                  <SelectValue placeholder="Seleccione agencia" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agencias.map((a) => (
+                    <SelectItem key={a.id} value={String(a.id)}>
+                      {a.nombre} ({a.codigo})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {form.formState.errors.agenciaId && (
                 <p className="mt-1 text-sm text-[var(--color-destructive)]">
                   {form.formState.errors.agenciaId.message}
@@ -325,17 +340,23 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
               <Label className="mb-1 block">
                 Agencia del distribuidor
               </Label>
-              <select
-                {...form.register('agenciaDistribuidorId', { valueAsNumber: true, setValueAs: (v) => (v === '' || Number.isNaN(Number(v)) ? undefined : Number(v)) })}
-                className="input-clean"
+              <Select
+                value={agenciaDistribuidorIdValue != null && agenciaDistribuidorIdValue > 0 ? String(agenciaDistribuidorIdValue) : undefined}
+                onValueChange={(value) => {
+                  form.setValue('agenciaDistribuidorId', Number(value), { shouldValidate: true, shouldDirty: true });
+                }}
               >
-                <option value="">Seleccione agencia del distribuidor</option>
-                {agenciasDistribuidor.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {agenciaDistribuidorEtiqueta(a)}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger variant="clean">
+                  <SelectValue placeholder="Seleccione agencia del distribuidor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agenciasDistribuidor.map((a) => (
+                    <SelectItem key={a.id} value={String(a.id)}>
+                      {agenciaDistribuidorEtiqueta(a)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {form.formState.errors.agenciaDistribuidorId && (
                 <p className="mt-1 text-sm text-[var(--color-destructive)]">
                   {form.formState.errors.agenciaDistribuidorId.message}

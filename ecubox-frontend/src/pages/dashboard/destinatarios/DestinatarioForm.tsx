@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useDestinatario, useCreateDestinatario, useUpdateDestinatario } from '@/hooks/useDestinatarios';
 import { useDestinatarioOperario, useUpdateDestinatarioOperario } from '@/hooks/useOperarioDespachos';
 import { sugerirCodigo } from '@/lib/api/destinatarios.service';
@@ -151,8 +152,9 @@ export function DestinatarioForm({ id, useOperarioApi = false, onClose, onSucces
               <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Nombre *
               </label>
-              <input
+              <Input
                 {...form.register('nombre')}
+                variant="clean"
                 className={inputClass}
                 placeholder="Nombre del destinatario"
               />
@@ -166,12 +168,13 @@ export function DestinatarioForm({ id, useOperarioApi = false, onClose, onSucces
               <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Teléfono *
               </label>
-              <input
+              <Input
                 {...form.register('telefono')}
                 value={form.watch('telefono') ?? ''}
                 type="tel"
                 inputMode="numeric"
                 pattern="[0-9]*"
+                variant="clean"
                 className={inputClass}
                 placeholder="Teléfono"
                 onKeyDown={onKeyDownNumeric}
@@ -189,8 +192,9 @@ export function DestinatarioForm({ id, useOperarioApi = false, onClose, onSucces
               <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Dirección *
               </label>
-              <input
+              <Input
                 {...form.register('direccion')}
+                variant="clean"
                 className={inputClass}
                 placeholder="Calle principal, secundaria, referencias"
               />
@@ -274,8 +278,9 @@ export function DestinatarioForm({ id, useOperarioApi = false, onClose, onSucces
             </label>
             {hasDestinatariosOperarioPerm ? (
             <div className="flex gap-2">
-              <input
+              <Input
                 {...form.register('codigo')}
+                variant="clean"
                 className={inputClass + ' flex-1'}
                 placeholder="ECU-... (mín. 5 caracteres)"
               />

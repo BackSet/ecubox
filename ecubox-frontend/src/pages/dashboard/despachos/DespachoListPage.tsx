@@ -14,6 +14,8 @@ import { LoadingState } from '@/components/LoadingState';
 import { buttonVariants } from '@/components/ui/button';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
@@ -149,36 +151,36 @@ export function DespachoListPage() {
         />
       ) : (
         <ListTableShell>
-          <table className="compact-table min-w-[880px] text-left">
-            <thead>
-              <tr>
-                <th>Guía</th>
-                <th>Distribuidor</th>
-                <th>Tipo</th>
-                <th>Destino</th>
-                <th>Sacas</th>
-                <th className="text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="min-w-[880px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Guía</TableHead>
+                <TableHead>Distribuidor</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Destino</TableHead>
+                <TableHead>Sacas</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {list.map((d) => (
-                <tr key={d.id}>
-                  <td className="font-medium">{d.numeroGuia}</td>
-                  <td>{d.distribuidorNombre ?? '—'}</td>
-                  <td>
+                <TableRow key={d.id}>
+                  <TableCell className="font-medium">{d.numeroGuia}</TableCell>
+                  <TableCell>{d.distribuidorNombre ?? '—'}</TableCell>
+                  <TableCell>
                     <Badge variant="secondary">
                       {TIPO_LABELS[d.tipoEntrega] ?? d.tipoEntrega}
                     </Badge>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {d.tipoEntrega === 'DOMICILIO'
                       ? (d.destinatarioNombre ?? '—')
                       : d.tipoEntrega === 'AGENCIA_DISTRIBUIDOR'
                         ? (d.agenciaDistribuidorNombre ?? '—')
                         : (d.agenciaNombre ?? '—')}
-                  </td>
-                  <td>{d.sacaIds?.length ?? 0}</td>
-                  <td className="text-right">
+                  </TableCell>
+                  <TableCell>{d.sacaIds?.length ?? 0}</TableCell>
+                  <TableCell className="text-right">
                     <div className="flex items-center justify-end">
                       <RowActionsMenu
                         items={[
@@ -189,11 +191,11 @@ export function DespachoListPage() {
                         ]}
                       />
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </ListTableShell>
       )}
 
@@ -256,24 +258,26 @@ export function DespachoListPage() {
               <label className="block text-sm font-medium mb-1" htmlFor="periodo-desde">
                 Fecha inicio
               </label>
-              <input
+              <Input
                 id="periodo-desde"
                 type="date"
                 value={periodoFechaInicio}
                 onChange={(e) => setPeriodoFechaInicio(e.target.value)}
-                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
+                variant="clean"
+                className="input-clean"
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="periodo-hasta">
                 Fecha fin
               </label>
-              <input
+              <Input
                 id="periodo-hasta"
                 type="date"
                 value={periodoFechaFin}
                 onChange={(e) => setPeriodoFechaFin(e.target.value)}
-                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
+                variant="clean"
+                className="input-clean"
               />
             </div>
           </div>

@@ -8,6 +8,8 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { ListTableShell } from '@/components/ListTableShell';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileText } from 'lucide-react';
 
 export function ManifiestoListPage() {
@@ -71,64 +73,62 @@ export function ManifiestoListPage() {
         />
       ) : (
         <ListTableShell>
-            <table className="compact-table min-w-[900px] text-left">
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Periodo</th>
-                  <th>Filtro</th>
-                  <th className="text-right">Despachos</th>
-                  <th className="text-right">Total a pagar</th>
-                  <th>Estado</th>
-                  <th className="text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((m) => (
-                  <tr key={m.id}>
-                    <td className="font-medium">{m.codigo ?? '—'}</td>
-                    <td className="text-muted-foreground">
-                      {m.fechaInicio && m.fechaFin
-                        ? `${m.fechaInicio} – ${m.fechaFin}`
-                        : '—'}
-                    </td>
-                    <td className="text-muted-foreground">
-                      {m.filtroTipo === 'POR_PERIODO'
-                        ? 'Por período'
-                        : m.filtroTipo === 'POR_DISTRIBUIDOR'
-                          ? m.filtroDistribuidorNombre ?? '—'
-                          : m.filtroAgenciaNombre ?? '—'}
-                    </td>
-                    <td className="text-right">{m.cantidadDespachos ?? 0}</td>
-                    <td className="text-right font-medium">
-                      {m.totalPagar != null
-                        ? `$${Number(m.totalPagar).toFixed(2)}`
-                        : '—'}
-                    </td>
-                    <td>
-                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                        {m.estado ?? 'PENDIENTE'}
-                      </span>
-                    </td>
-                    <td className="text-right">
-                      <div className="flex items-center justify-end">
-                        <RowActionsMenu
-                          items={[
-                            { label: 'Ver detalle', onSelect: () => { window.location.href = `/manifiestos/${m.id}`; } },
-                            { label: 'Editar', onSelect: () => setEditingId(m.id) },
-                            {
-                              label: 'Eliminar',
-                              destructive: true,
-                              onSelect: () => setDeleteConfirmId(m.id),
-                            },
-                          ]}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <Table className="min-w-[900px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Código</TableHead>
+                <TableHead>Periodo</TableHead>
+                <TableHead>Filtro</TableHead>
+                <TableHead className="text-right">Despachos</TableHead>
+                <TableHead className="text-right">Total a pagar</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell className="font-medium">{m.codigo ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {m.fechaInicio && m.fechaFin
+                      ? `${m.fechaInicio} – ${m.fechaFin}`
+                      : '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {m.filtroTipo === 'POR_PERIODO'
+                      ? 'Por período'
+                      : m.filtroTipo === 'POR_DISTRIBUIDOR'
+                        ? m.filtroDistribuidorNombre ?? '—'
+                        : m.filtroAgenciaNombre ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-right">{m.cantidadDespachos ?? 0}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    {m.totalPagar != null
+                      ? `$${Number(m.totalPagar).toFixed(2)}`
+                      : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{m.estado ?? 'PENDIENTE'}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end">
+                      <RowActionsMenu
+                        items={[
+                          { label: 'Ver detalle', onSelect: () => { window.location.href = `/manifiestos/${m.id}`; } },
+                          { label: 'Editar', onSelect: () => setEditingId(m.id) },
+                          {
+                            label: 'Eliminar',
+                            destructive: true,
+                            onSelect: () => setDeleteConfirmId(m.id),
+                          },
+                        ]}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </ListTableShell>
       )}
 

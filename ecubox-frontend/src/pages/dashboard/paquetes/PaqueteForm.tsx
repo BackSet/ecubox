@@ -20,6 +20,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { Loader2, MapPin } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import { useMensajeAgenciaEeuu } from '@/hooks/useMensajeAgenciaEeuu';
 import { parseWhatsAppPreviewToReact } from '@/pages/dashboard/parametros-sistema/whatsappFormatPreview';
 import type { DestinatarioFinal } from '@/types/destinatario';
@@ -312,8 +313,9 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
             <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
               Número de guía *
             </label>
-            <input
+            <Input
               {...form.register('numeroGuia')}
+              variant="clean"
               className="input-clean"
               placeholder="Tracking original (USA)"
             />
@@ -331,7 +333,7 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
             >
               Destinatario final *
             </label>
-            <input
+            <Input
               ref={inputRef}
               type="text"
               role="combobox"
@@ -348,6 +350,7 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
               }}
               onFocus={() => setDropdownOpen(true)}
               onKeyDown={handleComboboxKeyDown}
+              variant="clean"
               className="input-clean"
               placeholder="Buscar por nombre, cantón o teléfono..."
             />
@@ -408,8 +411,9 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
             <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
               Contenido *
             </label>
-            <input
+            <Input
               {...form.register('contenido')}
+              variant="clean"
               className="input-clean"
               placeholder="Descripción del contenido"
             />
@@ -427,8 +431,9 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
               </label>
               {hasPesoWrite ? (
                 <div className="flex gap-2">
-                  <input
+                  <Input
                     {...form.register('ref')}
+                    variant="clean"
                     className="input-clean flex-1 font-mono"
                     placeholder="ECU-XX-1"
                   />
@@ -472,7 +477,7 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
                 <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                   Peso lbs (opcional)
                 </label>
-                <input
+                <Input
                   type="text"
                   inputMode="decimal"
                   value={pesoLbsInput}
@@ -491,6 +496,7 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
                       setPesoKgInput('');
                     }
                   }}
+                  variant="clean"
                   className="input-clean"
                   placeholder="0"
                 />
@@ -499,7 +505,7 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
                 <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                   Peso kg (opcional)
                 </label>
-                <input
+                <Input
                   type="text"
                   inputMode="decimal"
                   value={pesoKgInput}
@@ -518,6 +524,7 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
                       setPesoLbsInput('');
                     }
                   }}
+                  variant="clean"
                   className="input-clean"
                   placeholder="0"
                 />
@@ -530,8 +537,9 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
               <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Guía de envío consolidador (opcional)
               </label>
-              <input
+              <Input
                 {...form.register('numeroGuiaEnvio')}
+                variant="clean"
                 className="input-clean"
                 placeholder="Número de guía del consolidador"
               />

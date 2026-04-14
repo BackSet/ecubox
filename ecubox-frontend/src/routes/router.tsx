@@ -61,6 +61,14 @@ function requireAdminOrOperario() {
   if (!allowed) throw redirect({ to: '/inicio' });
 }
 
+function requirePermission(permission: string) {
+  return () => {
+    requireAuth();
+    const { hasPermission } = useAuthStore.getState();
+    if (!hasPermission(permission)) throw redirect({ to: '/inicio' });
+  };
+}
+
 function withDashboardLayout<P extends object>(Component: ComponentType<P>) {
   return function DashboardLayoutWrapper(props: P) {
     return (
@@ -141,42 +149,42 @@ const agenciaEeuuRoute = createRoute({
 const usuariosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/usuarios',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('USUARIOS_READ'),
   component: withDashboardLayout(UsuarioList),
 });
 
 const rolesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/roles',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('ROLES_READ'),
   component: withDashboardLayout(RolList),
 });
 
 const permisosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/permisos',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('PERMISOS_READ'),
   component: withDashboardLayout(PermisoList),
 });
 
 const destinatariosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/destinatarios',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESTINATARIOS_READ'),
   component: withDashboardLayout(DestinatarioListPage),
 });
 
 const paquetesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/paquetes',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('PAQUETES_READ'),
   component: withDashboardLayout(PaqueteListPage),
 });
 
 const cargarPesosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/cargar-pesos',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('PAQUETES_PESO_WRITE'),
   component: withDashboardLayout(CargarPesosPage),
 });
 
@@ -190,105 +198,105 @@ const asignarGuiaEnvioRoute = createRoute({
 const gestionarEstadosPaquetesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/gestionar-estados-paquetes',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('PAQUETES_PESO_WRITE'),
   component: withDashboardLayout(GestionarEstadosPaquetesPage),
 });
 
 const despachosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/despachos',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESPACHOS_WRITE'),
   component: withDashboardLayout(DespachoListPage),
 });
 
 const despachosNuevoRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/despachos/nuevo',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESPACHOS_WRITE'),
   component: withDashboardLayout(NuevoDespachoPage),
 });
 
 const despachosDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/despachos/$id',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESPACHOS_WRITE'),
   component: withDashboardLayout(DespachoDetailPage),
 });
 
 const despachosEditarRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/despachos/$id/editar',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESPACHOS_WRITE'),
   component: withDashboardLayout(EditarDespachoPage),
 });
 
 const lotesRecepcionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/lotes-recepcion',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESPACHOS_WRITE'),
   component: withDashboardLayout(LoteRecepcionListPage),
 });
 
 const lotesRecepcionNuevoRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/lotes-recepcion/nuevo',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESPACHOS_WRITE'),
   component: withDashboardLayout(LoteRecepcionNuevoPage),
 });
 
 const lotesRecepcionDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/lotes-recepcion/$id',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESPACHOS_WRITE'),
   component: withDashboardLayout(LoteRecepcionDetailPage),
 });
 
 const agenciasRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/agencias',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('AGENCIAS_READ'),
   component: withDashboardLayout(AgenciaListPage),
 });
 
 const agenciasDistribuidorRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/agencias-distribuidor',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('AGENCIAS_DISTRIBUIDOR_READ'),
   component: withDashboardLayout(AgenciaDistribuidorListPage),
 });
 
 const distribuidoresRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/distribuidores',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DISTRIBUIDORES_READ'),
   component: withDashboardLayout(DistribuidorListPage),
 });
 
 const manifiestosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/manifiestos',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('MANIFIESTOS_READ'),
   component: withDashboardLayout(ManifiestoListPage),
 });
 
 const manifiestosDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/manifiestos/$id',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('MANIFIESTOS_READ'),
   component: withDashboardLayout(ManifiestoDetailPage),
 });
 
 const tarifaCalculadoraRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/tarifa-calculadora',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESPACHOS_WRITE'),
   component: withDashboardLayout(TarifaCalculadoraPage),
 });
 
 const parametrosSistemaRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/parametros-sistema',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('DESPACHOS_WRITE'),
   component: withDashboardLayout(ParametrosSistemaPage),
 });
 

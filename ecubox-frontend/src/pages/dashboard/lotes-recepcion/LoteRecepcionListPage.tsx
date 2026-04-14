@@ -7,6 +7,7 @@ import { LoadingState } from '@/components/LoadingState';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { ListTableShell } from '@/components/ListTableShell';
 import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PackageCheck, Plus } from 'lucide-react';
 
 function formatFecha(s: string | undefined): string {
@@ -79,40 +80,40 @@ export function LoteRecepcionListPage() {
         />
       ) : (
         <ListTableShell>
-            <table className="compact-table min-w-[860px] text-left">
-              <thead>
-                <tr>
-                  <th>Fecha recepción</th>
-                  <th>Observaciones</th>
-                  <th>Operario</th>
-                  <th className="text-right">Guías</th>
-                  <th className="text-right">Paquetes</th>
-                  <th className="text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((l) => (
-                  <tr key={l.id}>
-                    <td className="font-medium">{formatFecha(l.fechaRecepcion)}</td>
-                    <td className="text-muted-foreground max-w-[200px] truncate" title={l.observaciones ?? ''}>
-                      {l.observaciones ? (l.observaciones.length > 50 ? l.observaciones.slice(0, 50) + '…' : l.observaciones) : '—'}
-                    </td>
-                    <td>{l.operarioNombre ?? '—'}</td>
-                    <td className="text-right">{l.numeroGuiasEnvio?.length ?? 0}</td>
-                    <td className="text-right">{l.totalPaquetes ?? '—'}</td>
-                    <td className="text-right">
-                      <div className="flex items-center justify-end">
-                        <RowActionsMenu
-                          items={[
-                            { label: 'Ver detalle', onSelect: () => { window.location.href = `/lotes-recepcion/${l.id}`; } },
-                          ]}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <Table className="min-w-[860px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha recepción</TableHead>
+                <TableHead>Observaciones</TableHead>
+                <TableHead>Operario</TableHead>
+                <TableHead className="text-right">Guías</TableHead>
+                <TableHead className="text-right">Paquetes</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.map((l) => (
+                <TableRow key={l.id}>
+                  <TableCell className="font-medium">{formatFecha(l.fechaRecepcion)}</TableCell>
+                  <TableCell className="max-w-[200px] truncate text-muted-foreground" title={l.observaciones ?? ''}>
+                    {l.observaciones ? (l.observaciones.length > 50 ? l.observaciones.slice(0, 50) + '…' : l.observaciones) : '—'}
+                  </TableCell>
+                  <TableCell>{l.operarioNombre ?? '—'}</TableCell>
+                  <TableCell className="text-right">{l.numeroGuiasEnvio?.length ?? 0}</TableCell>
+                  <TableCell className="text-right">{l.totalPaquetes ?? '—'}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end">
+                      <RowActionsMenu
+                        items={[
+                          { label: 'Ver detalle', onSelect: () => { window.location.href = `/lotes-recepcion/${l.id}`; } },
+                        ]}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </ListTableShell>
       )}
     </div>

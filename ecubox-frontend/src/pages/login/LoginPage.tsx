@@ -12,7 +12,7 @@ import { SurfaceCard } from '@/components/ui/surface-card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 const loginSchema = z.object({
-  username: z.string().min(1, 'El correo electrónico es requerido'),
+  username: z.string().min(1, 'El usuario o correo es requerido'),
   password: z.string().min(1, 'La contraseña es requerida'),
 });
 
@@ -37,7 +37,7 @@ export function LoginPage() {
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {
-        setError('Correo o contraseña incorrectos');
+        setError('Usuario/correo o contraseña incorrectos');
       } else {
         setError('Error al iniciar sesión. Intenta de nuevo.');
       }
@@ -78,9 +78,9 @@ export function LoginPage() {
                     name="username"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Correo electrónico</FormLabel>
+                        <FormLabel>Usuario o correo</FormLabel>
                         <FormControl>
-                          <Input type="email" autoComplete="email" placeholder="tu@correo.com" {...field} />
+                          <Input type="text" autoComplete="username" placeholder="usuario o tu@correo.com" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

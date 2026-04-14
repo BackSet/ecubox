@@ -1,122 +1,86 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import {
-  LayoutDashboard,
-  Users,
-  Shield,
-  Key,
   Search,
   ChevronLeft,
   ChevronRight,
   Sun,
   Moon,
   Monitor,
-  MapPin,
-  Package,
-  Weight,
-  Tag,
-  Truck,
-  Building2,
-  PackageCheck,
-  ClipboardList,
-  FileText,
-  Settings,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EcuboxLogo } from '@/components/brand';
+import { getVisibleNavGroups } from '@/app/navigation/dashboardNav';
 
 interface SidebarProps {
   onOpenSearch?: () => void;
+  onNavigate?: () => void;
+  shortcutLabel?: string;
+  mobile?: boolean;
 }
 
-type NavItem = {
-  to: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  exact?: boolean;
-  permission?: string;
-};
+const SIDEBAR_COLLAPSED_KEY = 'ecubox_sidebar_collapsed';
 
-const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
-  {
-    label: 'Principal',
-    items: [
-      { to: '/inicio', label: 'Inicio', icon: LayoutDashboard, exact: true },
-      { to: '/agencia-eeuu', label: 'Agencia USA', icon: MapPin },
-    ],
-  },
-  {
-    label: 'Operaciones',
-    items: [
-      { to: '/destinatarios', label: 'Destinatarios', icon: MapPin, permission: 'DESTINATARIOS_READ' },
-      { to: '/paquetes', label: 'Paquetes', icon: Package, permission: 'PAQUETES_READ' },
-      { to: '/cargar-pesos', label: 'Cargar pesos', icon: Weight, permission: 'PAQUETES_PESO_WRITE' },
-      { to: '/gestionar-estados-paquetes', label: 'Estados de paquetes', icon: Tag, permission: 'PAQUETES_PESO_WRITE' },
-      { to: '/despachos', label: 'Despachos', icon: Truck, permission: 'DESPACHOS_WRITE' },
-      { to: '/lotes-recepcion', label: 'Lotes recepción', icon: ClipboardList, permission: 'DESPACHOS_WRITE' },
-    ],
-  },
-  {
-    label: 'Catálogos',
-    items: [
-      { to: '/agencias', label: 'Agencias', icon: Building2, permission: 'AGENCIAS_READ' },
-      { to: '/agencias-distribuidor', label: 'Agencias distribuidor', icon: Building2, permission: 'AGENCIAS_DISTRIBUIDOR_READ' },
-      { to: '/distribuidores', label: 'Distribuidores', icon: PackageCheck, permission: 'DISTRIBUIDORES_READ' },
-      { to: '/manifiestos', label: 'Manifiestos', icon: FileText, permission: 'MANIFIESTOS_READ' },
-    ],
-  },
-  {
-    label: 'Administración',
-    items: [
-      { to: '/usuarios', label: 'Usuarios', icon: Users, permission: 'USUARIOS_READ' },
-      { to: '/roles', label: 'Roles', icon: Shield, permission: 'ROLES_READ' },
-      { to: '/permisos', label: 'Permisos', icon: Key, permission: 'PERMISOS_READ' },
-    ],
-  },
-  {
-    label: 'Configuración',
-    items: [{ to: '/parametros-sistema', label: 'Parámetros', icon: Settings, permission: 'DESPACHOS_WRITE' }],
-  },
-];
-
-export function Sidebar({ onOpenSearch }: SidebarProps) {
+export function Sidebar({ onOpenSearch, onNavigate, shortcutLabel = 'Ctrl+K', mobile = false }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { hasPermission } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const canSeeItem = (item: NavItem) => {
-    if (!item.permission) return true;
-    return hasPermission(item.permission);
-  };
+  useEffect(() => {
+    if (mobile || typeof window === 'undefined') return;
+    try {
+      const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (stored === '1') setCollapsed(true);
+    } catch {
+      // Silent fallback: state lives in memory only.
+    }
+  }, [mobile]);
 
-  const visibleGroups = NAV_GROUPS.map((group) => ({
-    label: group.label,
-    items: group.items.filter(canSeeItem),
-  })).filter((group) => group.items.length > 0);
+  const visibleGroups = getVisibleNavGroups(hasPermission);
 
   const isActive = (to: string, exact?: boolean) => {
     if (exact) return pathname === to;
     return pathname === to || pathname.startsWith(to + '/');
   };
 
+  const effectiveCollapsed = mobile ? false : collapsed;
+
+  const handleToggleCollapsed = () => {
+    setCollapsed((value) => {
+      const next = !value;
+      try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0');
+      } catch {
+        // Silent fallback if storage is blocked.
+      }
+      return next;
+    });
+  };
+
+  const handleNavigate = () => {
+    onNavigate?.();
+  };
+
   return (
     <aside
       className={cn(
-        'group relative flex flex-col border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar-background)] transition-[width] duration-200 ease-out',
-        collapsed ? 'w-[52px]' : 'w-[252px]'
+        'group relative flex h-full flex-col border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar-background)] transition-[width] duration-200 ease-out motion-reduce:transition-none',
+        effectiveCollapsed ? 'w-[56px]' : 'w-[264px]',
+        mobile && 'w-full max-w-[320px]'
       )}
     >
       <div className="flex h-12 shrink-0 items-center border-b border-[var(--color-sidebar-border)] px-2.5">
         <Link
           to="/inicio"
+          onClick={handleNavigate}
           className="flex items-center flex-shrink-0 opacity-90 hover:opacity-100 transition-opacity"
           aria-label="ECUBOX - Dashboard"
         >
-          <EcuboxLogo variant="light" size="md" asLink={false} iconOnly={collapsed} />
+          <EcuboxLogo variant="light" size="md" asLink={false} iconOnly={effectiveCollapsed} />
         </Link>
       </div>
 
@@ -124,21 +88,24 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
         <div className="p-2">
           <Button
             variant="ghost"
-            size={collapsed ? 'icon' : 'default'}
+            size={effectiveCollapsed ? 'icon' : 'default'}
             className={cn(
               'w-full justify-start gap-2 text-[var(--color-sidebar-foreground)]',
-              collapsed && 'px-0'
+              effectiveCollapsed && 'px-0'
             )}
-            onClick={onOpenSearch}
+            onClick={() => {
+              onOpenSearch();
+              if (mobile) onNavigate?.();
+            }}
             aria-label="Buscar"
-            title={collapsed ? 'Buscar (Ctrl+K)' : undefined}
+            title={effectiveCollapsed ? `Buscar (${shortcutLabel})` : undefined}
           >
             <Search className="h-5 w-5 shrink-0" />
-            {!collapsed && (
+            {!effectiveCollapsed && (
               <>
                 <span>Buscar</span>
                 <kbd className="ml-auto hidden rounded bg-[var(--color-muted)] px-1.5 text-[10px] font-medium sm:inline-block">
-                  ⌘K
+                  {shortcutLabel}
                 </kbd>
               </>
             )}
@@ -146,19 +113,19 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
         </div>
       )}
 
-      <nav className="flex-1 overflow-y-auto p-1.5">
+      <nav className="flex-1 overflow-y-auto p-1.5" aria-label="Navegación principal">
         {visibleGroups.map((group, groupIndex) => (
           <div key={group.label}>
             {groupIndex > 0 && (
               <div
                 className={cn(
                   'border-t border-[var(--color-sidebar-border)]/50',
-                  collapsed ? 'my-1' : 'mt-2 pt-2'
+                  effectiveCollapsed ? 'my-1' : 'mt-2 pt-2'
                 )}
                 aria-hidden
               />
             )}
-            {!collapsed && (
+            {!effectiveCollapsed && (
               <div
                 className={cn(
                   'px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-sidebar-foreground)]/55',
@@ -173,18 +140,20 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
                 <Link
                   key={to}
                   to={to}
+                  onClick={handleNavigate}
                   activeOptions={{ exact: !!exact }}
                   title={label}
+                  aria-current={isActive(to, exact) ? 'page' : undefined}
                   className={cn(
                     'flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors',
                     isActive(to, exact)
                       ? 'bg-[var(--color-sidebar-active)]/10 text-[var(--color-primary)] font-semibold'
                       : 'text-[var(--color-sidebar-foreground)] hover:bg-[var(--color-sidebar-hover)]',
-                    collapsed && 'justify-center px-0'
+                    effectiveCollapsed && 'justify-center px-0'
                   )}
                 >
                   <Icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span className="min-w-0 truncate">{label}</span>}
+                  {!effectiveCollapsed && <span className="min-w-0 truncate">{label}</span>}
                 </Link>
               ))}
             </div>
@@ -195,14 +164,14 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
       <div className="border-t border-[var(--color-sidebar-border)] p-2">
         <Button
           variant="ghost"
-          size={collapsed ? 'icon' : 'default'}
+          size={effectiveCollapsed ? 'icon' : 'default'}
           className={cn(
             'w-full justify-start gap-2 text-[var(--color-sidebar-foreground)]',
-            collapsed && 'px-0'
+            effectiveCollapsed && 'px-0'
           )}
           onClick={toggleTheme}
           aria-label="Cambiar tema"
-          title={collapsed ? (theme === 'dark' ? 'Tema oscuro' : theme === 'light' ? 'Tema claro' : 'Tema del sistema') : undefined}
+          title={effectiveCollapsed ? (theme === 'dark' ? 'Tema oscuro' : theme === 'light' ? 'Tema claro' : 'Tema del sistema') : undefined}
         >
           {theme === 'dark' ? (
             <Moon className="h-5 w-5 shrink-0" />
@@ -211,7 +180,7 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
           ) : (
             <Sun className="h-5 w-5 shrink-0" />
           )}
-          {!collapsed && (
+          {!effectiveCollapsed && (
             <span>
               {theme === 'dark' ? 'Tema oscuro' : theme === 'light' ? 'Tema claro' : 'Tema del sistema'}
             </span>
@@ -219,19 +188,21 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
         </Button>
       </div>
 
-      <Button
-        variant="secondary"
-        size="icon"
-        className="absolute -right-3 top-16 z-10 h-6 w-6 rounded-full border border-[var(--color-border)] opacity-0 shadow hover:opacity-100 focus:opacity-100 [.group:hover_&]:opacity-100"
-        onClick={() => setCollapsed((c) => !c)}
-        aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-      >
-        {collapsed ? (
-          <ChevronRight className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronLeft className="h-3.5 w-3.5" />
-        )}
-      </Button>
+      {!mobile && (
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute -right-4 top-16 z-20 h-8 w-8 rounded-full border border-[var(--color-border)] shadow"
+          onClick={handleToggleCollapsed}
+          aria-label={effectiveCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+        >
+          {effectiveCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
+      )}
     </aside>
   );
 }

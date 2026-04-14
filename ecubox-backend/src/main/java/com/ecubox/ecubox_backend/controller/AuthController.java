@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UsuarioRepository usuarioRepository;

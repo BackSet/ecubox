@@ -12,6 +12,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 @Component
@@ -56,19 +58,26 @@ public class AdminBootstrapRunner implements ApplicationRunner {
             log.warn("ADMIN bootstrap habilitado pero ADMIN_EMAIL no es válido ({}). No se creará el usuario ADMIN.", normalizedAdminEmail);
             return;
         }
-        if (usuarioRepository.existsByRolesNombre("ADMIN")) {
-            return;
-        }
         Rol adminRol = rolRepository.findByNombre("ADMIN")
                 .orElseThrow(() -> new IllegalStateException("Rol ADMIN no encontrado. Ejecutar migraciones Flyway."));
 
-        Usuario admin = Usuario.builder()
+        Optional<Usuario> configuredAdminByUsername = usuarioRepository.findByUsernameWithRolesAndPermisos(adminUsername);
+        Optional<Usuario> configuredAdminByEmail = usuarioRepository.findByEmailIgnoreCaseWithRolesAndPermisos(normalizedAdminEmail);
+
+        Usuario admin = configuredAdminByUsername.or(() -> configuredAdminByEmail).orElseGet(() -> Usuario.builder()
                 .username(adminUsername)
                 .email(normalizedAdminEmail)
-                .passwordHash(passwordEncoder.encode(adminInitialPassword))
                 .enabled(true)
-                .roles(Set.of(adminRol))
-                .build();
+                .roles(new HashSet<>())
+                .build());
+
+        admin.setUsername(adminUsername);
+        admin.setEmail(normalizedAdminEmail);
+        admin.setEnabled(true);
+        admin.setPasswordHash(passwordEncoder.encode(adminInitialPassword));
+        Set<Rol> roles = admin.getRoles() == null ? new HashSet<>() : new HashSet<>(admin.getRoles());
+        roles.add(adminRol);
+        admin.setRoles(roles);
         usuarioRepository.save(admin);
     }
 }

@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
-import { Search, Bell, LogOut } from 'lucide-react';
+import { Search, Bell, LogOut, PanelLeftOpen } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,8 @@ import {
 
 interface HeaderProps {
   onOpenSearch?: () => void;
+  onOpenSidebar?: () => void;
+  shortcutLabel?: string;
 }
 
 function getInitials(name: string | null): string {
@@ -25,7 +27,7 @@ function getInitials(name: string | null): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export function Header({ onOpenSearch }: HeaderProps) {
+export function Header({ onOpenSearch, onOpenSidebar, shortcutLabel = 'Ctrl+K' }: HeaderProps) {
   const navigate = useNavigate();
   const { username, roles, logout } = useAuthStore();
 
@@ -39,6 +41,16 @@ export function Header({ onOpenSearch }: HeaderProps) {
       <Button
         type="button"
         variant="ghost"
+        size="icon"
+        className="dashboard-topbar-action shrink-0 rounded-lg lg:hidden"
+        onClick={onOpenSidebar}
+        aria-label="Abrir menú principal"
+      >
+        <PanelLeftOpen className="h-5 w-5" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
         onClick={onOpenSearch}
         className="dashboard-topbar-search flex h-9 flex-1 items-center justify-start gap-2 rounded-lg px-3 text-left text-sm font-medium"
         aria-label="Buscar (abre paleta de comandos)"
@@ -46,7 +58,7 @@ export function Header({ onOpenSearch }: HeaderProps) {
         <Search className="dashboard-topbar-search-icon h-4 w-4 shrink-0" />
         <span className="dashboard-topbar-search-label">Buscar...</span>
         <kbd className="dashboard-topbar-kbd ml-auto hidden rounded px-1.5 text-[10px] font-semibold sm:inline-block">
-          ⌘K
+          {shortcutLabel}
         </kbd>
       </Button>
 

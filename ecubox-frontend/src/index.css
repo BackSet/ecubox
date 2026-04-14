@@ -303,7 +303,11 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  .page-shell { width: 100%; max-width: 1480px; margin-inline: auto; }
+  .page-shell {
+    width: 100%;
+    max-width: min(100%, 1720px);
+    margin-inline: auto;
+  }
 
   .landing-shell {
     min-height: 100vh; display: flex; flex-direction: column;
@@ -401,23 +405,27 @@
     box-shadow: var(--shadow-elevated);
   }
 
-  .compact-table { width: 100%; border-collapse: collapse; font-size: 0.825rem; }
+  .compact-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
   .compact-table thead th {
-    height: 2.15rem; padding: 0.45rem 0.75rem; font-size: 0.72rem;
+    height: 2.5rem; padding: 0.6rem 0.75rem; font-size: 0.72rem;
     font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;
-    color: var(--color-muted-foreground); background: var(--color-muted);
+    color: var(--color-muted-foreground); background: color-mix(in oklab, var(--color-muted) 80%, transparent);
     border-bottom: 1px solid var(--color-border); white-space: nowrap;
   }
-  .compact-table tbody td { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+  .compact-table tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
   .compact-table tbody tr:hover { background: color-mix(in oklab, var(--color-muted) 70%, transparent); }
 
   .section-title { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; color: var(--color-foreground); }
 
   .input-clean {
-    width: 100%; border-radius: var(--radius-md);
+    width: 100%;
+    min-height: 2.5rem;
+    border-radius: var(--radius-md);
     border: 1px solid var(--color-input);
-    background: color-mix(in oklab, var(--color-background) 86%, transparent);
-    padding: 0.55rem 0.8rem; font-size: 0.875rem; color: var(--color-foreground);
+    background: color-mix(in oklab, var(--color-background) 88%, transparent);
+    padding: 0.55rem 0.8rem;
+    font-size: 0.875rem;
+    color: var(--color-foreground);
     outline: none;
     transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
   }
@@ -427,6 +435,9 @@
   }
   .input-clean::placeholder { color: color-mix(in oklab, var(--color-muted-foreground) 78%, transparent); }
   .input-clean:disabled { cursor: not-allowed; opacity: 0.65; background: color-mix(in oklab, var(--color-muted) 70%, transparent); }
+  .input-clean[type='date'] {
+    color-scheme: light dark;
+  }
 
   .ui-alert { border-radius: var(--radius-md); border: 1px solid; padding: 0.75rem 0.9rem; font-size: 0.875rem; line-height: 1.4; }
   .ui-alert-info {
