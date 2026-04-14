@@ -1,5 +1,18 @@
+# Editors and local tools
 .cursor/
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Obsidian (metadata si el repo se abre como vault)
+.obsidian/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
 
 # Monorepo build outputs and caches
 **/target/
@@ -7,11 +20,18 @@
 **/node_modules/
 **/*.tsbuildinfo
 
-# Local env files
+# Local env and secrets (never commit)
 **/.env
 **/.env.local
 **/.env.*.local
+*.pem
+*.key
 
 # Logs
 *.log
 **/logs/
+
+# Temporary / backup
+*.orig
+*.bak
+*.tmp
