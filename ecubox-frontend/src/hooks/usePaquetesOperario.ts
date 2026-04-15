@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getPaquetesOperario,
+  getPaquetesVencidosOperario,
   bulkUpdatePesos,
   updateEstadoRastreo,
   cambiarEstadoRastreoBulk,
@@ -12,11 +13,20 @@ import {
 import { DESPACHOS_QUERY_KEY, PAQUETES_SIN_SACA_QUERY_KEY } from '@/hooks/useOperarioDespachos';
 
 export const OPERARIO_PAQUETES_QUERY_KEY = ['operario', 'paquetes'] as const;
+export const OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY = ['operario', 'paquetes', 'vencidos'] as const;
 
 export function usePaquetesOperario(sinPeso = true) {
   return useQuery({
     queryKey: [...OPERARIO_PAQUETES_QUERY_KEY, { sinPeso }],
     queryFn: () => getPaquetesOperario({ sinPeso }),
+  });
+}
+
+export function usePaquetesVencidosOperario(enabled = true) {
+  return useQuery({
+    queryKey: OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY,
+    queryFn: getPaquetesVencidosOperario,
+    enabled,
   });
 }
 
@@ -26,6 +36,7 @@ export function useBulkUpdatePesos() {
     mutationFn: (items: PaquetePesoItem[]) => bulkUpdatePesos(items),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY });
     },
   });
 }
@@ -37,6 +48,7 @@ export function useUpdateEstadoRastreo() {
       updateEstadoRastreo(paqueteId, estadoRastreoId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY });
     },
   });
 }
@@ -49,6 +61,7 @@ export function useCambiarEstadoRastreoBulk() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_QUERY_KEY });
       qc.invalidateQueries({ queryKey: PAQUETES_SIN_SACA_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY });
     },
   });
 }
@@ -69,6 +82,7 @@ export function useAsignarGuiaEnvio() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_QUERY_KEY });
       qc.invalidateQueries({ queryKey: DESPACHOS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY });
     },
   });
 }
@@ -81,6 +95,7 @@ export function useAsignarGuiaEnvioBulk() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_QUERY_KEY });
       qc.invalidateQueries({ queryKey: DESPACHOS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY });
     },
   });
 }

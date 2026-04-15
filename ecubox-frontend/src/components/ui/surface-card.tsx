@@ -8,9 +8,9 @@ interface SurfaceCardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const VARIANT_CLASS: Record<SurfaceCardVariant, string> = {
-  default: 'surface-card',
-  compact: 'surface-card-compact',
-  elevated: 'surface-card-elevated',
+  default: 'surface-card tracking-surface',
+  compact: 'surface-card-compact tracking-surface',
+  elevated: 'surface-card-elevated tracking-surface',
 };
 
 export function SurfaceCard({ className, variant = 'default', ...props }: SurfaceCardProps) {

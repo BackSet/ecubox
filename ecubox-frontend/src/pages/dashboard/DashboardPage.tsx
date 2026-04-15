@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
-import { Truck, Package, ClipboardList, ArrowRight } from 'lucide-react';
+import { Truck, Package, ClipboardList, ArrowRight, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { usePaquetesVencidosOperario } from '@/hooks/usePaquetesOperario';
 
 const QUICK_ACTIONS = [
   {
@@ -31,6 +32,9 @@ const QUICK_ACTIONS = [
 
 export function DashboardPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canSeeVencidos = hasPermission('PAQUETES_PESO_WRITE');
+  const { data: paquetesVencidos } = usePaquetesVencidosOperario(canSeeVencidos);
+  const totalVencidos = paquetesVencidos?.length ?? 0;
   const visibleActions = QUICK_ACTIONS.filter((action) =>
     action.permission ? hasPermission(action.permission) : true
   );
@@ -45,6 +49,33 @@ export function DashboardPage() {
           Accesos rápidos a los módulos principales.
         </p>
       </div>
+
+      {canSeeVencidos && totalVencidos > 0 ? (
+        <div className="surface-card border-[var(--color-warning)]/35 bg-[var(--color-warning)]/10 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="rounded-full bg-[var(--color-warning)]/20 p-2 text-[var(--color-warning)]">
+                <AlertTriangle className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">
+                  Hay {totalVencidos} paquete(s) que superaron el plazo de retiro
+                </p>
+                <p className="text-sm text-[var(--color-muted-foreground)]">
+                  Revísalos para gestionar el siguiente paso operativo.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/paquetes-vencidos"
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition"
+            >
+              Ver paquetes vencidos
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         {visibleActions.map((action) => {

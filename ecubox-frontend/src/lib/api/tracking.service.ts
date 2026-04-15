@@ -79,6 +79,7 @@ export interface TrackingResponse {
   diasMaxRetiro?: number;
   diasTranscurridos?: number;
   diasRestantes?: number;
+  paqueteVencido?: boolean;
   flujoActual?: 'NORMAL' | 'ALTERNO';
   bloqueado?: boolean;
   motivoAlterno?: string | null;
@@ -132,7 +133,7 @@ export async function getTrackingByNumeroGuia(
       (err as Error & { status?: number }).status = 404;
       throw err;
     }
-    throw new Error(backendMessage || res.statusText || 'Error al consultar el tracking.');
+    throw new Error(backendMessage || res.statusText || 'No pudimos cargar el seguimiento.');
   }
   return res.json();
 }

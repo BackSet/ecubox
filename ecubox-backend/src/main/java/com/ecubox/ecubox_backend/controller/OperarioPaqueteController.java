@@ -33,7 +33,11 @@ public class OperarioPaqueteController {
     @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
     public ResponseEntity<List<PaqueteDTO>> listar(
             @RequestParam(defaultValue = "true") boolean sinPeso,
-            @RequestParam(defaultValue = "false") boolean sinSaca) {
+            @RequestParam(defaultValue = "false") boolean sinSaca,
+            @RequestParam(defaultValue = "false") boolean vencidos) {
+        if (vencidos) {
+            return ResponseEntity.ok(paqueteService.listarVencidosParaOperario());
+        }
         if (sinSaca) {
             return ResponseEntity.ok(paqueteService.listarSinSaca());
         }

@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 interface SectionTitleProps {
   children: React.ReactNode;
-  variant?: 'detail' | 'form';
+  variant?: 'detail' | 'form' | 'card';
   className?: string;
 }
 
@@ -26,10 +26,22 @@ export function SectionTitle({
       </h3>
     );
   }
+  if (variant === 'card') {
+    return (
+      <h3
+        className={cn(
+          'text-base font-semibold tracking-tight text-[var(--color-foreground)]',
+          className
+        )}
+      >
+        {children}
+      </h3>
+    );
+  }
   return (
     <h3
       className={cn(
-        'text-xs font-medium uppercase tracking-wider text-[var(--color-muted-foreground)]',
+        'text-sm font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]',
         className
       )}
     >

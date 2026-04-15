@@ -52,6 +52,14 @@ export async function getPaquetesOperario(params?: {
   return data;
 }
 
+/** Paquetes que superaron el plazo máximo de retiro. */
+export async function getPaquetesVencidosOperario(): Promise<Paquete[]> {
+  const { data } = await apiClient.get<Paquete[]>(OPERARIO_BASE, {
+    params: { vencidos: true },
+  });
+  return data;
+}
+
 /** Paquetes sin saca asignada (disponibles para agregar a una saca). */
 export async function getPaquetesSinSaca(): Promise<Paquete[]> {
   const { data } = await apiClient.get<Paquete[]>(OPERARIO_BASE, {

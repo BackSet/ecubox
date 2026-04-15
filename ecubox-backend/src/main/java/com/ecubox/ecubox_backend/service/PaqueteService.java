@@ -159,6 +159,19 @@ public class PaqueteService {
     }
 
     @Transactional(readOnly = true)
+    public List<PaqueteDTO> listarVencidosParaOperario() {
+        return paqueteRepository.findAll(Sort.by(Sort.Direction.ASC, "estadoRastreo.orden").and(Sort.by(Sort.Direction.ASC, "id"))).stream()
+                .map(this::toDTO)
+                .filter(dto -> Boolean.TRUE.equals(dto.getPaqueteVencido()))
+                .sorted(
+                        Comparator.comparing(
+                                (PaqueteDTO dto) -> dto.getDiasAtrasoRetiro() != null ? dto.getDiasAtrasoRetiro() : 0
+                        ).reversed().thenComparing(PaqueteDTO::getId)
+                )
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<PaqueteDTO> listarSinSaca() {
         return paqueteRepository.findBySacaIsNullOrderByIdAsc().stream().map(this::toDTO).toList();
     }
@@ -400,6 +413,11 @@ public class PaqueteService {
 
     private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
+    private record PlazoRetiroInfo(Integer diasMaxRetiro,
+                                   Integer diasTranscurridos,
+                                   Integer diasRestantes,
+                                   Integer diasAtrasoRetiro,
+                                   boolean paqueteVencido) {}
 
     @Transactional(readOnly = true)
     public TrackingResponse findByNumeroGuiaForTracking(String numeroGuia) {
@@ -411,12 +429,12 @@ public class PaqueteService {
         Long estadoActualId = estadoActual != null ? estadoActual.getId() : null;
         String estadoRastreoNombre = estadoActual != null ? estadoActual.getNombre() : null;
 
-        List<TrackingEstadoItemDTO> estados = new ArrayList<>();
+        List<TrackingEstadoItemDTO> estadosCatalogo = new ArrayList<>();
         String leyendaActual = null;
-        Integer diasMaxRetiro = null;
-        Integer diasTranscurridos = null;
-        Integer diasRestantes = null;
-        Integer diasMaxRetiroPorEntidad = chooseDiasMaxRetiroPorEntidad(p);
+        PlazoRetiroInfo plazoRetiroInfo = calcularPlazoRetiro(p);
+        Integer diasMaxRetiro = plazoRetiroInfo.diasMaxRetiro();
+        Integer diasTranscurridos = plazoRetiroInfo.diasTranscurridos();
+        Integer diasRestantes = plazoRetiroInfo.diasRestantes();
 
         List<EstadoRastreo> todosEstados = estadoRastreoService.findActivosEntities();
         for (EstadoRastreo e : todosEstados) {
@@ -431,7 +449,7 @@ public class PaqueteService {
                 continue;
             }
             String leyenda = renderLeyenda(e.getLeyenda(), diasTranscurridos);
-            estados.add(TrackingEstadoItemDTO.builder()
+            estadosCatalogo.add(TrackingEstadoItemDTO.builder()
                     .id(e.getId())
                     .codigo(e.getCodigo())
                     .nombre(e.getNombre())
@@ -442,25 +460,22 @@ public class PaqueteService {
                     .build());
             if (esActual) {
                 leyendaActual = leyenda;
-                diasMaxRetiro = diasMaxRetiroPorEntidad;
-                if (p.getFechaEstadoActualDesde() != null && diasMaxRetiro != null) {
-                    LocalDate desde = p.getFechaEstadoActualDesde().atZone(ZONA_ECUADOR).toLocalDate();
-                    LocalDate hoy = LocalDate.now(ZONA_ECUADOR);
-                    long dias = java.time.temporal.ChronoUnit.DAYS.between(desde, hoy);
-                    diasTranscurridos = (int) Math.max(0, dias);
-                    diasRestantes = Math.max(0, diasMaxRetiro - diasTranscurridos);
-                }
             }
         }
-        estados = estados.stream()
-                .sorted(Comparator.comparing(TrackingEstadoItemDTO::getOrden).thenComparing(TrackingEstadoItemDTO::getId))
+        List<TrackingEstadoItemDTO> estadosBase = estadosCatalogo.stream()
+                .filter(item -> !TipoFlujoEstado.ALTERNO.equals(item.getTipoFlujo()))
                 .toList();
+        List<TrackingEstadoItemDTO> alternosActuales = estadosCatalogo.stream()
+                .filter(item -> TipoFlujoEstado.ALTERNO.equals(item.getTipoFlujo()))
+                .toList();
+        List<TrackingEstadoItemDTO> alternosPorEventos = List.of();
         if (useEventTimeline) {
             List<PaqueteEstadoEvento> eventos = trackingEventService.listarEventosPorPaquete(p.getId());
             if (!eventos.isEmpty()) {
-                estados = buildTimelineFromEventos(eventos, estadoActualId, diasTranscurridos);
+                alternosPorEventos = buildAlternoTimelineFromEventos(eventos, estadoActualId, diasTranscurridos);
             }
         }
+        List<TrackingEstadoItemDTO> estados = mergeTimeline(estadosBase, alternosActuales, alternosPorEventos);
         leyendaActual = renderLeyenda(leyendaActual, diasTranscurridos);
 
         return TrackingResponse.builder()
@@ -476,6 +491,7 @@ public class PaqueteService {
                 .diasMaxRetiro(diasMaxRetiro)
                 .diasTranscurridos(diasTranscurridos)
                 .diasRestantes(diasRestantes)
+                .paqueteVencido(plazoRetiroInfo.paqueteVencido())
                 .flujoActual(Boolean.TRUE.equals(p.getEnFlujoAlterno()) ? "ALTERNO" : "NORMAL")
                 .bloqueado(p.getBloqueado())
                 .motivoAlterno(p.getMotivoAlterno())
@@ -486,11 +502,34 @@ public class PaqueteService {
                 .build();
     }
 
-    private List<TrackingEstadoItemDTO> buildTimelineFromEventos(List<PaqueteEstadoEvento> eventos, Long estadoActualId, Integer diasTranscurridos) {
+    private List<TrackingEstadoItemDTO> mergeTimeline(List<TrackingEstadoItemDTO> estadosBase,
+                                                      List<TrackingEstadoItemDTO> alternosActuales,
+                                                      List<TrackingEstadoItemDTO> alternosPorEventos) {
+        Map<Long, TrackingEstadoItemDTO> uniqueTimeline = new LinkedHashMap<>();
+        for (TrackingEstadoItemDTO estado : estadosBase) {
+            uniqueTimeline.put(estado.getId(), estado);
+        }
+        for (TrackingEstadoItemDTO alternoActual : alternosActuales) {
+            uniqueTimeline.put(alternoActual.getId(), alternoActual);
+        }
+        for (TrackingEstadoItemDTO alternoEvento : alternosPorEventos) {
+            uniqueTimeline.put(alternoEvento.getId(), alternoEvento);
+        }
+        return uniqueTimeline.values().stream()
+                .sorted(Comparator.comparing(TrackingEstadoItemDTO::getOrden).thenComparing(TrackingEstadoItemDTO::getId))
+                .toList();
+    }
+
+    private List<TrackingEstadoItemDTO> buildAlternoTimelineFromEventos(List<PaqueteEstadoEvento> eventos,
+                                                                        Long estadoActualId,
+                                                                        Integer diasTranscurridos) {
         Map<Long, TrackingEstadoItemDTO> uniqueTimeline = new LinkedHashMap<>();
         for (PaqueteEstadoEvento evento : eventos) {
             EstadoRastreo destino = evento.getEstadoDestino();
             if (destino == null || destino.getId() == null) {
+                continue;
+            }
+            if (!TipoFlujoEstado.ALTERNO.equals(destino.getTipoFlujo())) {
                 continue;
             }
             if (!Boolean.TRUE.equals(destino.getPublicoTracking()) && !destino.getId().equals(estadoActualId)) {
@@ -526,6 +565,21 @@ public class PaqueteService {
             case AGENCIA -> d.getAgencia() != null ? d.getAgencia().getDiasMaxRetiro() : null;
             case AGENCIA_DISTRIBUIDOR -> d.getAgenciaDistribuidor() != null ? d.getAgenciaDistribuidor().getDiasMaxRetiro() : null;
         };
+    }
+
+    private PlazoRetiroInfo calcularPlazoRetiro(Paquete p) {
+        Integer diasMaxRetiro = chooseDiasMaxRetiroPorEntidad(p);
+        if (diasMaxRetiro == null || p.getFechaEstadoActualDesde() == null) {
+            return new PlazoRetiroInfo(diasMaxRetiro, null, null, 0, false);
+        }
+        LocalDate desde = p.getFechaEstadoActualDesde().atZone(ZONA_ECUADOR).toLocalDate();
+        LocalDate hoy = LocalDate.now(ZONA_ECUADOR);
+        long dias = java.time.temporal.ChronoUnit.DAYS.between(desde, hoy);
+        int diasTranscurridos = (int) Math.max(0, dias);
+        int diasRestantes = Math.max(0, diasMaxRetiro - diasTranscurridos);
+        int diasAtrasoRetiro = Math.max(0, diasTranscurridos - diasMaxRetiro);
+        boolean paqueteVencido = diasTranscurridos > diasMaxRetiro;
+        return new PlazoRetiroInfo(diasMaxRetiro, diasTranscurridos, diasRestantes, diasAtrasoRetiro, paqueteVencido);
     }
 
     private TrackingDespachoDTO buildDespachoCard(Paquete p) {
@@ -865,6 +919,7 @@ public class PaqueteService {
     /** Convierte entidad a DTO (público para uso desde SacaService al construir sacas con paquetes completos). */
     public PaqueteDTO toDTO(Paquete p) {
         EstadoRastreo er = p.getEstadoRastreo();
+        PlazoRetiroInfo plazoRetiroInfo = calcularPlazoRetiro(p);
         return PaqueteDTO.builder()
                 .id(p.getId())
                 .numeroGuia(p.getNumeroGuia())
@@ -885,6 +940,12 @@ public class PaqueteService {
                 .sacaId(p.getSaca() != null ? p.getSaca().getId() : null)
                 .despachoId(p.getSaca() != null && p.getSaca().getDespacho() != null ? p.getSaca().getDespacho().getId() : null)
                 .despachoNumeroGuia(p.getSaca() != null && p.getSaca().getDespacho() != null ? p.getSaca().getDespacho().getNumeroGuia() : null)
+                .fechaEstadoDesde(p.getFechaEstadoActualDesde())
+                .diasMaxRetiro(plazoRetiroInfo.diasMaxRetiro())
+                .diasTranscurridos(plazoRetiroInfo.diasTranscurridos())
+                .diasRestantes(plazoRetiroInfo.diasRestantes())
+                .diasAtrasoRetiro(plazoRetiroInfo.diasAtrasoRetiro())
+                .paqueteVencido(plazoRetiroInfo.paqueteVencido())
                 .enFlujoAlterno(p.getEnFlujoAlterno())
                 .motivoAlterno(p.getMotivoAlterno())
                 .bloqueado(p.getBloqueado())

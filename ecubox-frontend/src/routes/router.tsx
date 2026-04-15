@@ -11,6 +11,7 @@ import { RolList } from '@/pages/dashboard/roles/RolList';
 import { PermisoList } from '@/pages/dashboard/permisos/PermisoList';
 import { DestinatarioListPage } from '@/pages/dashboard/destinatarios/DestinatarioListPage';
 import { PaqueteListPage } from '@/pages/dashboard/paquetes/PaqueteListPage';
+import { PaquetesVencidosPage } from '@/pages/dashboard/paquetes/PaquetesVencidosPage';
 import { CargarPesosPage } from '@/pages/dashboard/cargar-pesos/CargarPesosPage';
 import { AsignarGuiaEnvioPage } from '@/pages/dashboard/asignar-guia-envio/AsignarGuiaEnvioPage';
 import { GestionarEstadosPaquetesPage } from '@/pages/dashboard/gestionar-estados-paquetes/GestionarEstadosPaquetesPage';
@@ -181,6 +182,13 @@ const paquetesRoute = createRoute({
   component: withDashboardLayout(PaqueteListPage),
 });
 
+const paquetesVencidosRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/paquetes-vencidos',
+  beforeLoad: requirePermission('PAQUETES_PESO_WRITE'),
+  component: withDashboardLayout(PaquetesVencidosPage),
+});
+
 const cargarPesosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/cargar-pesos',
@@ -315,6 +323,7 @@ const routeTree = rootRoute.addChildren([
   permisosRoute,
   destinatariosRoute,
   paquetesRoute,
+  paquetesVencidosRoute,
   cargarPesosRoute,
   asignarGuiaEnvioRoute,
   gestionarEstadosPaquetesRoute,

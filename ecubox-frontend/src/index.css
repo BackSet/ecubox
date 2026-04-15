@@ -392,6 +392,13 @@
     background: var(--color-card);
     box-shadow: var(--shadow-soft);
   }
+  .tracking-surface {
+    overflow: hidden;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .tracking-surface:hover {
+    border-color: color-mix(in oklab, var(--color-border) 70%, var(--color-primary));
+  }
   .surface-card-compact {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
@@ -405,14 +412,14 @@
     box-shadow: var(--shadow-elevated);
   }
 
-  .compact-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .compact-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
   .compact-table thead th {
-    height: 2.5rem; padding: 0.6rem 0.75rem; font-size: 0.72rem;
+    height: 2.6rem; padding: 0.65rem 0.8rem; font-size: 0.75rem;
     font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;
     color: var(--color-muted-foreground); background: color-mix(in oklab, var(--color-muted) 80%, transparent);
     border-bottom: 1px solid var(--color-border); white-space: nowrap;
   }
-  .compact-table tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+  .compact-table tbody td { padding: 0.75rem 0.8rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
   .compact-table tbody tr:hover { background: color-mix(in oklab, var(--color-muted) 70%, transparent); }
 
   .section-title { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; color: var(--color-foreground); }

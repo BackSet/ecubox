@@ -18,6 +18,12 @@ export interface Paquete {
   sacaId?: number;
   despachoId?: number;
   despachoNumeroGuia?: string;
+  fechaEstadoDesde?: string;
+  diasMaxRetiro?: number;
+  diasTranscurridos?: number;
+  diasRestantes?: number;
+  diasAtrasoRetiro?: number;
+  paqueteVencido?: boolean;
   enFlujoAlterno?: boolean;
   motivoAlterno?: string;
   bloqueado?: boolean;

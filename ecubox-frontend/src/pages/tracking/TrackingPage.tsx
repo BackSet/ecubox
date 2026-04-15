@@ -68,7 +68,7 @@ export function TrackingPage() {
     const guia = rawGuia.trim();
     if (!guia) return 'Ingresa un número de guía para consultar.';
     if (guia.length < 4) return 'La guía debe tener al menos 4 caracteres.';
-    if (!/^[A-Za-z0-9-]+$/.test(guia)) return 'La guía solo puede contener letras, números y guion.';
+    if (/\s/.test(guia)) return 'La guía no puede contener espacios.';
     return null;
   }
 
@@ -96,7 +96,7 @@ export function TrackingPage() {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return;
       }
-      const message = err instanceof Error ? err.message : 'Error al consultar el tracking.';
+      const message = err instanceof Error ? err.message : 'No pudimos cargar el seguimiento en este momento.';
       setError(message);
     } finally {
       setLoading(false);
@@ -259,14 +259,14 @@ export function TrackingPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 sm:p-6">
-        <div className="w-full max-w-6xl mx-auto space-y-6">
+      <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
+        <div className="w-full max-w-7xl mx-auto space-y-6">
           <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--color-foreground)]">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--color-foreground)]">
               Seguimiento de envío
             </h1>
-            <p className="text-sm text-[var(--color-muted-foreground)]">
-              Consulta el estado de tu paquete con la guía ECUBOX.
+            <p className="text-sm sm:text-base text-[var(--color-muted-foreground)]">
+              Consulta el estado, progreso y datos de entrega de tu guía ECUBOX.
             </p>
           </div>
 
@@ -283,7 +283,7 @@ export function TrackingPage() {
 
           {error && (
             <div
-              className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)] text-sm"
+              className="rounded-lg border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 p-4 text-sm text-[var(--color-destructive)]"
               role="alert"
             >
               {error}
@@ -291,20 +291,20 @@ export function TrackingPage() {
           )}
 
           {result ? (
-            <section ref={resultCardRef} data-tracking-export="true" className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2 space-y-4">
+            <section ref={resultCardRef} data-tracking-export="true" className="space-y-5">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+                <div className="xl:col-span-2 space-y-5">
                   <TrackingSummaryCard result={result} fechaFormateada={fechaFormateada} />
-                  {hasDespachoInfo ? <TrackingDespachoCard result={result} /> : null}
-                  {hasDespachoInfo && hasPaquetesDespacho ? <TrackingPaquetesDespachoCard result={result} /> : null}
                   <TrackingProgressCard
                     result={result}
                     totalPasosBase={totalPasosBase}
                     pasoBaseActual={pasoBaseActual}
                   />
                   <TrackingTimeline estados={estados} currentIndex={currentIndex} />
+                  {hasDespachoInfo ? <TrackingDespachoCard result={result} /> : null}
+                  {hasDespachoInfo && hasPaquetesDespacho ? <TrackingPaquetesDespachoCard result={result} /> : null}
                 </div>
-                <div className="space-y-4">
+                <aside className="space-y-5 xl:sticky xl:top-4">
                   <TrackingDetailsCard result={result} />
                   {hasDespachoInfo && hasOperadorEntrega ? <TrackingOperadorEntregaCard result={result} /> : null}
                   <TrackingActionsBar
@@ -321,7 +321,7 @@ export function TrackingPage() {
                       void handleDownloadPdf();
                     }}
                   />
-                </div>
+                </aside>
               </div>
             </section>
           ) : null}

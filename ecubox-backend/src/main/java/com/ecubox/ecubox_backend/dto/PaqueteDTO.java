@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -32,6 +33,12 @@ public class PaqueteDTO {
     private Long sacaId;
     private Long despachoId;
     private String despachoNumeroGuia;
+    private LocalDateTime fechaEstadoDesde;
+    private Integer diasMaxRetiro;
+    private Integer diasTranscurridos;
+    private Integer diasRestantes;
+    private Integer diasAtrasoRetiro;
+    private Boolean paqueteVencido;
     private Boolean enFlujoAlterno;
     private String motivoAlterno;
     private Boolean bloqueado;
