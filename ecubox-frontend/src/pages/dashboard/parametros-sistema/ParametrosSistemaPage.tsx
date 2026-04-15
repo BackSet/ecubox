@@ -778,6 +778,26 @@ function EstadosRastreoView() {
     }
   };
 
+  const handleActivar = async (estado: EstadoRastreo) => {
+    try {
+      const payload: EstadoRastreoRequest = {
+        codigo: estado.codigo,
+        nombre: estado.nombre,
+        ordenTracking: estado.ordenTracking,
+        afterEstadoId: estado.afterEstadoId ?? null,
+        activo: true,
+        leyenda: estado.leyenda ?? undefined,
+        tipoFlujo: estado.tipoFlujo === 'ALTERNO' ? 'ALTERNO' : 'NORMAL',
+        publicoTracking: estado.publicoTracking ?? true,
+      };
+      await updateMutation.mutateAsync({ id: estado.id, body: payload });
+      toast.success('Estado activado');
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg ?? 'Error al activar');
+    }
+  };
+
   const handleDelete = async (id: number) => {
     try {
       await deleteMutation.mutateAsync(id);
@@ -1037,6 +1057,7 @@ function EstadosRastreoView() {
                             },
                           },
                           ...(e.activo ? [{ label: 'Desactivar', onSelect: () => setDesactivarId(e.id) }] : []),
+                          ...(!e.activo ? [{ label: 'Activar', onSelect: () => handleActivar(e) }] : []),
                           { label: 'Eliminar', destructive: true, onSelect: () => setDeleteId(e.id) },
                         ]}
                       />
