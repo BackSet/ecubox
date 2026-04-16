@@ -14,7 +14,6 @@ import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.SacaRepository;
 import org.springframework.data.domain.Sort;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -51,13 +50,6 @@ class PaqueteServiceOp3Test {
     @Mock
     private TrackingEventService trackingEventService;
 
-    private PaqueteService paqueteService;
-
-    @BeforeEach
-    void setup() {
-        paqueteService = createPaqueteService(false);
-    }
-
     private PaqueteService createPaqueteService(boolean useEventTimeline) {
         return new PaqueteService(
                 paqueteRepository,
@@ -73,6 +65,7 @@ class PaqueteServiceOp3Test {
 
     @Test
     void marcaFlujoAlternoAlEntrarEstadoAlterno() {
+        PaqueteService paqueteService = createPaqueteService(false);
         EstadoRastreo origen = EstadoRastreo.builder().id(1L).nombre("En ruta").build();
         EstadoRastreo destinoAlterno = EstadoRastreo.builder()
                 .id(3L)
@@ -106,6 +99,7 @@ class PaqueteServiceOp3Test {
 
     @Test
     void trackingFallback_ocultaAlternoSiNoEsEstadoActual() {
+        PaqueteService paqueteService = createPaqueteService(false);
         EstadoRastreo registrado = EstadoRastreo.builder().id(1L).codigo("REGISTRADO").nombre("Registrado").ordenTracking(1).publicoTracking(true).build();
         EstadoRastreo enUsa = EstadoRastreo.builder().id(2L).codigo("EN_USA").nombre("En USA").ordenTracking(2).publicoTracking(true).build();
         EstadoRastreo retenido = EstadoRastreo.builder()
@@ -134,6 +128,7 @@ class PaqueteServiceOp3Test {
 
     @Test
     void trackingFallback_muestraAlternoSiEsEstadoActual() {
+        PaqueteService paqueteService = createPaqueteService(false);
         EstadoRastreo registrado = EstadoRastreo.builder().id(1L).codigo("REGISTRADO").nombre("Registrado").ordenTracking(1).publicoTracking(true).build();
         EstadoRastreo retenido = EstadoRastreo.builder()
                 .id(3L)
@@ -232,7 +227,50 @@ class PaqueteServiceOp3Test {
     }
 
     @Test
+    void trackingEventos_conMultiplesAlternosSoloMuestraLosQueOcurrieron() {
+        PaqueteService serviceWithEvents = createPaqueteService(true);
+        EstadoRastreo base1 = EstadoRastreo.builder().id(1L).codigo("REGISTRADO").nombre("Registrado").ordenTracking(1).publicoTracking(true).build();
+        EstadoRastreo base2 = EstadoRastreo.builder().id(2L).codigo("EN_USA").nombre("En USA").ordenTracking(2).publicoTracking(true).build();
+        EstadoRastreo retenido = EstadoRastreo.builder()
+                .id(7L)
+                .codigo("RETENIDO")
+                .nombre("Retenido en aduana")
+                .ordenTracking(3)
+                .publicoTracking(true)
+                .tipoFlujo(TipoFlujoEstado.ALTERNO)
+                .build();
+        EstadoRastreo direccionIncompleta = EstadoRastreo.builder()
+                .id(8L)
+                .codigo("DIRECCION_INCOMPLETA")
+                .nombre("Dirección incompleta")
+                .ordenTracking(4)
+                .publicoTracking(true)
+                .tipoFlujo(TipoFlujoEstado.ALTERNO)
+                .build();
+
+        Paquete p = Paquete.builder()
+                .id(110L)
+                .numeroGuia("GUIA-110")
+                .estadoRastreo(base2)
+                .build();
+
+        PaqueteEstadoEvento ev1 = PaqueteEstadoEvento.builder().estadoDestino(base1).build();
+        PaqueteEstadoEvento ev2 = PaqueteEstadoEvento.builder().estadoDestino(base2).build();
+        PaqueteEstadoEvento evAlternoRetenido = PaqueteEstadoEvento.builder().estadoDestino(retenido).build();
+
+        when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("GUIA-110")).thenReturn(Optional.of(p));
+        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(base1, base2, retenido, direccionIncompleta));
+        when(trackingEventService.listarEventosPorPaquete(110L)).thenReturn(List.of(ev1, ev2, evAlternoRetenido));
+
+        var response = serviceWithEvents.findByNumeroGuiaForTracking("guia-110");
+
+        assertTrue(response.getEstados().stream().anyMatch(item -> "RETENIDO".equals(item.getCodigo())));
+        assertFalse(response.getEstados().stream().anyMatch(item -> "DIRECCION_INCOMPLETA".equals(item.getCodigo())));
+    }
+
+    @Test
     void trackingMarcaPaqueteVencidoCuandoSuperaMaximoRetiro() {
+        PaqueteService paqueteService = createPaqueteService(false);
         EstadoRastreo enAgencia = EstadoRastreo.builder().id(20L).codigo("EN_AGENCIA").nombre("En agencia").ordenTracking(2).publicoTracking(true).build();
         Distribuidor distribuidor = Distribuidor.builder().id(1L).nombre("Distribuidor").diasMaxRetiroDomicilio(3).build();
         Despacho despacho = Despacho.builder().id(1L).tipoEntrega(TipoEntrega.DOMICILIO).distribuidor(distribuidor).build();
@@ -258,6 +296,7 @@ class PaqueteServiceOp3Test {
 
     @Test
     void listarVencidosParaOperario_filtraYOrdenaPorDiasAtrasoDesc() {
+        PaqueteService paqueteService = createPaqueteService(false);
         EstadoRastreo enAgencia = EstadoRastreo.builder().id(30L).codigo("EN_AGENCIA").nombre("En agencia").build();
         Distribuidor distribuidor = Distribuidor.builder().id(2L).nombre("Distribuidor").diasMaxRetiroDomicilio(3).build();
         Despacho despacho = Despacho.builder().id(2L).tipoEntrega(TipoEntrega.DOMICILIO).distribuidor(distribuidor).build();

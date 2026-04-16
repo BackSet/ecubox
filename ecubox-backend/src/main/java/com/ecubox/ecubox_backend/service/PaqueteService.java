@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -165,8 +166,12 @@ public class PaqueteService {
                 .filter(dto -> Boolean.TRUE.equals(dto.getPaqueteVencido()))
                 .sorted(
                         Comparator.comparing(
-                                (PaqueteDTO dto) -> dto.getDiasAtrasoRetiro() != null ? dto.getDiasAtrasoRetiro() : 0
-                        ).reversed().thenComparing(PaqueteDTO::getId)
+                                (PaqueteDTO dto) -> Objects.requireNonNullElse(dto.getDiasAtrasoRetiro(), 0),
+                                Comparator.<Integer>naturalOrder()
+                        ).reversed().thenComparing(
+                                dto -> Objects.requireNonNullElse(dto.getId(), Long.MAX_VALUE),
+                                Comparator.<Long>naturalOrder()
+                        )
                 )
                 .toList();
     }
@@ -475,7 +480,14 @@ public class PaqueteService {
                 alternosPorEventos = buildAlternoTimelineFromEventos(eventos, estadoActualId, diasTranscurridos);
             }
         }
-        List<TrackingEstadoItemDTO> estados = mergeTimeline(estadosBase, alternosActuales, alternosPorEventos);
+        Set<Long> alternosPermitidos = alternosPorEventos.stream()
+                .map(TrackingEstadoItemDTO::getId)
+                .collect(Collectors.toSet());
+        alternosActuales.stream()
+                .filter(TrackingEstadoItemDTO::isEsActual)
+                .map(TrackingEstadoItemDTO::getId)
+                .forEach(alternosPermitidos::add);
+        List<TrackingEstadoItemDTO> estados = mergeTimeline(estadosBase, alternosActuales, alternosPorEventos, alternosPermitidos);
         leyendaActual = renderLeyenda(leyendaActual, diasTranscurridos);
 
         return TrackingResponse.builder()
@@ -504,16 +516,21 @@ public class PaqueteService {
 
     private List<TrackingEstadoItemDTO> mergeTimeline(List<TrackingEstadoItemDTO> estadosBase,
                                                       List<TrackingEstadoItemDTO> alternosActuales,
-                                                      List<TrackingEstadoItemDTO> alternosPorEventos) {
+                                                      List<TrackingEstadoItemDTO> alternosPorEventos,
+                                                      Set<Long> alternosPermitidos) {
         Map<Long, TrackingEstadoItemDTO> uniqueTimeline = new LinkedHashMap<>();
         for (TrackingEstadoItemDTO estado : estadosBase) {
             uniqueTimeline.put(estado.getId(), estado);
         }
         for (TrackingEstadoItemDTO alternoActual : alternosActuales) {
-            uniqueTimeline.put(alternoActual.getId(), alternoActual);
+            if (alternosPermitidos.contains(alternoActual.getId())) {
+                uniqueTimeline.put(alternoActual.getId(), alternoActual);
+            }
         }
         for (TrackingEstadoItemDTO alternoEvento : alternosPorEventos) {
-            uniqueTimeline.put(alternoEvento.getId(), alternoEvento);
+            if (alternosPermitidos.contains(alternoEvento.getId())) {
+                uniqueTimeline.put(alternoEvento.getId(), alternoEvento);
+            }
         }
         return uniqueTimeline.values().stream()
                 .sorted(Comparator.comparing(TrackingEstadoItemDTO::getOrden).thenComparing(TrackingEstadoItemDTO::getId))
