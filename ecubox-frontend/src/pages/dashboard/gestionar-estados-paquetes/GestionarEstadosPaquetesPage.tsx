@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { usePaquetesSinSaca } from '@/hooks/useOperarioDespachos';
-import { useCambiarEstadoRastreoBulk, useEstadosDestinoPermitidos } from '@/hooks/usePaquetesOperario';
-import { useEstadosRastreoActivos, useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
+import { useCambiarEstadoRastreoBulk } from '@/hooks/usePaquetesOperario';
+import { useEstadosRastreoActivos } from '@/hooks/useEstadosRastreo';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
@@ -12,54 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tag } from 'lucide-react';
 import { toast } from 'sonner';
 
-function idsEstadosPorPunto(config: {
-  estadoRastreoRegistroPaqueteId?: number;
-  estadoRastreoEnLoteRecepcionId?: number;
-  estadoRastreoEnDespachoId?: number;
-  estadoRastreoEnTransitoId?: number;
-} | undefined): Set<number> {
-  const s = new Set<number>();
-  if (!config) return s;
-  const ids = [
-    config.estadoRastreoRegistroPaqueteId,
-    config.estadoRastreoEnLoteRecepcionId,
-    config.estadoRastreoEnDespachoId,
-    config.estadoRastreoEnTransitoId,
-  ];
-  for (const id of ids) {
-    if (id != null) s.add(id);
-  }
-  return s;
-}
-
-function excluirEstadosPorPunto(lista: EstadoRastreo[], excluir: Set<number>): EstadoRastreo[] {
-  return lista.filter((e) => !excluir.has(e.id));
-}
-
 export function GestionarEstadosPaquetesPage() {
   const { data: paquetes, isLoading, error } = usePaquetesSinSaca();
   const { data: estadosRastreo = [] } = useEstadosRastreoActivos();
-  const { data: configPorPunto } = useEstadosRastreoPorPunto();
   const cambiarEstadoBulk = useCambiarEstadoRastreoBulk();
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [estadoId, setEstadoId] = useState<string>('');
-  const idsSeleccionados = useMemo(() => Array.from(selectedIds), [selectedIds]);
-  const { data: estadosPermitidos = [] } = useEstadosDestinoPermitidos(idsSeleccionados);
-
-  const idsExcluidosPorPunto = useMemo(() => idsEstadosPorPunto(configPorPunto), [configPorPunto]);
-
-  const opcionesEstado = useMemo(() => {
-    const base =
-      idsSeleccionados.length > 0 ? estadosPermitidos : estadosRastreo;
-    return excluirEstadosPorPunto(base, idsExcluidosPorPunto);
-  }, [idsSeleccionados.length, estadosPermitidos, estadosRastreo, idsExcluidosPorPunto]);
-
-  useEffect(() => {
-    if (estadoId !== '' && idsExcluidosPorPunto.has(Number(estadoId))) {
-      setEstadoId('');
-    }
-  }, [estadoId, idsExcluidosPorPunto]);
+  const opcionesEstado: EstadoRastreo[] = estadosRastreo;
 
   const list = useMemo(() => {
     const raw = paquetes ?? [];
@@ -163,15 +123,9 @@ export function GestionarEstadosPaquetesPage() {
       />
 
       <p className="text-sm text-[var(--color-muted-foreground)]">
-        Solo se listan paquetes sin despacho. Puedes asignar un estado a los seleccionados. Los paquetes que estén en un
-        lote de recepción serán rechazados al aplicar. No se ofrecen los estados configurados en Parámetros → Estados
-        de rastreo por punto (registro, lote, despacho, tránsito): esos se asignan en sus flujos correspondientes.
+        Solo se listan paquetes sin despacho. Puedes asignar cualquier estado activo a los seleccionados. Los paquetes
+        que estén en un lote de recepción serán rechazados al aplicar.
       </p>
-      {idsSeleccionados.length > 0 && (
-        <p className="text-xs text-[var(--color-muted-foreground)]">
-          Se muestran solo estados destino permitidos para los paquetes seleccionados (excluidos los de “por punto”).
-        </p>
-      )}
 
       {allPaquetes.length === 0 ? (
         <EmptyState
