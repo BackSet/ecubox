@@ -16,4 +16,6 @@ public class EstadosRastreoPorPuntoDTO {
     private Long estadoRastreoEnDespachoId;
     /** Estado aplicado cuando el operario usa "Aplicar estado por periodo" en despachos. */
     private Long estadoRastreoEnTransitoId;
+    /** Estado que finaliza la cuenta regresiva de retiro en tracking. */
+    private Long estadoRastreoFinCuentaRegresivaId;
 }

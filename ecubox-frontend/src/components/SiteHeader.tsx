@@ -18,19 +18,19 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-landing-border)] bg-[color-mix(in_oklab,var(--color-landing-bg)_82%,transparent)] backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div className="content-container-wide mobile-safe-inline flex items-center justify-between gap-3 py-3 sm:gap-4">
         <Link to="/" className="flex-shrink-0 opacity-90 hover:opacity-100 transition-opacity" aria-label="ECUBOX - Inicio">
           <EcuboxLogo variant="light" size="lg" asLink={false} />
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden items-center gap-8 text-sm font-medium landing-text md:flex">
+        <nav className="hidden items-center gap-6 text-sm font-medium landing-text lg:flex">
           {NAV_LINKS.map(l => (
             <Link key={l.to} to={l.to} className="transition hover:text-[var(--color-primary)]">{l.label}</Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-2 xl:gap-3 lg:flex">
           <Button type="button" variant="outline" size="icon" className="landing-text" onClick={toggleTheme} aria-label="Cambiar tema">
             {themeIcon}
           </Button>
@@ -43,14 +43,14 @@ export function SiteHeader() {
         </div>
 
         {/* Mobile toggle */}
-        <Button type="button" variant="ghost" size="icon" className="landing-text md:hidden" onClick={() => setMobileOpen(o => !o)} aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}>
+        <Button type="button" variant="ghost" size="icon" className="landing-text lg:hidden" onClick={() => setMobileOpen(o => !o)} aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}>
           {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </Button>
       </div>
 
       {/* Mobile panel */}
       {mobileOpen && (
-        <div className="border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-4 pb-6 pt-4 md:hidden">
+        <div className="border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-4 pb-6 pt-4 lg:hidden">
           <nav className="mb-6 flex flex-col gap-3 text-sm font-medium landing-text">
             {NAV_LINKS.map(l => (
               <Link key={l.to} to={l.to} className="rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]" onClick={() => setMobileOpen(false)}>

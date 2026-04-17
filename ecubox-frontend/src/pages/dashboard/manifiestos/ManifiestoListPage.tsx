@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileText } from 'lucide-react';
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 export function ManifiestoListPage() {
   const { data: manifiestos, isLoading, error } = useManifiestos();
@@ -156,7 +158,13 @@ export function ManifiestoListPage() {
         loading={deleteManifiesto.isPending}
         onConfirm={async () => {
           if (deleteConfirmId == null) return;
-          await deleteManifiesto.mutateAsync(deleteConfirmId);
+          try {
+            await deleteManifiesto.mutateAsync(deleteConfirmId);
+            toast.success('Manifiesto eliminado');
+          } catch (error: unknown) {
+            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el manifiesto');
+            throw error;
+          }
         }}
       />
     </div>

@@ -26,7 +26,9 @@ import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
+import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
+import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.SacaRepository;
 import com.ecubox.ecubox_backend.util.WeightUtil;
 import org.springframework.beans.factory.annotation.Value;
@@ -56,6 +58,8 @@ public class PaqueteService {
     private final DestinatarioFinalRepository destinatarioFinalRepository;
     private final SacaRepository sacaRepository;
     private final LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
+    private final PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
+    private final OutboxEventRepository outboxEventRepository;
     private final ParametroSistemaService parametroSistemaService;
     private final EstadoRastreoService estadoRastreoService;
     private final TrackingEventService trackingEventService;
@@ -65,6 +69,8 @@ public class PaqueteService {
                           DestinatarioFinalRepository destinatarioFinalRepository,
                           SacaRepository sacaRepository,
                           LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
+                          PaqueteEstadoEventoRepository paqueteEstadoEventoRepository,
+                          OutboxEventRepository outboxEventRepository,
                           ParametroSistemaService parametroSistemaService,
                           EstadoRastreoService estadoRastreoService,
                           TrackingEventService trackingEventService,
@@ -73,6 +79,8 @@ public class PaqueteService {
         this.destinatarioFinalRepository = destinatarioFinalRepository;
         this.sacaRepository = sacaRepository;
         this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
+        this.paqueteEstadoEventoRepository = paqueteEstadoEventoRepository;
+        this.outboxEventRepository = outboxEventRepository;
         this.parametroSistemaService = parametroSistemaService;
         this.estadoRastreoService = estadoRastreoService;
         this.trackingEventService = trackingEventService;
@@ -312,6 +320,48 @@ public class PaqueteService {
         }
     }
 
+    @Transactional
+    public int revertirEstadoSiUltimoEventoCoincide(List<Long> paqueteIds, String expectedEventSource) {
+        if (paqueteIds == null || paqueteIds.isEmpty()) return 0;
+        int reverted = 0;
+        for (Long paqueteId : paqueteIds) {
+            if (paqueteId == null) {
+                continue;
+            }
+            Paquete paquete = paqueteRepository.findById(paqueteId).orElse(null);
+            if (paquete == null) {
+                continue;
+            }
+            var ultimoEventoOpt = paqueteEstadoEventoRepository.findTopByPaqueteIdOrderByOccurredAtDescIdDesc(paqueteId);
+            if (ultimoEventoOpt.isEmpty()) {
+                continue;
+            }
+            PaqueteEstadoEvento ultimoEvento = ultimoEventoOpt.get();
+            EstadoRastreo estadoOrigen = ultimoEvento.getEstadoOrigen();
+            if (estadoOrigen == null) {
+                continue;
+            }
+            if (expectedEventSource != null && !expectedEventSource.equals(ultimoEvento.getEventSource())) {
+                continue;
+            }
+            EstadoRastreo estadoActual = paquete.getEstadoRastreo();
+            if (estadoActual != null && Objects.equals(estadoActual.getId(), estadoOrigen.getId())) {
+                continue;
+            }
+            paquete.setEstadoRastreo(estadoOrigen);
+            paquete.setFechaEstadoActualDesde(LocalDateTime.now());
+            paquete.setEnFlujoAlterno(TipoFlujoEstado.ALTERNO.equals(estadoOrigen.getTipoFlujo()));
+            if (!TipoFlujoEstado.ALTERNO.equals(estadoOrigen.getTipoFlujo())) {
+                paquete.setMotivoAlterno(null);
+            }
+            paquete.setBloqueado(false);
+            paquete.setFechaBloqueoDesde(null);
+            paqueteRepository.save(paquete);
+            reverted++;
+        }
+        return reverted;
+    }
+
     private EstadoRastreo getEstadoRegistroPaquete() {
         Long id = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoRegistroPaqueteId();
         if (id != null) {
@@ -413,6 +463,8 @@ public class PaqueteService {
                 throw new ResourceNotFoundException("Paquete", paqueteId);
             }
         }
+        paqueteEstadoEventoRepository.deleteByPaqueteId(paqueteId);
+        outboxEventRepository.deleteByAggregateTypeAndAggregateId("PAQUETE", String.valueOf(paqueteId));
         paqueteRepository.delete(p);
     }
 
@@ -422,7 +474,8 @@ public class PaqueteService {
                                    Integer diasTranscurridos,
                                    Integer diasRestantes,
                                    Integer diasAtrasoRetiro,
-                                   boolean paqueteVencido) {}
+                                   boolean paqueteVencido,
+                                   boolean cuentaRegresivaFinalizada) {}
 
     @Transactional(readOnly = true)
     public TrackingResponse findByNumeroGuiaForTracking(String numeroGuia) {
@@ -503,6 +556,7 @@ public class PaqueteService {
                 .diasMaxRetiro(diasMaxRetiro)
                 .diasTranscurridos(diasTranscurridos)
                 .diasRestantes(diasRestantes)
+                .cuentaRegresivaFinalizada(plazoRetiroInfo.cuentaRegresivaFinalizada())
                 .paqueteVencido(plazoRetiroInfo.paqueteVencido())
                 .flujoActual(Boolean.TRUE.equals(p.getEnFlujoAlterno()) ? "ALTERNO" : "NORMAL")
                 .bloqueado(p.getBloqueado())
@@ -585,9 +639,16 @@ public class PaqueteService {
     }
 
     private PlazoRetiroInfo calcularPlazoRetiro(Paquete p) {
+        var estadosPorPunto = parametroSistemaService.getEstadosRastreoPorPunto();
+        Long estadoFinalCuentaRegresivaId =
+                estadosPorPunto != null ? estadosPorPunto.getEstadoRastreoFinCuentaRegresivaId() : null;
+        Long estadoActualId = p.getEstadoRastreo() != null ? p.getEstadoRastreo().getId() : null;
+        if (estadoFinalCuentaRegresivaId != null && Objects.equals(estadoFinalCuentaRegresivaId, estadoActualId)) {
+            return new PlazoRetiroInfo(null, null, null, 0, false, true);
+        }
         Integer diasMaxRetiro = chooseDiasMaxRetiroPorEntidad(p);
         if (diasMaxRetiro == null || p.getFechaEstadoActualDesde() == null) {
-            return new PlazoRetiroInfo(diasMaxRetiro, null, null, 0, false);
+            return new PlazoRetiroInfo(diasMaxRetiro, null, null, 0, false, false);
         }
         LocalDate desde = p.getFechaEstadoActualDesde().atZone(ZONA_ECUADOR).toLocalDate();
         LocalDate hoy = LocalDate.now(ZONA_ECUADOR);
@@ -596,7 +657,7 @@ public class PaqueteService {
         int diasRestantes = Math.max(0, diasMaxRetiro - diasTranscurridos);
         int diasAtrasoRetiro = Math.max(0, diasTranscurridos - diasMaxRetiro);
         boolean paqueteVencido = diasTranscurridos > diasMaxRetiro;
-        return new PlazoRetiroInfo(diasMaxRetiro, diasTranscurridos, diasRestantes, diasAtrasoRetiro, paqueteVencido);
+        return new PlazoRetiroInfo(diasMaxRetiro, diasTranscurridos, diasRestantes, diasAtrasoRetiro, paqueteVencido, false);
     }
 
     private TrackingDespachoDTO buildDespachoCard(Paquete p) {

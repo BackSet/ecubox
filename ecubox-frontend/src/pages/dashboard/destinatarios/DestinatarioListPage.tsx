@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useDestinatarios, useDeleteDestinatario } from '@/hooks/useDestinatarios';
-import { useDestinatariosOperario } from '@/hooks/useOperarioDespachos';
+import { useDestinatariosOperario, useDeleteDestinatarioOperario } from '@/hooks/useOperarioDespachos';
 import { useAuthStore } from '@/stores/authStore';
 import { DestinatarioForm } from './DestinatarioForm';
 import { ListToolbar } from '@/components/ListToolbar';
@@ -13,6 +13,7 @@ import { ListTableShell } from '@/components/ListTableShell';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MapPin } from 'lucide-react';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 export function DestinatarioListPage() {
   const hasDestinatariosOperario = useAuthStore((s) => s.hasPermission('DESTINATARIOS_OPERARIO'));
@@ -29,6 +30,7 @@ export function DestinatarioListPage() {
   const isLoading = hasDestinatariosOperario ? opLoading : misLoading;
   const error = hasDestinatariosOperario ? opError : misError;
   const deleteDestinatario = useDeleteDestinatario();
+  const deleteDestinatarioOperario = useDeleteDestinatarioOperario();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -69,7 +71,7 @@ export function DestinatarioListPage() {
         onSearchChange={setSearch}
         actions={
           hasDestinatariosCreate ? (
-            <Button onClick={() => setCreateOpen(true)}>Nuevo destinatario</Button>
+            <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>Nuevo destinatario</Button>
           ) : undefined
         }
       />
@@ -91,7 +93,7 @@ export function DestinatarioListPage() {
         />
       ) : (
         <ListTableShell>
-          <Table className="min-w-[640px]">
+          <Table className="table-mobile-cards min-w-[640px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Código</TableHead>
@@ -105,17 +107,17 @@ export function DestinatarioListPage() {
             <TableBody>
               {list.map((d) => (
                 <TableRow key={d.id}>
-                  <TableCell className="font-mono text-sm">{d.codigo ?? '—'}</TableCell>
-                  <TableCell className="font-medium">{d.nombre}</TableCell>
-                  <TableCell>{d.telefono ?? '—'}</TableCell>
-                  <TableCell className="max-w-[200px] truncate" title={d.direccion ?? ''}>
+                  <TableCell data-label="Código" className="font-mono text-sm">{d.codigo ?? '—'}</TableCell>
+                  <TableCell data-label="Nombre" className="font-medium">{d.nombre}</TableCell>
+                  <TableCell data-label="Teléfono">{d.telefono ?? '—'}</TableCell>
+                  <TableCell data-label="Dirección" className="max-w-[200px] truncate" title={d.direccion ?? ''}>
                     {d.direccion ?? '—'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell data-label="Provincia / Cantón">
                     {[d.provincia, d.canton].filter(Boolean).join(' / ') || '—'}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end">
+                  <TableCell data-label="Acciones" className="text-right md:text-right">
+                    <div className="flex items-center justify-end md:justify-end">
                       <RowActionsMenu
                         items={[
                           ...((hasDestinatariosOperario || hasDestinatariosUpdate)
@@ -154,17 +156,22 @@ export function DestinatarioListPage() {
         open={deleteConfirmId != null}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
         title="¿Eliminar destinatario?"
-        description="Esta acción no se puede deshacer. El destinatario se eliminará del sistema."
+        description="Esta acción no se puede deshacer. Se eliminará el destinatario junto con todos sus paquetes asociados."
         confirmLabel="Eliminar"
         variant="destructive"
-        loading={deleteDestinatario.isPending}
+        loading={deleteDestinatario.isPending || deleteDestinatarioOperario.isPending}
         onConfirm={async () => {
           if (deleteConfirmId == null) return;
           try {
-            await deleteDestinatario.mutateAsync(deleteConfirmId);
+            if (hasDestinatariosOperario) {
+              await deleteDestinatarioOperario.mutateAsync(deleteConfirmId);
+            } else {
+              await deleteDestinatario.mutateAsync(deleteConfirmId);
+            }
             toast.success('Destinatario eliminado');
-          } catch {
-            toast.error('Error al eliminar el destinatario');
+          } catch (error: unknown) {
+            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el destinatario');
+            throw error;
           }
         }}
       />

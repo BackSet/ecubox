@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { Truck, Copy, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import type { TipoEntrega } from '@/types/despacho';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 const TIPO_LABELS: Record<TipoEntrega, string> = {
   DOMICILIO: 'Domicilio',
@@ -115,20 +116,20 @@ export function DespachoListPage() {
         searchPlaceholder="Buscar por guía, distribuidor, destinatario..."
         onSearchChange={setSearch}
         actions={
-          <>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <Button
               type="button"
               variant="outline"
               onClick={() => setEstadoPorPeriodoOpen(true)}
-              className="gap-2"
+              className="w-full gap-2 sm:w-auto"
             >
               <Tag className="h-4 w-4" />
               Aplicar estado por periodo
             </Button>
-            <Link to="/despachos/nuevo" className={cn(buttonVariants())}>
+            <Link to="/despachos/nuevo" className={cn(buttonVariants(), 'w-full sm:w-auto')}>
               Nuevo despacho
             </Link>
-          </>
+          </div>
         }
       />
 
@@ -151,7 +152,7 @@ export function DespachoListPage() {
         />
       ) : (
         <ListTableShell>
-          <Table className="min-w-[880px] text-left">
+          <Table className="table-mobile-cards min-w-[880px] text-left">
             <TableHeader>
               <TableRow>
                 <TableHead>Guía</TableHead>
@@ -165,23 +166,23 @@ export function DespachoListPage() {
             <TableBody>
               {list.map((d) => (
                 <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.numeroGuia}</TableCell>
-                  <TableCell>{d.distribuidorNombre ?? '—'}</TableCell>
-                  <TableCell>
+                  <TableCell data-label="Guía" className="font-medium">{d.numeroGuia}</TableCell>
+                  <TableCell data-label="Distribuidor">{d.distribuidorNombre ?? '—'}</TableCell>
+                  <TableCell data-label="Tipo">
                     <Badge variant="secondary">
                       {TIPO_LABELS[d.tipoEntrega] ?? d.tipoEntrega}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell data-label="Destino">
                     {d.tipoEntrega === 'DOMICILIO'
                       ? (d.destinatarioNombre ?? '—')
                       : d.tipoEntrega === 'AGENCIA_DISTRIBUIDOR'
                         ? (d.agenciaDistribuidorNombre ?? '—')
                         : (d.agenciaNombre ?? '—')}
                   </TableCell>
-                  <TableCell>{d.sacaIds?.length ?? 0}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end">
+                  <TableCell data-label="Sacas">{d.sacaIds?.length ?? 0}</TableCell>
+                  <TableCell data-label="Acciones" className="text-right md:text-right">
+                    <div className="flex items-center justify-end md:justify-end">
                       <RowActionsMenu
                         items={[
                           { label: 'Ver detalle / imprimir', onSelect: () => { navigate({ to: '/despachos/$id', params: { id: String(d.id) } }); } },
@@ -212,9 +213,9 @@ export function DespachoListPage() {
           try {
             await deleteMutation.mutateAsync(deleteConfirmId);
             toast.success('Despacho eliminado');
-          } catch {
-            toast.error('Error al eliminar el despacho');
-            throw new Error('Delete failed');
+          } catch (error: unknown) {
+            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el despacho');
+            throw error;
           }
         }}
       />
@@ -281,7 +282,7 @@ export function DespachoListPage() {
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="flex flex-col-reverse justify-end gap-2 pt-4 sm:flex-row">
             <Button variant="outline" onClick={() => setEstadoPorPeriodoOpen(false)}>
               Cancelar
             </Button>

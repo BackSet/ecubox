@@ -54,6 +54,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import type { EstadoRastreo, EstadoRastreoRequest } from '@/types/estado-rastreo';
 import { z } from 'zod';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 type OpcionActiva =
   | 'mensaje-whatsapp-despacho'
@@ -773,8 +774,9 @@ function EstadosRastreoView() {
     try {
       await desactivarMutation.mutateAsync(id);
       toast.success('Estado desactivado');
-    } catch (err) {
-      toast.error('Error al desactivar');
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error) ?? 'Error al desactivar');
+      throw error;
     }
   };
 
@@ -803,9 +805,9 @@ function EstadosRastreoView() {
       await deleteMutation.mutateAsync(id);
       toast.success('Estado eliminado');
       setDeleteId(null);
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      toast.error(msg ?? 'No se puede eliminar');
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error) ?? 'No se puede eliminar');
+      throw error;
     }
   };
 
@@ -1249,6 +1251,7 @@ function EstadosRastreoPorPuntoView() {
   const [enLoteId, setEnLoteId] = useState<number | ''>('');
   const [enDespachoId, setEnDespachoId] = useState<number | ''>('');
   const [enTransitoId, setEnTransitoId] = useState<number | ''>('');
+  const [finCuentaRegresivaId, setFinCuentaRegresivaId] = useState<number | ''>('');
 
   useEffect(() => {
     if (config) {
@@ -1256,6 +1259,7 @@ function EstadosRastreoPorPuntoView() {
       setEnLoteId(config.estadoRastreoEnLoteRecepcionId ?? '');
       setEnDespachoId(config.estadoRastreoEnDespachoId ?? '');
       setEnTransitoId(config.estadoRastreoEnTransitoId ?? '');
+      setFinCuentaRegresivaId(config.estadoRastreoFinCuentaRegresivaId ?? '');
     }
   }, [config]);
 
@@ -1264,7 +1268,8 @@ function EstadosRastreoPorPuntoView() {
     (registroId !== (config.estadoRastreoRegistroPaqueteId ?? '') ||
       enLoteId !== (config.estadoRastreoEnLoteRecepcionId ?? '') ||
       enDespachoId !== (config.estadoRastreoEnDespachoId ?? '') ||
-      enTransitoId !== (config.estadoRastreoEnTransitoId ?? ''));
+      enTransitoId !== (config.estadoRastreoEnTransitoId ?? '') ||
+      finCuentaRegresivaId !== (config.estadoRastreoFinCuentaRegresivaId ?? ''));
 
   const handleGuardar = async () => {
     if (
@@ -1282,6 +1287,7 @@ function EstadosRastreoPorPuntoView() {
         estadoRastreoEnLoteRecepcionId: Number(enLoteId),
         estadoRastreoEnDespachoId: Number(enDespachoId),
         estadoRastreoEnTransitoId: Number(enTransitoId),
+        estadoRastreoFinCuentaRegresivaId: finCuentaRegresivaId === '' ? null : Number(finCuentaRegresivaId),
       });
       toast.success('Configuración guardada');
     } catch {
@@ -1302,7 +1308,7 @@ function EstadosRastreoPorPuntoView() {
       <ParametrosHeader
         icon={<MapPin className="h-7 w-7" />}
         title="Estados de rastreo por punto"
-        description="Elija qué estado se asigna al registrar paquete, al incluir en lote de recepción, cuando está en despacho y en tránsito."
+        description="Elija qué estado se asigna al registrar paquete, al incluir en lote de recepción, cuando está en despacho y en tránsito, y el estado que finaliza la cuenta regresiva."
         status={{ label: isDirty ? 'Cambios pendientes' : 'Sin cambios', variant: isDirty ? 'outline' : 'secondary' }}
       />
 
@@ -1382,6 +1388,28 @@ function EstadosRastreoPorPuntoView() {
             </SelectContent>
           </Select>
           <FieldHint>También se usa en aplicar estado por periodo.</FieldHint>
+        </Field>
+        <Field className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-4 md:col-span-2">
+          <Label className="mb-1 block">Estado que finaliza cuenta regresiva</Label>
+          <Select
+            value={finCuentaRegresivaId === '' ? 'none' : String(finCuentaRegresivaId)}
+            onValueChange={(v) => setFinCuentaRegresivaId(v === 'none' ? '' : Number(v))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No finalizar automáticamente</SelectItem>
+              {estados.map((e) => (
+                <SelectItem key={e.id} value={String(e.id)}>
+                  {e.nombre} ({e.codigo})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FieldHint>
+            Cuando el paquete llegue a este estado, el tracking ocultará la cuenta regresiva y mostrará que terminó.
+          </FieldHint>
         </Field>
       </div>
       <div className="flex items-center justify-end">

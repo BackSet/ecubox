@@ -47,6 +47,8 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long> {
     /** Paquetes de una saca en orden de creación. */
     List<Paquete> findBySacaIdOrderByIdAsc(Long sacaId);
 
+    List<Paquete> findByDestinatarioFinalIdOrderByIdAsc(Long destinatarioFinalId);
+
     /** Paquetes sin saca asignada (disponibles para agregar a una saca), orden por creación. */
     List<Paquete> findBySacaIsNullOrderByIdAsc();
 

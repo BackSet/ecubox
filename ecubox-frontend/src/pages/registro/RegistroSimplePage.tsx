@@ -57,17 +57,17 @@ export function RegistroSimplePage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)] flex flex-col">
       <header className="border-b border-[var(--color-border)]">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="content-container-wide mobile-safe-inline py-3 sm:py-4">
           <Link to="/" className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition" aria-label="ECUBOX - Inicio">
             <EcuboxLogo variant="light" size="lg" asLink={false} />
           </Link>
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-6">
+      <main className="mobile-safe-inline flex-1 flex items-center justify-center py-6 sm:py-10">
         <div className="w-full max-w-md">
-          <SurfaceCard className="p-8">
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-2">
+          <SurfaceCard className="p-5 sm:p-6 md:p-8">
+            <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-foreground)] mb-2">
               Registro rápido
             </h1>
             <p className="text-[var(--color-muted-foreground)] text-sm mb-6">

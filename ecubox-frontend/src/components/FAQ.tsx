@@ -26,8 +26,8 @@ const FAQ_ITEMS = [
 
 export function FAQ() {
   return (
-    <section className="mx-auto max-w-3xl px-6 py-16 lg:py-20">
-      <h2 className="landing-text mb-10 text-center text-2xl font-bold md:text-3xl">
+    <section className="content-container mobile-safe-inline section-spacing max-w-4xl">
+      <h2 className="landing-text responsive-title mb-8 text-center font-bold md:mb-10">
         Preguntas frecuentes
       </h2>
       <Accordion type="single" collapsible className="space-y-3">
@@ -37,10 +37,10 @@ export function FAQ() {
             value={`item-${i}`}
             className="landing-card overflow-hidden transition-all duration-200 data-[state=open]:border-[var(--color-primary)]/40"
           >
-            <AccordionTrigger className="w-full cursor-pointer px-5 py-4 text-left font-semibold landing-text transition hover:bg-[var(--color-landing-card-muted)] md:px-6 md:py-5">
+            <AccordionTrigger className="w-full cursor-pointer px-4 py-3.5 text-left text-sm font-semibold landing-text transition hover:bg-[var(--color-landing-card-muted)] sm:px-5 sm:py-4 md:px-6 md:py-5 md:text-base">
               {item.q}
             </AccordionTrigger>
-            <AccordionContent className="border-t border-[var(--color-landing-border)] px-5 pb-5 pt-4 text-sm leading-relaxed landing-text-muted md:px-6 md:pb-6">
+            <AccordionContent className="border-t border-[var(--color-landing-border)] px-4 pb-4 pt-3 text-sm leading-relaxed landing-text-muted sm:px-5 sm:pb-5 sm:pt-4 md:px-6 md:pb-6">
               {item.a}
             </AccordionContent>
           </AccordionItem>

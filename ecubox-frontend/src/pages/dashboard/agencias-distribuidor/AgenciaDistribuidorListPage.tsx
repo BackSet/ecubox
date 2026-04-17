@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Building2 } from 'lucide-react';
 import { createContainsMatcher } from '@/lib/search';
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 export function AgenciaDistribuidorListPage() {
   const { data: agencias, isLoading, error } = useAgenciasDistribuidorAdmin();
@@ -144,7 +146,13 @@ export function AgenciaDistribuidorListPage() {
         loading={deleteMutation.isPending}
         onConfirm={async () => {
           if (deleteConfirmId == null) return;
-          await deleteMutation.mutateAsync(deleteConfirmId);
+          try {
+            await deleteMutation.mutateAsync(deleteConfirmId);
+            toast.success('Agencia de distribuidor eliminada');
+          } catch (error: unknown) {
+            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar la agencia de distribuidor');
+            throw error;
+          }
         }}
       />
     </div>

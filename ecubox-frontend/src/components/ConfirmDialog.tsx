@@ -34,8 +34,12 @@ export function ConfirmDialog({
   loading = false,
 }: ConfirmDialogProps) {
   async function handleConfirm() {
-    await onConfirm();
-    onOpenChange(false);
+    try {
+      await onConfirm();
+      onOpenChange(false);
+    } catch {
+      // Keep the dialog open on errors so the caller can show feedback and allow retry.
+    }
   }
 
   return (

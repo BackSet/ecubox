@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Package, Link2 } from 'lucide-react';
 import type { Paquete } from '@/types/paquete';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 export function PaqueteListPage() {
   const hasPaquetesCreate = useAuthStore((s) => s.hasPermission('PAQUETES_CREATE'));
@@ -69,15 +70,15 @@ export function PaqueteListPage() {
         }
         onSearchChange={setSearch}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             {canAccessAsignarGuia && (
-              <Button type="button" variant="outline" className="gap-2" onClick={() => setAsignarGuiaOpen(true)}>
+              <Button type="button" variant="outline" className="w-full gap-2 sm:w-auto" onClick={() => setAsignarGuiaOpen(true)}>
                 <Link2 className="h-4 w-4" />
                 Asignar guía de envío
               </Button>
             )}
             {hasPaquetesCreate && (
-              <Button onClick={() => setCreateOpen(true)}>Registrar paquete</Button>
+              <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>Registrar paquete</Button>
             )}
           </div>
         }
@@ -100,7 +101,7 @@ export function PaqueteListPage() {
         />
       ) : (
         <ListTableShell>
-            <Table className="min-w-[860px] text-left">
+            <Table className="table-mobile-cards min-w-[860px] text-left">
               <TableHeader>
                 <TableRow>
                   <TableHead>Ref</TableHead>
@@ -116,8 +117,8 @@ export function PaqueteListPage() {
               <TableBody>
                 {list.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{p.ref ?? '—'}</TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell data-label="Ref" className="font-mono text-xs text-muted-foreground">{p.ref ?? '—'}</TableCell>
+                    <TableCell data-label="Número de guía" className="font-medium">
                       <a
                         href={`/tracking?numeroGuia=${encodeURIComponent(p.numeroGuia)}`}
                         className="text-primary hover:underline"
@@ -125,15 +126,15 @@ export function PaqueteListPage() {
                         {p.numeroGuia}
                       </a>
                     </TableCell>
-                    {hasPesoWrite && <TableCell>{p.numeroGuiaEnvio ?? '—'}</TableCell>}
-                    <TableCell>{p.destinatarioNombre ?? '—'}</TableCell>
-                    <TableCell>
+                    {hasPesoWrite && <TableCell data-label="Guía de envío">{p.numeroGuiaEnvio ?? '—'}</TableCell>}
+                    <TableCell data-label="Destinatario">{p.destinatarioNombre ?? '—'}</TableCell>
+                    <TableCell data-label="Estado">
                       <Badge variant="secondary" className="font-normal">
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{p.contenido ?? '—'}</TableCell>
-                    <TableCell>
+                    <TableCell data-label="Contenido" className="text-muted-foreground">{p.contenido ?? '—'}</TableCell>
+                    <TableCell data-label="Peso">
                       {p.pesoLbs != null || p.pesoKg != null
                         ? [p.pesoLbs != null ? `${p.pesoLbs} lbs` : null, p.pesoKg != null ? `${p.pesoKg} kg` : null]
                             .filter(Boolean)
@@ -141,8 +142,8 @@ export function PaqueteListPage() {
                         : '—'}
                     </TableCell>
                     {(hasPaquetesUpdate || hasPaquetesDelete) && (
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end">
+                      <TableCell data-label="Acciones" className="text-right md:text-right">
+                        <div className="flex items-center justify-end md:justify-end">
                           <RowActionsMenu
                             items={[
                               ...(hasPaquetesUpdate ? [{ label: 'Editar', onSelect: () => setEditingPaquete(p) }] : []),
@@ -177,8 +178,8 @@ export function PaqueteListPage() {
       )}
 
       <Dialog open={asignarGuiaOpen} onOpenChange={setAsignarGuiaOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="px-6 pt-5 pb-0">
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
+          <DialogHeader className="px-4 pb-0 pt-4 sm:px-6 sm:pt-5">
             <DialogTitle>Asignar guía de envío</DialogTitle>
           </DialogHeader>
           <AsignarGuiaEnvioPage />
@@ -198,9 +199,9 @@ export function PaqueteListPage() {
           try {
             await deletePaquete.mutateAsync(deleteConfirmId);
             toast.success('Paquete eliminado correctamente');
-          } catch {
-            toast.error('Error al eliminar el paquete');
-            throw new Error('Delete failed');
+          } catch (error: unknown) {
+            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el paquete');
+            throw error;
           }
         }}
       />

@@ -6,6 +6,7 @@ import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
 import com.ecubox.ecubox_backend.entity.Usuario;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
+import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,11 +20,17 @@ public class DestinatarioFinalService {
 
     private final DestinatarioFinalRepository destinatarioFinalRepository;
     private final UsuarioRepository usuarioRepository;
+    private final PaqueteRepository paqueteRepository;
+    private final PaqueteService paqueteService;
 
     public DestinatarioFinalService(DestinatarioFinalRepository destinatarioFinalRepository,
-                                    UsuarioRepository usuarioRepository) {
+                                    UsuarioRepository usuarioRepository,
+                                    PaqueteRepository paqueteRepository,
+                                    PaqueteService paqueteService) {
         this.destinatarioFinalRepository = destinatarioFinalRepository;
         this.usuarioRepository = usuarioRepository;
+        this.paqueteRepository = paqueteRepository;
+        this.paqueteService = paqueteService;
     }
 
     @Transactional(readOnly = true)
@@ -119,6 +126,21 @@ public class DestinatarioFinalService {
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", id));
         if (!d.getUsuario().getId().equals(usuarioId)) {
             throw new ResourceNotFoundException("Destinatario", id);
+        }
+        var paquetes = paqueteRepository.findByDestinatarioFinalIdOrderByIdAsc(id);
+        for (var paquete : paquetes) {
+            paqueteService.delete(paquete.getId(), usuarioId, false);
+        }
+        destinatarioFinalRepository.delete(d);
+    }
+
+    @Transactional
+    public void deleteByOperario(Long id) {
+        DestinatarioFinal d = destinatarioFinalRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Destinatario", id));
+        var paquetes = paqueteRepository.findByDestinatarioFinalIdOrderByIdAsc(id);
+        for (var paquete : paquetes) {
+            paqueteService.delete(paquete.getId(), d.getUsuario().getId(), true);
         }
         destinatarioFinalRepository.delete(d);
     }

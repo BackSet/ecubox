@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.dto.DestinatarioFinalRequest;
 import com.ecubox.ecubox_backend.service.DestinatarioFinalService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -44,5 +45,12 @@ public class OperarioDestinatarioController {
             @PathVariable Long id,
             @RequestBody DestinatarioFinalRequest request) {
         return ResponseEntity.ok(destinatarioFinalService.updateByOperario(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('DESTINATARIOS_OPERARIO')")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        destinatarioFinalService.deleteByOperario(id);
+        return ResponseEntity.noContent().build();
     }
 }

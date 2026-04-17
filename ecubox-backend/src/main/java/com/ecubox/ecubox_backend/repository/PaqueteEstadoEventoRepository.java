@@ -7,4 +7,7 @@ import java.util.List;
 
 public interface PaqueteEstadoEventoRepository extends JpaRepository<PaqueteEstadoEvento, Long> {
     List<PaqueteEstadoEvento> findByPaqueteIdOrderByOccurredAtAscIdAsc(Long paqueteId);
+    java.util.Optional<PaqueteEstadoEvento> findTopByPaqueteIdOrderByOccurredAtDescIdDesc(Long paqueteId);
+
+    void deleteByPaqueteId(Long paqueteId);
 }

@@ -75,6 +75,7 @@ public class OperarioConfigController {
                 request.getEstadoRastreoRegistroPaqueteId(),
                 request.getEstadoRastreoEnLoteRecepcionId(),
                 request.getEstadoRastreoEnDespachoId(),
-                request.getEstadoRastreoEnTransitoId()));
+                request.getEstadoRastreoEnTransitoId(),
+                request.getEstadoRastreoFinCuentaRegresivaId()));
     }
 }

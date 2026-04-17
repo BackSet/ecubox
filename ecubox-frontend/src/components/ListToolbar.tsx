@@ -45,17 +45,17 @@ export function ListToolbar({
   return (
     <SurfaceCard
       className={cn(
-        'p-3',
-        'flex flex-col gap-3 md:flex-row md:items-center md:justify-between',
+        'p-3 sm:p-4',
+        'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between',
         className
       )}
     >
       <div>
-        <h1 className="text-lg font-semibold tracking-tight text-[var(--color-foreground)]">{title}</h1>
+        <h1 className="text-base sm:text-lg font-semibold tracking-tight text-[var(--color-foreground)]">{title}</h1>
       </div>
-      <div className="flex flex-1 flex-wrap items-center gap-2 md:justify-end">
+      <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center lg:justify-end">
         {onSearchChange && (
-          <div className="relative flex-1 md:max-w-[280px]">
+          <div className="relative w-full sm:flex-1 lg:max-w-[320px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted-foreground)]" />
             <Input
               type="text"

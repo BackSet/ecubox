@@ -79,6 +79,7 @@ export interface TrackingResponse {
   diasMaxRetiro?: number;
   diasTranscurridos?: number;
   diasRestantes?: number;
+  cuentaRegresivaFinalizada?: boolean;
   paqueteVencido?: boolean;
   flujoActual?: 'NORMAL' | 'ALTERNO';
   bloqueado?: boolean;

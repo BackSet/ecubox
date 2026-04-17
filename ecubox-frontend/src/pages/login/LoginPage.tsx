@@ -47,17 +47,17 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
       <header className="border-b border-[var(--color-border)]">
-        <div className="mx-auto max-w-7xl px-6 py-4">
+        <div className="content-container-wide mobile-safe-inline py-3 sm:py-4">
           <Link to="/" className="-m-1 inline-flex rounded-lg p-1 transition hover:bg-[var(--color-muted)]" aria-label="ECUBOX - Inicio">
             <EcuboxLogo variant="light" size="lg" asLink={false} />
           </Link>
         </div>
       </header>
 
-      <main className="flex flex-1 items-center justify-center p-6">
+      <main className="mobile-safe-inline flex flex-1 items-center justify-center py-6 sm:py-10">
         <div className="w-full max-w-md">
-          <SurfaceCard className="p-8">
-            <h1 className="mb-2 text-2xl font-bold text-[var(--color-foreground)]">
+          <SurfaceCard className="p-5 sm:p-6 md:p-8">
+            <h1 className="mb-2 text-xl sm:text-2xl font-bold text-[var(--color-foreground)]">
               Iniciar sesión
             </h1>
             <p className="mb-6 text-sm text-[var(--color-muted-foreground)]">

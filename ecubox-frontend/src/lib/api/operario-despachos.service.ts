@@ -77,6 +77,10 @@ export async function updateDestinatarioOperario(
   return data;
 }
 
+export async function deleteDestinatarioOperario(id: number): Promise<void> {
+  await apiClient.delete(`${DEST}/${id}`);
+}
+
 export async function getSacasOperario(params?: {
   sinDespacho?: boolean;
 }): Promise<Saca[]> {

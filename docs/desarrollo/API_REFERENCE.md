@@ -238,7 +238,7 @@ Destinatarios del usuario autenticado.
 | GET | `/api/mis-destinatarios/{id}` | `DESTINATARIOS_READ` | Obtener destinatario por ID |
 | POST | `/api/mis-destinatarios` | `DESTINATARIOS_CREATE` | Crear destinatario |
 | PUT | `/api/mis-destinatarios/{id}` | `DESTINATARIOS_UPDATE` | Actualizar destinatario |
-| DELETE | `/api/mis-destinatarios/{id}` | `DESTINATARIOS_DELETE` | Eliminar destinatario |
+| DELETE | `/api/mis-destinatarios/{id}` | `DESTINATARIOS_DELETE` | Eliminar destinatario y sus paquetes asociados |
 
 **Request/Response:** `DestinatarioFinalRequest` / `DestinatarioFinalDTO`.
 
@@ -256,7 +256,7 @@ Paquetes del usuario autenticado (ADMIN/OPERARIO ven todos).
 | GET | `/api/mis-paquetes/sugerir-ref?destinatarioFinalId=...` | `PAQUETES_PESO_WRITE` | Sugerir referencia |
 | POST | `/api/mis-paquetes` | `PAQUETES_CREATE` | Crear paquete |
 | PUT | `/api/mis-paquetes/{id}` | `PAQUETES_UPDATE` | Actualizar paquete |
-| DELETE | `/api/mis-paquetes/{id}` | `PAQUETES_DELETE` | Eliminar paquete |
+| DELETE | `/api/mis-paquetes/{id}` | `PAQUETES_DELETE` | Eliminar paquete (limpia eventos/outbox del paquete) |
 
 **Request:** `PaqueteCreateRequest` (POST), `PaqueteUpdateRequest` (PUT).
 **Response:** `PaqueteDTO`.
@@ -343,7 +343,7 @@ Base: `/api/operario/despachos`
 | POST | `/api/operario/despachos` | `DESPACHOS_WRITE` | Crear despacho |
 | GET | `/api/operario/despachos/{id}` | `DESPACHOS_WRITE` | Obtener despacho por ID |
 | PUT | `/api/operario/despachos/{id}` | `DESPACHOS_WRITE` | Actualizar despacho |
-| DELETE | `/api/operario/despachos/{id}` | `DESPACHOS_WRITE` | Eliminar despacho |
+| DELETE | `/api/operario/despachos/{id}` | `DESPACHOS_WRITE` | Eliminar despacho (desasigna sacas y revierte estado de paquetes si aplica) |
 | POST | `/api/operario/despachos/aplicar-estado-por-periodo` | `DESPACHOS_WRITE` | Aplicar estado de rastreo a paquetes en rango de fechas |
 | GET | `/api/operario/despachos/{id}/mensaje-whatsapp` | `DESPACHOS_WRITE` | Generar mensaje WhatsApp para despacho |
 
@@ -400,9 +400,10 @@ Base: `/api/operario/lotes-recepcion`
 | GET | `/api/operario/lotes-recepcion/{id}` | `DESPACHOS_WRITE` | Obtener lote por ID |
 | POST | `/api/operario/lotes-recepcion` | `DESPACHOS_WRITE` | Crear lote |
 | POST | `/api/operario/lotes-recepcion/{id}/guias` | `DESPACHOS_WRITE` | Agregar guías al lote |
+| DELETE | `/api/operario/lotes-recepcion/{id}` | `DESPACHOS_WRITE` | Eliminar lote y revertir estado de paquetes del lote cuando aplique |
 
 **Request:** `LoteRecepcionCreateRequest`, `AgregarGuiasLoteRequest`.
-**Response:** `LoteRecepcionDTO`.
+**Response:** `LoteRecepcionDTO` (GET/POST), `{ "paquetesRevertidos": number }` (DELETE).
 
 ---
 

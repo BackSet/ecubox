@@ -3,9 +3,9 @@ import { EcuboxLogo } from '@/components/brand';
 
 export function SiteFooter() {
   return (
-    <footer className="relative z-10 border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-6 py-12">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
+    <footer className="relative z-10 border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] py-10 sm:py-12">
+      <div className="content-container-wide mobile-safe-inline">
+        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-col gap-3">
             <Link to="/" className="w-fit" aria-label="ECUBOX - Inicio">
               <EcuboxLogo variant="principal" size="md" asLink={false} />
@@ -15,7 +15,7 @@ export function SiteFooter() {
             </p>
           </div>
 
-          <div className="flex gap-16">
+          <div className="grid grid-cols-2 gap-8 sm:gap-14">
             <div>
               <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider landing-text-muted">Servicios</h4>
               <ul className="space-y-2 text-sm landing-text">
@@ -33,7 +33,7 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <p className="mt-10 border-t border-[var(--color-landing-border)] pt-6 text-center text-xs landing-text-muted md:text-left">
+        <p className="mt-8 border-t border-[var(--color-landing-border)] pt-5 text-center text-xs landing-text-muted md:mt-10 md:pt-6 md:text-left">
           © ECUBOX {new Date().getFullYear()} — Hecho con dedicación en Ecuador.
         </p>
       </div>

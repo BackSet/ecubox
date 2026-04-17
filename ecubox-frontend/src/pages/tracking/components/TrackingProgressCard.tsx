@@ -23,6 +23,7 @@ export function TrackingProgressCard({
     : 0;
 
   const showDias =
+    !result.cuentaRegresivaFinalizada &&
     result.diasMaxRetiro != null &&
     (result.diasTranscurridos != null || result.diasRestantes != null);
   const diasAtrasoRetiro =
@@ -62,7 +63,11 @@ export function TrackingProgressCard({
         </p>
       </div>
 
-      {showDias ? (
+      {result.cuentaRegresivaFinalizada ? (
+        <p className="rounded-lg border border-[var(--color-success)]/35 bg-[var(--color-success)]/12 px-4 py-3 text-sm font-medium text-[var(--color-foreground)]">
+          Cuenta regresiva finalizada para este envío.
+        </p>
+      ) : showDias ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-3.5">
             <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Días transcurridos</p>

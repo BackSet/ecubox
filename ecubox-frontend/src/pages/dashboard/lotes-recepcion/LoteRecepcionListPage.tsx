@@ -1,14 +1,17 @@
 import { useState, useMemo } from 'react';
 import { Link } from '@tanstack/react-router';
-import { useLotesRecepcion } from '@/hooks/useLotesRecepcion';
+import { useLotesRecepcion, useDeleteLoteRecepcion } from '@/hooks/useLotesRecepcion';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { ListTableShell } from '@/components/ListTableShell';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PackageCheck, Plus } from 'lucide-react';
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 function formatFecha(s: string | undefined): string {
   if (!s) return '—';
@@ -23,7 +26,9 @@ function formatFecha(s: string | undefined): string {
 
 export function LoteRecepcionListPage() {
   const { data: lotes, isLoading, error } = useLotesRecepcion();
+  const deleteLote = useDeleteLoteRecepcion();
   const [search, setSearch] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   const list = useMemo(() => {
     const raw = lotes ?? [];
@@ -106,6 +111,11 @@ export function LoteRecepcionListPage() {
                       <RowActionsMenu
                         items={[
                           { label: 'Ver detalle', onSelect: () => { window.location.href = `/lotes-recepcion/${l.id}`; } },
+                          {
+                            label: 'Eliminar lote',
+                            destructive: true,
+                            onSelect: () => setDeleteConfirmId(l.id),
+                          },
                         ]}
                       />
                     </div>
@@ -116,6 +126,31 @@ export function LoteRecepcionListPage() {
           </Table>
         </ListTableShell>
       )}
+
+      <ConfirmDialog
+        open={deleteConfirmId != null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+        title="Eliminar lote de recepción"
+        description="Se eliminará el lote y se revertirá el estado de los paquetes del lote cuando aplique."
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteLote.isPending}
+        onConfirm={async () => {
+          if (deleteConfirmId == null) return;
+          try {
+            const result = await deleteLote.mutateAsync(deleteConfirmId);
+            const reverted = result.paquetesRevertidos ?? 0;
+            toast.success(
+              reverted > 0
+                ? `Lote eliminado. ${reverted} paquete(s) volvieron al estado anterior.`
+                : 'Lote eliminado correctamente'
+            );
+          } catch (error: unknown) {
+            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el lote');
+            throw error;
+          }
+        }}
+      />
     </div>
   );
 }

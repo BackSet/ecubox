@@ -894,8 +894,8 @@ export function DespachoStepperForm({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-start gap-3 sm:items-center sm:gap-4">
         <Link
           to="/despachos"
           aria-label="Volver a despachos"
@@ -903,13 +903,13 @@ export function DespachoStepperForm({
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-foreground)]">{title}</h1>
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-semibold text-[var(--color-foreground)]">{title}</h1>
           <p className="text-sm text-[var(--color-muted-foreground)]">{subtitle}</p>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-2 sm:gap-3 md:grid-cols-3">
         {STEPS.map(({ step, label, helper }, i) => (
           <div key={step} className="flex items-center">
             <button
@@ -926,7 +926,7 @@ export function DespachoStepperForm({
                 }
                 setPasoActual(1);
               }}
-              className={`w-full rounded-xl border p-3 text-left transition-colors ${
+              className={`w-full rounded-xl border p-2.5 sm:p-3 text-left transition-colors ${
                 step === pasoActual
                   ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
                   : step < pasoActual
@@ -935,7 +935,7 @@ export function DespachoStepperForm({
               }`}
               aria-current={step === pasoActual ? 'step' : undefined}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
               <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors ${
                   step === pasoActual
@@ -949,7 +949,7 @@ export function DespachoStepperForm({
               </div>
                 <div className="space-y-0.5">
                   <p
-                    className={`text-sm font-semibold ${
+                    className={`text-xs sm:text-sm font-semibold ${
                       step === pasoActual
                         ? 'text-[var(--color-foreground)]'
                         : step < pasoActual
@@ -959,7 +959,7 @@ export function DespachoStepperForm({
                   >
                     {label}
                   </p>
-                  <p className="text-xs text-[var(--color-muted-foreground)]">{helper}</p>
+                  <p className="hidden text-xs text-[var(--color-muted-foreground)] sm:block">{helper}</p>
                 </div>
               </div>
             </button>
@@ -981,11 +981,11 @@ export function DespachoStepperForm({
         </div>
       )}
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 sm:space-y-6">
         {pasoActual === 1 && (
           <>
-            <div className="grid gap-6">
-              <section className="surface-card p-6 space-y-6">
+            <div className="grid gap-4 sm:gap-6">
+              <section className="surface-card p-4 sm:p-6 space-y-5 sm:space-y-6">
                 <div>
                   <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
                     <ClipboardList className="h-5 w-5 text-primary" />
@@ -996,7 +996,7 @@ export function DespachoStepperForm({
                   </p>
                 </div>
 
-                <div className="grid gap-6 md:grid-cols-2">
+                <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                       Operario responsable
@@ -1037,7 +1037,7 @@ export function DespachoStepperForm({
                 </div>
               </section>
 
-              <section className="surface-card p-6 space-y-6">
+              <section className="surface-card p-4 sm:p-6 space-y-5 sm:space-y-6">
                 <div>
                   <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
                     <Truck className="h-5 w-5 text-primary" />
@@ -1048,7 +1048,7 @@ export function DespachoStepperForm({
                   </p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-3 sm:gap-4 md:grid-cols-3">
                   <SelectionCard
                     title="Domicilio"
                     description="Entrega directa al destinatario final. Todos los paquetes para un mismo cliente."
@@ -1074,8 +1074,8 @@ export function DespachoStepperForm({
               </section>
             </div>
 
-            <div className="flex justify-end pt-6">
-              <Button type="button" size="lg" onClick={() => void avanzarAPaso2()}>
+            <div className="flex justify-end pt-4 sm:pt-6">
+              <Button type="button" size="lg" className="w-full sm:w-auto" onClick={() => void avanzarAPaso2()}>
                 Siguiente paso <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -1084,7 +1084,7 @@ export function DespachoStepperForm({
 
         {pasoActual === 2 && (
           <>
-            <section ref={sectionSacasRef} className="surface-card space-y-6 p-5">
+            <section ref={sectionSacasRef} className="surface-card space-y-5 sm:space-y-6 p-4 sm:p-5">
               <div>
                 <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
                   <Package className="h-4 w-4" />
@@ -1136,7 +1136,7 @@ export function DespachoStepperForm({
                         key={s.id}
                         className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 px-3 py-3 text-sm"
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
                           <div className="flex flex-wrap items-center gap-3">
                             <Badge variant="outline" className="bg-[var(--color-background)] font-semibold">
                               {s.numeroOrden}
@@ -1169,7 +1169,7 @@ export function DespachoStepperForm({
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
                             <span className="text-xs text-[var(--color-muted-foreground)]">
                               {(s.paquetes?.length ?? 0)} paquete(s)
                             </span>
@@ -1178,7 +1178,7 @@ export function DespachoStepperForm({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-8"
+                                className="h-8 w-full sm:w-auto"
                                 onClick={() =>
                                   setAgregarPaquetesDialog({
                                     open: true,
@@ -1212,8 +1212,8 @@ export function DespachoStepperForm({
                           </div>
                         </div>
                         {s.paquetes && s.paquetes.length > 0 ? (
-                          <div className="mt-3 overflow-x-auto rounded-md border border-[var(--color-border)] bg-[var(--color-background)]">
-                            <table className="compact-table min-w-[980px]">
+                          <div className="mt-3 table-responsive rounded-md border border-[var(--color-border)] bg-[var(--color-background)]">
+                            <table className="compact-table table-mobile-cards min-w-[980px]">
                               <thead>
                                 <tr>
                                   <th>Guía</th>
@@ -1227,16 +1227,16 @@ export function DespachoStepperForm({
                               <tbody>
                                 {s.paquetes.map((p) => (
                                   <tr key={p.id}>
-                                    <td className="font-medium">{p.numeroGuia ?? `#${p.id}`}</td>
-                                    <td>{p.destinatarioNombre ?? '—'}</td>
-                                    <td>{p.destinatarioTelefono ?? '—'}</td>
-                                    <td>{[p.destinatarioProvincia, p.destinatarioCanton].filter(Boolean).join(' / ') || '—'}</td>
-                                    <td className="text-right">
+                                    <td data-label="Guía" className="font-medium">{p.numeroGuia ?? `#${p.id}`}</td>
+                                    <td data-label="Destinatario">{p.destinatarioNombre ?? '—'}</td>
+                                    <td data-label="Teléfono">{p.destinatarioTelefono ?? '—'}</td>
+                                    <td data-label="Provincia / Cantón">{[p.destinatarioProvincia, p.destinatarioCanton].filter(Boolean).join(' / ') || '—'}</td>
+                                    <td data-label="Peso" className="text-right md:text-right">
                                       {[p.pesoKg != null ? `${p.pesoKg} kg` : null, p.pesoLbs != null ? `${p.pesoLbs} lbs` : null]
                                         .filter(Boolean)
                                         .join(' / ') || '—'}
                                     </td>
-                                    <td className="text-right">
+                                    <td data-label="Acciones" className="text-right md:text-right">
                                       <Button
                                         type="button"
                                         variant="ghost"
@@ -1527,11 +1527,11 @@ export function DespachoStepperForm({
                 </div>
               )}
             </section>
-            <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
+            <div className="sticky bottom-2 z-10 flex flex-col-reverse justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)]/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:flex-row sm:pt-4">
               <Button type="button" variant="outline" onClick={() => setPasoActual(1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
               </Button>
-              <Button type="button" onClick={avanzarAPaso3}>
+              <Button type="button" className="w-full sm:w-auto" onClick={avanzarAPaso3}>
                 Siguiente <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -1540,7 +1540,7 @@ export function DespachoStepperForm({
 
         {pasoActual === 3 && (
           <>
-            <section className="surface-card space-y-6 p-5">
+            <section className="surface-card space-y-5 sm:space-y-6 p-4 sm:p-5">
               <div>
                 <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
                   <Truck className="h-4 w-4" />

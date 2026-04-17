@@ -246,23 +246,23 @@ export function TrackingPage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)] flex flex-col">
       <header className="border-b border-[var(--color-border)]">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="content-container-wide mobile-safe-inline flex items-center justify-between gap-3 py-3 sm:py-4">
           <Link to="/" className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition" aria-label="ECUBOX - Inicio">
             <EcuboxLogo variant="light" size="lg" asLink={false} />
           </Link>
           <Link
             to="/"
-            className="text-sm text-[var(--color-muted-foreground)] hover:underline"
+            className="text-xs sm:text-sm text-[var(--color-muted-foreground)] hover:underline"
           >
             Volver al inicio
           </Link>
         </div>
       </header>
 
-      <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
-        <div className="w-full max-w-7xl mx-auto space-y-6">
+      <main className="mobile-safe-inline flex-1 py-5 sm:py-6">
+        <div className="content-container-wide w-full space-y-6">
           <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--color-foreground)]">
+            <h1 className="responsive-title font-bold tracking-tight text-[var(--color-foreground)]">
               Seguimiento de envío
             </h1>
             <p className="text-sm sm:text-base text-[var(--color-muted-foreground)]">
@@ -292,7 +292,7 @@ export function TrackingPage() {
 
           {result ? (
             <section ref={resultCardRef} data-tracking-export="true" className="space-y-5">
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+              <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-3 items-start">
                 <div className="xl:col-span-2 space-y-5">
                   <TrackingSummaryCard result={result} fechaFormateada={fechaFormateada} />
                   <TrackingProgressCard

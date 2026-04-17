@@ -21,6 +21,7 @@ public class ParametroSistemaService {
     public static final String CLAVE_ESTADO_RASTREO_EN_LOTE_RECEPCION = "estado_rastreo_en_lote_recepcion";
     public static final String CLAVE_ESTADO_RASTREO_EN_DESPACHO = "estado_rastreo_en_despacho";
     public static final String CLAVE_ESTADO_RASTREO_EN_TRANSITO = "estado_rastreo_en_transito";
+    public static final String CLAVE_ESTADO_RASTREO_FIN_CUENTA_REGRESIVA = "estado_rastreo_fin_cuenta_regresiva";
 
     private final ParametroSistemaRepository parametroSistemaRepository;
     private final EstadoRastreoRepository estadoRastreoRepository;
@@ -94,11 +95,13 @@ public class ParametroSistemaService {
                     .map(EstadoRastreo::getId)
                     .orElse(enDespacho);
         }
+        Long finCuentaRegresiva = getParametroAsLong(CLAVE_ESTADO_RASTREO_FIN_CUENTA_REGRESIVA);
         return EstadosRastreoPorPuntoDTO.builder()
                 .estadoRastreoRegistroPaqueteId(registro)
                 .estadoRastreoEnLoteRecepcionId(enLote)
                 .estadoRastreoEnDespachoId(enDespacho)
                 .estadoRastreoEnTransitoId(enTransito)
+                .estadoRastreoFinCuentaRegresivaId(finCuentaRegresiva)
                 .build();
     }
 
@@ -115,7 +118,11 @@ public class ParametroSistemaService {
     }
 
     @Transactional
-    public EstadosRastreoPorPuntoDTO updateEstadosRastreoPorPunto(Long registroPaqueteId, Long enLoteRecepcionId, Long enDespachoId, Long enTransitoId) {
+    public EstadosRastreoPorPuntoDTO updateEstadosRastreoPorPunto(Long registroPaqueteId,
+                                                                  Long enLoteRecepcionId,
+                                                                  Long enDespachoId,
+                                                                  Long enTransitoId,
+                                                                  Long finCuentaRegresivaId) {
         if (registroPaqueteId != null && estadoRastreoRepository.findById(registroPaqueteId).isEmpty()) {
             throw new BadRequestException("Estado de rastreo para registro de paquete no encontrado");
         }
@@ -128,11 +135,16 @@ public class ParametroSistemaService {
         if (enTransitoId != null && estadoRastreoRepository.findById(enTransitoId).isEmpty()) {
             throw new BadRequestException("Estado de rastreo para en tránsito no encontrado");
         }
+        if (finCuentaRegresivaId != null && estadoRastreoRepository.findById(finCuentaRegresivaId).isEmpty()) {
+            throw new BadRequestException("Estado de rastreo para fin de cuenta regresiva no encontrado");
+        }
         EstadosRastreoPorPuntoDTO actuales = getEstadosRastreoPorPunto();
         Long registro = registroPaqueteId != null ? registroPaqueteId : actuales.getEstadoRastreoRegistroPaqueteId();
         Long enLote = enLoteRecepcionId != null ? enLoteRecepcionId : actuales.getEstadoRastreoEnLoteRecepcionId();
         Long enDespacho = enDespachoId != null ? enDespachoId : actuales.getEstadoRastreoEnDespachoId();
         Long enTransito = enTransitoId != null ? enTransitoId : actuales.getEstadoRastreoEnTransitoId();
+        Long finCuentaRegresiva =
+                finCuentaRegresivaId != null ? finCuentaRegresivaId : actuales.getEstadoRastreoFinCuentaRegresivaId();
         if (registro == null) {
             throw new BadRequestException("No existe un estado válido para registro de paquete");
         }
@@ -143,6 +155,7 @@ public class ParametroSistemaService {
         saveParametro(CLAVE_ESTADO_RASTREO_EN_LOTE_RECEPCION, String.valueOf(enLote));
         saveParametro(CLAVE_ESTADO_RASTREO_EN_DESPACHO, String.valueOf(enDespacho));
         saveParametro(CLAVE_ESTADO_RASTREO_EN_TRANSITO, String.valueOf(enTransito));
+        saveParametro(CLAVE_ESTADO_RASTREO_FIN_CUENTA_REGRESIVA, finCuentaRegresiva != null ? String.valueOf(finCuentaRegresiva) : "");
         return getEstadosRastreoPorPunto();
     }
 

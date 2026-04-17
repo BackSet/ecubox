@@ -40,6 +40,7 @@ export interface EstadosRastreoPorPunto {
   estadoRastreoEnLoteRecepcionId: number;
   estadoRastreoEnDespachoId: number;
   estadoRastreoEnTransitoId: number;
+  estadoRastreoFinCuentaRegresivaId?: number | null;
 }
 
 export interface EstadosRastreoPorPuntoRequest {
@@ -47,4 +48,5 @@ export interface EstadosRastreoPorPuntoRequest {
   estadoRastreoEnLoteRecepcionId: number;
   estadoRastreoEnDespachoId: number;
   estadoRastreoEnTransitoId: number;
+  estadoRastreoFinCuentaRegresivaId?: number | null;
 }

@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/operario/lotes-recepcion")
@@ -46,5 +47,12 @@ public class OperarioLoteRecepcionController {
             @PathVariable Long id,
             @Valid @RequestBody AgregarGuiasLoteRequest request) {
         return ResponseEntity.ok(loteRecepcionService.agregarGuias(id, request.getNumeroGuiasEnvio()));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    public ResponseEntity<Map<String, Integer>> delete(@PathVariable Long id) {
+        int paquetesRevertidos = loteRecepcionService.delete(id);
+        return ResponseEntity.ok(Map.of("paquetesRevertidos", paquetesRevertidos));
     }
 }

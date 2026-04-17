@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PackageCheck } from 'lucide-react';
 import { createContainsMatcher } from '@/lib/search';
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 export function DistribuidorListPage() {
   const { data: distribuidores, isLoading, error } = useDistribuidoresAdmin();
@@ -158,7 +160,13 @@ export function DistribuidorListPage() {
         loading={deleteDistribuidor.isPending}
         onConfirm={async () => {
           if (deleteConfirmId == null) return;
-          await deleteDistribuidor.mutateAsync(deleteConfirmId);
+          try {
+            await deleteDistribuidor.mutateAsync(deleteConfirmId);
+            toast.success('Distribuidor eliminado');
+          } catch (error: unknown) {
+            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el distribuidor');
+            throw error;
+          }
         }}
       />
     </div>

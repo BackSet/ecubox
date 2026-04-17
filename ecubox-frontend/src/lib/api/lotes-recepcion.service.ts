@@ -30,3 +30,12 @@ export async function addGuiasToLoteRecepcion(
   });
   return data;
 }
+
+export interface DeleteLoteRecepcionResponse {
+  paquetesRevertidos: number;
+}
+
+export async function deleteLoteRecepcion(id: number): Promise<DeleteLoteRecepcionResponse> {
+  const { data } = await apiClient.delete<DeleteLoteRecepcionResponse>(`${BASE}/${id}`);
+  return data;
+}

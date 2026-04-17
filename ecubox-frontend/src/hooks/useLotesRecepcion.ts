@@ -4,6 +4,7 @@ import {
   getLoteRecepcionById,
   createLoteRecepcion,
   addGuiasToLoteRecepcion,
+  deleteLoteRecepcion,
 } from '@/lib/api/lotes-recepcion.service';
 import type { LoteRecepcionCreateRequest } from '@/types/lote-recepcion';
 
@@ -44,6 +45,16 @@ export function useAddGuiasToLoteRecepcion(loteId: number | undefined) {
       if (loteId != null) {
         qc.invalidateQueries({ queryKey: [...LOTES_RECEPCION_QUERY_KEY, loteId] });
       }
+    },
+  });
+}
+
+export function useDeleteLoteRecepcion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteLoteRecepcion(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: LOTES_RECEPCION_QUERY_KEY });
     },
   });
 }

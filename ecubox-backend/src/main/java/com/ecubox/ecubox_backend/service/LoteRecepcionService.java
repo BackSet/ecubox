@@ -142,6 +142,28 @@ public class LoteRecepcionService {
                 .toList();
     }
 
+    @Transactional
+    public int delete(Long id) {
+        LoteRecepcion lote = loteRecepcionRepository.findByIdWithGuias(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Lote de recepción", id));
+        Set<Long> paqueteIds = new LinkedHashSet<>();
+        if (lote.getGuias() != null) {
+            for (LoteRecepcionGuia guia : lote.getGuias()) {
+                if (guia.getNumeroGuiaEnvio() == null || guia.getNumeroGuiaEnvio().isBlank()) {
+                    continue;
+                }
+                paqueteRepository.findByNumeroGuiaEnvio(guia.getNumeroGuiaEnvio().trim())
+                        .forEach(p -> paqueteIds.add(p.getId()));
+            }
+        }
+        int paquetesRevertidos = paqueteService.revertirEstadoSiUltimoEventoCoincide(
+                new ArrayList<>(paqueteIds),
+                "LOTE_RECEPCION_AUTO"
+        );
+        loteRecepcionRepository.delete(lote);
+        return paquetesRevertidos;
+    }
+
     private LoteRecepcionDTO toDTO(LoteRecepcion lote, boolean conPaquetes) {
         List<String> numeroGuiasEnvio = lote.getGuias() != null
                 ? lote.getGuias().stream().map(LoteRecepcionGuia::getNumeroGuiaEnvio).toList()

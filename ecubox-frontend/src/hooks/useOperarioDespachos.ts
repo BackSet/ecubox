@@ -14,6 +14,7 @@ import {
   getDestinatariosOperario,
   getDestinatarioOperario,
   updateDestinatarioOperario,
+  deleteDestinatarioOperario,
   getSacasOperario,
   createSaca,
   actualizarTamanioSaca,
@@ -164,6 +165,16 @@ export function useUpdateDestinatarioOperario() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: DESTINATARIOS_OP_QUERY_KEY });
       qc.invalidateQueries({ queryKey: [...DESTINATARIOS_OP_QUERY_KEY, id] });
+    },
+  });
+}
+
+export function useDeleteDestinatarioOperario() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteDestinatarioOperario(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DESTINATARIOS_OP_QUERY_KEY });
     },
   });
 }

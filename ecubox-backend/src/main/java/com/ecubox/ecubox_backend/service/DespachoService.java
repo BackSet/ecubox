@@ -193,6 +193,13 @@ public class DespachoService {
         Despacho d = despachoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Despacho", id));
         List<Saca> sacas = d.getSacas() != null ? d.getSacas() : new ArrayList<>();
+        List<Long> paqueteIds = new ArrayList<>();
+        for (Saca saca : sacas) {
+            paqueteRepository.findBySacaId(saca.getId()).forEach(paquete -> paqueteIds.add(paquete.getId()));
+        }
+        if (!paqueteIds.isEmpty()) {
+            paqueteService.revertirEstadoSiUltimoEventoCoincide(paqueteIds, "DESPACHO_AUTO");
+        }
         for (Saca saca : sacas) {
             saca.setDespacho(null);
             sacaRepository.save(saca);

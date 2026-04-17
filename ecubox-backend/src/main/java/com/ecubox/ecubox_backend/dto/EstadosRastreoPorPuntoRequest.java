@@ -23,4 +23,7 @@ public class EstadosRastreoPorPuntoRequest {
 
     @NotNull(message = "El estado en tránsito es obligatorio")
     private Long estadoRastreoEnTransitoId;
+
+    /** Opcional: estado que marca fin de cuenta regresiva en tracking. */
+    private Long estadoRastreoFinCuentaRegresivaId;
 }

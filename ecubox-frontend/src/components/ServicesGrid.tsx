@@ -24,12 +24,12 @@ const FEATURES = [
 
 export function ServicesGrid() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:gap-8">
+    <section className="content-container-wide mobile-safe-inline section-spacing">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 xl:gap-7">
         {FEATURES.map((feature) => {
           const Icon = feature.icon;
           return (
-            <div key={feature.title} className="landing-card flex flex-col p-6 lg:p-8">
+            <div key={feature.title} className="landing-card flex flex-col p-5 sm:p-6 lg:p-7">
               <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] text-[var(--color-primary)]">
                 <Icon className="h-6 w-6" strokeWidth={1.5} />
               </div>

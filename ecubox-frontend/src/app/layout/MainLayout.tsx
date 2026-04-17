@@ -41,7 +41,7 @@ export function MainLayout({ content }: { content?: ReactNode }) {
           onOpenSidebar={() => setMobileSidebarOpen(true)}
           shortcutLabel={shortcutLabel}
         />
-        <main className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 2xl:p-8">
+        <main className="mobile-safe-inline min-h-0 flex-1 overflow-y-auto px-0 py-3 sm:py-4 md:py-6 2xl:py-8">
           <div className="page-shell">
             {content ?? <Outlet />}
           </div>

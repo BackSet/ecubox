@@ -12,6 +12,8 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Users } from 'lucide-react';
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 export function UsuarioList() {
   const { data: usuarios, isLoading, error } = useUsuarios();
@@ -144,7 +146,13 @@ export function UsuarioList() {
         loading={deleteUsuario.isPending}
         onConfirm={async () => {
           if (deleteConfirmId == null) return;
-          await deleteUsuario.mutateAsync(deleteConfirmId);
+          try {
+            await deleteUsuario.mutateAsync(deleteConfirmId);
+            toast.success('Usuario eliminado');
+          } catch (error: unknown) {
+            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el usuario');
+            throw error;
+          }
         }}
       />
     </div>

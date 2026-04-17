@@ -9,7 +9,7 @@ export function HomePage() {
     <div className="landing-shell">
       <div className="landing-overlay" />
       <SiteHeader />
-      <main className="flex-1 relative z-10">
+      <main className="relative z-10 flex-1">
         <Hero />
         <ServicesGrid />
         <FAQ />

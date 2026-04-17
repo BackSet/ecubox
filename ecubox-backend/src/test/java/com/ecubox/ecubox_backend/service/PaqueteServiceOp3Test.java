@@ -11,7 +11,9 @@ import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
+import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
+import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.SacaRepository;
 import org.springframework.data.domain.Sort;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +47,10 @@ class PaqueteServiceOp3Test {
     @Mock
     private LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
     @Mock
+    private PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
+    @Mock
+    private OutboxEventRepository outboxEventRepository;
+    @Mock
     private ParametroSistemaService parametroSistemaService;
     @Mock
     private EstadoRastreoService estadoRastreoService;
@@ -56,6 +63,8 @@ class PaqueteServiceOp3Test {
                 destinatarioFinalRepository,
                 sacaRepository,
                 loteRecepcionGuiaRepository,
+                paqueteEstadoEventoRepository,
+                outboxEventRepository,
                 parametroSistemaService,
                 estadoRastreoService,
                 trackingEventService,
@@ -332,5 +341,66 @@ class PaqueteServiceOp3Test {
         assertEquals("GUIA-201", response.get(1).getNumeroGuia());
         assertTrue(Boolean.TRUE.equals(response.get(0).getPaqueteVencido()));
         assertTrue(response.get(0).getDiasAtrasoRetiro() > response.get(1).getDiasAtrasoRetiro());
+    }
+
+    @Test
+    void delete_eliminaEventosOutboxYPaquete() {
+        PaqueteService paqueteService = createPaqueteService(false);
+        com.ecubox.ecubox_backend.entity.Usuario owner = com.ecubox.ecubox_backend.entity.Usuario.builder().id(10L).build();
+        com.ecubox.ecubox_backend.entity.DestinatarioFinal destinatario =
+                com.ecubox.ecubox_backend.entity.DestinatarioFinal.builder().id(30L).usuario(owner).build();
+        Paquete paquete = Paquete.builder().id(99L).destinatarioFinal(destinatario).build();
+        when(paqueteRepository.findById(99L)).thenReturn(Optional.of(paquete));
+
+        paqueteService.delete(99L, 10L, false);
+
+        verify(paqueteEstadoEventoRepository).deleteByPaqueteId(99L);
+        verify(outboxEventRepository).deleteByAggregateTypeAndAggregateId("PAQUETE", "99");
+        verify(paqueteRepository).delete(paquete);
+    }
+
+    @Test
+    void revertirEstadoSiUltimoEventoCoincide_restauraEstadoOrigen() {
+        PaqueteService paqueteService = createPaqueteService(false);
+        EstadoRastreo origen = EstadoRastreo.builder().id(1L).tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        EstadoRastreo destino = EstadoRastreo.builder().id(2L).tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        Paquete paquete = Paquete.builder().id(77L).estadoRastreo(destino).build();
+        PaqueteEstadoEvento ultimo = PaqueteEstadoEvento.builder()
+                .paquete(paquete)
+                .estadoOrigen(origen)
+                .estadoDestino(destino)
+                .eventSource("DESPACHO_AUTO")
+                .build();
+        when(paqueteRepository.findById(77L)).thenReturn(Optional.of(paquete));
+        when(paqueteEstadoEventoRepository.findTopByPaqueteIdOrderByOccurredAtDescIdDesc(77L))
+                .thenReturn(Optional.of(ultimo));
+        when(paqueteRepository.save(any(Paquete.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        int reverted = paqueteService.revertirEstadoSiUltimoEventoCoincide(List.of(77L), "DESPACHO_AUTO");
+
+        assertEquals(1, reverted);
+        verify(paqueteRepository).save(any(Paquete.class));
+    }
+
+    @Test
+    void revertirEstadoSiUltimoEventoCoincide_noRevierteCuandoFuenteNoCoincide() {
+        PaqueteService paqueteService = createPaqueteService(false);
+        EstadoRastreo origen = EstadoRastreo.builder().id(1L).tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        EstadoRastreo destino = EstadoRastreo.builder().id(2L).tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        Paquete paquete = Paquete.builder().id(88L).estadoRastreo(destino).build();
+        PaqueteEstadoEvento ultimo = PaqueteEstadoEvento.builder()
+                .paquete(paquete)
+                .estadoOrigen(origen)
+                .estadoDestino(destino)
+                .eventSource("LOTE_RECEPCION_AUTO")
+                .build();
+        when(paqueteRepository.findById(88L)).thenReturn(Optional.of(paquete));
+        when(paqueteEstadoEventoRepository.findTopByPaqueteIdOrderByOccurredAtDescIdDesc(88L))
+                .thenReturn(Optional.of(ultimo));
+
+        int reverted = paqueteService.revertirEstadoSiUltimoEventoCoincide(List.of(88L), "DESPACHO_AUTO");
+
+        assertEquals(0, reverted);
+        verifyNoInteractions(outboxEventRepository);
     }
 }

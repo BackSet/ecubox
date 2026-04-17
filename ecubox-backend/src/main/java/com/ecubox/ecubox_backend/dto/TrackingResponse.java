@@ -29,6 +29,7 @@ public class TrackingResponse {
     private Integer diasMaxRetiro;
     private Integer diasTranscurridos;
     private Integer diasRestantes;
+    private Boolean cuentaRegresivaFinalizada;
     private Boolean paqueteVencido;
     private String flujoActual;
     private Boolean bloqueado;

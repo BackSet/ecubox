@@ -12,4 +12,6 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> 
             OutboxEventStatus status,
             LocalDateTime nextAttemptAt
     );
+
+    long deleteByAggregateTypeAndAggregateId(String aggregateType, String aggregateId);
 }

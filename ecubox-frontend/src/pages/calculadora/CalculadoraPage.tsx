@@ -65,23 +65,23 @@ export function CalculadoraPage() {
   return (
     <div className="min-h-screen bg-[var(--color-background)] flex flex-col">
       <header className="border-b border-[var(--color-border)]">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="content-container-wide mobile-safe-inline flex items-center justify-between gap-3 py-3 sm:py-4">
           <Link to="/" className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition" aria-label="ECUBOX - Inicio">
             <EcuboxLogo variant="light" size="lg" asLink={false} />
           </Link>
           <Link
             to="/"
-            className="text-sm text-[var(--color-muted-foreground)] hover:underline"
+            className="text-xs sm:text-sm text-[var(--color-muted-foreground)] hover:underline"
           >
             Volver al inicio
           </Link>
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-2xl space-y-6">
+      <main className="mobile-safe-inline flex-1 py-6 sm:py-10">
+        <div className="content-container w-full max-w-2xl space-y-5 sm:space-y-6">
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)]">
+            <h1 className="responsive-title font-bold text-[var(--color-foreground)]">
               Calculadora de envío
             </h1>
             <p className="text-sm text-[var(--color-muted-foreground)]">
@@ -100,14 +100,14 @@ export function CalculadoraPage() {
 
           {tarifaPorLibra !== null && !tarifaError && (
             <>
-              <div className="surface-card p-4 text-sm text-[var(--color-muted-foreground)]">
+              <div className="surface-card p-4 sm:p-5 text-sm text-[var(--color-muted-foreground)]">
                 Tarifa actual: <strong className="text-[var(--color-foreground)]">${tarifa.toFixed(2)} USD / libra</strong>
                 <p className="mt-2">
                   Transporte Servientrega incluido. Si el paquete pesa menos de {MIN_PESO_LBS_RECARGO} lb, se suma un recargo fijo de ${RECARGO_ENVIO_MENOR_PESO.toFixed(2)}.
                 </p>
               </div>
 
-              <div className="surface-card p-5 space-y-4">
+              <div className="surface-card p-4 sm:p-5 space-y-4">
                 <div>
                   <Label htmlFor="pesoLbs" className="mb-1 block">
                     Peso (libras)
@@ -147,7 +147,7 @@ export function CalculadoraPage() {
               )}
 
               {costoEstimado !== null && tarifa > 0 && (
-                <div className="surface-card p-6 space-y-1">
+                <div className="surface-card p-5 sm:p-6 space-y-1">
                   <div className="flex items-center gap-2 text-[var(--color-foreground)]">
                     <Calculator className="h-5 w-5 text-[var(--color-muted-foreground)]" />
                     <span className="font-medium">Costo estimado</span>

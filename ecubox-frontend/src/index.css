@@ -282,6 +282,52 @@
    UTILITIES LAYER
    ──────────────────────────────────────────────────────── */
 @layer utilities {
+  .content-container {
+    width: min(100% - 1.5rem, 1200px);
+    margin-inline: auto;
+  }
+  .content-container-wide {
+    width: min(100% - 1.5rem, 1440px);
+    margin-inline: auto;
+  }
+  .section-spacing {
+    padding-block: clamp(2.5rem, 5vw, 5rem);
+  }
+  .mobile-safe-inline {
+    padding-inline: max(0.75rem, env(safe-area-inset-left)) max(0.75rem, env(safe-area-inset-right));
+  }
+  .responsive-title {
+    font-size: clamp(1.45rem, 3.6vw, 2.35rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .responsive-subtitle {
+    font-size: clamp(0.95rem, 1.9vw, 1.1rem);
+    line-height: 1.55;
+  }
+  .responsive-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(0.75rem, 2vw, 1.25rem);
+  }
+  @media (min-width: 768px) {
+    .content-container,
+    .content-container-wide {
+      width: min(100% - 3rem, var(--cc-max, 1200px));
+    }
+    .content-container-wide {
+      --cc-max: 1440px;
+    }
+    .responsive-grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1024px) {
+    .mobile-safe-inline {
+      padding-inline: 0;
+    }
+  }
+
   .notion-border { border-width: 1px; border-color: var(--color-border); }
   .notion-card {
     border: 1px solid var(--color-border);
@@ -421,6 +467,74 @@
   }
   .compact-table tbody td { padding: 0.75rem 0.8rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
   .compact-table tbody tr:hover { background: color-mix(in oklab, var(--color-muted) 70%, transparent); }
+
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-mobile-cards thead {
+    display: none;
+  }
+  .table-mobile-cards tbody,
+  .table-mobile-cards tr {
+    display: block;
+    width: 100%;
+  }
+  .table-mobile-cards tr {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-card);
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+  }
+  .table-mobile-cards td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    border-bottom: 1px solid var(--color-border);
+    text-align: right;
+  }
+  .table-mobile-cards td:last-child {
+    border-bottom: none;
+  }
+  .table-mobile-cards td::before {
+    content: attr(data-label);
+    font-size: 0.74rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
+    letter-spacing: 0.02em;
+    text-align: left;
+  }
+  @media (min-width: 768px) {
+    .table-mobile-cards thead {
+      display: table-header-group;
+    }
+    .table-mobile-cards tbody {
+      display: table-row-group;
+    }
+    .table-mobile-cards tr {
+      display: table-row;
+      border: 0;
+      border-radius: 0;
+      margin-bottom: 0;
+      background: transparent;
+    }
+    .table-mobile-cards td {
+      display: table-cell;
+      width: auto;
+      border-bottom: 1px solid var(--color-border);
+      padding: 0.75rem 0.8rem;
+      text-align: left;
+    }
+    .table-mobile-cards td::before {
+      content: none;
+    }
+  }
 
   .section-title { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; color: var(--color-foreground); }
 

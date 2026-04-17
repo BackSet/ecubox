@@ -10,7 +10,7 @@ interface ListTableShellProps {
 export function ListTableShell({ children, className }: ListTableShellProps) {
   return (
     <SurfaceCard className={cn('overflow-hidden p-0', className)}>
-      <div className="overflow-x-auto">{children}</div>
+      <div className="table-responsive">{children}</div>
     </SurfaceCard>
   );
 }
