@@ -10,6 +10,7 @@ import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.SacaRepository;
+import com.ecubox.ecubox_backend.util.WeightUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,10 +47,12 @@ public class SacaService {
         if (sacaRepository.existsByNumeroOrden(request.getNumeroOrden().trim())) {
             throw new ConflictException("Ya existe una saca con ese número de orden");
         }
+        BigDecimal pesoLbs = request.getPesoLbs() != null
+                ? request.getPesoLbs()
+                : WeightUtil.kgToLbs(request.getPesoKg());
         Saca s = Saca.builder()
                 .numeroOrden(request.getNumeroOrden().trim())
-                .pesoLbs(request.getPesoLbs())
-                .pesoKg(request.getPesoKg())
+                .pesoLbs(pesoLbs)
                 .tamanio(request.getTamanio())
                 .build();
         s = sacaRepository.save(s);
@@ -73,15 +76,12 @@ public class SacaService {
                 .map(Paquete::getPesoLbs)
                 .filter(p -> p != null && p.compareTo(BigDecimal.ZERO) > 0)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal pesoTotalKg = paquetes.stream()
-                .map(Paquete::getPesoKg)
-                .filter(p -> p != null && p.compareTo(BigDecimal.ZERO) > 0)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal pesoTotalKg = WeightUtil.lbsToKg(pesoTotalLbs);
         return SacaDTO.builder()
                 .id(s.getId())
                 .numeroOrden(s.getNumeroOrden())
                 .pesoLbs(s.getPesoLbs())
-                .pesoKg(s.getPesoKg())
+                .pesoKg(WeightUtil.lbsToKg(s.getPesoLbs()))
                 .tamanio(s.getTamanio())
                 .despachoId(s.getDespacho() != null ? s.getDespacho().getId() : null)
                 .paquetes(paqueteDTOs)

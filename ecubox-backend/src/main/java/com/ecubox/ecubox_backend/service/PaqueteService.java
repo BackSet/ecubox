@@ -123,13 +123,10 @@ public class PaqueteService {
         String ref = codigoBase + "-" + next;
         boolean omitOperarioFields = contenidoObligatorio;
         BigDecimal pesoLbs = null;
-        BigDecimal pesoKg = null;
         if (!omitOperarioFields) {
             if (request.getPesoLbs() != null) {
                 pesoLbs = request.getPesoLbs();
-                pesoKg = request.getPesoKg() != null ? request.getPesoKg() : WeightUtil.lbsToKg(request.getPesoLbs());
             } else if (request.getPesoKg() != null) {
-                pesoKg = request.getPesoKg();
                 pesoLbs = WeightUtil.kgToLbs(request.getPesoKg());
             }
         }
@@ -141,7 +138,6 @@ public class PaqueteService {
                 .destinatarioFinal(dest)
                 .contenido(request.getContenido())
                 .pesoLbs(pesoLbs)
-                .pesoKg(pesoKg)
                 .estadoRastreo(estadoInicial)
                 .fechaEstadoActualDesde(LocalDateTime.now())
                 .build();
@@ -380,9 +376,7 @@ public class PaqueteService {
             BigDecimal kg = item.getPesoKg();
             if (lbs != null && lbs.compareTo(BigDecimal.ZERO) > 0) {
                 p.setPesoLbs(lbs);
-                p.setPesoKg(kg != null ? kg : WeightUtil.lbsToKg(lbs));
             } else if (kg != null && kg.compareTo(BigDecimal.ZERO) > 0) {
-                p.setPesoKg(kg);
                 p.setPesoLbs(WeightUtil.kgToLbs(kg));
             }
             p = paqueteRepository.save(p);
@@ -433,10 +427,10 @@ public class PaqueteService {
         if (canEditPeso) {
             if (request.getPesoLbs() != null) {
                 p.setPesoLbs(request.getPesoLbs());
-                p.setPesoKg(request.getPesoKg() != null ? request.getPesoKg() : WeightUtil.lbsToKg(request.getPesoLbs()));
             } else if (request.getPesoKg() != null) {
-                p.setPesoKg(request.getPesoKg());
                 p.setPesoLbs(WeightUtil.kgToLbs(request.getPesoKg()));
+            } else {
+                p.setPesoLbs(null);
             }
             if (request.getNumeroGuiaEnvio() != null) {
                 p.setNumeroGuiaEnvio(trimOrNull(request.getNumeroGuiaEnvio()));
@@ -666,13 +660,13 @@ public class PaqueteService {
         Despacho d = saca.getDespacho();
         List<Saca> sacas = d.getSacas() != null ? d.getSacas() : List.of();
         int totalPaquetes = 0;
-        BigDecimal pesoTotalKg = BigDecimal.ZERO;
+        BigDecimal pesoTotalLbs = BigDecimal.ZERO;
         for (Saca item : sacas) {
             List<Paquete> paquetes = item.getPaquetes() != null ? item.getPaquetes() : List.of();
             totalPaquetes += paquetes.size();
             for (Paquete paquete : paquetes) {
-                if (paquete.getPesoKg() != null) {
-                    pesoTotalKg = pesoTotalKg.add(paquete.getPesoKg());
+                if (paquete.getPesoLbs() != null) {
+                    pesoTotalLbs = pesoTotalLbs.add(paquete.getPesoLbs());
                 }
             }
         }
@@ -683,7 +677,8 @@ public class PaqueteService {
                 .tipoEntrega(d.getTipoEntrega() != null ? d.getTipoEntrega().name() : null)
                 .totalSacas(sacas.size())
                 .totalPaquetes(totalPaquetes)
-                .pesoTotalKg(pesoTotalKg)
+                .pesoTotalLbs(pesoTotalLbs)
+                .pesoTotalKg(WeightUtil.lbsToKg(pesoTotalLbs))
                 .build();
     }
 
@@ -694,7 +689,7 @@ public class PaqueteService {
                 .id(saca.getId())
                 .numeroOrden(saca.getNumeroOrden())
                 .tamanio(saca.getTamanio() != null ? saca.getTamanio().name() : null)
-                .pesoKg(saca.getPesoKg())
+                .pesoKg(WeightUtil.lbsToKg(saca.getPesoLbs()))
                 .pesoLbs(saca.getPesoLbs())
                 .build();
     }
@@ -713,7 +708,7 @@ public class PaqueteService {
                         .numeroGuia(paquete.getNumeroGuia())
                         .estadoRastreoNombre(paquete.getEstadoRastreo() != null ? paquete.getEstadoRastreo().getNombre() : null)
                         .sacaNumeroOrden(item.getNumeroOrden())
-                        .pesoKg(paquete.getPesoKg())
+                        .pesoKg(WeightUtil.lbsToKg(paquete.getPesoLbs()))
                         .pesoLbs(paquete.getPesoLbs())
                         .build());
             }
@@ -1004,7 +999,7 @@ public class PaqueteService {
                 .numeroGuiaEnvio(p.getNumeroGuiaEnvio())
                 .ref(p.getRef())
                 .pesoLbs(p.getPesoLbs())
-                .pesoKg(p.getPesoKg())
+                .pesoKg(WeightUtil.lbsToKg(p.getPesoLbs()))
                 .contenido(p.getContenido())
                 .estadoRastreoId(er != null ? er.getId() : null)
                 .estadoRastreoNombre(er != null ? er.getNombre() : null)

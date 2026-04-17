@@ -8,6 +8,7 @@ import { ArrowLeft, FileDown, Pencil, Printer } from 'lucide-react';
 import type { TamanioSaca } from '@/types/despacho';
 import { buildDespachoPdf } from '@/lib/pdf/builders/despachoPdf';
 import { runJsPdfAction } from '@/lib/pdf/actions';
+import { lbsToKg } from '@/lib/utils/weight';
 
 const TAMANIO_LABELS: Record<TamanioSaca, string> = {
   INDIVIDUAL: 'Paquete individual',
@@ -67,6 +68,7 @@ export function DespachoDetailPage() {
   const totalSacas = d.sacas?.length ?? 0;
   const totalPaquetes = (d.sacas ?? []).reduce((sum, s) => sum + (s.paquetes?.length ?? 0), 0);
   const totalPeso = (d.sacas ?? []).reduce((sum, s) => sum + Number(s.pesoLbs ?? 0), 0);
+  const totalPesoKg = lbsToKg(totalPeso);
   const destino =
     d.tipoEntrega === 'DOMICILIO'
       ? d.destinatarioNombre ?? '—'
@@ -181,8 +183,8 @@ export function DespachoDetailPage() {
               <p className="text-[11px] uppercase tracking-wide text-[var(--color-muted-foreground)]">Paquetes</p>
             </div>
             <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/40 p-3 text-center">
-              <p className="text-xl font-semibold">{totalPeso.toFixed(1)}</p>
-              <p className="text-[11px] uppercase tracking-wide text-[var(--color-muted-foreground)]">Peso lbs</p>
+              <p className="text-xl font-semibold">{totalPesoKg.toFixed(1)} kg / {totalPeso.toFixed(1)} lbs</p>
+              <p className="text-[11px] uppercase tracking-wide text-[var(--color-muted-foreground)]">Peso total</p>
             </div>
           </div>
         </section>

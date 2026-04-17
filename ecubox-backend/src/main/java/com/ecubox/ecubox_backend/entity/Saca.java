@@ -27,9 +27,6 @@ public class Saca {
     @Column(name = "peso_lbs", precision = 12, scale = 4)
     private BigDecimal pesoLbs;
 
-    @Column(name = "peso_kg", precision = 12, scale = 4)
-    private BigDecimal pesoKg;
-
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
     private TamanioSaca tamanio;

@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import type { TrackingResponse } from '@/lib/api/tracking.service';
 import { PDF_THEME, TRACKING_COMPACT_A4_THEME } from '@/lib/pdf/theme';
+import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
 
 const PAGE_W = 210;
 const PAGE_H = 297;
@@ -39,6 +40,13 @@ function trackingHost(raw?: string): string {
   } catch {
     return value;
   }
+}
+
+function formatPesoDual(kg?: number | null, lbs?: number | null): string {
+  const safeKg = kg ?? (lbs != null ? lbsToKg(lbs) : null);
+  const safeLbs = lbs ?? (kg != null ? kgToLbs(kg) : null);
+  if (safeKg == null && safeLbs == null) return '0 kg / 0 lbs';
+  return `${safeKg ?? 0} kg / ${safeLbs ?? 0} lbs`;
 }
 
 export function buildTrackingPdf(data: TrackingResponse): jsPDF {
@@ -173,7 +181,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     doc.setTextColor(...PDF_THEME.colors.muted);
     doc.text('Número de guía', x + 1.2, startY + 3.3);
     doc.text('Estado actual', x + col1 + 1.2, startY + 3.3);
-    doc.text('Peso kg', x + col1 + col2 + 1.2, startY + 3.3);
+    doc.text('Peso kg/lbs', x + col1 + col2 + 1.2, startY + 3.3);
     let tableY = startY + headerH;
     rows.forEach((row, idx) => {
       if (idx % 2 === 1) {
@@ -486,7 +494,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     const colGap = 2.6;
     const colW = (width - cardPadding * 2 - colGap) / 2;
     const sacaLabel = safe(data.sacaActual?.numeroOrden);
-    const sacaMeta = `Tamaño: ${safe(data.sacaActual?.tamanio)} | Peso: ${data.sacaActual?.pesoKg ?? 0} kg`;
+    const sacaMeta = `Tamaño: ${safe(data.sacaActual?.tamanio)} | Peso: ${formatPesoDual(data.sacaActual?.pesoKg, data.sacaActual?.pesoLbs)}`;
     const leftHeight =
       measureFieldHeight(safe(d.numeroGuia), colW, false) +
       measureFieldHeight(String(d.totalSacas ?? 0), colW, false) +
@@ -502,14 +510,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
       let rightY = startY;
       leftY += drawField('Guía del despacho', safe(d.numeroGuia), x, leftY, colW, false);
       leftY += drawField('Número de sacas', String(d.totalSacas ?? 0), x, leftY, colW, false);
-      leftY += drawField(
-        'Peso total estimado (kg)',
-        String(d.pesoTotalKg ?? 0),
-        x,
-        leftY,
-        colW,
-        false
-      );
+      leftY += drawField('Peso total estimado', formatPesoDual(d.pesoTotalKg, d.pesoTotalLbs), x, leftY, colW, false);
 
       rightY += drawField('Precinto de seguridad', safe(d.codigoPrecinto), x + colW + colGap, rightY, colW, false);
       rightY += drawField(
@@ -532,7 +533,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     const rows = paquetes.map((p) => ({
       guia: safe(p.numeroGuia),
       estado: safe(p.estadoRastreoNombre),
-      peso: String(p.pesoKg ?? 0),
+      peso: formatPesoDual(p.pesoKg, p.pesoLbs),
     }));
     const rowsPerCard = 16;
     let offset = 0;

@@ -31,9 +31,6 @@ public class Paquete {
     @Column(name = "peso_lbs", precision = 12, scale = 4)
     private BigDecimal pesoLbs;
 
-    @Column(name = "peso_kg", precision = 12, scale = 4)
-    private BigDecimal pesoKg;
-
     @Column(length = 500)
     private String contenido;
 

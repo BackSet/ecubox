@@ -15,6 +15,7 @@ export interface TrackingDespacho {
   tipoEntrega?: string;
   totalSacas?: number;
   totalPaquetes?: number;
+  pesoTotalLbs?: number;
   pesoTotalKg?: number;
 }
 

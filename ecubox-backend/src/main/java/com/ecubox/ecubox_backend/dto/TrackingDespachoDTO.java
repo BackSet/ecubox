@@ -18,6 +18,7 @@ public class TrackingDespachoDTO {
     private String tipoEntrega;
     private Integer totalSacas;
     private Integer totalPaquetes;
+    private BigDecimal pesoTotalLbs;
     private BigDecimal pesoTotalKg;
 }
 

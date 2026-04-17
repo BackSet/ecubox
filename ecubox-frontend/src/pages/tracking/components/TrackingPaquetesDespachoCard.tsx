@@ -1,4 +1,5 @@
 import type { TrackingResponse } from '@/lib/api/tracking.service';
+import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
 
 interface TrackingPaquetesDespachoCardProps {
   result: TrackingResponse;
@@ -6,6 +7,12 @@ interface TrackingPaquetesDespachoCardProps {
 
 export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespachoCardProps) {
   const paquetes = result.paquetesDespacho ?? [];
+  const formatPeso = (kg?: number, lbs?: number) => {
+    const safeKg = kg ?? (lbs != null ? lbsToKg(lbs) : null);
+    const safeLbs = lbs ?? (kg != null ? kgToLbs(kg) : null);
+    if (safeKg == null && safeLbs == null) return '0 kg / 0 lbs';
+    return `${safeKg ?? 0} kg / ${safeLbs ?? 0} lbs`;
+  };
   const toSacaLabel = (raw?: string) => {
     if (!raw) return 'Ubicación pendiente';
     const match = raw.match(/(\d+)$/);
@@ -31,7 +38,7 @@ export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespach
                 <th>Número de guía</th>
                 <th>Estado actual</th>
                 <th>Ubicación</th>
-                <th>Peso (kg)</th>
+                <th>Peso (kg / lbs)</th>
               </tr>
             </thead>
             <tbody>
@@ -40,7 +47,7 @@ export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespach
                   <td className="font-medium">{p.numeroGuia ?? '—'}</td>
                   <td>{p.estadoRastreoNombre ?? '—'}</td>
                   <td>{toSacaLabel(p.sacaNumeroOrden)}</td>
-                  <td>{p.pesoKg ?? 0} kg</td>
+                  <td>{formatPeso(p.pesoKg, p.pesoLbs)}</td>
                 </tr>
               ))}
             </tbody>

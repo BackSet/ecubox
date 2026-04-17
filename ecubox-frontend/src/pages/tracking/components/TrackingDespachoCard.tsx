@@ -1,4 +1,5 @@
 import type { TrackingResponse } from '@/lib/api/tracking.service';
+import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
 
 interface TrackingDespachoCardProps {
   result: TrackingResponse;
@@ -7,6 +8,10 @@ interface TrackingDespachoCardProps {
 export function TrackingDespachoCard({ result }: TrackingDespachoCardProps) {
   const despacho = result.despacho;
   const sacaActual = result.sacaActual;
+  const totalKg = despacho?.pesoTotalKg ?? (despacho?.pesoTotalLbs != null ? lbsToKg(despacho.pesoTotalLbs) : null);
+  const totalLbs = despacho?.pesoTotalLbs ?? (despacho?.pesoTotalKg != null ? kgToLbs(despacho.pesoTotalKg) : null);
+  const sacaKg = sacaActual?.pesoKg ?? (sacaActual?.pesoLbs != null ? lbsToKg(sacaActual.pesoLbs) : null);
+  const sacaLbs = sacaActual?.pesoLbs ?? (sacaActual?.pesoKg != null ? kgToLbs(sacaActual.pesoKg) : null);
   const agenciaDistribucionAsociada = result.operadorEntrega?.distribuidorNombre;
   const toSacaLabel = (raw?: string) => {
     if (!raw) return 'Ubicación por confirmar';
@@ -51,8 +56,10 @@ export function TrackingDespachoCard({ result }: TrackingDespachoCardProps) {
           <p className="mt-1 text-lg font-semibold text-[var(--color-foreground)]">{despacho?.totalPaquetes ?? 0}</p>
         </div>
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-3.5 py-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">Peso total estimado (kg)</p>
-          <p className="mt-1 text-lg font-semibold text-[var(--color-foreground)]">{despacho?.pesoTotalKg ?? 0}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">Peso total estimado</p>
+          <p className="mt-1 text-lg font-semibold text-[var(--color-foreground)]">
+            {totalKg != null || totalLbs != null ? `${totalKg ?? 0} kg / ${totalLbs ?? 0} lbs` : '0 kg / 0 lbs'}
+          </p>
         </div>
       </div>
 
@@ -61,9 +68,9 @@ export function TrackingDespachoCard({ result }: TrackingDespachoCardProps) {
         <p className="mt-1 text-base font-semibold text-[var(--color-foreground)]">
           {toSacaLabel(sacaActual?.numeroOrden)}
         </p>
-        {sacaActual?.pesoKg != null ? (
+        {sacaKg != null || sacaLbs != null ? (
           <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-            Peso aproximado: {sacaActual.pesoKg} kg
+            Peso aproximado: {sacaKg ?? 0} kg / {sacaLbs ?? 0} lbs
           </p>
         ) : null}
       </div>
