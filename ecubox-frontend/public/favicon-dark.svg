@@ -1,13 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="favDarkGrad" x1="12" y1="10" x2="52" y2="54" gradientUnits="userSpaceOnUse">
+    <linearGradient id="ecbDarkBgGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0F1F42" />
+      <stop offset="1" stop-color="#1B0F3A" />
+    </linearGradient>
+    <linearGradient id="ecbDarkCubeTop" x1="16" y1="14" x2="48" y2="30" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#7CB1FF" />
       <stop offset="1" stop-color="#C09BFF" />
     </linearGradient>
+    <linearGradient id="ecbDarkCubeLeft" x1="16" y1="22" x2="32" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2E6BE6" />
+      <stop offset="1" stop-color="#5B9CFF" />
+    </linearGradient>
+    <linearGradient id="ecbDarkCubeRight" x1="32" y1="30" x2="48" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9B6AF0" />
+      <stop offset="1" stop-color="#7B3FE4" />
+    </linearGradient>
   </defs>
-  <rect x="4" y="4" width="56" height="56" rx="14" fill="#111E37" stroke="#304466" stroke-width="1.5" />
-  <path d="M18 14H46" stroke="url(#favDarkGrad)" stroke-width="6" stroke-linecap="round" />
-  <path d="M18 32H40" stroke="url(#favDarkGrad)" stroke-width="6" stroke-linecap="round" />
-  <path d="M18 50H46" stroke="url(#favDarkGrad)" stroke-width="6" stroke-linecap="round" />
-  <path d="M18 14V50" stroke="url(#favDarkGrad)" stroke-width="6" stroke-linecap="round" />
+  <rect width="64" height="64" rx="14" fill="url(#ecbDarkBgGrad)" />
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.5" fill="none" stroke="#304466" stroke-width="1.1" stroke-opacity="0.7" />
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M32 14 L48 22 L32 30 L16 22 Z" fill="url(#ecbDarkCubeTop)" stroke="#FFFFFF" stroke-width="1.4" stroke-opacity="0.9" />
+    <path d="M16 22 L32 30 L32 50 L16 42 Z" fill="url(#ecbDarkCubeLeft)" stroke="#FFFFFF" stroke-width="1.4" stroke-opacity="0.55" />
+    <path d="M48 22 L32 30 L32 50 L48 42 Z" fill="url(#ecbDarkCubeRight)" stroke="#FFFFFF" stroke-width="1.4" stroke-opacity="0.7" />
+  </g>
+  <path d="M32 14 L32 30" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.6" stroke-linecap="round" />
 </svg>
