@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.dto.AgenciaRequest;
 import com.ecubox.ecubox_backend.entity.Agencia;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
+import com.ecubox.ecubox_backend.mapper.AgenciaMapper;
 import com.ecubox.ecubox_backend.repository.AgenciaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,9 +16,11 @@ import java.util.List;
 public class AgenciaService {
 
     private final AgenciaRepository agenciaRepository;
+    private final AgenciaMapper agenciaMapper;
 
-    public AgenciaService(AgenciaRepository agenciaRepository) {
+    public AgenciaService(AgenciaRepository agenciaRepository, AgenciaMapper agenciaMapper) {
         this.agenciaRepository = agenciaRepository;
+        this.agenciaMapper = agenciaMapper;
     }
 
     @Transactional(readOnly = true)
@@ -93,17 +96,6 @@ public class AgenciaService {
     }
 
     private AgenciaDTO toDTO(Agencia a) {
-        return AgenciaDTO.builder()
-                .id(a.getId())
-                .nombre(a.getNombre())
-                .encargado(a.getEncargado())
-                .codigo(a.getCodigo())
-                .direccion(a.getDireccion())
-                .provincia(a.getProvincia())
-                .canton(a.getCanton())
-                .horarioAtencion(a.getHorarioAtencion())
-                .diasMaxRetiro(a.getDiasMaxRetiro())
-                .tarifaServicio(a.getTarifaServicio())
-                .build();
+        return agenciaMapper.toDTO(a);
     }
 }

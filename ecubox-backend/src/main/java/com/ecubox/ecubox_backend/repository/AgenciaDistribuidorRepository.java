@@ -12,6 +12,4 @@ public interface AgenciaDistribuidorRepository extends JpaRepository<AgenciaDist
     long countByDistribuidorId(Long distribuidorId);
 
     boolean existsByDistribuidorIdAndCodigo(Long distribuidorId, String codigo);
-
-    boolean existsByDistribuidorIdAndCodigoAndIdNot(Long distribuidorId, String codigo, Long id);
 }

@@ -7,6 +7,7 @@ import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
+import com.ecubox.ecubox_backend.mapper.EstadoRastreoMapper;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import jakarta.persistence.EntityManager;
@@ -18,6 +19,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,13 +29,27 @@ public class EstadoRastreoService {
     private final EstadoRastreoRepository estadoRastreoRepository;
     private final PaqueteRepository paqueteRepository;
     private final EntityManager entityManager;
+    private final EstadoRastreoMapper estadoRastreoMapper;
+
+    /**
+     * Cache local id->orden_tracking. Las consultas a estados de rastreo se hacen
+     * cientos de veces por request (ej. {@code GuiaMasterService.recomputarEstado}
+     * itera sobre todas las piezas y para cada una resuelve varias veces el
+     * "orden" de los estados de referencia). Como el catálogo de estados es muy
+     * pequeño (decenas de filas) y solo cambia desde endpoints administrativos,
+     * un mapa en memoria invalidado en cada mutacion es suficiente.
+     */
+    private final ConcurrentMap<Long, Integer> ordenPorIdCache = new ConcurrentHashMap<>();
+    private volatile boolean ordenCacheLoaded = false;
 
     public EstadoRastreoService(EstadoRastreoRepository estadoRastreoRepository,
                                 PaqueteRepository paqueteRepository,
-                                EntityManager entityManager) {
+                                EntityManager entityManager,
+                                EstadoRastreoMapper estadoRastreoMapper) {
         this.estadoRastreoRepository = estadoRastreoRepository;
         this.paqueteRepository = paqueteRepository;
         this.entityManager = entityManager;
+        this.estadoRastreoMapper = estadoRastreoMapper;
     }
 
     @Transactional(readOnly = true)
@@ -81,6 +98,35 @@ public class EstadoRastreoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Estado de rastreo con código", codigo));
     }
 
+    /**
+     * Devuelve {@code orden_tracking} de un estado por su id, usando caché local.
+     * Devuelve {@code null} si el estado no existe o no tiene orden definido.
+     * Llamar a {@link #invalidarCacheOrden()} desde cualquier mutación del catálogo.
+     */
+    @Transactional(readOnly = true)
+    public Integer getOrdenById(Long id) {
+        if (id == null) return null;
+        if (!ordenCacheLoaded) {
+            cargarOrdenCache();
+        }
+        return ordenPorIdCache.get(id);
+    }
+
+    private synchronized void cargarOrdenCache() {
+        if (ordenCacheLoaded) return;
+        Map<Long, Integer> snapshot = estadoRastreoRepository.findAllByOrderByOrdenTrackingAscIdAsc().stream()
+                .filter(e -> e.getId() != null && e.getOrden() != null)
+                .collect(Collectors.toMap(EstadoRastreo::getId, EstadoRastreo::getOrden));
+        ordenPorIdCache.clear();
+        ordenPorIdCache.putAll(snapshot);
+        ordenCacheLoaded = true;
+    }
+
+    private void invalidarCacheOrden() {
+        ordenCacheLoaded = false;
+        ordenPorIdCache.clear();
+    }
+
     @Transactional
     public EstadoRastreoDTO create(EstadoRastreoRequest request) {
         String codigo = request.getCodigo() != null ? request.getCodigo().trim().toUpperCase() : "";
@@ -95,6 +141,7 @@ public class EstadoRastreoService {
         e.setOrden(e.getOrdenTracking());
         e.setAfterEstado(resolveAfterEstado(request.getAfterEstadoId(), e.getTipoFlujo(), null));
         e = estadoRastreoRepository.save(e);
+        invalidarCacheOrden();
         return toDTO(e);
     }
 
@@ -118,6 +165,7 @@ public class EstadoRastreoService {
         e.setAfterEstado(resolveAfterEstado(request.getAfterEstadoId(), e.getTipoFlujo(), e.getId()));
         e.setPublicoTracking(request.getPublicoTracking() != null ? request.getPublicoTracking() : true);
         e = estadoRastreoRepository.save(e);
+        invalidarCacheOrden();
         return toDTO(e);
     }
 
@@ -128,6 +176,7 @@ public class EstadoRastreoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Estado de rastreo", id));
         e.setActivo(false);
         e = estadoRastreoRepository.save(e);
+        invalidarCacheOrden();
         return toDTO(e);
     }
 
@@ -141,6 +190,7 @@ public class EstadoRastreoService {
             throw new BadRequestException("No se puede eliminar: hay " + count + " paquete(s) con este estado. Desactívelo en su lugar.");
         }
         estadoRastreoRepository.delete(e);
+        invalidarCacheOrden();
     }
 
     @Transactional
@@ -233,10 +283,12 @@ public class EstadoRastreoService {
             pos++;
         }
 
-        return estadoRastreoRepository.saveAll(activos).stream()
+        List<EstadoRastreoDTO> result = estadoRastreoRepository.saveAll(activos).stream()
                 .sorted(java.util.Comparator.comparing(EstadoRastreo::getOrdenTracking).thenComparing(EstadoRastreo::getId))
                 .map(this::toDTO)
                 .toList();
+        invalidarCacheOrden();
+        return result;
     }
 
     private EstadoRastreo toEntity(EstadoRastreoRequest r) {
@@ -256,18 +308,7 @@ public class EstadoRastreoService {
     }
 
     private EstadoRastreoDTO toDTO(EstadoRastreo e) {
-        return EstadoRastreoDTO.builder()
-                .id(e.getId())
-                .codigo(e.getCodigo())
-                .nombre(e.getNombre())
-                .orden(e.getOrden())
-                .ordenTracking(e.getOrdenTracking())
-                .afterEstadoId(e.getAfterEstado() != null ? e.getAfterEstado().getId() : null)
-                .activo(e.getActivo())
-                .leyenda(e.getLeyenda())
-                .tipoFlujo(e.getTipoFlujo())
-                .publicoTracking(e.getPublicoTracking())
-                .build();
+        return estadoRastreoMapper.toDTO(e);
     }
 
     private EstadoRastreo resolveAfterEstado(Long afterEstadoId, TipoFlujoEstado tipoFlujo, Long currentEstadoId) {

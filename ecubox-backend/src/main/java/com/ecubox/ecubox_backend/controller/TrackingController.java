@@ -2,10 +2,7 @@ package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.config.TrackingEtag;
 import com.ecubox.ecubox_backend.dto.TrackingResolveResponse;
-import com.ecubox.ecubox_backend.dto.TrackingResponse;
-import com.ecubox.ecubox_backend.enums.TrackingTipo;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
-import com.ecubox.ecubox_backend.service.PaqueteService;
 import com.ecubox.ecubox_backend.service.TrackingResolverService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,8 +23,6 @@ import java.util.concurrent.TimeUnit;
  *   <li>{@code GET /api/v1/tracking?codigo=...} - resuelve por prioridad pieza ->
  *       guia master. El envio consolidado es interno del operario y NO se
  *       resuelve aqui.</li>
- *   <li>{@code GET /api/tracking?numeroGuia=...} - alias deprecated (compat) que solo
- *       devuelve la pieza individual; sera removido en una version futura.</li>
  * </ul>
  *
  * Caracteristicas HTTP:
@@ -41,7 +36,6 @@ import java.util.concurrent.TimeUnit;
 public class TrackingController {
 
     private final TrackingResolverService trackingResolverService;
-    private final PaqueteService paqueteService;
 
     @Value("${tracking.cache.max-age-seconds:30}")
     private long cacheMaxAgeSeconds;
@@ -49,10 +43,8 @@ public class TrackingController {
     @Value("${tracking.cache.stale-while-revalidate-seconds:60}")
     private long staleWhileRevalidateSeconds;
 
-    public TrackingController(TrackingResolverService trackingResolverService,
-                              PaqueteService paqueteService) {
+    public TrackingController(TrackingResolverService trackingResolverService) {
         this.trackingResolverService = trackingResolverService;
-        this.paqueteService = paqueteService;
     }
 
     /**
@@ -75,30 +67,6 @@ public class TrackingController {
             return notModified(etag);
         }
         return cacheable(ResponseEntity.ok(), etag).body(body);
-    }
-
-    /**
-     * Endpoint legado: devuelve la pieza directamente para no romper integraciones
-     * antiguas. Internamente puede delegar al resolver, pero seguimos devolviendo
-     * el DTO plano {@link TrackingResponse} para mantener el contrato historico.
-     *
-     * @deprecated usa {@code /api/v1/tracking?codigo=...}
-     */
-    @Deprecated(since = "v1")
-    @GetMapping("/api/tracking")
-    public ResponseEntity<TrackingResponse> getByNumeroGuiaLegacy(
-            @RequestParam(name = "numeroGuia") String numeroGuia,
-            HttpServletRequest request) {
-        TrackingResolveResponse resolved = trackingResolverService.resolve(numeroGuia);
-        TrackingResponse pieza = resolved.getTipo() == TrackingTipo.PIEZA
-                ? resolved.getPieza()
-                : paqueteService.findByNumeroGuiaForTracking(numeroGuia);
-        TrackingResolveResponse wrapper = TrackingResolveResponse.ofPieza(pieza);
-        String etag = TrackingEtag.of(wrapper);
-        if (matchesIfNoneMatch(request, etag)) {
-            return notModified(etag);
-        }
-        return cacheable(ResponseEntity.ok(), etag).body(pieza);
     }
 
     private boolean matchesIfNoneMatch(HttpServletRequest request, String etag) {

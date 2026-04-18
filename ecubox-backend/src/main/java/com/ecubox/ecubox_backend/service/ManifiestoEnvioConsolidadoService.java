@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
+import com.ecubox.ecubox_backend.util.WeightUtil;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -41,7 +42,7 @@ public class ManifiestoEnvioConsolidadoService {
 
     private static final DateTimeFormatter FMT_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final DateTimeFormatter FMT_FECHA_CORTA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private static final BigDecimal LBS_TO_KG = new BigDecimal("0.45359237");
+    private static final BigDecimal LBS_TO_KG = WeightUtil.LBS_TO_KG;
 
     /** Color primario corporativo (azul/morado suave) en RGB. */
     private static final Color COLOR_PRIMARY = new Color(63, 81, 181);

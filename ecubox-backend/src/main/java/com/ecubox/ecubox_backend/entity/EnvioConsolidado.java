@@ -50,6 +50,10 @@ public class EnvioConsolidado {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     /** Indica si el envio esta cerrado (no admite mas cambios). */
     @Transient
     public boolean isCerrado() {

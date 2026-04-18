@@ -132,4 +132,11 @@ public class TrackingEventService {
             throw new IllegalStateException("No se pudo serializar payload de tracking event", e);
         }
     }
+
+    /**
+     * Tupla auxiliar para registrar transiciones tras un {@code saveAll(...)} batch:
+     * captura el {@link Paquete} ya con el estado destino aplicado y el estado
+     * {@code origen} previo a la mutacion (necesario para el evento de tracking).
+     */
+    public record PendingTransicion(Paquete paquete, EstadoRastreo origen) {}
 }

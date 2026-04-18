@@ -10,6 +10,7 @@ import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
+import com.ecubox.ecubox_backend.util.Strings;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -59,16 +60,6 @@ public class EnvioConsolidadoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Envío consolidado", id));
     }
 
-    @Transactional(readOnly = true)
-    public EnvioConsolidado findByCodigo(String codigo) {
-        String c = trimOrNull(codigo);
-        if (c == null) {
-            throw new BadRequestException("El código del envío es obligatorio");
-        }
-        return envioConsolidadoRepository.findByCodigoIgnoreCase(c)
-                .orElseThrow(() -> new ResourceNotFoundException("Envío consolidado", c));
-    }
-
     /**
      * Lista envios paginados.
      *
@@ -88,7 +79,7 @@ public class EnvioConsolidadoService {
 
     @Transactional
     public EnvioConsolidado crear(String codigo, Long actorUsuarioId) {
-        String c = trimOrNull(codigo);
+        String c = Strings.trimOrNull(codigo);
         if (c == null) {
             throw new BadRequestException("El código del envío es obligatorio");
         }
@@ -140,21 +131,6 @@ public class EnvioConsolidadoService {
                 .envio(toDTO(envio, true))
                 .guiasNoEncontradas(noEncontradas)
                 .build();
-    }
-
-    /**
-     * Resuelve el envío por código, lo crea si no existe, y enlaza los paquetes via FK.
-     * Reemplaza el patrón legacy de asignar solo el string.
-     */
-    @Transactional
-    public EnvioConsolidado resolverOCrearYAsignar(String codigo, List<Long> paqueteIds, Long actorUsuarioId) {
-        EnvioConsolidado envio = envioConsolidadoRepository.findByCodigoIgnoreCase(trimOrNull(codigo))
-                .orElseGet(() -> crear(codigo, actorUsuarioId));
-        if (paqueteIds != null && !paqueteIds.isEmpty()) {
-            agregarPaquetes(envio.getId(), paqueteIds);
-            envio = findById(envio.getId());
-        }
-        return envio;
     }
 
     @Transactional
@@ -262,17 +238,5 @@ public class EnvioConsolidadoService {
                 .updatedAt(envio.getUpdatedAt())
                 .paquetes(paquetesDTO)
                 .build();
-    }
-
-    @Transactional(readOnly = true)
-    public List<Paquete> listarPaquetes(Long envioId) {
-        findById(envioId);
-        return paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(envioId);
-    }
-
-    private static String trimOrNull(String s) {
-        if (s == null) return null;
-        String t = s.trim();
-        return t.isEmpty() ? null : t;
     }
 }

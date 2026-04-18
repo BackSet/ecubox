@@ -21,6 +21,8 @@ import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.SacaRepository;
+import com.ecubox.ecubox_backend.service.validation.OwnershipValidator;
+import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
 import org.springframework.data.domain.Sort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -80,6 +82,8 @@ class PaqueteServiceOp3Test {
                 trackingEventService,
                 guiaMasterRepository,
                 guiaMasterService,
+                new OwnershipValidator(),
+                new SacaEnDespachoValidator(),
                 useEventTimeline
         );
     }

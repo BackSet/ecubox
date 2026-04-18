@@ -33,6 +33,9 @@ import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.SacaRepository;
+import com.ecubox.ecubox_backend.service.validation.OwnershipValidator;
+import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
+import com.ecubox.ecubox_backend.util.Strings;
 import com.ecubox.ecubox_backend.util.WeightUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
@@ -68,6 +71,8 @@ public class PaqueteService {
     private final TrackingEventService trackingEventService;
     private final GuiaMasterRepository guiaMasterRepository;
     private final GuiaMasterService guiaMasterService;
+    private final OwnershipValidator ownershipValidator;
+    private final SacaEnDespachoValidator sacaEnDespachoValidator;
     private final boolean useEventTimeline;
 
     public PaqueteService(PaqueteRepository paqueteRepository,
@@ -81,6 +86,8 @@ public class PaqueteService {
                           TrackingEventService trackingEventService,
                           GuiaMasterRepository guiaMasterRepository,
                           GuiaMasterService guiaMasterService,
+                          OwnershipValidator ownershipValidator,
+                          SacaEnDespachoValidator sacaEnDespachoValidator,
                           @Value("${tracking.timeline.use-events:true}") boolean useEventTimeline) {
         this.paqueteRepository = paqueteRepository;
         this.destinatarioFinalRepository = destinatarioFinalRepository;
@@ -93,6 +100,8 @@ public class PaqueteService {
         this.trackingEventService = trackingEventService;
         this.guiaMasterRepository = guiaMasterRepository;
         this.guiaMasterService = guiaMasterService;
+        this.ownershipValidator = ownershipValidator;
+        this.sacaEnDespachoValidator = sacaEnDespachoValidator;
         this.useEventTimeline = useEventTimeline;
     }
 
@@ -119,9 +128,7 @@ public class PaqueteService {
         }
         DestinatarioFinal dest = destinatarioFinalRepository.findById(request.getDestinatarioFinalId())
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", request.getDestinatarioFinalId()));
-        if (!canManageAny && !dest.getUsuario().getId().equals(usuarioId)) {
-            throw new ResourceNotFoundException("Destinatario", request.getDestinatarioFinalId());
-        }
+        ownershipValidator.requireDestinatarioOwnership(dest, usuarioId, canManageAny);
         String codigoBase = (dest.getCodigo() != null && !dest.getCodigo().isBlank())
                 ? dest.getCodigo().trim()
                 : ("D" + dest.getId());
@@ -272,9 +279,7 @@ public class PaqueteService {
         if (sacaId != null) {
             Saca saca = sacaRepository.findById(sacaId)
                     .orElseThrow(() -> new ResourceNotFoundException("Saca", sacaId));
-            if (saca.getDespacho() != null) {
-                throw new BadRequestException("La saca ya está asignada a un despacho");
-            }
+            sacaEnDespachoValidator.requireSinDespacho(saca, null);
             p.setSaca(saca);
         } else {
             p.setSaca(null);
@@ -290,87 +295,89 @@ public class PaqueteService {
     public List<PaqueteDTO> asignarPaquetesASaca(Long sacaId, List<Long> paqueteIds) {
         Saca saca = sacaRepository.findById(sacaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Saca", sacaId));
-        if (saca.getDespacho() != null) {
-            throw new BadRequestException("La saca ya está asignada a un despacho");
+        sacaEnDespachoValidator.requireSinDespacho(saca, null);
+        if (paqueteIds == null || paqueteIds.isEmpty()) {
+            return List.of();
         }
-        List<PaqueteDTO> result = new ArrayList<>();
+        List<Paquete> paquetes = paqueteRepository.findAllById(paqueteIds);
+        if (paquetes.size() != paqueteIds.size()) {
+            Set<Long> encontrados = paquetes.stream().map(Paquete::getId).collect(Collectors.toSet());
+            Long faltante = paqueteIds.stream().filter(id -> !encontrados.contains(id)).findFirst().orElse(null);
+            throw new ResourceNotFoundException("Paquete", faltante);
+        }
         Set<Long> guiasAfectadas = new HashSet<>();
-        for (Long paqueteId : paqueteIds) {
-            Paquete p = paqueteRepository.findById(paqueteId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
+        for (Paquete p : paquetes) {
             p.setSaca(saca);
-            p = paqueteRepository.save(p);
             if (p.getGuiaMaster() != null) {
                 guiasAfectadas.add(p.getGuiaMaster().getId());
             }
-            result.add(toDTO(p));
         }
+        List<Paquete> guardados = paqueteRepository.saveAll(paquetes);
         for (Long gmId : guiasAfectadas) {
             guiaMasterService.recomputarEstado(gmId);
         }
-        return result;
+        return guardados.stream().map(this::toDTO).toList();
     }
 
     /** Aplica el estado configurado "en despacho" a los paquetes indicados. Usado desde DespachoService al crear despacho. */
     @Transactional
     public void aplicarEstadoEnDespacho(List<Long> paqueteIds) {
-        if (paqueteIds == null || paqueteIds.isEmpty()) return;
         Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnDespachoId();
         if (estadoId == null) return;
-        EstadoRastreo estado = estadoRastreoService.findEntityById(estadoId);
-        Set<Long> guiasAfectadas = new HashSet<>();
-        for (Long id : paqueteIds) {
-            paqueteRepository.findById(id).ifPresent(p -> {
-                EstadoRastreo origen = p.getEstadoRastreo();
-                aplicarEstadoConReglas(p, estado, null);
-                paqueteRepository.save(p);
-                trackingEventService.registrarTransicion(
-                        p,
-                        origen,
-                        estado,
-                        TrackingEventType.ESTADO_APLICADO_DESPACHO,
-                        "DESPACHO_AUTO",
-                        p.getMotivoAlterno(),
-                        null,
-                        buildIdempotencyKey("despacho", p.getId(), origen != null ? origen.getId() : null, estado.getId())
-                );
-                if (p.getGuiaMaster() != null) {
-                    guiasAfectadas.add(p.getGuiaMaster().getId());
-                }
-            });
-        }
-        for (Long gmId : guiasAfectadas) {
-            guiaMasterService.recomputarEstado(gmId);
-        }
+        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+                TrackingEventType.ESTADO_APLICADO_DESPACHO, "DESPACHO_AUTO", "despacho");
     }
 
     /** Aplica el estado configurado "en lote recepción" a los paquetes indicados. Usado desde LoteRecepcionService. */
     @Transactional
     public void aplicarEstadoEnLoteRecepcion(List<Long> paqueteIds) {
-        if (paqueteIds == null || paqueteIds.isEmpty()) return;
         Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnLoteRecepcionId();
         if (estadoId == null) return;
-        EstadoRastreo estado = estadoRastreoService.findEntityById(estadoId);
+        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+                TrackingEventType.ESTADO_APLICADO_LOTE_RECEPCION, "LOTE_RECEPCION_AUTO", "lote-recepcion");
+    }
+
+    /**
+     * Aplica un mismo estado a un conjunto de paquetes en una sola unidad de trabajo
+     * y registra el evento de tracking correspondiente.
+     *
+     * <p>Sustituye el bucle {@code findById}+{@code save} por {@code findAllById} +
+     * {@code saveAll} para reducir round-trips y evitar el patron lost-update por
+     * lecturas individuales fuera del mismo flush.
+     */
+    private void aplicarEstadoEnConjunto(List<Long> paqueteIds,
+                                         Long estadoDestinoId,
+                                         TrackingEventType eventType,
+                                         String eventSource,
+                                         String idempotencyPrefix) {
+        if (paqueteIds == null || paqueteIds.isEmpty()) return;
+        EstadoRastreo estado = estadoRastreoService.findEntityById(estadoDestinoId);
+        List<Paquete> paquetes = paqueteRepository.findAllById(paqueteIds);
+        if (paquetes.isEmpty()) return;
         Set<Long> guiasAfectadas = new HashSet<>();
-        for (Long id : paqueteIds) {
-            paqueteRepository.findById(id).ifPresent(p -> {
-                EstadoRastreo origen = p.getEstadoRastreo();
-                aplicarEstadoConReglas(p, estado, null);
-                paqueteRepository.save(p);
-                trackingEventService.registrarTransicion(
-                        p,
-                        origen,
-                        estado,
-                        TrackingEventType.ESTADO_APLICADO_LOTE_RECEPCION,
-                        "LOTE_RECEPCION_AUTO",
-                        p.getMotivoAlterno(),
-                        null,
-                        buildIdempotencyKey("lote-recepcion", p.getId(), origen != null ? origen.getId() : null, estado.getId())
-                );
-                if (p.getGuiaMaster() != null) {
-                    guiasAfectadas.add(p.getGuiaMaster().getId());
-                }
-            });
+        List<TrackingEventService.PendingTransicion> pendientes = new ArrayList<>(paquetes.size());
+        for (Paquete p : paquetes) {
+            EstadoRastreo origen = p.getEstadoRastreo();
+            aplicarEstadoConReglas(p, estado, null);
+            pendientes.add(new TrackingEventService.PendingTransicion(p, origen));
+            if (p.getGuiaMaster() != null) {
+                guiasAfectadas.add(p.getGuiaMaster().getId());
+            }
+        }
+        paqueteRepository.saveAll(paquetes);
+        for (TrackingEventService.PendingTransicion pt : pendientes) {
+            Paquete p = pt.paquete();
+            EstadoRastreo origen = pt.origen();
+            trackingEventService.registrarTransicion(
+                    p,
+                    origen,
+                    estado,
+                    eventType,
+                    eventSource,
+                    p.getMotivoAlterno(),
+                    null,
+                    buildIdempotencyKey(idempotencyPrefix, p.getId(), origen != null ? origen.getId() : null, estado.getId())
+            );
         }
         for (Long gmId : guiasAfectadas) {
             guiaMasterService.recomputarEstado(gmId);
@@ -429,10 +436,19 @@ public class PaqueteService {
 
     @Transactional
     public List<PaqueteDTO> actualizarPesosBulk(List<PaquetePesoItem> items) {
-        List<PaqueteDTO> result = new ArrayList<>();
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = items.stream().map(PaquetePesoItem::getPaqueteId).toList();
+        Map<Long, Paquete> porId = paqueteRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Paquete::getId, p -> p));
+        if (porId.size() != ids.stream().distinct().count()) {
+            Long faltante = ids.stream().filter(id -> !porId.containsKey(id)).findFirst().orElse(null);
+            throw new ResourceNotFoundException("Paquete", faltante);
+        }
+        List<Paquete> aGuardar = new ArrayList<>(items.size());
         for (PaquetePesoItem item : items) {
-            Paquete p = paqueteRepository.findById(item.getPaqueteId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Paquete", item.getPaqueteId()));
+            Paquete p = porId.get(item.getPaqueteId());
             BigDecimal lbs = item.getPesoLbs();
             BigDecimal kg = item.getPesoKg();
             if (lbs != null && lbs.compareTo(BigDecimal.ZERO) > 0) {
@@ -440,29 +456,21 @@ public class PaqueteService {
             } else if (kg != null && kg.compareTo(BigDecimal.ZERO) > 0) {
                 p.setPesoLbs(WeightUtil.kgToLbs(kg));
             }
-            p = paqueteRepository.save(p);
-            result.add(toDTO(p));
+            aGuardar.add(p);
         }
-        return result;
+        return paqueteRepository.saveAll(aGuardar).stream().map(this::toDTO).toList();
     }
 
     @Transactional
     public PaqueteDTO update(Long paqueteId, Long currentUsuarioId, boolean canManageAny, boolean canEditPeso, PaqueteUpdateRequest request) {
         Paquete p = paqueteRepository.findById(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
-        if (!canManageAny) {
-            Long ownerId = p.getDestinatarioFinal().getUsuario().getId();
-            if (!ownerId.equals(currentUsuarioId)) {
-                throw new ResourceNotFoundException("Paquete", paqueteId);
-            }
-        }
+        ownershipValidator.requirePaqueteOwnership(p, currentUsuarioId, canManageAny);
         Long newDestId = request.getDestinatarioFinalId();
         if (newDestId != null && (p.getDestinatarioFinal() == null || !p.getDestinatarioFinal().getId().equals(newDestId))) {
             DestinatarioFinal newDest = destinatarioFinalRepository.findById(newDestId)
                     .orElseThrow(() -> new ResourceNotFoundException("Destinatario", newDestId));
-            if (!canManageAny && !newDest.getUsuario().getId().equals(currentUsuarioId)) {
-                throw new ResourceNotFoundException("Destinatario", newDestId);
-            }
+            ownershipValidator.requireDestinatarioOwnership(newDest, currentUsuarioId, canManageAny);
             p.setDestinatarioFinal(newDest);
             String codigoBase = (newDest.getCodigo() != null && !newDest.getCodigo().isBlank())
                     ? newDest.getCodigo().trim()
@@ -535,12 +543,7 @@ public class PaqueteService {
     public void delete(Long paqueteId, Long currentUsuarioId, boolean canManageAny) {
         Paquete p = paqueteRepository.findById(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
-        if (!canManageAny) {
-            Long ownerId = p.getDestinatarioFinal().getUsuario().getId();
-            if (!ownerId.equals(currentUsuarioId)) {
-                throw new ResourceNotFoundException("Paquete", paqueteId);
-            }
-        }
+        ownershipValidator.requirePaqueteOwnership(p, currentUsuarioId, canManageAny);
         paqueteEstadoEventoRepository.deleteByPaqueteId(paqueteId);
         outboxEventRepository.deleteByAggregateTypeAndAggregateId("PAQUETE", String.valueOf(paqueteId));
         paqueteRepository.delete(p);
@@ -987,7 +990,7 @@ public class PaqueteService {
                 rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, "Tiene despacho/saca asociado"));
                 continue;
             }
-            String trackingBase = p.getGuiaMaster() != null ? trimOrNull(p.getGuiaMaster().getTrackingBase()) : null;
+            String trackingBase = p.getGuiaMaster() != null ? Strings.trimOrNull(p.getGuiaMaster().getTrackingBase()) : null;
             if (trackingBase != null && loteRecepcionGuiaRepository.existsByNumeroGuiaEnvio(trackingBase)) {
                 rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, "Está en lote de recepción"));
                 continue;
@@ -1030,32 +1033,8 @@ public class PaqueteService {
     /** Aplica el mismo estado de rastreo a una lista de paquetes (sin validar elegibilidad). Usado desde DespachoService para aplicar estado por periodo. */
     @Transactional
     public void aplicarEstadoRastreoMasivo(List<Long> paqueteIds, Long estadoRastreoId) {
-        if (paqueteIds == null || paqueteIds.isEmpty()) return;
-        EstadoRastreo estado = estadoRastreoService.findEntityById(estadoRastreoId);
-        Set<Long> guiasAfectadas = new HashSet<>();
-        for (Long paqueteId : paqueteIds) {
-            paqueteRepository.findById(paqueteId).ifPresent(p -> {
-                EstadoRastreo origen = p.getEstadoRastreo();
-                aplicarEstadoConReglas(p, estado, null);
-                paqueteRepository.save(p);
-                trackingEventService.registrarTransicion(
-                        p,
-                        origen,
-                        estado,
-                        TrackingEventType.ESTADO_APLICADO_PERIODO,
-                        "PERIODO_AUTO",
-                        p.getMotivoAlterno(),
-                        null,
-                        buildIdempotencyKey("periodo", p.getId(), origen != null ? origen.getId() : null, estado.getId())
-                );
-                if (p.getGuiaMaster() != null) {
-                    guiasAfectadas.add(p.getGuiaMaster().getId());
-                }
-            });
-        }
-        for (Long gmId : guiasAfectadas) {
-            guiaMasterService.recomputarEstado(gmId);
-        }
+        aplicarEstadoEnConjunto(paqueteIds, estadoRastreoId,
+                TrackingEventType.ESTADO_APLICADO_PERIODO, "PERIODO_AUTO", "periodo");
     }
 
     @Transactional
@@ -1199,11 +1178,6 @@ public class PaqueteService {
         return operation + ":" + paqueteId + ":" + (origenId != null ? origenId : "null") + ":" + (destinoId != null ? destinoId : "null") + ":" + System.nanoTime();
     }
 
-    private static String trimOrNull(String s) {
-        if (s == null || s.isBlank()) return null;
-        return s.trim();
-    }
-
     private void aplicarEstadoConReglas(Paquete paquete, EstadoRastreo estadoDestino, String motivoAlterno) {
         EstadoRastreo estadoOrigen = paquete.getEstadoRastreo();
         if (estadoOrigen != null) {
@@ -1214,7 +1188,7 @@ public class PaqueteService {
 
         if (estadoDestino.getTipoFlujo() == TipoFlujoEstado.ALTERNO) {
             paquete.setEnFlujoAlterno(true);
-            paquete.setMotivoAlterno(trimOrNull(motivoAlterno));
+            paquete.setMotivoAlterno(Strings.trimOrNull(motivoAlterno));
         } else {
             paquete.setEnFlujoAlterno(false);
             paquete.setMotivoAlterno(null);

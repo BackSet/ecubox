@@ -64,4 +64,8 @@ public class Despacho {
     @OneToMany(mappedBy = "despacho", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Saca> sacas = new ArrayList<>();
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 }

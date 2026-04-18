@@ -13,10 +13,6 @@ public interface DestinatarioFinalRepository extends JpaRepository<DestinatarioF
 
     long countByUsuarioId(Long usuarioId);
 
-    boolean existsByUsuarioIdAndCodigo(Long usuarioId, String codigo);
-
-    boolean existsByUsuarioIdAndCodigoAndIdNot(Long usuarioId, String codigo, Long id);
-
     /** Unicidad global del código (cualquier destinatario). */
     boolean existsByCodigo(String codigo);
 

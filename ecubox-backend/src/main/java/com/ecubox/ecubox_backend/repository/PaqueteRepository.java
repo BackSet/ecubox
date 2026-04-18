@@ -11,8 +11,17 @@ import java.util.Optional;
 public interface PaqueteRepository extends JpaRepository<Paquete, Long> {
     Optional<Paquete> findByNumeroGuiaIgnoreCase(String numeroGuia);
 
-    /** Carga paquete con saca, despacho y relaciones del despacho para tracking (evita N+1). */
+    /**
+     * Carga paquete con todas las asociaciones que el endpoint publico de
+     * tracking lee (saca, despacho, distribuidor/agencia/agenciaDistribuidor,
+     * destinatario del despacho, destinatario final del paquete, estado y
+     * guia master). Sin estos JOIN FETCH la respuesta de tracking dispara
+     * decenas de queries por LAZY loading.
+     */
     @Query("SELECT DISTINCT p FROM Paquete p " +
+           "LEFT JOIN FETCH p.estadoRastreo " +
+           "LEFT JOIN FETCH p.destinatarioFinal df " +
+           "LEFT JOIN FETCH df.usuario " +
            "LEFT JOIN FETCH p.saca s " +
            "LEFT JOIN FETCH s.despacho d " +
            "LEFT JOIN FETCH d.distribuidor " +
@@ -47,6 +56,14 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long> {
 
     List<Paquete> findBySacaId(Long sacaId);
 
+    /** IDs de paquetes pertenecientes a una saca; util para evitar cargar toda la entidad cuando solo se necesita el id. */
+    @Query("SELECT p.id FROM Paquete p WHERE p.saca.id = :sacaId")
+    List<Long> findIdsBySacaId(@Param("sacaId") Long sacaId);
+
+    /** IDs de paquetes pertenecientes a una lista de sacas (una sola query por lote). */
+    @Query("SELECT p.id FROM Paquete p WHERE p.saca.id IN :sacaIds")
+    List<Long> findIdsBySacaIdIn(@Param("sacaIds") List<Long> sacaIds);
+
     /** Paquetes de una saca en orden de creación. */
     List<Paquete> findBySacaIdOrderByIdAsc(Long sacaId);
 
@@ -77,8 +94,19 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long> {
     @Query("SELECT p FROM Paquete p WHERE LOWER(p.numeroGuia) IN :numeroGuiasLower")
     List<Paquete> findByNumeroGuiaInIgnoreCase(@Param("numeroGuiasLower") List<String> numeroGuiasLower);
 
-    /** Paquetes asociados a un envío consolidado (ordenados por id). */
-    List<Paquete> findByEnvioConsolidadoIdOrderByIdAsc(Long envioConsolidadoId);
+    /**
+     * Paquetes asociados a un envio consolidado, con destinatario final y guia
+     * master ya cargados. Optimizado para la generacion del manifiesto (PDF y
+     * XLSX) que itera sobre cada paquete leyendo destinatario.* y guiaMaster.*.
+     */
+    @Query("SELECT DISTINCT p FROM Paquete p " +
+           "LEFT JOIN FETCH p.destinatarioFinal df " +
+           "LEFT JOIN FETCH df.usuario " +
+           "LEFT JOIN FETCH p.guiaMaster " +
+           "LEFT JOIN FETCH p.estadoRastreo " +
+           "WHERE p.envioConsolidado.id = :envioConsolidadoId " +
+           "ORDER BY p.id ASC")
+    List<Paquete> findByEnvioConsolidadoIdOrderByIdAsc(@Param("envioConsolidadoId") Long envioConsolidadoId);
 
     long countByEnvioConsolidadoId(Long envioConsolidadoId);
 

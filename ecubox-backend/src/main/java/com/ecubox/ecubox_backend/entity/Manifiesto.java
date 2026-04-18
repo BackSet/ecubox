@@ -72,4 +72,8 @@ public class Manifiesto {
     @OneToMany(mappedBy = "manifiesto", fetch = FetchType.LAZY)
     @Builder.Default
     private List<Despacho> despachos = new ArrayList<>();
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 }

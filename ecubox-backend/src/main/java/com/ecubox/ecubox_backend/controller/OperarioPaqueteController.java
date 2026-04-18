@@ -86,7 +86,7 @@ public class OperarioPaqueteController {
     @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
     public ResponseEntity<PaqueteDTO> asignarAGuiaMaster(
             @PathVariable Long paqueteId,
-            @RequestBody PaqueteGuiaMasterRequest request) {
+            @Valid @RequestBody PaqueteGuiaMasterRequest request) {
         return ResponseEntity.ok(paqueteService.asignarAGuiaMaster(
                 paqueteId, request.getGuiaMasterId(), request.getPiezaNumero()));
     }

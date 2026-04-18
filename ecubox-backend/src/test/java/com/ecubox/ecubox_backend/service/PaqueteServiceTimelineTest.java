@@ -15,6 +15,8 @@ import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.SacaRepository;
+import com.ecubox.ecubox_backend.service.validation.OwnershipValidator;
+import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +63,7 @@ class PaqueteServiceTimelineTest {
                 loteRecepcionGuiaRepository, paqueteEstadoEventoRepository, outboxEventRepository,
                 parametroSistemaService, estadoRastreoService, trackingEventService,
                 guiaMasterRepository, guiaMasterService,
+                new OwnershipValidator(), new SacaEnDespachoValidator(),
                 true);
         lenient().when(parametroSistemaService.getEstadosRastreoPorPunto())
                 .thenReturn(EstadosRastreoPorPuntoDTO.builder().build());

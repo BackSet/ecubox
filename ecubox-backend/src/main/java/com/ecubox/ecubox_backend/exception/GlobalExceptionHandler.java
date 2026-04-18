@@ -111,6 +111,29 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    /**
+     * Concurrencia optimista: dos transacciones intentaron modificar la misma fila
+     * simultaneamente y la segunda quedo con una version desactualizada. Devolvemos
+     * 409 con un mensaje accionable para que el cliente reintente con datos frescos.
+     * Capturamos tanto la API JPA ({@code OptimisticLockException}) como su wrapper
+     * de Spring ({@code ObjectOptimisticLockingFailureException}).
+     */
+    @ExceptionHandler({
+            jakarta.persistence.OptimisticLockException.class,
+            org.springframework.orm.ObjectOptimisticLockingFailureException.class
+    })
+    public ResponseEntity<ApiErrorResponse> handleOptimisticLock(Exception ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        LocalDateTime.now(),
+                        409,
+                        "Conflict",
+                        "El recurso fue modificado por otro usuario; recargue e intente de nuevo",
+                        null
+                ));
+    }
+
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
         Throwable cause = ex.getCause();

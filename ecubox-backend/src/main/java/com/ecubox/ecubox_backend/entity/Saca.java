@@ -38,4 +38,8 @@ public class Saca {
     @OneToMany(mappedBy = "saca", fetch = FetchType.LAZY)
     @Builder.Default
     private List<Paquete> paquetes = new ArrayList<>();
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 }

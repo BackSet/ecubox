@@ -37,4 +37,8 @@ public class DestinatarioFinal {
 
     @Column(length = 50)
     private String codigo;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 }

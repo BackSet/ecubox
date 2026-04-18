@@ -2,7 +2,6 @@ package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.dto.TrackingResolveResponse;
 import com.ecubox.ecubox_backend.dto.TrackingResponse;
-import com.ecubox.ecubox_backend.service.PaqueteService;
 import com.ecubox.ecubox_backend.service.TrackingResolverService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,8 +33,7 @@ class TrackingControllerCacheTest {
     @BeforeEach
     void setUp() {
         resolverService = mock(TrackingResolverService.class);
-        PaqueteService paqueteService = mock(PaqueteService.class);
-        TrackingController controller = new TrackingController(resolverService, paqueteService);
+        TrackingController controller = new TrackingController(resolverService);
         ReflectionTestUtils.setField(controller, "cacheMaxAgeSeconds", 30L);
         ReflectionTestUtils.setField(controller, "staleWhileRevalidateSeconds", 60L);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();

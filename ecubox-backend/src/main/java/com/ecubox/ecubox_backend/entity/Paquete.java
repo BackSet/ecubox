@@ -74,6 +74,10 @@ public class Paquete {
     @Column(name = "fecha_bloqueo_desde")
     private LocalDateTime fechaBloqueoDesde;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     /**
      * Genera el {@code numeroGuia} canonico de un paquete a partir del tracking base
      * de su guia master y la posicion de pieza dentro del lote.

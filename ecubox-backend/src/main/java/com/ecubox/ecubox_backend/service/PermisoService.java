@@ -1,7 +1,7 @@
 package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.PermisoDTO;
-import com.ecubox.ecubox_backend.entity.Permiso;
+import com.ecubox.ecubox_backend.mapper.PermisoMapper;
 import com.ecubox.ecubox_backend.repository.PermisoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,23 +12,17 @@ import java.util.List;
 public class PermisoService {
 
     private final PermisoRepository permisoRepository;
+    private final PermisoMapper permisoMapper;
 
-    public PermisoService(PermisoRepository permisoRepository) {
+    public PermisoService(PermisoRepository permisoRepository, PermisoMapper permisoMapper) {
         this.permisoRepository = permisoRepository;
+        this.permisoMapper = permisoMapper;
     }
 
     @Transactional(readOnly = true)
     public List<PermisoDTO> findAll() {
         return permisoRepository.findAll().stream()
-                .map(this::toDTO)
+                .map(permisoMapper::toDTO)
                 .toList();
-    }
-
-    private PermisoDTO toDTO(Permiso p) {
-        return PermisoDTO.builder()
-                .id(p.getId())
-                .codigo(p.getCodigo())
-                .descripcion(p.getDescripcion())
-                .build();
     }
 }

@@ -1,12 +1,12 @@
 package com.ecubox.ecubox_backend.service;
 
-import com.ecubox.ecubox_backend.dto.PermisoDTO;
 import com.ecubox.ecubox_backend.dto.RolDTO;
 import com.ecubox.ecubox_backend.dto.RolPermisosUpdateRequest;
 import com.ecubox.ecubox_backend.entity.Permiso;
 import com.ecubox.ecubox_backend.entity.Rol;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
+import com.ecubox.ecubox_backend.mapper.RolMapper;
 import com.ecubox.ecubox_backend.repository.PermisoRepository;
 import com.ecubox.ecubox_backend.repository.RolRepository;
 import org.springframework.stereotype.Service;
@@ -20,10 +20,12 @@ public class RolService {
 
     private final RolRepository rolRepository;
     private final PermisoRepository permisoRepository;
+    private final RolMapper rolMapper;
 
-    public RolService(RolRepository rolRepository, PermisoRepository permisoRepository) {
+    public RolService(RolRepository rolRepository, PermisoRepository permisoRepository, RolMapper rolMapper) {
         this.rolRepository = rolRepository;
         this.permisoRepository = permisoRepository;
+        this.rolMapper = rolMapper;
     }
 
     @Transactional(readOnly = true)
@@ -56,17 +58,6 @@ public class RolService {
     }
 
     private RolDTO toDTO(Rol r) {
-        List<PermisoDTO> permisos = r.getPermisos().stream()
-                .map(p -> PermisoDTO.builder()
-                        .id(p.getId())
-                        .codigo(p.getCodigo())
-                        .descripcion(p.getDescripcion())
-                        .build())
-                .toList();
-        return RolDTO.builder()
-                .id(r.getId())
-                .nombre(r.getNombre())
-                .permisos(permisos)
-                .build();
+        return rolMapper.toDTO(r);
     }
 }

@@ -3,6 +3,7 @@ package com.ecubox.ecubox_backend.controller;
 import com.ecubox.ecubox_backend.dto.DestinatarioFinalDTO;
 import com.ecubox.ecubox_backend.dto.DestinatarioFinalRequest;
 import com.ecubox.ecubox_backend.service.DestinatarioFinalService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -43,7 +44,7 @@ public class OperarioDestinatarioController {
     @PreAuthorize("hasAuthority('DESTINATARIOS_OPERARIO')")
     public ResponseEntity<DestinatarioFinalDTO> update(
             @PathVariable Long id,
-            @RequestBody DestinatarioFinalRequest request) {
+            @Valid @RequestBody DestinatarioFinalRequest request) {
         return ResponseEntity.ok(destinatarioFinalService.updateByOperario(id, request));
     }
 

@@ -28,6 +28,7 @@ import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
+import com.ecubox.ecubox_backend.util.Strings;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -594,33 +595,11 @@ public class GuiaMasterService {
             throw new BadRequestException("La guía ya está completa y despachada; no requiere cierre con faltante");
         }
         gm.setEstadoGlobal(EstadoGuiaMaster.CERRADA_CON_FALTANTE);
-        String obs = trimOrNull(motivo);
+        String obs = Strings.trimOrNull(motivo);
         if (obs != null) {
             log.info("GuiaMaster {} cerrada con faltante. Motivo: {}", gm.getId(), obs);
         }
         return guiaMasterRepository.save(gm);
-    }
-
-    /** Indica si la pieza puede ser asignada a una saca/despacho. */
-    public void validarPiezaDespachable(Paquete pieza) {
-        if (pieza == null) return;
-        if (!piezaRecibida(pieza)) {
-            throw new BadRequestException("La pieza aún no ha sido recibida; no puede despacharse");
-        }
-        GuiaMaster gm = pieza.getGuiaMaster();
-        if (gm == null) return;
-        int minPiezas = parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial();
-        if (minPiezas <= 1) return;
-        List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
-        long recibidas = piezas.stream().filter(this::piezaRecibida).count();
-        if (recibidas < minPiezas) {
-            int total = gm.getTotalPiezasEsperadas() != null ? gm.getTotalPiezasEsperadas() : 0;
-            int faltantes = (int) Math.max(0, minPiezas - recibidas);
-            throw new BadRequestException(
-                    "La guía " + gm.getTrackingBase() + " requiere al menos " + minPiezas
-                            + " piezas recibidas para despachar parcialmente (recibidas " + recibidas
-                            + "/" + total + ", faltan " + faltantes + ")");
-        }
     }
 
     /**
@@ -707,13 +686,7 @@ public class GuiaMasterService {
     }
 
     private Integer getOrdenEstado(Long estadoId) {
-        if (estadoId == null) return null;
-        try {
-            EstadoRastreo er = estadoRastreoService.findEntityById(estadoId);
-            return er != null ? er.getOrden() : null;
-        } catch (ResourceNotFoundException ex) {
-            return null;
-        }
+        return estadoRastreoService.getOrdenById(estadoId);
     }
 
     private static String normalizarTrackingBase(String s) {
@@ -721,12 +694,6 @@ public class GuiaMasterService {
         String trimmed = s.trim();
         if (trimmed.isEmpty()) return null;
         return trimmed;
-    }
-
-    private static String trimOrNull(String s) {
-        if (s == null) return null;
-        String t = s.trim();
-        return t.isEmpty() ? null : t;
     }
 
     /**
@@ -766,7 +733,7 @@ public class GuiaMasterService {
         payload.put("despachadas", resumen.despachadas());
         payload.put("totalEsperadas", resumen.total());
         payload.put("minPiezasParaDespacho", resumen.minPiezasParaDespacho());
-        payload.put("motivo", trimOrNull(motivo));
+        payload.put("motivo", Strings.trimOrNull(motivo));
         payload.put("actorUsuarioId", actorUsuarioId);
         payload.put("occurredAt", now);
 
@@ -883,11 +850,11 @@ public class GuiaMasterService {
         for (EstadoGuiaMaster est : EstadoGuiaMaster.values()) {
             conteos.put(est.name(), 0L);
         }
-        for (Object[] row : guiaMasterRepository.countAgrupadoPorEstado()) {
-            EstadoGuiaMaster estado = (EstadoGuiaMaster) row[0];
-            Long total = (Long) row[1];
+        for (var row : guiaMasterRepository.countAgrupadoPorEstado()) {
+            EstadoGuiaMaster estado = row.getEstado();
+            Long total = row.getTotal();
             if (estado != null) {
-                conteos.put(estado.name(), total);
+                conteos.put(estado.name(), total != null ? total : 0L);
             }
         }
         long activas = conteos.entrySet().stream()

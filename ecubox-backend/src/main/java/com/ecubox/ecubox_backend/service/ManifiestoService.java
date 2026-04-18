@@ -1,6 +1,8 @@
 package com.ecubox.ecubox_backend.service;
 
-import com.ecubox.ecubox_backend.dto.*;
+import com.ecubox.ecubox_backend.dto.ManifiestoDTO;
+import com.ecubox.ecubox_backend.dto.ManifiestoDespachoCandidatoDTO;
+import com.ecubox.ecubox_backend.dto.ManifiestoRequest;
 import com.ecubox.ecubox_backend.entity.Despacho;
 import com.ecubox.ecubox_backend.entity.Manifiesto;
 import com.ecubox.ecubox_backend.enums.EstadoManifiesto;

@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.repository;
 
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.enums.EstadoGuiaMaster;
+import com.ecubox.ecubox_backend.projection.ConteoEstadoGuiaMasterView;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,7 +18,7 @@ public interface GuiaMasterRepository extends JpaRepository<GuiaMaster, Long> {
     boolean existsByTrackingBaseIgnoreCase(String trackingBase);
 
     @Query("SELECT gm.estadoGlobal AS estado, COUNT(gm) AS total FROM GuiaMaster gm GROUP BY gm.estadoGlobal")
-    List<Object[]> countAgrupadoPorEstado();
+    List<ConteoEstadoGuiaMasterView> countAgrupadoPorEstado();
 
     /** Guías con al menos una pieza despachada y aún incompletas (PARCIAL_DESPACHADA) más antiguas que la fecha límite. */
     @Query("SELECT gm FROM GuiaMaster gm " +

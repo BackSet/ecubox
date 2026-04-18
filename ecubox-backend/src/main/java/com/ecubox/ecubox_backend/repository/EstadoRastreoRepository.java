@@ -9,8 +9,6 @@ import java.util.Optional;
 
 public interface EstadoRastreoRepository extends JpaRepository<EstadoRastreo, Long> {
 
-    List<EstadoRastreo> findAllByOrderByOrdenAscIdAsc();
-
     List<EstadoRastreo> findByActivoTrueOrderByOrdenAscIdAsc();
 
     List<EstadoRastreo> findAllByOrderByOrdenTrackingAscIdAsc();

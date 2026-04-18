@@ -85,6 +85,8 @@ class GuiaMasterServiceTest {
         );
         lenient().when(estadoRastreoService.findEntityById(2L)).thenReturn(enLote);
         lenient().when(estadoRastreoService.findEntityById(3L)).thenReturn(enDespacho);
+        lenient().when(estadoRastreoService.getOrdenById(2L)).thenReturn(enLote.getOrden());
+        lenient().when(estadoRastreoService.getOrdenById(3L)).thenReturn(enDespacho.getOrden());
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.dto.DistribuidorRequest;
 import com.ecubox.ecubox_backend.entity.Distribuidor;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
+import com.ecubox.ecubox_backend.mapper.DistribuidorMapper;
 import com.ecubox.ecubox_backend.repository.DistribuidorRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,9 +16,11 @@ import java.util.List;
 public class DistribuidorService {
 
     private final DistribuidorRepository distribuidorRepository;
+    private final DistribuidorMapper distribuidorMapper;
 
-    public DistribuidorService(DistribuidorRepository distribuidorRepository) {
+    public DistribuidorService(DistribuidorRepository distribuidorRepository, DistribuidorMapper distribuidorMapper) {
         this.distribuidorRepository = distribuidorRepository;
+        this.distribuidorMapper = distribuidorMapper;
     }
 
     @Transactional(readOnly = true)
@@ -89,15 +92,6 @@ public class DistribuidorService {
     }
 
     private DistribuidorDTO toDTO(Distribuidor d) {
-        return DistribuidorDTO.builder()
-                .id(d.getId())
-                .nombre(d.getNombre())
-                .codigo(d.getCodigo())
-                .email(d.getEmail())
-                .tarifaEnvio(d.getTarifaEnvio())
-                .horarioReparto(d.getHorarioReparto())
-                .paginaTracking(d.getPaginaTracking())
-                .diasMaxRetiroDomicilio(d.getDiasMaxRetiroDomicilio())
-                .build();
+        return distribuidorMapper.toDTO(d);
     }
 }

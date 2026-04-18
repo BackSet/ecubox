@@ -4,6 +4,7 @@ import com.ecubox.ecubox_backend.dto.EstadoRastreoAlternoAfterItemRequest;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
+import com.ecubox.ecubox_backend.mapper.EstadoRastreoMapper;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import jakarta.persistence.EntityManager;
@@ -34,7 +35,8 @@ class EstadoRastreoServiceTest {
 
     @BeforeEach
     void setup() {
-        estadoRastreoService = new EstadoRastreoService(estadoRastreoRepository, paqueteRepository, entityManager);
+        EstadoRastreoMapper mapper = new com.ecubox.ecubox_backend.mapper.EstadoRastreoMapperImpl();
+        estadoRastreoService = new EstadoRastreoService(estadoRastreoRepository, paqueteRepository, entityManager, mapper);
     }
 
     @Test

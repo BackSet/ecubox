@@ -11,6 +11,7 @@ import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.repository.*;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
+import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ public class DespachoService {
     private final PaqueteRepository paqueteRepository;
     private final ParametroSistemaService parametroSistemaService;
     private final AgenciaDistribuidorService agenciaDistribuidorService;
+    private final SacaEnDespachoValidator sacaEnDespachoValidator;
 
     public DespachoService(DespachoRepository despachoRepository,
                           DistribuidorRepository distribuidorRepository,
@@ -48,7 +50,8 @@ public class DespachoService {
                           PaqueteService paqueteService,
                           PaqueteRepository paqueteRepository,
                           ParametroSistemaService parametroSistemaService,
-                          AgenciaDistribuidorService agenciaDistribuidorService) {
+                          AgenciaDistribuidorService agenciaDistribuidorService,
+                          SacaEnDespachoValidator sacaEnDespachoValidator) {
         this.despachoRepository = despachoRepository;
         this.distribuidorRepository = distribuidorRepository;
         this.destinatarioFinalRepository = destinatarioFinalRepository;
@@ -58,6 +61,7 @@ public class DespachoService {
         this.currentUserService = currentUserService;
         this.paqueteService = paqueteService;
         this.paqueteRepository = paqueteRepository;
+        this.sacaEnDespachoValidator = sacaEnDespachoValidator;
         this.parametroSistemaService = parametroSistemaService;
         this.agenciaDistribuidorService = agenciaDistribuidorService;
     }
@@ -96,17 +100,18 @@ public class DespachoService {
         d = despachoRepository.save(d);
 
         if (!sacaIds.isEmpty()) {
-            List<Long> paqueteIds = new ArrayList<>();
-            for (Long sacaId : sacaIds) {
-                Saca saca = sacaRepository.findById(sacaId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Saca", sacaId));
-                if (saca.getDespacho() != null) {
-                    throw new BadRequestException("La saca " + saca.getNumeroOrden() + " ya está asignada a otro despacho");
-                }
-                saca.setDespacho(d);
-                sacaRepository.save(saca);
-                paqueteRepository.findBySacaId(sacaId).forEach(paq -> paqueteIds.add(paq.getId()));
+            List<Saca> sacasACambiar = sacaRepository.findAllById(sacaIds);
+            if (sacasACambiar.size() != sacaIds.size()) {
+                Set<Long> encontradas = sacasACambiar.stream().map(Saca::getId).collect(Collectors.toSet());
+                Long faltante = sacaIds.stream().filter(sid -> !encontradas.contains(sid)).findFirst().orElse(null);
+                throw new ResourceNotFoundException("Saca", faltante);
             }
+            for (Saca saca : sacasACambiar) {
+                sacaEnDespachoValidator.requireSinDespacho(saca, null);
+                saca.setDespacho(d);
+            }
+            sacaRepository.saveAll(sacasACambiar);
+            List<Long> paqueteIds = paqueteRepository.findIdsBySacaIdIn(sacaIds);
             if (!paqueteIds.isEmpty()) {
                 paqueteService.aplicarEstadoEnDespacho(paqueteIds);
             }
@@ -166,22 +171,28 @@ public class DespachoService {
 
         List<Long> currentSacaIds = currentSacas.stream().map(Saca::getId).toList();
         Set<Long> currentSet = Set.copyOf(currentSacaIds);
-        List<Long> paqueteIdsToApply = new ArrayList<>();
-        for (Long sacaId : requestedSacaIds) {
-            Saca saca = sacaRepository.findById(sacaId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Saca", sacaId));
-            if (saca.getDespacho() != null && !saca.getDespacho().getId().equals(id)) {
-                throw new BadRequestException("La saca " + saca.getNumeroOrden() + " ya está asignada a otro despacho");
+        List<Long> nuevasSacaIds = new ArrayList<>();
+        if (!requestedSacaIds.isEmpty()) {
+            List<Saca> sacasReq = sacaRepository.findAllById(requestedSacaIds);
+            if (sacasReq.size() != requestedSacaIds.size()) {
+                Set<Long> encontradas = sacasReq.stream().map(Saca::getId).collect(Collectors.toSet());
+                Long faltante = requestedSacaIds.stream().filter(sid -> !encontradas.contains(sid)).findFirst().orElse(null);
+                throw new ResourceNotFoundException("Saca", faltante);
             }
-            boolean wasNew = !currentSet.contains(sacaId);
-            saca.setDespacho(d);
-            sacaRepository.save(saca);
-            if (wasNew) {
-                paqueteRepository.findBySacaId(sacaId).forEach(paq -> paqueteIdsToApply.add(paq.getId()));
+            for (Saca saca : sacasReq) {
+                sacaEnDespachoValidator.requireSinDespacho(saca, id);
+                if (!currentSet.contains(saca.getId())) {
+                    nuevasSacaIds.add(saca.getId());
+                }
+                saca.setDespacho(d);
             }
+            sacaRepository.saveAll(sacasReq);
         }
-        if (!paqueteIdsToApply.isEmpty()) {
-            paqueteService.aplicarEstadoEnDespacho(paqueteIdsToApply);
+        if (!nuevasSacaIds.isEmpty()) {
+            List<Long> paqueteIdsToApply = paqueteRepository.findIdsBySacaIdIn(nuevasSacaIds);
+            if (!paqueteIdsToApply.isEmpty()) {
+                paqueteService.aplicarEstadoEnDespacho(paqueteIdsToApply);
+            }
         }
 
         d = despachoRepository.findById(d.getId()).orElse(d);
@@ -193,16 +204,16 @@ public class DespachoService {
         Despacho d = despachoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Despacho", id));
         List<Saca> sacas = d.getSacas() != null ? d.getSacas() : new ArrayList<>();
-        List<Long> paqueteIds = new ArrayList<>();
-        for (Saca saca : sacas) {
-            paqueteRepository.findBySacaId(saca.getId()).forEach(paquete -> paqueteIds.add(paquete.getId()));
-        }
-        if (!paqueteIds.isEmpty()) {
-            paqueteService.revertirEstadoSiUltimoEventoCoincide(paqueteIds, "DESPACHO_AUTO");
-        }
-        for (Saca saca : sacas) {
-            saca.setDespacho(null);
-            sacaRepository.save(saca);
+        if (!sacas.isEmpty()) {
+            List<Long> sacaIds = sacas.stream().map(Saca::getId).toList();
+            List<Long> paqueteIds = paqueteRepository.findIdsBySacaIdIn(sacaIds);
+            if (!paqueteIds.isEmpty()) {
+                paqueteService.revertirEstadoSiUltimoEventoCoincide(paqueteIds, "DESPACHO_AUTO");
+            }
+            for (Saca saca : sacas) {
+                saca.setDespacho(null);
+            }
+            sacaRepository.saveAll(sacas);
         }
         despachoRepository.delete(d);
     }
@@ -305,13 +316,13 @@ public class DespachoService {
     }
 
     private AplicarEstadoPorPeriodoResponse aplicarEstadoEnDespachos(List<Despacho> despachos, Long estadoId) {
-        List<Long> paqueteIds = new ArrayList<>();
-        for (Despacho d : despachos) {
-            List<Saca> sacas = sacaRepository.findByDespachoIdOrderByIdAsc(d.getId());
-            for (Saca s : sacas) {
-                paqueteRepository.findBySacaId(s.getId()).forEach(p -> paqueteIds.add(p.getId()));
-            }
+        if (despachos.isEmpty()) {
+            return AplicarEstadoPorPeriodoResponse.builder().despachosProcesados(0).paquetesActualizados(0).build();
         }
+        List<Long> despachoIds = despachos.stream().map(Despacho::getId).toList();
+        List<Saca> sacas = sacaRepository.findByDespachoIdIn(despachoIds);
+        List<Long> sacaIds = sacas.stream().map(Saca::getId).toList();
+        List<Long> paqueteIds = sacaIds.isEmpty() ? List.of() : paqueteRepository.findIdsBySacaIdIn(sacaIds);
         paqueteService.aplicarEstadoRastreoMasivo(paqueteIds, estadoId);
         return AplicarEstadoPorPeriodoResponse.builder()
                 .despachosProcesados(despachos.size())
