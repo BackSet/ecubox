@@ -52,6 +52,14 @@ public class TrackingEventService {
         metadata.put("bloqueado", Boolean.TRUE.equals(paquete.getBloqueado()));
         metadata.put("fechaEstadoActualDesde", paquete.getFechaEstadoActualDesde());
         metadata.put("motivoAlterno", paquete.getMotivoAlterno());
+        metadata.put("trackingBase", paquete.getGuiaMaster() != null ? paquete.getGuiaMaster().getTrackingBase() : null);
+        metadata.put("guiaMasterId", paquete.getGuiaMaster() != null ? paquete.getGuiaMaster().getId() : null);
+        metadata.put("piezaNumero", paquete.getPiezaNumero());
+        metadata.put("piezaTotal", paquete.getPiezaTotal());
+        metadata.put("envioConsolidadoId",
+                paquete.getEnvioConsolidado() != null ? paquete.getEnvioConsolidado().getId() : null);
+        metadata.put("envioConsolidadoCodigo",
+                paquete.getEnvioConsolidado() != null ? paquete.getEnvioConsolidado().getCodigo() : null);
 
         String metadataJson = toJson(metadata);
 
@@ -88,6 +96,14 @@ public class TrackingEventService {
         payload.put("motivoAlterno", motivoAlterno);
         payload.put("bloqueado", Boolean.TRUE.equals(paquete.getBloqueado()));
         payload.put("enFlujoAlterno", Boolean.TRUE.equals(paquete.getEnFlujoAlterno()));
+        payload.put("trackingBase", paquete.getGuiaMaster() != null ? paquete.getGuiaMaster().getTrackingBase() : null);
+        payload.put("guiaMasterId", paquete.getGuiaMaster() != null ? paquete.getGuiaMaster().getId() : null);
+        payload.put("piezaNumero", paquete.getPiezaNumero());
+        payload.put("piezaTotal", paquete.getPiezaTotal());
+        payload.put("envioConsolidadoId",
+                paquete.getEnvioConsolidado() != null ? paquete.getEnvioConsolidado().getId() : null);
+        payload.put("envioConsolidadoCodigo",
+                paquete.getEnvioConsolidado() != null ? paquete.getEnvioConsolidado().getCodigo() : null);
         payload.put("idempotencyKey", idempotencyKey);
 
         OutboxEvent outboxEvent = OutboxEvent.builder()

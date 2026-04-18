@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.dto.AplicarEstadoEnDespachosRequest;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoPorPeriodoRequest;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoPorPeriodoResponse;
 import com.ecubox.ecubox_backend.dto.DespachoCreateRequest;
@@ -62,6 +63,15 @@ public class OperarioDespachoController {
         return ResponseEntity.ok(despachoService.aplicarEstadoRastreoPorPeriodo(
                 request.getFechaInicio(),
                 request.getFechaFin(),
+                request.getEstadoRastreoId()));
+    }
+
+    @PostMapping("/aplicar-estado-en-despachos")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    public ResponseEntity<AplicarEstadoPorPeriodoResponse> aplicarEstadoEnDespachos(
+            @Valid @RequestBody AplicarEstadoEnDespachosRequest request) {
+        return ResponseEntity.ok(despachoService.aplicarEstadoRastreoEnDespachos(
+                request.getDespachoIds(),
                 request.getEstadoRastreoId()));
     }
 

@@ -9,6 +9,7 @@ import com.ecubox.ecubox_backend.dto.PaqueteUpdateRequest;
 import com.ecubox.ecubox_backend.dto.TrackingDespachoDTO;
 import com.ecubox.ecubox_backend.dto.TrackingDestinatarioDTO;
 import com.ecubox.ecubox_backend.dto.TrackingEstadoItemDTO;
+import com.ecubox.ecubox_backend.dto.TrackingMasterResponse;
 import com.ecubox.ecubox_backend.dto.TrackingOperadorEntregaDTO;
 import com.ecubox.ecubox_backend.dto.TrackingPaqueteDespachoDTO;
 import com.ecubox.ecubox_backend.dto.TrackingResponse;
@@ -16,6 +17,7 @@ import com.ecubox.ecubox_backend.dto.TrackingSacaDTO;
 import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
 import com.ecubox.ecubox_backend.entity.Despacho;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
+import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.entity.PaqueteEstadoEvento;
 import com.ecubox.ecubox_backend.entity.Saca;
@@ -25,6 +27,7 @@ import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
+import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
@@ -63,6 +66,8 @@ public class PaqueteService {
     private final ParametroSistemaService parametroSistemaService;
     private final EstadoRastreoService estadoRastreoService;
     private final TrackingEventService trackingEventService;
+    private final GuiaMasterRepository guiaMasterRepository;
+    private final GuiaMasterService guiaMasterService;
     private final boolean useEventTimeline;
 
     public PaqueteService(PaqueteRepository paqueteRepository,
@@ -74,6 +79,8 @@ public class PaqueteService {
                           ParametroSistemaService parametroSistemaService,
                           EstadoRastreoService estadoRastreoService,
                           TrackingEventService trackingEventService,
+                          GuiaMasterRepository guiaMasterRepository,
+                          GuiaMasterService guiaMasterService,
                           @Value("${tracking.timeline.use-events:true}") boolean useEventTimeline) {
         this.paqueteRepository = paqueteRepository;
         this.destinatarioFinalRepository = destinatarioFinalRepository;
@@ -84,6 +91,8 @@ public class PaqueteService {
         this.parametroSistemaService = parametroSistemaService;
         this.estadoRastreoService = estadoRastreoService;
         this.trackingEventService = trackingEventService;
+        this.guiaMasterRepository = guiaMasterRepository;
+        this.guiaMasterService = guiaMasterService;
         this.useEventTimeline = useEventTimeline;
     }
 
@@ -104,16 +113,13 @@ public class PaqueteService {
     }
 
     @Transactional
-    public PaqueteDTO create(Long usuarioId, boolean contenidoObligatorio, PaqueteCreateRequest request) {
+    public PaqueteDTO create(Long usuarioId, boolean canManageAny, boolean contenidoObligatorio, PaqueteCreateRequest request) {
         if (contenidoObligatorio && (request.getContenido() == null || request.getContenido().isBlank())) {
             throw new BadRequestException("El contenido es obligatorio");
         }
-        if (paqueteRepository.existsByNumeroGuia(request.getNumeroGuia())) {
-            throw new ConflictException("Ya existe un paquete con ese número de guía");
-        }
         DestinatarioFinal dest = destinatarioFinalRepository.findById(request.getDestinatarioFinalId())
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", request.getDestinatarioFinalId()));
-        if (!dest.getUsuario().getId().equals(usuarioId)) {
+        if (!canManageAny && !dest.getUsuario().getId().equals(usuarioId)) {
             throw new ResourceNotFoundException("Destinatario", request.getDestinatarioFinalId());
         }
         String codigoBase = (dest.getCodigo() != null && !dest.getCodigo().isBlank())
@@ -131,9 +137,20 @@ public class PaqueteService {
             }
         }
         EstadoRastreo estadoInicial = getEstadoRegistroPaquete();
+        GuiaMasterAsignacion asignacion = resolverGuiaMasterParaCreacion(
+                omitOperarioFields ? null : request.getGuiaMasterId(),
+                omitOperarioFields ? null : request.getPiezaNumero(),
+                ref);
+        String numeroGuiaCompuesto = GuiaMasterService.componerNumeroGuia(
+                asignacion.guiaMaster(), asignacion.piezaNumero());
+        if (numeroGuiaCompuesto == null || paqueteRepository.existsByNumeroGuia(numeroGuiaCompuesto)) {
+            throw new ConflictException("No se pudo generar un número de guía único; verifique la guía master y la pieza");
+        }
         Paquete p = Paquete.builder()
-                .numeroGuia(request.getNumeroGuia())
-                .numeroGuiaEnvio(omitOperarioFields ? null : trimOrNull(request.getNumeroGuiaEnvio()))
+                .numeroGuia(numeroGuiaCompuesto)
+                .guiaMaster(asignacion.guiaMaster())
+                .piezaNumero(asignacion.piezaNumero())
+                .piezaTotal(asignacion.piezaTotal())
                 .ref(ref)
                 .destinatarioFinal(dest)
                 .contenido(request.getContenido())
@@ -152,7 +169,27 @@ public class PaqueteService {
                 null,
                 buildIdempotencyKey("create", p.getId(), null, estadoInicial.getId())
         );
+        guiaMasterService.recomputarEstado(asignacion.guiaMaster().getId());
         return toDTO(p);
+    }
+
+    private record GuiaMasterAsignacion(GuiaMaster guiaMaster, Integer piezaNumero, Integer piezaTotal) {}
+
+    /**
+     * Resuelve la guía master para crear un paquete:
+     * - si viene guiaMasterId, valida y reserva el piezaNumero (o el siguiente disponible).
+     * - si no viene, se crea una guía master individual (AUTO-...) con total 1 y pieza 1/1.
+     */
+    private GuiaMasterAsignacion resolverGuiaMasterParaCreacion(Long guiaMasterId, Integer piezaNumero, String refFallback) {
+        if (guiaMasterId != null) {
+            GuiaMaster gm = guiaMasterRepository.findById(guiaMasterId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Guía master", guiaMasterId));
+            int[] asignado = guiaMasterService.validarYAsignarPieza(gm, piezaNumero);
+            return new GuiaMasterAsignacion(gm, asignado[0], asignado[1]);
+        }
+        String trackingBase = "AUTO-" + (refFallback != null ? refFallback : System.currentTimeMillis());
+        GuiaMaster gm = guiaMasterService.create(trackingBase, 1, null);
+        return new GuiaMasterAsignacion(gm, 1, 1);
     }
 
     @Transactional(readOnly = true)
@@ -243,6 +280,9 @@ public class PaqueteService {
             p.setSaca(null);
         }
         p = paqueteRepository.save(p);
+        if (p.getGuiaMaster() != null) {
+            guiaMasterService.recomputarEstado(p.getGuiaMaster().getId());
+        }
         return toDTO(p);
     }
 
@@ -254,12 +294,19 @@ public class PaqueteService {
             throw new BadRequestException("La saca ya está asignada a un despacho");
         }
         List<PaqueteDTO> result = new ArrayList<>();
+        Set<Long> guiasAfectadas = new HashSet<>();
         for (Long paqueteId : paqueteIds) {
             Paquete p = paqueteRepository.findById(paqueteId)
                     .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
             p.setSaca(saca);
             p = paqueteRepository.save(p);
+            if (p.getGuiaMaster() != null) {
+                guiasAfectadas.add(p.getGuiaMaster().getId());
+            }
             result.add(toDTO(p));
+        }
+        for (Long gmId : guiasAfectadas) {
+            guiaMasterService.recomputarEstado(gmId);
         }
         return result;
     }
@@ -271,6 +318,7 @@ public class PaqueteService {
         Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnDespachoId();
         if (estadoId == null) return;
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoId);
+        Set<Long> guiasAfectadas = new HashSet<>();
         for (Long id : paqueteIds) {
             paqueteRepository.findById(id).ifPresent(p -> {
                 EstadoRastreo origen = p.getEstadoRastreo();
@@ -286,7 +334,13 @@ public class PaqueteService {
                         null,
                         buildIdempotencyKey("despacho", p.getId(), origen != null ? origen.getId() : null, estado.getId())
                 );
+                if (p.getGuiaMaster() != null) {
+                    guiasAfectadas.add(p.getGuiaMaster().getId());
+                }
             });
+        }
+        for (Long gmId : guiasAfectadas) {
+            guiaMasterService.recomputarEstado(gmId);
         }
     }
 
@@ -297,6 +351,7 @@ public class PaqueteService {
         Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnLoteRecepcionId();
         if (estadoId == null) return;
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoId);
+        Set<Long> guiasAfectadas = new HashSet<>();
         for (Long id : paqueteIds) {
             paqueteRepository.findById(id).ifPresent(p -> {
                 EstadoRastreo origen = p.getEstadoRastreo();
@@ -312,7 +367,13 @@ public class PaqueteService {
                         null,
                         buildIdempotencyKey("lote-recepcion", p.getId(), origen != null ? origen.getId() : null, estado.getId())
                 );
+                if (p.getGuiaMaster() != null) {
+                    guiasAfectadas.add(p.getGuiaMaster().getId());
+                }
             });
+        }
+        for (Long gmId : guiasAfectadas) {
+            guiaMasterService.recomputarEstado(gmId);
         }
     }
 
@@ -395,13 +456,6 @@ public class PaqueteService {
                 throw new ResourceNotFoundException("Paquete", paqueteId);
             }
         }
-        String newNumeroGuia = request.getNumeroGuia() != null ? request.getNumeroGuia().trim() : null;
-        if (newNumeroGuia != null && !newNumeroGuia.equals(p.getNumeroGuia())) {
-            if (paqueteRepository.existsByNumeroGuiaAndIdNot(newNumeroGuia, paqueteId)) {
-                throw new ConflictException("Ya existe otro paquete con ese número de guía");
-            }
-            p.setNumeroGuia(newNumeroGuia);
-        }
         Long newDestId = request.getDestinatarioFinalId();
         if (newDestId != null && (p.getDestinatarioFinal() == null || !p.getDestinatarioFinal().getId().equals(newDestId))) {
             DestinatarioFinal newDest = destinatarioFinalRepository.findById(newDestId)
@@ -432,9 +486,6 @@ public class PaqueteService {
             } else {
                 p.setPesoLbs(null);
             }
-            if (request.getNumeroGuiaEnvio() != null) {
-                p.setNumeroGuiaEnvio(trimOrNull(request.getNumeroGuiaEnvio()));
-            }
             String newRef = request.getRef() != null ? request.getRef().trim() : null;
             if (newRef != null && !newRef.isEmpty()) {
                 if (paqueteRepository.existsByRefAndIdNot(newRef, paqueteId)) {
@@ -442,9 +493,42 @@ public class PaqueteService {
                 }
                 p.setRef(newRef);
             }
+            if (request.getGuiaMasterId() != null
+                    && (p.getGuiaMaster() == null || !p.getGuiaMaster().getId().equals(request.getGuiaMasterId()))) {
+                Long previaId = p.getGuiaMaster() != null ? p.getGuiaMaster().getId() : null;
+                reasignarPiezaAGuiaMaster(p, request.getGuiaMasterId(), request.getPiezaNumero());
+                String nuevoNumeroGuia = GuiaMasterService.componerNumeroGuia(p.getGuiaMaster(), p.getPiezaNumero());
+                if (nuevoNumeroGuia != null && !nuevoNumeroGuia.equals(p.getNumeroGuia())) {
+                    if (paqueteRepository.existsByNumeroGuiaAndIdNot(nuevoNumeroGuia, paqueteId)) {
+                        throw new ConflictException("Ya existe otro paquete con ese número de guía");
+                    }
+                    p.setNumeroGuia(nuevoNumeroGuia);
+                }
+                if (previaId != null) {
+                    guiaMasterService.recomputarEstado(previaId);
+                }
+                guiaMasterService.recomputarEstado(request.getGuiaMasterId());
+            }
         }
         p = paqueteRepository.save(p);
         return toDTO(p);
+    }
+
+    private void reasignarPiezaAGuiaMaster(Paquete p, Long guiaMasterId, Integer piezaNumero) {
+        GuiaMaster gm = guiaMasterRepository.findById(guiaMasterId)
+                .orElseThrow(() -> new ResourceNotFoundException("Guía master", guiaMasterId));
+        int[] asignado = guiaMasterService.validarYAsignarPieza(gm, piezaNumero);
+        p.setGuiaMaster(gm);
+        p.setPiezaNumero(asignado[0]);
+        p.setPiezaTotal(asignado[1]);
+        String nuevoNumeroGuia = GuiaMasterService.componerNumeroGuia(gm, asignado[0]);
+        if (nuevoNumeroGuia != null && !nuevoNumeroGuia.equals(p.getNumeroGuia())) {
+            if (paqueteRepository.existsByNumeroGuiaAndIdNot(nuevoNumeroGuia,
+                    p.getId() != null ? p.getId() : -1L)) {
+                throw new ConflictException("Ya existe otro paquete con ese número de guía");
+            }
+            p.setNumeroGuia(nuevoNumeroGuia);
+        }
     }
 
     @Transactional
@@ -471,7 +555,14 @@ public class PaqueteService {
                                    boolean paqueteVencido,
                                    boolean cuentaRegresivaFinalizada) {}
 
-    @Transactional(readOnly = true)
+    /**
+     * Lectura para tracking público. {@link ResourceNotFoundException} se usa como
+     * señal de "no existe pieza con ese número" y es esperado en flujos donde el
+     * llamador (ej. {@code TrackingResolverService.resolve}) prueba después con
+     * guía master. Evitamos así marcar la transacción global como rollback-only
+     * cuando esa excepción es atrapada por el caller.
+     */
+    @Transactional(readOnly = true, noRollbackFor = ResourceNotFoundException.class)
     public TrackingResponse findByNumeroGuiaForTracking(String numeroGuia) {
         String guia = numeroGuia != null ? numeroGuia.trim().toUpperCase() : null;
         Paquete p = paqueteRepository.findByNumeroGuiaWithSacaAndDespacho(guia)
@@ -488,6 +579,25 @@ public class PaqueteService {
         Integer diasTranscurridos = plazoRetiroInfo.diasTranscurridos();
         Integer diasRestantes = plazoRetiroInfo.diasRestantes();
 
+        // Sprint 2: cargar event log y construir mapa estadoId -> ultimo occurredAt
+        // para enriquecer los items del timeline con fechas reales (auditables).
+        List<PaqueteEstadoEvento> eventos = useEventTimeline
+                ? trackingEventService.listarEventosPorPaquete(p.getId())
+                : List.of();
+        Map<Long, LocalDateTime> ocurrenciaPorEstado = new LinkedHashMap<>();
+        for (PaqueteEstadoEvento evento : eventos) {
+            EstadoRastreo destino = evento.getEstadoDestino();
+            if (destino == null || destino.getId() == null) continue;
+            LocalDateTime when = evento.getOccurredAt();
+            if (when == null) continue;
+            // Nos quedamos con la ultima ocurrencia por estado (refleja la transicion
+            // mas reciente, util cuando hay reversiones o correcciones).
+            LocalDateTime prev = ocurrenciaPorEstado.get(destino.getId());
+            if (prev == null || when.isAfter(prev)) {
+                ocurrenciaPorEstado.put(destino.getId(), when);
+            }
+        }
+
         List<EstadoRastreo> todosEstados = estadoRastreoService.findActivosEntities();
         for (EstadoRastreo e : todosEstados) {
             boolean esActual = estadoActualId != null && estadoActualId.equals(e.getId());
@@ -501,6 +611,12 @@ public class PaqueteService {
                 continue;
             }
             String leyenda = renderLeyenda(e.getLeyenda(), diasTranscurridos);
+            LocalDateTime fechaOcurrencia = ocurrenciaPorEstado.get(e.getId());
+            // Para el estado actual, si no hay evento (caso fallback) usamos la fecha
+            // denormalizada en el paquete para no mostrar el paso "vacio".
+            if (fechaOcurrencia == null && esActual) {
+                fechaOcurrencia = p.getFechaEstadoActualDesde();
+            }
             estadosCatalogo.add(TrackingEstadoItemDTO.builder()
                     .id(e.getId())
                     .codigo(e.getCodigo())
@@ -509,6 +625,7 @@ public class PaqueteService {
                     .tipoFlujo(e.getTipoFlujo())
                     .leyenda(leyenda)
                     .esActual(esActual)
+                    .fechaOcurrencia(fechaOcurrencia)
                     .build());
             if (esActual) {
                 leyendaActual = leyenda;
@@ -521,11 +638,8 @@ public class PaqueteService {
                 .filter(item -> TipoFlujoEstado.ALTERNO.equals(item.getTipoFlujo()))
                 .toList();
         List<TrackingEstadoItemDTO> alternosPorEventos = List.of();
-        if (useEventTimeline) {
-            List<PaqueteEstadoEvento> eventos = trackingEventService.listarEventosPorPaquete(p.getId());
-            if (!eventos.isEmpty()) {
-                alternosPorEventos = buildAlternoTimelineFromEventos(eventos, estadoActualId, diasTranscurridos);
-            }
+        if (useEventTimeline && !eventos.isEmpty()) {
+            alternosPorEventos = buildAlternoTimelineFromEventos(eventos, estadoActualId, diasTranscurridos, ocurrenciaPorEstado);
         }
         Set<Long> alternosPermitidos = alternosPorEventos.stream()
                 .map(TrackingEstadoItemDTO::getId)
@@ -559,7 +673,29 @@ public class PaqueteService {
                 .sacaActual(buildSacaActualCard(p))
                 .paquetesDespacho(buildPaquetesDespachoCard(p))
                 .operadorEntrega(buildOperadorEntregaCard(p))
+                .master(buildMasterResumenForPieza(p))
                 .build();
+    }
+
+    /**
+     * Resumen de la guía master a la que pertenece esta pieza, para que el cliente
+     * pueda ver — desde el tracking de una pieza individual — todas las piezas
+     * hermanas con su estado y navegar al tracking de cada una.
+     *
+     * <p>Solo se incluye cuando la guía consolida más de una pieza (esperadas o
+     * registradas). El feed agregado ({@code timeline}) se omite para mantener
+     * la respuesta liviana; quien quiera el feed completo puede consultar el
+     * tracking de la guía master por su {@code trackingBase}.</p>
+     */
+    private TrackingMasterResponse buildMasterResumenForPieza(Paquete p) {
+        if (p == null) return null;
+        GuiaMaster gm = p.getGuiaMaster();
+        if (gm == null) return null;
+        Integer total = gm.getTotalPiezasEsperadas();
+        long registradas = paqueteRepository.countByGuiaMasterId(gm.getId());
+        boolean masDeUna = (total != null && total > 1) || registradas > 1;
+        if (!masDeUna) return null;
+        return guiaMasterService.buildTrackingMasterResponse(gm, false);
     }
 
     private List<TrackingEstadoItemDTO> mergeTimeline(List<TrackingEstadoItemDTO> estadosBase,
@@ -587,7 +723,8 @@ public class PaqueteService {
 
     private List<TrackingEstadoItemDTO> buildAlternoTimelineFromEventos(List<PaqueteEstadoEvento> eventos,
                                                                         Long estadoActualId,
-                                                                        Integer diasTranscurridos) {
+                                                                        Integer diasTranscurridos,
+                                                                        Map<Long, LocalDateTime> ocurrenciaPorEstado) {
         Map<Long, TrackingEstadoItemDTO> uniqueTimeline = new LinkedHashMap<>();
         for (PaqueteEstadoEvento evento : eventos) {
             EstadoRastreo destino = evento.getEstadoDestino();
@@ -609,6 +746,7 @@ public class PaqueteService {
                     .tipoFlujo(destino.getTipoFlujo())
                     .leyenda(leyenda)
                     .esActual(estadoActualId != null && estadoActualId.equals(destino.getId()))
+                    .fechaOcurrencia(ocurrenciaPorEstado.get(destino.getId()))
                     .build());
         }
         return uniqueTimeline.values().stream()
@@ -636,15 +774,18 @@ public class PaqueteService {
         var estadosPorPunto = parametroSistemaService.getEstadosRastreoPorPunto();
         Long estadoFinalCuentaRegresivaId =
                 estadosPorPunto != null ? estadosPorPunto.getEstadoRastreoFinCuentaRegresivaId() : null;
+        Long estadoInicioCuentaRegresivaId =
+                estadosPorPunto != null ? estadosPorPunto.getEstadoRastreoInicioCuentaRegresivaId() : null;
         Long estadoActualId = p.getEstadoRastreo() != null ? p.getEstadoRastreo().getId() : null;
         if (estadoFinalCuentaRegresivaId != null && Objects.equals(estadoFinalCuentaRegresivaId, estadoActualId)) {
             return new PlazoRetiroInfo(null, null, null, 0, false, true);
         }
         Integer diasMaxRetiro = chooseDiasMaxRetiroPorEntidad(p);
-        if (diasMaxRetiro == null || p.getFechaEstadoActualDesde() == null) {
+        LocalDateTime fechaAncla = resolverFechaAnclaCuentaRegresiva(p, estadoInicioCuentaRegresivaId, estadoActualId);
+        if (diasMaxRetiro == null || fechaAncla == null) {
             return new PlazoRetiroInfo(diasMaxRetiro, null, null, 0, false, false);
         }
-        LocalDate desde = p.getFechaEstadoActualDesde().atZone(ZONA_ECUADOR).toLocalDate();
+        LocalDate desde = fechaAncla.atZone(ZONA_ECUADOR).toLocalDate();
         LocalDate hoy = LocalDate.now(ZONA_ECUADOR);
         long dias = java.time.temporal.ChronoUnit.DAYS.between(desde, hoy);
         int diasTranscurridos = (int) Math.max(0, dias);
@@ -652,6 +793,38 @@ public class PaqueteService {
         int diasAtrasoRetiro = Math.max(0, diasTranscurridos - diasMaxRetiro);
         boolean paqueteVencido = diasTranscurridos > diasMaxRetiro;
         return new PlazoRetiroInfo(diasMaxRetiro, diasTranscurridos, diasRestantes, diasAtrasoRetiro, paqueteVencido, false);
+    }
+
+    /**
+     * Devuelve el instante desde el cual debe contarse la cuenta regresiva.
+     *
+     * <ul>
+     *   <li>Si NO hay estado de inicio configurado: usa {@code fechaEstadoActualDesde}
+     *       (comportamiento histórico, se reinicia con cada cambio de estado).</li>
+     *   <li>Si HAY estado de inicio configurado y el paquete está actualmente en ese
+     *       estado: usa {@code fechaEstadoActualDesde}.</li>
+     *   <li>Si HAY estado de inicio configurado: busca en el log de eventos la primera
+     *       transición HACIA ese estado y usa su {@code occurredAt}. Si nunca pasó por
+     *       ese estado, retorna {@code null} (no hay cuenta regresiva todavía).</li>
+     * </ul>
+     */
+    private LocalDateTime resolverFechaAnclaCuentaRegresiva(Paquete p,
+                                                            Long estadoInicioCuentaRegresivaId,
+                                                            Long estadoActualId) {
+        if (estadoInicioCuentaRegresivaId == null) {
+            return p.getFechaEstadoActualDesde();
+        }
+        if (Objects.equals(estadoInicioCuentaRegresivaId, estadoActualId)) {
+            return p.getFechaEstadoActualDesde();
+        }
+        if (p.getId() == null) {
+            return null;
+        }
+        return paqueteEstadoEventoRepository
+                .findTopByPaqueteIdAndEstadoDestino_IdOrderByOccurredAtAscIdAsc(
+                        p.getId(), estadoInicioCuentaRegresivaId)
+                .map(PaqueteEstadoEvento::getOccurredAt)
+                .orElse(null);
     }
 
     private TrackingDespachoDTO buildDespachoCard(Paquete p) {
@@ -719,11 +892,10 @@ public class PaqueteService {
     private TrackingDestinatarioDTO buildDestinatarioCard(Paquete p) {
         DestinatarioFinal dest = p.getDestinatarioFinal();
         if (dest == null) return null;
+        // PII (telefono, direccion) se omite intencionalmente por ser endpoint publico.
         return TrackingDestinatarioDTO.builder()
                 .id(dest.getId())
                 .nombre(dest.getNombre())
-                .telefono(dest.getTelefono())
-                .direccion(dest.getDireccion())
                 .provincia(dest.getProvincia())
                 .canton(dest.getCanton())
                 .build();
@@ -785,6 +957,9 @@ public class PaqueteService {
                 null,
                 buildIdempotencyKey("manual", p.getId(), origen != null ? origen.getId() : null, estado.getId())
         );
+        if (p.getGuiaMaster() != null) {
+            guiaMasterService.recomputarEstado(p.getGuiaMaster().getId());
+        }
         return toDTO(p);
     }
 
@@ -796,9 +971,14 @@ public class PaqueteService {
             throw new BadRequestException("El estado de rastreo seleccionado no está activo");
         }
         List<CambiarEstadoRastreoBulkResponse.RechazoBulk> rechazados = new ArrayList<>();
+        Set<Long> guiasAfectadas = new HashSet<>();
         int actualizados = 0;
+        List<Paquete> cargados = paqueteRepository.findAllById(paqueteIds);
+        Map<Long, Paquete> porId = new LinkedHashMap<>();
+        for (Paquete p : cargados) porId.put(p.getId(), p);
+        List<Paquete> paraGuardar = new ArrayList<>();
         for (Long paqueteId : paqueteIds) {
-            Paquete p = paqueteRepository.findById(paqueteId).orElse(null);
+            Paquete p = porId.get(paqueteId);
             if (p == null) {
                 rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, "Paquete no encontrado"));
                 continue;
@@ -807,8 +987,8 @@ public class PaqueteService {
                 rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, "Tiene despacho/saca asociado"));
                 continue;
             }
-            String numeroGuiaEnvio = trimOrNull(p.getNumeroGuiaEnvio());
-            if (numeroGuiaEnvio != null && loteRecepcionGuiaRepository.existsByNumeroGuiaEnvio(numeroGuiaEnvio)) {
+            String trackingBase = p.getGuiaMaster() != null ? trimOrNull(p.getGuiaMaster().getTrackingBase()) : null;
+            if (trackingBase != null && loteRecepcionGuiaRepository.existsByNumeroGuiaEnvio(trackingBase)) {
                 rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, "Está en lote de recepción"));
                 continue;
             }
@@ -829,8 +1009,17 @@ public class PaqueteService {
                 rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, ex.getMessage()));
                 continue;
             }
-            paqueteRepository.save(p);
+            paraGuardar.add(p);
+            if (p.getGuiaMaster() != null) {
+                guiasAfectadas.add(p.getGuiaMaster().getId());
+            }
             actualizados++;
+        }
+        if (!paraGuardar.isEmpty()) {
+            paqueteRepository.saveAll(paraGuardar);
+        }
+        for (Long gmId : guiasAfectadas) {
+            guiaMasterService.recomputarEstado(gmId);
         }
         return CambiarEstadoRastreoBulkResponse.builder()
                 .actualizados(actualizados)
@@ -843,6 +1032,7 @@ public class PaqueteService {
     public void aplicarEstadoRastreoMasivo(List<Long> paqueteIds, Long estadoRastreoId) {
         if (paqueteIds == null || paqueteIds.isEmpty()) return;
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoRastreoId);
+        Set<Long> guiasAfectadas = new HashSet<>();
         for (Long paqueteId : paqueteIds) {
             paqueteRepository.findById(paqueteId).ifPresent(p -> {
                 EstadoRastreo origen = p.getEstadoRastreo();
@@ -858,31 +1048,84 @@ public class PaqueteService {
                         null,
                         buildIdempotencyKey("periodo", p.getId(), origen != null ? origen.getId() : null, estado.getId())
                 );
+                if (p.getGuiaMaster() != null) {
+                    guiasAfectadas.add(p.getGuiaMaster().getId());
+                }
             });
+        }
+        for (Long gmId : guiasAfectadas) {
+            guiaMasterService.recomputarEstado(gmId);
         }
     }
 
     @Transactional
-    public PaqueteDTO asignarGuiaEnvio(Long paqueteId, String numeroGuiaEnvio) {
+    public PaqueteDTO asignarAGuiaMaster(Long paqueteId, Long guiaMasterId, Integer piezaNumero) {
         Paquete p = paqueteRepository.findById(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
-        p.setNumeroGuiaEnvio(trimOrNull(numeroGuiaEnvio));
+        if (guiaMasterId == null) {
+            throw new BadRequestException("Debe indicar la guía master");
+        }
+        Long previaId = p.getGuiaMaster() != null ? p.getGuiaMaster().getId() : null;
+        if (previaId != null && previaId.equals(guiaMasterId) && piezaNumero != null
+                && piezaNumero.equals(p.getPiezaNumero())) {
+            return toDTO(p);
+        }
+        reasignarPiezaAGuiaMaster(p, guiaMasterId, piezaNumero);
+        aplicarEstadoAsociarGuiaMasterSiCorresponde(p);
         p = paqueteRepository.save(p);
+        if (previaId != null && !previaId.equals(guiaMasterId)) {
+            guiaMasterService.recomputarEstado(previaId);
+        }
+        guiaMasterService.recomputarEstado(guiaMasterId);
         return toDTO(p);
     }
 
     @Transactional
-    public List<PaqueteDTO> asignarGuiaEnvioBulk(String numeroGuiaEnvio, List<Long> paqueteIds) {
-        String value = trimOrNull(numeroGuiaEnvio);
+    public List<PaqueteDTO> asignarGuiaMasterBulk(Long guiaMasterId, List<Long> paqueteIds) {
+        if (guiaMasterId == null) {
+            throw new BadRequestException("Debe indicar la guía master");
+        }
         List<PaqueteDTO> result = new ArrayList<>();
+        Set<Long> guiasAfectadas = new HashSet<>();
+        guiasAfectadas.add(guiaMasterId);
         for (Long paqueteId : paqueteIds) {
             Paquete p = paqueteRepository.findById(paqueteId)
                     .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
-            p.setNumeroGuiaEnvio(value);
+            Long previaId = p.getGuiaMaster() != null ? p.getGuiaMaster().getId() : null;
+            if (previaId != null) guiasAfectadas.add(previaId);
+            reasignarPiezaAGuiaMaster(p, guiaMasterId, null);
+            aplicarEstadoAsociarGuiaMasterSiCorresponde(p);
             p = paqueteRepository.save(p);
             result.add(toDTO(p));
         }
+        for (Long gmId : guiasAfectadas) {
+            guiaMasterService.recomputarEstado(gmId);
+        }
         return result;
+    }
+
+    /**
+     * Si está configurado un estado para "Asociar guía master (consolidado)" y es distinto al estado
+     * actual del paquete, lo aplica y registra la transición en tracking. Idempotente: no actúa si
+     * el paquete ya está en ese estado.
+     */
+    private void aplicarEstadoAsociarGuiaMasterSiCorresponde(Paquete p) {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoAsociarGuiaMasterId();
+        if (estadoId == null) return;
+        EstadoRastreo origen = p.getEstadoRastreo();
+        if (origen != null && estadoId.equals(origen.getId())) return;
+        EstadoRastreo destino = estadoRastreoService.findEntityById(estadoId);
+        aplicarEstadoConReglas(p, destino, null);
+        trackingEventService.registrarTransicion(
+                p,
+                origen,
+                destino,
+                TrackingEventType.ESTADO_APLICADO_ASOCIAR_GUIA_MASTER,
+                "ASOCIAR_GUIA_MASTER",
+                p.getMotivoAlterno(),
+                null,
+                buildIdempotencyKey("asociar-gm", p.getId(), origen != null ? origen.getId() : null, destino.getId())
+        );
     }
 
     @Transactional(readOnly = true)
@@ -993,10 +1236,19 @@ public class PaqueteService {
     public PaqueteDTO toDTO(Paquete p) {
         EstadoRastreo er = p.getEstadoRastreo();
         PlazoRetiroInfo plazoRetiroInfo = calcularPlazoRetiro(p);
+        GuiaMaster gm = p.getGuiaMaster();
         return PaqueteDTO.builder()
                 .id(p.getId())
                 .numeroGuia(p.getNumeroGuia())
-                .numeroGuiaEnvio(p.getNumeroGuiaEnvio())
+                .guiaMasterId(gm != null ? gm.getId() : null)
+                .guiaMasterTrackingBase(gm != null ? gm.getTrackingBase() : null)
+                .guiaMasterEstadoGlobal(gm != null && gm.getEstadoGlobal() != null ? gm.getEstadoGlobal().name() : null)
+                .guiaMasterTotalPiezas(gm != null ? gm.getTotalPiezasEsperadas() : null)
+                .piezaNumero(p.getPiezaNumero())
+                .piezaTotal(p.getPiezaTotal())
+                .envioConsolidadoId(p.getEnvioConsolidado() != null ? p.getEnvioConsolidado().getId() : null)
+                .envioConsolidadoCodigo(p.getEnvioConsolidado() != null ? p.getEnvioConsolidado().getCodigo() : null)
+                .envioConsolidadoCerrado(p.getEnvioConsolidado() != null && p.getEnvioConsolidado().isCerrado())
                 .ref(p.getRef())
                 .pesoLbs(p.getPesoLbs())
                 .pesoKg(WeightUtil.lbsToKg(p.getPesoLbs()))

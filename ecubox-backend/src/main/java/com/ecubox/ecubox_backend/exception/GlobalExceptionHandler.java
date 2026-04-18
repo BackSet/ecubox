@@ -3,6 +3,7 @@ package com.ecubox.ecubox_backend.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
@@ -124,6 +125,25 @@ public class GlobalExceptionHandler {
                         409,
                         "Conflict",
                         message,
+                        null
+                ));
+    }
+
+    /**
+     * Captura denegaciones de acceso lanzadas por @PreAuthorize en métodos de
+     * controlador (incluye AuthorizationDeniedException, subclase de
+     * AccessDeniedException). Sin este handler, el catch-all genérico convertía
+     * la denegación en HTTP 500 en vez del 403 esperado.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(new ApiErrorResponse(
+                        LocalDateTime.now(),
+                        403,
+                        "Forbidden",
+                        "No tiene permisos para acceder a este recurso",
                         null
                 ));
     }

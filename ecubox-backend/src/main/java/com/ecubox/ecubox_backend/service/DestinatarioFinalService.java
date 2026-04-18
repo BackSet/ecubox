@@ -232,6 +232,7 @@ public class DestinatarioFinalService {
     }
 
     private DestinatarioFinalDTO toDTO(DestinatarioFinal d) {
+        Usuario u = d.getUsuario();
         return DestinatarioFinalDTO.builder()
                 .id(d.getId())
                 .nombre(d.getNombre())
@@ -240,6 +241,8 @@ public class DestinatarioFinalService {
                 .provincia(d.getProvincia())
                 .canton(d.getCanton())
                 .codigo(d.getCodigo())
+                .clienteUsuarioId(u != null ? u.getId() : null)
+                .clienteUsuarioNombre(u != null ? u.getUsername() : null)
                 .build();
     }
 }

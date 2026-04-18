@@ -74,8 +74,10 @@ public class OperarioConfigController {
         return ResponseEntity.ok(parametroSistemaService.updateEstadosRastreoPorPunto(
                 request.getEstadoRastreoRegistroPaqueteId(),
                 request.getEstadoRastreoEnLoteRecepcionId(),
+                request.getEstadoRastreoAsociarGuiaMasterId(),
                 request.getEstadoRastreoEnDespachoId(),
                 request.getEstadoRastreoEnTransitoId(),
+                request.getEstadoRastreoInicioCuentaRegresivaId(),
                 request.getEstadoRastreoFinCuentaRegresivaId()));
     }
 }

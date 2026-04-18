@@ -7,8 +7,8 @@ import com.ecubox.ecubox_backend.dto.CambiarEstadoRastreoBulkResponse;
 import com.ecubox.ecubox_backend.dto.CambiarEstadoRastreoRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteAsignarSacaRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
-import com.ecubox.ecubox_backend.dto.PaqueteGuiaEnvioRequest;
-import com.ecubox.ecubox_backend.dto.AsignarGuiaEnvioBulkRequest;
+import com.ecubox.ecubox_backend.dto.PaqueteGuiaMasterRequest;
+import com.ecubox.ecubox_backend.dto.AsignarGuiaMasterBulkRequest;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.EstadosDestinoPermitidosRequest;
 import com.ecubox.ecubox_backend.service.PaqueteService;
@@ -82,20 +82,21 @@ public class OperarioPaqueteController {
                 request.getPaqueteIds(), request.getEstadoRastreoId()));
     }
 
-    @PatchMapping("/{paqueteId}/guia-envio")
+    @PatchMapping("/{paqueteId}/guia-master")
     @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
-    public ResponseEntity<PaqueteDTO> asignarGuiaEnvio(
+    public ResponseEntity<PaqueteDTO> asignarAGuiaMaster(
             @PathVariable Long paqueteId,
-            @RequestBody PaqueteGuiaEnvioRequest request) {
-        return ResponseEntity.ok(paqueteService.asignarGuiaEnvio(paqueteId, request.getNumeroGuiaEnvio()));
+            @RequestBody PaqueteGuiaMasterRequest request) {
+        return ResponseEntity.ok(paqueteService.asignarAGuiaMaster(
+                paqueteId, request.getGuiaMasterId(), request.getPiezaNumero()));
     }
 
-    @PostMapping("/asignar-guia-envio")
+    @PostMapping("/asignar-guia-master")
     @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
-    public ResponseEntity<List<PaqueteDTO>> asignarGuiaEnvioBulk(
-            @Valid @RequestBody AsignarGuiaEnvioBulkRequest request) {
-        return ResponseEntity.ok(paqueteService.asignarGuiaEnvioBulk(
-                request.getNumeroGuiaEnvio(), request.getPaqueteIds()));
+    public ResponseEntity<List<PaqueteDTO>> asignarGuiaMasterBulk(
+            @Valid @RequestBody AsignarGuiaMasterBulkRequest request) {
+        return ResponseEntity.ok(paqueteService.asignarGuiaMasterBulk(
+                request.getGuiaMasterId(), request.getPaqueteIds()));
     }
 
     @PostMapping("/buscar-por-guias")

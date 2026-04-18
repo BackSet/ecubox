@@ -264,15 +264,47 @@ public class DespachoService {
 
     @Transactional
     public AplicarEstadoPorPeriodoResponse aplicarEstadoRastreoPorPeriodo(LocalDate fechaInicio, LocalDate fechaFin, Long estadoRastreoIdOpcional) {
+        Long estadoId = resolverEstadoIdParaTransito(estadoRastreoIdOpcional);
+        LocalDateTime desde = fechaInicio.atStartOfDay();
+        LocalDateTime hasta = fechaFin.atTime(LocalTime.MAX);
+        List<Despacho> despachos = despachoRepository.findByFechaHoraBetweenOrderByFechaHoraAscIdAsc(desde, hasta);
+        return aplicarEstadoEnDespachos(despachos, estadoId);
+    }
+
+    /**
+     * Aplica el estado a todos los paquetes de los despachos indicados (uno o varios).
+     * Si {@code estadoRastreoIdOpcional} es null se usa el estado "en tránsito" configurado.
+     */
+    @Transactional
+    public AplicarEstadoPorPeriodoResponse aplicarEstadoRastreoEnDespachos(List<Long> despachoIds,
+                                                                           Long estadoRastreoIdOpcional) {
+        if (despachoIds == null || despachoIds.isEmpty()) {
+            throw new BadRequestException("Debe indicar al menos un despacho");
+        }
+        Long estadoId = resolverEstadoIdParaTransito(estadoRastreoIdOpcional);
+        List<Long> idsUnicos = despachoIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        List<Despacho> despachos = despachoRepository.findAllById(idsUnicos);
+        if (despachos.size() != idsUnicos.size()) {
+            Set<Long> encontrados = despachos.stream().map(Despacho::getId).collect(Collectors.toSet());
+            Long faltante = idsUnicos.stream().filter(id -> !encontrados.contains(id)).findFirst().orElse(null);
+            if (faltante != null) {
+                throw new ResourceNotFoundException("Despacho", faltante);
+            }
+        }
+        return aplicarEstadoEnDespachos(despachos, estadoId);
+    }
+
+    private Long resolverEstadoIdParaTransito(Long estadoRastreoIdOpcional) {
         Long estadoId = estadoRastreoIdOpcional != null
                 ? estadoRastreoIdOpcional
                 : parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnTransitoId();
         if (estadoId == null) {
             throw new BadRequestException("No hay estado de rastreo configurado para en tránsito");
         }
-        LocalDateTime desde = fechaInicio.atStartOfDay();
-        LocalDateTime hasta = fechaFin.atTime(LocalTime.MAX);
-        List<Despacho> despachos = despachoRepository.findByFechaHoraBetweenOrderByFechaHoraAscIdAsc(desde, hasta);
+        return estadoId;
+    }
+
+    private AplicarEstadoPorPeriodoResponse aplicarEstadoEnDespachos(List<Despacho> despachos, Long estadoId) {
         List<Long> paqueteIds = new ArrayList<>();
         for (Despacho d : despachos) {
             List<Saca> sacas = sacaRepository.findByDespachoIdOrderByIdAsc(d.getId());

@@ -52,7 +52,9 @@ public class PaqueteController {
     public ResponseEntity<PaqueteDTO> create(@Valid @RequestBody PaqueteCreateRequest request) {
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
         boolean contenidoObligatorio = !currentUserService.hasAuthority("PAQUETES_PESO_WRITE");
-        return ResponseEntity.status(HttpStatus.CREATED).body(paqueteService.create(usuarioId, contenidoObligatorio, request));
+        boolean canManageAny = currentUserService.hasRole("ADMIN") || currentUserService.hasRole("OPERARIO");
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(paqueteService.create(usuarioId, canManageAny, contenidoObligatorio, request));
     }
 
     @PutMapping("/{id}")
