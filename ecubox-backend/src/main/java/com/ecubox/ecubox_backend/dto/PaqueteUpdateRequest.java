@@ -1,6 +1,5 @@
 package com.ecubox.ecubox_backend.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,9 +14,6 @@ import java.math.BigDecimal;
 @Builder
 public class PaqueteUpdateRequest {
 
-    @NotBlank(message = "El número de guía es obligatorio")
-    private String numeroGuia;
-
     @NotNull(message = "El destinatario final es obligatorio")
     private Long destinatarioFinalId;
 
@@ -25,8 +21,11 @@ public class PaqueteUpdateRequest {
     private BigDecimal pesoLbs;
     private BigDecimal pesoKg;
 
-    /** Guía de envío del consolidador (opcional). */
-    private String numeroGuiaEnvio;
+    /** Guía master del consolidador (opcional). */
+    private Long guiaMasterId;
+
+    /** Número de pieza dentro de la guía master (opcional). */
+    private Integer piezaNumero;
 
     /** Referencia interna única (opcional; solo admin/operario). */
     private String ref;

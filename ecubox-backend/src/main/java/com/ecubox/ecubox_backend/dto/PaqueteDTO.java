@@ -16,7 +16,16 @@ public class PaqueteDTO {
 
     private Long id;
     private String numeroGuia;
-    private String numeroGuiaEnvio;
+    private Long guiaMasterId;
+    private String guiaMasterTrackingBase;
+    private String guiaMasterEstadoGlobal;
+    private Integer guiaMasterTotalPiezas;
+    private Integer piezaNumero;
+    private Integer piezaTotal;
+    private Long envioConsolidadoId;
+    private String envioConsolidadoCodigo;
+    /** true si el envio consolidado al que pertenece el paquete ya esta cerrado. */
+    private boolean envioConsolidadoCerrado;
     private String ref;
     private BigDecimal pesoLbs;
     private BigDecimal pesoKg;

@@ -18,11 +18,17 @@ public class EstadosRastreoPorPuntoRequest {
     @NotNull(message = "El estado en lote de recepción es obligatorio")
     private Long estadoRastreoEnLoteRecepcionId;
 
+    /** Opcional: estado aplicado al asociar paquete con guía master (consolidado). */
+    private Long estadoRastreoAsociarGuiaMasterId;
+
     @NotNull(message = "El estado en despacho es obligatorio")
     private Long estadoRastreoEnDespachoId;
 
     @NotNull(message = "El estado en tránsito es obligatorio")
     private Long estadoRastreoEnTransitoId;
+
+    /** Opcional: estado que ANCLA el inicio de la cuenta regresiva en tracking. */
+    private Long estadoRastreoInicioCuentaRegresivaId;
 
     /** Opcional: estado que marca fin de cuenta regresiva en tracking. */
     private Long estadoRastreoFinCuentaRegresivaId;

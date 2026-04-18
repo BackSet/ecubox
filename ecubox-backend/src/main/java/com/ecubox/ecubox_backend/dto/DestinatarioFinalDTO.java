@@ -18,4 +18,6 @@ public class DestinatarioFinalDTO {
     private String provincia;
     private String canton;
     private String codigo;
+    private Long clienteUsuarioId;
+    private String clienteUsuarioNombre;
 }

@@ -39,4 +39,14 @@ public class TrackingResponse {
     private List<TrackingPaqueteDespachoDTO> paquetesDespacho;
     private TrackingDestinatarioDTO destinatario;
     private TrackingOperadorEntregaDTO operadorEntrega;
+
+    /**
+     * Resumen ligero de la guía master a la que pertenece esta pieza, incluyendo la
+     * lista de piezas hermanas para que el cliente pueda navegar al tracking
+     * individual de cada una. Solo se completa cuando la guía tiene más de una
+     * pieza esperada o registrada. El campo {@code timeline} dentro de este
+     * resumen no se incluye en la vista de pieza para evitar respuestas pesadas
+     * (el feed agregado se obtiene consultando el tracking de la guía master).
+     */
+    private TrackingMasterResponse master;
 }

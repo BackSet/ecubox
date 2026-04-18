@@ -11,6 +11,8 @@ public interface DestinatarioFinalRepository extends JpaRepository<DestinatarioF
 
     List<DestinatarioFinal> findByUsuarioIdOrderByNombre(Long usuarioId);
 
+    long countByUsuarioId(Long usuarioId);
+
     boolean existsByUsuarioIdAndCodigo(Long usuarioId, String codigo);
 
     boolean existsByUsuarioIdAndCodigoAndIdNot(Long usuarioId, String codigo, Long id);

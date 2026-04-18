@@ -22,8 +22,19 @@ public class Paquete {
     @Column(name = "numero_guia", nullable = false, unique = true, length = 100)
     private String numeroGuia;
 
-    @Column(name = "numero_guia_envio", length = 100)
-    private String numeroGuiaEnvio;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "guia_master_id")
+    private GuiaMaster guiaMaster;
+
+    @Column(name = "pieza_numero")
+    private Integer piezaNumero;
+
+    @Column(name = "pieza_total")
+    private Integer piezaTotal;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "envio_consolidado_id")
+    private EnvioConsolidado envioConsolidado;
 
     @Column(name = "ref", nullable = false, unique = true, length = 100)
     private String ref;
@@ -62,4 +73,20 @@ public class Paquete {
 
     @Column(name = "fecha_bloqueo_desde")
     private LocalDateTime fechaBloqueoDesde;
+
+    /**
+     * Genera el {@code numeroGuia} canonico de un paquete a partir del tracking base
+     * de su guia master y la posicion de pieza dentro del lote.
+     * Formato: {@code "<trackingBase> <piezaNumero>/<piezaTotal>"}.
+     */
+    public static String componerNumeroGuia(String trackingBase, int piezaNumero, int piezaTotal) {
+        if (trackingBase == null || trackingBase.isBlank()) {
+            throw new IllegalArgumentException("trackingBase requerido");
+        }
+        if (piezaTotal < 1 || piezaNumero < 1 || piezaNumero > piezaTotal) {
+            throw new IllegalArgumentException(
+                    "pieza fuera de rango (piezaNumero=" + piezaNumero + ", piezaTotal=" + piezaTotal + ")");
+        }
+        return trackingBase.trim() + " " + piezaNumero + "/" + piezaTotal;
+    }
 }
