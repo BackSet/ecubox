@@ -179,3 +179,22 @@ export async function aplicarEstadoRastreoPorPeriodo(
   return data;
 }
 
+export interface AplicarEstadoEnDespachosParams {
+  despachoIds: number[];
+  estadoRastreoId?: number;
+}
+
+/** Aplica el estado de rastreo a los paquetes de los despachos indicados (uno o varios). */
+export async function aplicarEstadoRastreoEnDespachos(
+  params: AplicarEstadoEnDespachosParams
+): Promise<AplicarEstadoPorPeriodoResponse> {
+  const { data } = await apiClient.post<AplicarEstadoPorPeriodoResponse>(
+    `${DESPACHOS}/aplicar-estado-en-despachos`,
+    {
+      despachoIds: params.despachoIds,
+      estadoRastreoId: params.estadoRastreoId ?? null,
+    }
+  );
+  return data;
+}
+

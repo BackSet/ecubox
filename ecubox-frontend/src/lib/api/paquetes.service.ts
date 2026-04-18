@@ -137,26 +137,30 @@ export async function getEstadosDestinoPermitidos(
   return data;
 }
 
-/** Asignar o quitar guía de envío del consolidador en un paquete (operario). */
-export async function asignarGuiaEnvio(
+/**
+ * Asignar (o desvincular) un paquete a una guía master específica (operario).
+ * Pasar `guiaMasterId=null` para desvincular la pieza del master.
+ */
+export async function asignarPaqueteAGuiaMaster(
   paqueteId: number,
-  numeroGuiaEnvio: string | null
+  guiaMasterId: number | null,
+  piezaNumero?: number | null
 ): Promise<Paquete> {
   const { data } = await apiClient.patch<Paquete>(
-    `${OPERARIO_BASE}/${paqueteId}/guia-envio`,
-    { numeroGuiaEnvio }
+    `${OPERARIO_BASE}/${paqueteId}/guia-master`,
+    { guiaMasterId, piezaNumero }
   );
   return data;
 }
 
-/** Asignar la misma guía de envío a varios paquetes (operario). */
-export async function asignarGuiaEnvioBulk(
-  numeroGuiaEnvio: string | null,
+/** Asignar varios paquetes como piezas de la misma guía master (operario). */
+export async function asignarGuiaMasterBulk(
+  guiaMasterId: number,
   paqueteIds: number[]
 ): Promise<Paquete[]> {
   const { data } = await apiClient.post<Paquete[]>(
-    `${OPERARIO_BASE}/asignar-guia-envio`,
-    { numeroGuiaEnvio, paqueteIds }
+    `${OPERARIO_BASE}/asignar-guia-master`,
+    { guiaMasterId, paqueteIds }
   );
   return data;
 }

@@ -1,7 +1,6 @@
 export interface Paquete {
   id: number;
   numeroGuia: string;
-  numeroGuiaEnvio?: string;
   ref?: string;
   pesoLbs?: number;
   pesoKg?: number;
@@ -27,23 +26,35 @@ export interface Paquete {
   enFlujoAlterno?: boolean;
   motivoAlterno?: string;
   bloqueado?: boolean;
+  // Información de la guía master (carrier) a la que pertenece esta pieza
+  guiaMasterId?: number;
+  guiaMasterTrackingBase?: string;
+  guiaMasterEstadoGlobal?: string;
+  guiaMasterTotalPiezas?: number;
+  piezaNumero?: number;
+  piezaTotal?: number;
+  // Envío consolidado (interno del operario) al que pertenece este paquete.
+  envioConsolidadoId?: number;
+  envioConsolidadoCodigo?: string;
+  /** true si el envio consolidado al que pertenece ya esta cerrado. */
+  envioConsolidadoCerrado?: boolean;
 }
 
 export interface PaqueteCreateRequest {
-  numeroGuia: string;
   destinatarioFinalId: number;
   contenido?: string;
   pesoLbs?: number;
   pesoKg?: number;
-  numeroGuiaEnvio?: string;
+  guiaMasterId?: number;
+  piezaNumero?: number;
 }
 
 export interface PaqueteUpdateRequest {
-  numeroGuia: string;
   destinatarioFinalId: number;
   contenido?: string;
   pesoLbs?: number;
   pesoKg?: number;
-  numeroGuiaEnvio?: string;
   ref?: string;
+  guiaMasterId?: number;
+  piezaNumero?: number;
 }

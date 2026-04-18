@@ -6,6 +6,8 @@ export interface DestinatarioFinal {
   provincia?: string;
   canton?: string;
   codigo?: string;
+  clienteUsuarioId?: number | null;
+  clienteUsuarioNombre?: string | null;
 }
 
 export interface DestinatarioFinalRequest {

@@ -7,6 +7,7 @@ import {
   deleteDespacho,
   getMensajeWhatsAppDespacho,
   aplicarEstadoRastreoPorPeriodo,
+  aplicarEstadoRastreoEnDespachos,
   getDistribuidores,
   getAgencias,
   getAgenciasDistribuidor,
@@ -108,6 +109,19 @@ export function useAplicarEstadoPorPeriodo() {
   });
 }
 
+export function useAplicarEstadoEnDespachos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (params: {
+      despachoIds: number[];
+      estadoRastreoId?: number;
+    }) => aplicarEstadoRastreoEnDespachos(params),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DESPACHOS_QUERY_KEY });
+    },
+  });
+}
+
 export function useDistribuidores() {
   return useQuery({
     queryKey: DISTRIBUIDORES_QUERY_KEY,
@@ -179,10 +193,11 @@ export function useDeleteDestinatarioOperario() {
   });
 }
 
-export function useSacasOperario(sinDespacho = true) {
+export function useSacasOperario(sinDespacho = true, enabled = true) {
   return useQuery({
     queryKey: [...SACAS_QUERY_KEY, { sinDespacho }],
     queryFn: () => getSacasOperario({ sinDespacho }),
+    enabled,
   });
 }
 
@@ -213,10 +228,11 @@ export function useActualizarTamanioSaca() {
   });
 }
 
-export function usePaquetesSinSaca() {
+export function usePaquetesSinSaca(enabled = true) {
   return useQuery({
     queryKey: PAQUETES_SIN_SACA_QUERY_KEY,
     queryFn: getPaquetesSinSaca,
+    enabled,
   });
 }
 

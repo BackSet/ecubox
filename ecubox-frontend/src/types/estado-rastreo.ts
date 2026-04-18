@@ -38,15 +38,19 @@ export interface EstadoRastreoAlternoAfterItem {
 export interface EstadosRastreoPorPunto {
   estadoRastreoRegistroPaqueteId: number;
   estadoRastreoEnLoteRecepcionId: number;
+  estadoRastreoAsociarGuiaMasterId?: number | null;
   estadoRastreoEnDespachoId: number;
   estadoRastreoEnTransitoId: number;
+  estadoRastreoInicioCuentaRegresivaId?: number | null;
   estadoRastreoFinCuentaRegresivaId?: number | null;
 }
 
 export interface EstadosRastreoPorPuntoRequest {
   estadoRastreoRegistroPaqueteId: number;
   estadoRastreoEnLoteRecepcionId: number;
+  estadoRastreoAsociarGuiaMasterId?: number | null;
   estadoRastreoEnDespachoId: number;
   estadoRastreoEnTransitoId: number;
+  estadoRastreoInicioCuentaRegresivaId?: number | null;
   estadoRastreoFinCuentaRegresivaId?: number | null;
 }

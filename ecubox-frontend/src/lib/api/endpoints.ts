@@ -31,4 +31,7 @@ export const API_ENDPOINTS = {
   operarioMensajeAgenciaEeuu: '/operario/config/mensaje-agencia-eeuu',
   operarioEstadosRastreo: '/operario/estados-rastreo',
   operarioConfigEstadosRastreoPorPunto: '/operario/config/estados-rastreo-por-punto',
+  guiasMaster: '/guias-master',
+  enviosConsolidados: '/envios-consolidados',
+  misGuias: '/mis-guias',
 } as const;

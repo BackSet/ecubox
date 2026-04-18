@@ -6,8 +6,8 @@ import {
   updateEstadoRastreo,
   cambiarEstadoRastreoBulk,
   getEstadosDestinoPermitidos,
-  asignarGuiaEnvio as apiAsignarGuiaEnvio,
-  asignarGuiaEnvioBulk,
+  asignarPaqueteAGuiaMaster as apiAsignarPaqueteAGuiaMaster,
+  asignarGuiaMasterBulk as apiAsignarGuiaMasterBulk,
   type PaquetePesoItem,
 } from '@/lib/api/paquetes.service';
 import { DESPACHOS_QUERY_KEY, PAQUETES_SIN_SACA_QUERY_KEY } from '@/hooks/useOperarioDespachos';
@@ -15,10 +15,11 @@ import { DESPACHOS_QUERY_KEY, PAQUETES_SIN_SACA_QUERY_KEY } from '@/hooks/useOpe
 export const OPERARIO_PAQUETES_QUERY_KEY = ['operario', 'paquetes'] as const;
 export const OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY = ['operario', 'paquetes', 'vencidos'] as const;
 
-export function usePaquetesOperario(sinPeso = true) {
+export function usePaquetesOperario(sinPeso = true, enabled = true) {
   return useQuery({
     queryKey: [...OPERARIO_PAQUETES_QUERY_KEY, { sinPeso }],
     queryFn: () => getPaquetesOperario({ sinPeso }),
+    enabled,
   });
 }
 
@@ -74,28 +75,40 @@ export function useEstadosDestinoPermitidos(paqueteIds: number[]) {
   });
 }
 
-export function useAsignarGuiaEnvio() {
+/** Asigna (o desvincula) un paquete individual a una guía master. */
+export function useAsignarPaqueteAGuiaMaster() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ paqueteId, numeroGuiaEnvio }: { paqueteId: number; numeroGuiaEnvio: string | null }) =>
-      apiAsignarGuiaEnvio(paqueteId, numeroGuiaEnvio),
+    mutationFn: ({
+      paqueteId,
+      guiaMasterId,
+      piezaNumero,
+    }: {
+      paqueteId: number;
+      guiaMasterId: number | null;
+      piezaNumero?: number | null;
+    }) => apiAsignarPaqueteAGuiaMaster(paqueteId, guiaMasterId, piezaNumero),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_QUERY_KEY });
       qc.invalidateQueries({ queryKey: DESPACHOS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['guias-master'] });
     },
   });
 }
 
-export function useAsignarGuiaEnvioBulk() {
+/** Asigna varios paquetes como piezas de una misma guía master. */
+export function useAsignarGuiaMasterBulk() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ numeroGuiaEnvio, paqueteIds }: { numeroGuiaEnvio: string | null; paqueteIds: number[] }) =>
-      asignarGuiaEnvioBulk(numeroGuiaEnvio, paqueteIds),
+    mutationFn: ({ guiaMasterId, paqueteIds }: { guiaMasterId: number; paqueteIds: number[] }) =>
+      apiAsignarGuiaMasterBulk(guiaMasterId, paqueteIds),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_QUERY_KEY });
       qc.invalidateQueries({ queryKey: DESPACHOS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['guias-master'] });
     },
   });
 }
+

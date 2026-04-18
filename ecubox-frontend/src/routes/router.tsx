@@ -13,7 +13,12 @@ import { DestinatarioListPage } from '@/pages/dashboard/destinatarios/Destinatar
 import { PaqueteListPage } from '@/pages/dashboard/paquetes/PaqueteListPage';
 import { PaquetesVencidosPage } from '@/pages/dashboard/paquetes/PaquetesVencidosPage';
 import { CargarPesosPage } from '@/pages/dashboard/cargar-pesos/CargarPesosPage';
-import { AsignarGuiaEnvioPage } from '@/pages/dashboard/asignar-guia-envio/AsignarGuiaEnvioPage';
+import { GuiasMasterPage } from '@/pages/dashboard/guias-master/GuiasMasterPage';
+import { GuiaMasterDetailPage } from '@/pages/dashboard/guias-master/GuiaMasterDetailPage';
+import { MisGuiasListPage } from '@/pages/dashboard/mis-guias/MisGuiasListPage';
+import { MiGuiaDetailPage } from '@/pages/dashboard/mis-guias/MiGuiaDetailPage';
+import { EnviosConsolidadosListPage } from '@/pages/dashboard/envios-consolidados/EnviosConsolidadosListPage';
+import { EnvioConsolidadoDetailPage } from '@/pages/dashboard/envios-consolidados/EnvioConsolidadoDetailPage';
 import { GestionarEstadosPaquetesPage } from '@/pages/dashboard/gestionar-estados-paquetes/GestionarEstadosPaquetesPage';
 import { DespachoListPage } from '@/pages/dashboard/despachos/DespachoListPage';
 import { DespachoDetailPage } from '@/pages/dashboard/despachos/DespachoDetailPage';
@@ -53,13 +58,6 @@ function RootLayout() {
 function requireAuth() {
   const token = useAuthStore.getState().token;
   if (!token) throw redirect({ to: '/login' });
-}
-
-function requireAdminOrOperario() {
-  requireAuth();
-  const { roles } = useAuthStore.getState();
-  const allowed = roles.includes('ADMIN') || roles.includes('OPERARIO');
-  if (!allowed) throw redirect({ to: '/inicio' });
 }
 
 function requirePermission(permission: string) {
@@ -196,11 +194,46 @@ const cargarPesosRoute = createRoute({
   component: withDashboardLayout(CargarPesosPage),
 });
 
-const asignarGuiaEnvioRoute = createRoute({
+const guiasMasterRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/asignar-guia-envio',
-  beforeLoad: requireAdminOrOperario,
-  component: withDashboardLayout(AsignarGuiaEnvioPage),
+  path: '/guias-master',
+  beforeLoad: requirePermission('GUIAS_MASTER_READ'),
+  component: withDashboardLayout(GuiasMasterPage),
+});
+
+const guiasMasterDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/guias-master/$id',
+  beforeLoad: requirePermission('GUIAS_MASTER_READ'),
+  component: withDashboardLayout(GuiaMasterDetailPage),
+});
+
+const misGuiasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mis-guias',
+  beforeLoad: requirePermission('MIS_GUIAS_READ'),
+  component: withDashboardLayout(MisGuiasListPage),
+});
+
+const misGuiasDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mis-guias/$id',
+  beforeLoad: requirePermission('MIS_GUIAS_READ'),
+  component: withDashboardLayout(MiGuiaDetailPage),
+});
+
+const enviosConsolidadosRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/envios-consolidados',
+  beforeLoad: requirePermission('ENVIOS_CONSOLIDADOS_READ'),
+  component: withDashboardLayout(EnviosConsolidadosListPage),
+});
+
+const enviosConsolidadosDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/envios-consolidados/$id',
+  beforeLoad: requirePermission('ENVIOS_CONSOLIDADOS_READ'),
+  component: withDashboardLayout(EnvioConsolidadoDetailPage),
 });
 
 const gestionarEstadosPaquetesRoute = createRoute({
@@ -325,7 +358,12 @@ const routeTree = rootRoute.addChildren([
   paquetesRoute,
   paquetesVencidosRoute,
   cargarPesosRoute,
-  asignarGuiaEnvioRoute,
+  guiasMasterRoute,
+  guiasMasterDetailRoute,
+  misGuiasRoute,
+  misGuiasDetailRoute,
+  enviosConsolidadosRoute,
+  enviosConsolidadosDetailRoute,
   gestionarEstadosPaquetesRoute,
   despachosRoute,
   despachosNuevoRoute,
