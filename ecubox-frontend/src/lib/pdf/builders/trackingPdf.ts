@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import type { TrackingResponse } from '@/lib/api/tracking.service';
-import { PDF_THEME, TRACKING_COMPACT_A4_THEME } from '@/lib/pdf/theme';
+import { TRACKING_COMPACT_A4_THEME } from '@/lib/pdf/theme';
 import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
 
 const PAGE_W = 210;
@@ -102,14 +102,14 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     maxWidth: number,
     multiline = true
   ) => {
-    const labelHeight = drawTextLines([label], x, startY, t.fonts.label, PDF_THEME.colors.muted);
+    const labelHeight = drawTextLines([label], x, startY, t.fonts.label, t.colors.muted);
     const valueLines = multiline ? wrap(value, maxWidth) : [value];
     const valueHeight = drawTextLines(
       valueLines,
       x,
       startY + labelHeight + 0.4,
       t.fonts.body,
-      PDF_THEME.colors.text,
+      t.colors.text,
       true
     );
     return labelHeight + valueHeight + 0.8;
@@ -126,40 +126,62 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     label: string,
     x: number,
     baselineY: number,
-    variant: 'neutral' | 'info' | 'accent'
+    variant: 'neutral' | 'info' | 'accent' | 'success' | 'warning' | 'destructive'
   ) => {
     setFont(t.fonts.badge, false);
     const textWidth = doc.getTextWidth(label);
-    const padX = 2.2;
-    const h = 4.4;
+    const padX = 2.4;
+    const h = 4.6;
     const w = textWidth + padX * 2;
-    let stroke: [number, number, number] = PDF_THEME.colors.border;
-    let fill: [number, number, number] = [248, 250, 253];
-    let text: [number, number, number] = PDF_THEME.colors.muted;
-    if (variant === 'info') {
-      stroke = [174, 201, 255];
-      fill = [236, 244, 255];
-      text = PDF_THEME.colors.accent;
-    } else if (variant === 'accent') {
-      stroke = PDF_THEME.colors.accent;
-      fill = [232, 238, 252];
-      text = PDF_THEME.colors.accent;
+    let stroke = t.colors.border;
+    let fill: [number, number, number] = [248, 247, 252];
+    let text = t.colors.muted;
+    switch (variant) {
+      case 'accent':
+        stroke = t.colors.primarySoftStroke;
+        fill = t.colors.primarySoftFill;
+        text = t.colors.primary;
+        break;
+      case 'info':
+        stroke = t.colors.infoStroke;
+        fill = t.colors.infoFill;
+        text = t.colors.info;
+        break;
+      case 'success':
+        stroke = t.colors.successStroke;
+        fill = t.colors.successFill;
+        text = t.colors.success;
+        break;
+      case 'warning':
+        stroke = t.colors.warningStroke;
+        fill = t.colors.warningFill;
+        text = t.colors.warning;
+        break;
+      case 'destructive':
+        stroke = t.colors.destructiveStroke;
+        fill = t.colors.destructiveFill;
+        text = t.colors.destructive;
+        break;
+      default:
+        break;
     }
     doc.setDrawColor(...stroke);
     doc.setFillColor(...fill);
-    doc.roundedRect(x, baselineY - 3.2, w, h, 1.8, 1.8, 'FD');
+    doc.roundedRect(x, baselineY - 3.4, w, h, 2.2, 2.2, 'FD');
     doc.setTextColor(...text);
     doc.text(label, x + padX, baselineY);
     return w;
   };
 
   const drawMiniBox = (x: number, startY: number, w: number, label: string, value: string) => {
-    const boxH = 12;
-    doc.setDrawColor(...PDF_THEME.colors.border);
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(x, startY, w, boxH, 1.4, 1.4, 'FD');
-    drawTextLines([label], x + 1.8, startY + 3.7, t.fonts.label, PDF_THEME.colors.muted);
-    drawTextLines([value], x + 1.8, startY + 8.6, t.fonts.metric, PDF_THEME.colors.text, true);
+    const boxH = 13;
+    doc.setDrawColor(...t.colors.borderSoft);
+    doc.setFillColor(...t.colors.cardSoft);
+    doc.roundedRect(x, startY, w, boxH, 1.8, 1.8, 'FD');
+    doc.setFillColor(...t.colors.primary);
+    doc.rect(x, startY + 1.6, 1.4, boxH - 3.2, 'F');
+    drawTextLines([label.toUpperCase()], x + 3.2, startY + 4, t.fonts.label, t.colors.muted, true);
+    drawTextLines([value], x + 3.2, startY + 9.4, t.fonts.metric, t.colors.text, true);
     return boxH;
   };
 
@@ -174,24 +196,24 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     const col1 = contentW * 0.35;
     const col2 = contentW * 0.47;
     const col3 = contentW - col1 - col2;
-    doc.setDrawColor(...PDF_THEME.colors.border);
-    doc.setFillColor(248, 250, 253);
-    doc.roundedRect(x, startY, contentW, headerH, 0.8, 0.8, 'FD');
+    doc.setDrawColor(...t.colors.borderSoft);
+    doc.setFillColor(...t.colors.cardHeader);
+    doc.roundedRect(x, startY, contentW, headerH, 1, 1, 'FD');
     setFont(t.fonts.label, true);
-    doc.setTextColor(...PDF_THEME.colors.muted);
+    doc.setTextColor(...t.colors.primary);
     doc.text('Número de guía', x + 1.2, startY + 3.3);
     doc.text('Estado actual', x + col1 + 1.2, startY + 3.3);
     doc.text('Peso kg/lbs', x + col1 + col2 + 1.2, startY + 3.3);
     let tableY = startY + headerH;
     rows.forEach((row, idx) => {
       if (idx % 2 === 1) {
-        doc.setFillColor(...PDF_THEME.colors.row);
+        doc.setFillColor(...t.colors.row);
         doc.rect(x, tableY, contentW, rowH, 'F');
       }
-      doc.setDrawColor(...PDF_THEME.colors.border);
+      doc.setDrawColor(...t.colors.border);
       doc.line(x, tableY + rowH, x + contentW, tableY + rowH);
       setFont(t.fonts.label, false);
-      doc.setTextColor(...PDF_THEME.colors.text);
+      doc.setTextColor(...t.colors.text);
       const guia = wrap(row.guia, col1 - 2.4, 1)[0] ?? '-';
       const estado = wrap(row.estado, col2 - 2.4, 1)[0] ?? '-';
       const peso = wrap(row.peso, col3 - 2.4, 1)[0] ?? '-';
@@ -204,17 +226,31 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
   };
 
   const drawHeader = () => {
+    const barX = margin;
+    const barY = y - 1.2;
+    const barW = 2.2;
+    const barH = lineHeight(t.fonts.title) + lineHeight(t.fonts.subtitle) + 0.4;
+    doc.setFillColor(...t.colors.primary);
+    doc.roundedRect(barX, barY, barW, barH, 1.1, 1.1, 'F');
+
+    const textX = margin + barW + 3;
     setFont(t.fonts.title, true);
-    doc.setTextColor(...PDF_THEME.colors.accent);
-    doc.text('Seguimiento de envío', margin, y);
+    doc.setTextColor(...t.colors.text);
+    doc.text('Seguimiento de envío', textX, y + 0.6);
+    const titleW = doc.getTextWidth('Seguimiento de envío');
+    drawBadge('ECUBOX', textX + titleW + 3, y + 0.4, 'accent');
     y += lineHeight(t.fonts.title);
 
     setFont(t.fonts.subtitle, false);
-    doc.setTextColor(...PDF_THEME.colors.muted);
-    doc.text(`Guía: ${safe(data.numeroGuia)} · Generado: ${formatFechaHora(new Date().toISOString())}`, margin, y);
+    doc.setTextColor(...t.colors.muted);
+    doc.text(
+      `Guía: ${safe(data.numeroGuia)}  ·  Generado: ${formatFechaHora(new Date().toISOString())}`,
+      textX,
+      y,
+    );
     y += lineHeight(t.fonts.subtitle);
 
-    doc.setDrawColor(...PDF_THEME.colors.border);
+    doc.setDrawColor(...t.colors.borderSoft);
     doc.line(margin, y, margin + width, y);
     y += headerBottomOffset + sectionGap;
   };
@@ -234,15 +270,25 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     const cardHeight = cardHeaderHeight + cardPadding + bodyHeight + cardPadding;
     ensureSpace(cardHeight + sectionGap);
     const startY = y;
-    doc.setDrawColor(...PDF_THEME.colors.border);
-    doc.setFillColor(251, 253, 255);
+
+    doc.setDrawColor(...t.colors.border);
+    doc.setFillColor(...t.colors.card);
     doc.roundedRect(margin, startY, width, cardHeight, t.cardRadius, t.cardRadius, 'FD');
 
-    doc.setFillColor(244, 247, 252);
+    doc.setFillColor(...t.colors.cardHeader);
     doc.roundedRect(margin, startY, width, cardHeaderHeight, t.cardRadius, t.cardRadius, 'F');
+    doc.setFillColor(...t.colors.cardHeader);
+    doc.rect(margin, startY + cardHeaderHeight - t.cardRadius, width, t.cardRadius, 'F');
+
+    doc.setFillColor(...t.colors.primary);
+    doc.rect(margin, startY, 1.6, cardHeaderHeight, 'F');
+
     setFont(t.fonts.section, true);
-    doc.setTextColor(...PDF_THEME.colors.text);
-    doc.text(title, margin + cardPadding, startY + 4.2);
+    doc.setTextColor(...t.colors.primary);
+    doc.text(title.toUpperCase(), margin + cardPadding + 1.2, startY + 4.4);
+
+    doc.setDrawColor(...t.colors.borderSoft);
+    doc.line(margin, startY + cardHeaderHeight, margin + width, startY + cardHeaderHeight);
 
     const contentX = margin + cardPadding;
     const contentY = startY + cardHeaderHeight + cardPadding + 0.2;
@@ -270,9 +316,9 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
 
     drawCard('Resumen', Math.max(bodyHeight, 16), (x, startY, maxW) => {
       let cursorY = startY;
-      drawTextLines(['Envío'], x, cursorY, t.fonts.label, PDF_THEME.colors.muted);
+      drawTextLines(['Envío'], x, cursorY, t.fonts.label, t.colors.muted);
       cursorY += lineHeight(t.fonts.label);
-      drawTextLines([safe(data.numeroGuia)], x, cursorY, t.fonts.value, PDF_THEME.colors.text, true);
+      drawTextLines([safe(data.numeroGuia)], x, cursorY, t.fonts.value, t.colors.text, true);
 
       const estadoLabel = safe(data.estadoRastreoNombre);
       drawBadge(estadoLabel, x + maxW - Math.max(34, doc.getTextWidth(estadoLabel) + 5), cursorY, 'accent');
@@ -283,7 +329,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
         x,
         cursorY,
         t.fonts.label,
-        PDF_THEME.colors.muted
+        t.colors.muted
       );
       cursorY += lineHeight(t.fonts.label) + 0.6;
       drawTextLines(
@@ -291,42 +337,46 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
         x,
         cursorY,
         t.fonts.body,
-        PDF_THEME.colors.text
+        t.colors.text
       );
       cursorY += lineHeight(t.fonts.body) + t.contentGap;
 
       if (data.flujoActual === 'ALTERNO') {
-        const boxH = 6.6 + (data.motivoAlterno ? wrap(data.motivoAlterno, maxW - 4).length * lineHeight(t.fonts.label) : 0);
-        doc.setDrawColor(213, 188, 110);
-        doc.setFillColor(255, 247, 225);
-        doc.roundedRect(x, cursorY, maxW, boxH, 1.2, 1.2, 'FD');
+        const boxH = 6.8 + (data.motivoAlterno ? wrap(data.motivoAlterno, maxW - 4).length * lineHeight(t.fonts.label) : 0);
+        doc.setDrawColor(...t.colors.warningStroke);
+        doc.setFillColor(...t.colors.warningFill);
+        doc.roundedRect(x, cursorY, maxW, boxH, 1.6, 1.6, 'FD');
+        doc.setFillColor(...t.colors.warning);
+        doc.rect(x, cursorY, 1.4, boxH, 'F');
         drawTextLines(
           ['Envío en flujo alterno por incidencia operativa'],
-          x + 1.8,
-          cursorY + 3.3,
+          x + 3,
+          cursorY + 3.4,
           t.fonts.body,
-          PDF_THEME.colors.text,
+          t.colors.warning,
           true
         );
         if (data.motivoAlterno) {
           drawTextLines(
-            wrap(data.motivoAlterno, maxW - 4),
-            x + 1.8,
-            cursorY + 6.2,
+            wrap(data.motivoAlterno, maxW - 5),
+            x + 3,
+            cursorY + 6.4,
             t.fonts.label,
-            PDF_THEME.colors.muted
+            t.colors.text
           );
         }
         cursorY += boxH + t.contentGap;
       }
 
       if (data.leyenda) {
-        const leyendaLines = wrap(data.leyenda, maxW - 4);
-        const boxH = leyendaLines.length * lineHeight(t.fonts.body) + 3.6;
-        doc.setDrawColor(...PDF_THEME.colors.border);
-        doc.setFillColor(246, 248, 252);
-        doc.roundedRect(x, cursorY, maxW, boxH, 1.2, 1.2, 'FD');
-        drawTextLines(leyendaLines, x + 1.8, cursorY + 3.2, t.fonts.body, PDF_THEME.colors.text);
+        const leyendaLines = wrap(data.leyenda, maxW - 5);
+        const boxH = leyendaLines.length * lineHeight(t.fonts.body) + 3.8;
+        doc.setDrawColor(...t.colors.infoStroke);
+        doc.setFillColor(...t.colors.infoFill);
+        doc.roundedRect(x, cursorY, maxW, boxH, 1.6, 1.6, 'FD');
+        doc.setFillColor(...t.colors.info);
+        doc.rect(x, cursorY, 1.4, boxH, 'F');
+        drawTextLines(leyendaLines, x + 3, cursorY + 3.4, t.fonts.body, t.colors.text);
       }
     });
   };
@@ -350,22 +400,41 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
         x,
         cursorY,
         t.fonts.label,
-        PDF_THEME.colors.muted
+        t.colors.muted
       );
       cursorY += lineHeight(t.fonts.label) + 0.8;
 
-      doc.setFillColor(238, 243, 251);
-      doc.roundedRect(x, cursorY, maxW, 3, 1.1, 1.1, 'F');
-      doc.setFillColor(...PDF_THEME.colors.accent);
-      doc.roundedRect(x, cursorY, (maxW * progressPct) / 100, 3, 1.1, 1.1, 'F');
+      if (totalBase > 0) {
+        const segGap = 1.2;
+        const segH = 3;
+        const totalGap = segGap * (totalBase - 1);
+        const segW = (maxW - totalGap) / totalBase;
+        for (let i = 0; i < totalBase; i++) {
+          const done = i < pasoBaseActual;
+          if (done) {
+            doc.setFillColor(...t.colors.primary);
+          } else {
+            doc.setFillColor(...t.colors.borderSoft);
+          }
+          doc.roundedRect(x + i * (segW + segGap), cursorY, segW, segH, 1.1, 1.1, 'F');
+        }
+      } else {
+        doc.setFillColor(...t.colors.borderSoft);
+        doc.roundedRect(x, cursorY, maxW, 3, 1.1, 1.1, 'F');
+      }
       cursorY += 5;
 
+      setFont(t.fonts.label, true);
+      doc.setTextColor(...t.colors.primary);
+      const pctText = `${Math.round(progressPct)}%`;
+      doc.text(pctText, x, cursorY);
+      const pctW = doc.getTextWidth(pctText);
       drawTextLines(
-        [`Paso base ${pasoBaseActual} de ${totalBase}`],
-        x,
+        [`  ·  Paso base ${pasoBaseActual} de ${totalBase}`],
+        x + pctW,
         cursorY,
         t.fonts.label,
-        PDF_THEME.colors.muted
+        t.colors.muted
       );
       cursorY += lineHeight(t.fonts.label) + t.contentGap;
 
@@ -380,7 +449,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
             x,
             cursorY,
             t.fonts.body,
-            PDF_THEME.colors.text,
+            t.colors.text,
             true
           );
           cursorY += lineHeight(t.fonts.body) + 0.6;
@@ -391,7 +460,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
           x,
           cursorY,
           t.fonts.label,
-          PDF_THEME.colors.muted
+          t.colors.muted
         );
         cursorY += lineHeight(t.fonts.label) + 0.6;
       }
@@ -401,7 +470,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
   const drawTimelineCards = (estados: NonNullable<TrackingResponse['estados']>, currentIndex: number) => {
     if (estados.length === 0) {
       drawCard('Flujo del envío', lineHeight(t.fonts.label) + 1.5, (x, startY) => {
-        drawTextLines(['No hay estados configurados para mostrar el flujo.'], x, startY, t.fonts.label, PDF_THEME.colors.muted);
+        drawTextLines(['No hay estados configurados para mostrar el flujo.'], x, startY, t.fonts.label, t.colors.muted);
       });
       return;
     }
@@ -430,7 +499,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
           x,
           cursorY,
           t.fonts.label,
-          PDF_THEME.colors.muted
+          t.colors.muted
         );
         cursorY += lineHeight(t.fonts.label) + 0.7;
         const dotX = x + 2;
@@ -445,13 +514,13 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
           const rowY = cursorY + idx * rowGap;
 
           if (!isLastVisible || hasMore) {
-            doc.setDrawColor(...PDF_THEME.colors.border);
+            doc.setDrawColor(...t.colors.border);
             doc.line(dotX, rowY + 1.5, dotX, rowY + rowGap);
           }
           const dotColor: [number, number, number] =
-            item.esActual || isCompleted ? PDF_THEME.colors.accent : PDF_THEME.colors.border;
+            item.esActual || isCompleted ? t.colors.primary : t.colors.border;
           const dotFill: [number, number, number] =
-            item.esActual || isCompleted ? PDF_THEME.colors.accent : [255, 255, 255];
+            item.esActual || isCompleted ? t.colors.primary : [255, 255, 255];
           doc.setDrawColor(...dotColor);
           doc.setFillColor(...dotFill);
           doc.circle(dotX, rowY + 0.9, 1.15, 'FD');
@@ -461,7 +530,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
           inlineX += drawBadge(primaryBadge, inlineX, rowY + 1.8, isAlterno ? 'info' : 'neutral') + 1.8;
 
           setFont(t.fonts.body, item.esActual);
-          doc.setTextColor(...(item.esActual || isCompleted ? PDF_THEME.colors.text : PDF_THEME.colors.muted));
+          doc.setTextColor(...(item.esActual || isCompleted ? t.colors.text : t.colors.muted));
           const actualBadgeW = item.esActual ? doc.getTextWidth('Actual') + 4.4 + 1.8 : 0;
           const maxNameW = Math.max(20, x + maxW - inlineX - actualBadgeW);
           const name = wrap(item.nombre, maxNameW, 1)[0] ?? '-';
@@ -479,7 +548,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
             x + 6.4,
             cursorY + rows.length * rowGap,
             t.fonts.label,
-            PDF_THEME.colors.muted
+            t.colors.muted
           );
         }
       });
@@ -548,7 +617,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
             x,
             startY + used + 3.4,
             t.fonts.label,
-            PDF_THEME.colors.muted
+            t.colors.muted
           );
         }
       });
@@ -562,8 +631,6 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     const dest = data.destinatario;
     const entries = [
       ['Nombre', safe(dest?.nombre ?? data.destinatarioNombre)],
-      ['Teléfono', safe(dest?.telefono)],
-      ['Dirección', safe(dest?.direccion)],
       ['Provincia / Cantón', `${safe(dest?.provincia)} / ${safe(dest?.canton)}`],
     ] as const;
     let bodyHeight = 0;
@@ -583,7 +650,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
         x,
         cursorY,
         t.fonts.label,
-        PDF_THEME.colors.muted
+        t.colors.muted
       );
     });
   };
@@ -647,7 +714,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
         maxW
       );
       if (agencia.length > 0) {
-        doc.setDrawColor(...PDF_THEME.colors.border);
+        doc.setDrawColor(...t.colors.border);
         doc.line(x, cursorY, x + maxW, cursorY);
         cursorY += 1.8;
         agencia.forEach(([label, value]) => {
@@ -677,10 +744,19 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
   const totalPages = doc.getNumberOfPages();
   for (let page = 1; page <= totalPages; page++) {
     doc.setPage(page);
+    doc.setDrawColor(...t.colors.borderSoft);
+    doc.line(margin, footerY - 3, PAGE_W - margin, footerY - 3);
+
+    doc.setFillColor(...t.colors.primary);
+    doc.circle(margin + 1.2, footerY - 1.1, 1.1, 'F');
+    setFont(6.8, true);
+    doc.setTextColor(...t.colors.primary);
+    doc.text('ECUBOX', margin + 3.4, footerY);
     setFont(6.6, false);
-    doc.setTextColor(...PDF_THEME.colors.muted);
-    doc.text('ECUBOX · Comprobante de seguimiento', margin, footerY);
-    doc.text(`Página ${page}/${totalPages}`, PAGE_W - margin, footerY, { align: 'right' });
+    doc.setTextColor(...t.colors.muted);
+    const brandW = doc.getTextWidth('ECUBOX');
+    doc.text(`  ·  Comprobante de seguimiento`, margin + 3.4 + brandW, footerY);
+    doc.text(`Página ${page} / ${totalPages}`, PAGE_W - margin, footerY, { align: 'right' });
   }
   return doc;
 }

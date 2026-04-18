@@ -1,12 +1,24 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from '@tanstack/react-router';
 import { EcuboxLogo } from '@/components/brand';
-import { getTrackingByNumeroGuia } from '@/lib/api/tracking.service';
-import type { TrackingResponse, TrackingEstadoItem } from '@/lib/api/tracking.service';
+import { ArrowLeft, Calculator, Loader2, PackageSearch, ShieldCheck } from 'lucide-react';
+import { getTrackingByCodigo } from '@/lib/api/tracking.service';
+import type {
+  TrackingResolveResponse,
+  TrackingResponse,
+  TrackingEstadoItem,
+} from '@/lib/api/tracking.service';
 import { toast } from 'sonner';
-import html2canvas from 'html2canvas';
 import { buildTrackingPdf } from '@/lib/pdf/builders/trackingPdf';
+import { buildTrackingMasterPdf } from '@/lib/pdf/builders/trackingMasterPdf';
 import { runJsPdfAction } from '@/lib/pdf/actions';
+import {
+  copyImageBlobToClipboard,
+  downloadBlob,
+  snapshotNodeToPdf,
+  snapshotToBlob,
+  type SnapshotFormat,
+} from '@/lib/exporters/domSnapshot';
 import { TrackingSearchPanel } from '@/pages/tracking/components/TrackingSearchPanel';
 import { TrackingSummaryCard } from '@/pages/tracking/components/TrackingSummaryCard';
 import { TrackingProgressCard } from '@/pages/tracking/components/TrackingProgressCard';
@@ -16,10 +28,13 @@ import { TrackingDetailsCard } from '@/pages/tracking/components/TrackingDetails
 import { TrackingDespachoCard } from '@/pages/tracking/components/TrackingDespachoCard';
 import { TrackingPaquetesDespachoCard } from '@/pages/tracking/components/TrackingPaquetesDespachoCard';
 import { TrackingOperadorEntregaCard } from '@/pages/tracking/components/TrackingOperadorEntregaCard';
+import { TrackingMasterView } from '@/pages/tracking/components/TrackingMasterView';
+import { TrackingPiezasList } from '@/pages/tracking/components/TrackingPiezasList';
 
-function getNumeroGuiaFromUrl(): string {
+function getCodigoFromUrl(): string {
   if (typeof window === 'undefined') return '';
-  return new URLSearchParams(window.location.search).get('numeroGuia') ?? '';
+  const params = new URLSearchParams(window.location.search);
+  return (params.get('codigo') ?? params.get('numeroGuia') ?? '').trim();
 }
 
 function formatFechaEstadoDesde(iso: string | undefined): string | null {
@@ -37,66 +52,99 @@ function formatFechaEstadoDesde(iso: string | undefined): string | null {
   }
 }
 
+function codigoFromResolved(resolved: TrackingResolveResponse | null, fallback: string): string {
+  if (!resolved) return fallback.trim();
+  if (resolved.tipo === 'PIEZA') return resolved.pieza?.numeroGuia ?? fallback.trim();
+  if (resolved.tipo === 'GUIA_MASTER') return resolved.master?.trackingBase ?? fallback.trim();
+  return fallback.trim();
+}
+
 export function TrackingPage() {
-  const [numeroGuia, setNumeroGuia] = useState('');
-  const [result, setResult] = useState<TrackingResponse | null>(null);
+  const [codigo, setCodigo] = useState('');
+  const [resolved, setResolved] = useState<TrackingResolveResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [autoQueryDone, setAutoQueryDone] = useState(false);
   const resultCardRef = useRef<HTMLDivElement>(null);
+  const masterCardRef = useRef<HTMLDivElement>(null);
   const activeRequestRef = useRef<AbortController | null>(null);
+
+  const pieza: TrackingResponse | null =
+    resolved?.tipo === 'PIEZA' ? resolved.pieza ?? null : null;
+  const master = resolved?.tipo === 'GUIA_MASTER' ? resolved.master ?? null : null;
 
   const currentTrackingUrl = useMemo(() => {
     if (typeof window === 'undefined') return '';
-    const guia = (result?.numeroGuia ?? numeroGuia).trim();
+    const cod = codigoFromResolved(resolved, codigo);
     const url = new URL(window.location.href);
-    if (guia) {
-      url.searchParams.set('numeroGuia', guia);
+    if (cod) {
+      url.searchParams.set('codigo', cod);
+      url.searchParams.delete('numeroGuia');
     }
     return url.toString();
-  }, [result?.numeroGuia, numeroGuia]);
+  }, [resolved, codigo]);
 
-  function updateUrlWithGuia(guia: string) {
+  function updateUrlWithCodigo(cod: string) {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
-    url.searchParams.set('numeroGuia', guia);
+    url.searchParams.set('codigo', cod);
+    url.searchParams.delete('numeroGuia');
     window.history.replaceState({}, '', url.toString());
   }
 
-  function validateNumeroGuia(rawGuia: string): string | null {
-    const guia = rawGuia.trim();
-    if (!guia) return 'Ingresa un número de guía para consultar.';
-    if (guia.length < 4) return 'La guía debe tener al menos 4 caracteres.';
-    if (/\s/.test(guia)) return 'La guía no puede contener espacios.';
+  /**
+   * Normaliza el codigo ingresado al formato canonico de `paquete.numero_guia`:
+   * `<trackingBase> <pieza>/<total>`. Esto permite que el operario pegue valores
+   * con espacios extra o con espacios alrededor de la barra (ej. "ABC 1 / 2")
+   * y aun asi resuelvan correctamente contra el backend.
+   */
+  function normalizarCodigo(raw: string): string {
+    return raw
+      .trim()
+      .replace(/\s*\/\s*/g, '/')
+      .replace(/\s+/g, ' ');
+  }
+
+  function validateCodigo(rawCodigo: string): string | null {
+    const c = normalizarCodigo(rawCodigo);
+    if (!c) return 'Ingresa un código de guía o envío para consultar.';
+    if (c.replace(/\s/g, '').length < 4) {
+      return 'El código debe tener al menos 4 caracteres.';
+    }
     return null;
   }
 
-  async function executeSearch(rawGuia: string) {
-    const guia = rawGuia.trim();
-    const validation = validateNumeroGuia(guia);
+  async function executeSearch(rawCodigo: string) {
+    const cod = normalizarCodigo(rawCodigo);
+    const validation = validateCodigo(cod);
     if (validation) {
       setValidationError(validation);
       setError(null);
-      setResult(null);
+      setResolved(null);
       return;
     }
     setValidationError(null);
     activeRequestRef.current?.abort();
     const controller = new AbortController();
     activeRequestRef.current = controller;
-    updateUrlWithGuia(guia);
+    updateUrlWithCodigo(cod);
     setError(null);
-    setResult(null);
+    setResolved(null);
     setLoading(true);
     try {
-      const data = await getTrackingByNumeroGuia(guia, { signal: controller.signal });
-      setResult(data);
+      const data = await getTrackingByCodigo(cod, { signal: controller.signal });
+      setResolved(data);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return;
       }
-      const message = err instanceof Error ? err.message : 'No pudimos cargar el seguimiento en este momento.';
+      const message =
+        err instanceof Error ? err.message : 'No pudimos cargar el seguimiento en este momento.';
+      const status = (err as Error & { status?: number })?.status;
+      if (status === 429) {
+        toast.warning(message, { duration: 6000 });
+      }
       setError(message);
     } finally {
       setLoading(false);
@@ -108,14 +156,14 @@ export function TrackingPage() {
 
   useEffect(() => {
     if (autoQueryDone) return;
-    const guiaFromUrl = getNumeroGuiaFromUrl().trim();
-    if (!guiaFromUrl) {
+    const codFromUrl = getCodigoFromUrl();
+    if (!codFromUrl) {
       setAutoQueryDone(true);
       return;
     }
-    setNumeroGuia(guiaFromUrl);
+    setCodigo(codFromUrl);
     setAutoQueryDone(true);
-    void executeSearch(guiaFromUrl);
+    void executeSearch(codFromUrl);
   }, [autoQueryDone]);
 
   useEffect(() => {
@@ -126,7 +174,12 @@ export function TrackingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await executeSearch(numeroGuia);
+    await executeSearch(codigo);
+  }
+
+  function handleSelectPieza(numeroGuia: string) {
+    setCodigo(numeroGuia);
+    void executeSearch(numeroGuia);
   }
 
   async function handleCopyLink() {
@@ -141,96 +194,146 @@ export function TrackingPage() {
 
   async function handleShare() {
     if (!currentTrackingUrl) return;
+    const cod = codigoFromResolved(resolved, codigo);
     const title = 'Seguimiento de envío ECUBOX';
-    const text = `Revisa el estado de tu envío con la guía ${result?.numeroGuia ?? numeroGuia}.`;
+    const text = `Revisa el estado de tu envío con el código ${cod}.`;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ title, text, url: currentTrackingUrl });
         return;
       } catch {
-        // Si el usuario cancela o falla, usamos fallback de copiado.
+        // fallback a copiar
       }
     }
     await handleCopyLink();
   }
 
-  async function handleDownloadImage() {
-    if (!result || !resultCardRef.current) return;
+  function buildExportFilename(extension: string, scope: 'pieza' | 'master' = 'pieza'): string {
+    const baseRaw =
+      scope === 'master'
+        ? master?.trackingBase ?? 'tracking-master'
+        : pieza?.numeroGuia ?? 'tracking';
+    const base = baseRaw.replace(/[^A-Za-z0-9._-]+/g, '_');
+    const date = new Date();
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const prefix = scope === 'master' ? 'consolidado' : 'tracking';
+    return `${prefix}-${base}-${yyyy}${mm}${dd}.${extension}`;
+  }
+
+  function getActiveExportNode(): HTMLDivElement | null {
+    if (pieza) return resultCardRef.current;
+    if (master) return masterCardRef.current;
+    return null;
+  }
+
+  function getActiveExportScope(): 'pieza' | 'master' | null {
+    if (pieza) return 'pieza';
+    if (master) return 'master';
+    return null;
+  }
+
+  async function handleDownloadImage(format: SnapshotFormat = 'png') {
+    const node = getActiveExportNode();
+    const scope = getActiveExportScope();
+    if (!node || !scope) return;
+    const tid = toast.loading(
+      format === 'png' ? 'Generando imagen PNG...' : 'Generando imagen JPEG...',
+    );
     try {
-      const canvas = await captureTrackingCanvas();
-      const filename = `tracking-${result.numeroGuia}.png`;
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((value) => resolve(value), 'image/png');
+      const blob = await snapshotToBlob(node, format, {
+        quality: format === 'jpeg' ? 0.92 : undefined,
       });
-      const link = document.createElement('a');
-      link.download = filename;
-      if (blob != null) {
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-      } else {
-        link.href = canvas.toDataURL('image/png');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      }
-      toast.success('Imagen descargada.');
+      downloadBlob(blob, buildExportFilename(format === 'png' ? 'png' : 'jpg', scope));
+      toast.success('Imagen descargada.', { id: tid });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error desconocido';
-      toast.error(`No se pudo descargar la imagen. ${message}`);
+      toast.error(`No se pudo descargar la imagen. ${message}`, { id: tid });
     }
   }
 
-  async function handleDownloadPdf() {
-    if (!result) return;
+  async function handleCopyImage() {
+    const node = getActiveExportNode();
+    if (!node) return;
+    const tid = toast.loading('Copiando imagen al portapapeles...');
     try {
-      const doc = buildTrackingPdf(result);
-      runJsPdfAction(doc, { mode: 'download', filename: `tracking-${result.numeroGuia}.pdf` });
-      toast.success('PDF generado.');
-    } catch {
-      toast.error('No se pudo generar el PDF.');
+      const blob = await snapshotToBlob(node, 'png');
+      await copyImageBlobToClipboard(blob);
+      toast.success('Imagen copiada al portapapeles.', { id: tid });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      toast.error(`No se pudo copiar la imagen. ${message}`, { id: tid });
     }
   }
 
-  function normalizeCloneColors(clonedDoc: Document) {
-    const source = clonedDoc.querySelector('[data-tracking-export="true"]');
-    const all = source ? source.querySelectorAll('*') : clonedDoc.querySelectorAll('*');
-    const safeColorForProp = (prop: string): string => {
-      if (prop === 'background-color') return 'rgb(255, 255, 255)';
-      if (prop === 'outline-color') return 'transparent';
-      if (prop === 'fill') return 'rgb(10, 22, 40)';
-      if (prop === 'stroke') return 'rgb(10, 22, 40)';
-      return 'rgb(10, 22, 40)';
-    };
-    for (const el of Array.from(all)) {
-      const styles = clonedDoc.defaultView?.getComputedStyle(el);
-      if (!styles) continue;
-      for (const prop of Array.from(styles)) {
-        const value = styles.getPropertyValue(prop);
-        if (value && value.includes('oklab(')) {
-          (el as HTMLElement).style.setProperty(prop, safeColorForProp(prop), 'important');
-        }
+  async function handleDownloadPdf(mode: 'estructurado' | 'snapshot' = 'estructurado') {
+    const node = getActiveExportNode();
+    const scope = getActiveExportScope();
+    if (!node || !scope) return;
+    const tid = toast.loading(
+      mode === 'estructurado'
+        ? 'Generando PDF estructurado...'
+        : 'Generando PDF visual (puede tomar unos segundos)...',
+    );
+    try {
+      const filename = buildExportFilename('pdf', scope);
+      if (mode === 'estructurado') {
+        const doc =
+          scope === 'master' && master
+            ? buildTrackingMasterPdf(master)
+            : pieza
+              ? buildTrackingPdf(pieza)
+              : null;
+        if (!doc) throw new Error('No hay datos disponibles para exportar.');
+        runJsPdfAction(doc, { mode: 'download', filename });
+      } else {
+        const refLabel =
+          scope === 'master'
+            ? master?.trackingBase ?? 'consolidado'
+            : pieza?.numeroGuia ?? 'tracking';
+        const result = await snapshotNodeToPdf(node, filename, {
+          orientation: 'portrait',
+          margin: 8,
+          jpegQuality: 0.92,
+          footerLeft: `ECUBOX · ${refLabel}`,
+        });
+        result.download();
       }
+      toast.success(
+        mode === 'estructurado' ? 'PDF estructurado descargado.' : 'PDF visual descargado.',
+        { id: tid },
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      toast.error(`No se pudo generar el PDF. ${message}`, { id: tid });
     }
   }
 
-  async function captureTrackingCanvas() {
-    if (!resultCardRef.current) throw new Error('No hay contenido para exportar');
-    return html2canvas(resultCardRef.current, {
-      backgroundColor: '#ffffff',
-      scale: Math.max(2, window.devicePixelRatio || 1),
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      onclone: normalizeCloneColors,
-    });
+  async function handlePrintPdf() {
+    const scope = getActiveExportScope();
+    if (!scope) return;
+    const tid = toast.loading('Preparando vista previa de impresión...');
+    try {
+      const doc =
+        scope === 'master' && master
+          ? buildTrackingMasterPdf(master)
+          : pieza
+            ? buildTrackingPdf(pieza)
+            : null;
+      if (!doc) throw new Error('No hay datos disponibles para imprimir.');
+      runJsPdfAction(doc, {
+        mode: 'print',
+        filename: buildExportFilename('pdf', scope),
+      });
+      toast.success('Vista previa abierta.', { id: tid });
+    } catch {
+      toast.error('No se pudo abrir la vista previa.', { id: tid });
+    }
   }
 
-  const estados: TrackingEstadoItem[] = result?.estados ?? [];
-  const fechaFormateada = formatFechaEstadoDesde(result?.fechaEstadoDesde);
+  const estados: TrackingEstadoItem[] = pieza?.estados ?? [];
+  const fechaFormateada = formatFechaEstadoDesde(pieza?.fechaEstadoDesde);
   const currentIndex = estados.findIndex((e) => e.esActual);
   const estadosBase = estados.filter((e) => e.tipoFlujo !== 'ALTERNO');
   const totalPasosBase = estadosBase.length;
@@ -239,87 +342,189 @@ export function TrackingPage() {
     const visiblesHastaActual = estados.slice(0, currentIndex + 1);
     return visiblesHastaActual.filter((e) => e.tipoFlujo !== 'ALTERNO').length;
   })();
-  const hasDespachoInfo = result?.despacho != null;
-  const hasPaquetesDespacho = (result?.paquetesDespacho?.length ?? 0) > 0;
-  const hasOperadorEntrega = result?.operadorEntrega != null;
+  const hasDespachoInfo = pieza?.despacho != null;
+  const hasPaquetesDespacho = (pieza?.paquetesDespacho?.length ?? 0) > 0;
+  const hasOperadorEntrega = pieza?.operadorEntrega != null;
+  const piezasHermanas = pieza?.master?.piezas ?? [];
+  const tieneMultiplesPiezas = piezasHermanas.length > 1;
+  const totalEsperadasMaster =
+    pieza?.master?.totalPiezasEsperadas ?? pieza?.master?.piezasRegistradas ?? 0;
+
+  const sinResultados =
+    autoQueryDone && !loading && !error && !resolved && !validationError;
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] flex flex-col">
-      <header className="border-b border-[var(--color-border)]">
+      <header className="border-b border-[var(--color-border)] bg-[var(--color-card)]/40 backdrop-blur-sm">
         <div className="content-container-wide mobile-safe-inline flex items-center justify-between gap-3 py-3 sm:py-4">
-          <Link to="/" className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition" aria-label="ECUBOX - Inicio">
-            <EcuboxLogo variant="light" size="lg" asLink={false} />
-          </Link>
           <Link
             to="/"
-            className="text-xs sm:text-sm text-[var(--color-muted-foreground)] hover:underline"
+            className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition"
+            aria-label="ECUBOX - Inicio"
           >
-            Volver al inicio
+            <EcuboxLogo variant="light" size="lg" asLink={false} />
           </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/calculadora"
+              className="hidden items-center gap-1.5 text-xs text-[var(--color-muted-foreground)] hover:underline sm:inline-flex sm:text-sm"
+            >
+              <Calculator className="h-3.5 w-3.5" />
+              Calculadora
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)] hover:underline sm:text-sm"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Volver al inicio</span>
+              <span className="sm:hidden">Inicio</span>
+            </Link>
+          </div>
         </div>
       </header>
 
       <main className="mobile-safe-inline flex-1 py-5 sm:py-6">
         <div className="content-container-wide w-full space-y-6">
-          <div className="space-y-2">
-            <h1 className="responsive-title font-bold tracking-tight text-[var(--color-foreground)]">
-              Seguimiento de envío
-            </h1>
-            <p className="text-sm sm:text-base text-[var(--color-muted-foreground)]">
-              Consulta el estado, progreso y datos de entrega de tu guía ECUBOX.
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="space-y-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-primary)]/25 bg-[var(--color-primary)]/10 px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-primary)]">
+                <PackageSearch className="h-3 w-3" />
+                Rastreo público
+              </span>
+              <h1 className="responsive-title font-bold tracking-tight text-[var(--color-foreground)]">
+                Seguimiento de envío
+              </h1>
+              <p className="text-sm sm:text-base text-[var(--color-muted-foreground)]">
+                Ingresa el número de pieza o la guía del consolidador para ver su estado.
+              </p>
+            </div>
+            <p className="hidden items-center gap-1.5 text-xs text-[var(--color-muted-foreground)] sm:inline-flex">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+              Información oficial de ECUBOX
             </p>
           </div>
 
           <TrackingSearchPanel
-            numeroGuia={numeroGuia}
+            numeroGuia={codigo}
             loading={loading}
             validationError={validationError}
             onNumeroGuiaChange={(value) => {
-              setNumeroGuia(value);
+              setCodigo(value);
               if (validationError) setValidationError(null);
             }}
             onSubmit={handleSubmit}
           />
 
-          {error && (
-            <div
-              className="rounded-lg border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 p-4 text-sm text-[var(--color-destructive)]"
-              role="alert"
-            >
-              {error}
+          {loading && !resolved && !error && (
+            <div className="surface-card flex items-center justify-center gap-2 p-8 text-sm text-[var(--color-muted-foreground)]">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Buscando información del envío...
             </div>
           )}
 
-          {result ? (
+          {error && (
+            <div
+              className="surface-card flex flex-col items-start gap-3 border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 p-5 text-sm text-[var(--color-destructive)] sm:flex-row sm:items-center sm:justify-between"
+              role="alert"
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-destructive)]/15">
+                  <PackageSearch className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="font-semibold">No pudimos completar la búsqueda</p>
+                  <p className="mt-0.5 text-[var(--color-destructive)]/85">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {sinResultados && (
+            <div className="surface-card flex flex-col items-center gap-3 p-8 text-center">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+                <PackageSearch className="h-6 w-6" />
+              </span>
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-[var(--color-foreground)]">
+                  Aún no has consultado un envío
+                </p>
+                <p className="max-w-md text-sm text-[var(--color-muted-foreground)]">
+                  Ingresa el número de guía o pieza arriba para ver el estado, el avance
+                  y los datos de entrega de tu envío.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {resolved?.tipo === 'GUIA_MASTER' && resolved.master ? (
+            <section className="space-y-5">
+              <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-3 items-start">
+                <div
+                  ref={masterCardRef}
+                  data-tracking-export="true"
+                  className="xl:col-span-2 space-y-5"
+                >
+                  <TrackingMasterView
+                    master={resolved.master}
+                    onSelectPieza={handleSelectPieza}
+                  />
+                </div>
+                <aside className="space-y-5 xl:sticky xl:top-4">
+                  <TrackingActionsBar
+                    onShare={handleShare}
+                    onCopyLink={handleCopyLink}
+                    onPrintPdf={handlePrintPdf}
+                    onDownloadPdf={handleDownloadPdf}
+                    onDownloadImage={handleDownloadImage}
+                    onCopyImage={handleCopyImage}
+                  />
+                </aside>
+              </div>
+            </section>
+          ) : null}
+
+          {pieza ? (
             <section ref={resultCardRef} data-tracking-export="true" className="space-y-5">
               <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-3 items-start">
                 <div className="xl:col-span-2 space-y-5">
-                  <TrackingSummaryCard result={result} fechaFormateada={fechaFormateada} />
+                  <TrackingSummaryCard result={pieza} fechaFormateada={fechaFormateada} />
                   <TrackingProgressCard
-                    result={result}
+                    result={pieza}
                     totalPasosBase={totalPasosBase}
                     pasoBaseActual={pasoBaseActual}
                   />
                   <TrackingTimeline estados={estados} currentIndex={currentIndex} />
-                  {hasDespachoInfo ? <TrackingDespachoCard result={result} /> : null}
-                  {hasDespachoInfo && hasPaquetesDespacho ? <TrackingPaquetesDespachoCard result={result} /> : null}
+                  {tieneMultiplesPiezas ? (
+                    <TrackingPiezasList
+                      piezas={piezasHermanas}
+                      totalEsperadas={totalEsperadasMaster}
+                      numeroGuiaActual={pieza.numeroGuia}
+                      onSelectPieza={handleSelectPieza}
+                      titulo={
+                        pieza.master?.trackingBase
+                          ? `Otras piezas de la guía ${pieza.master.trackingBase}`
+                          : 'Otras piezas de esta guía'
+                      }
+                    />
+                  ) : null}
+                  {hasDespachoInfo ? <TrackingDespachoCard result={pieza} /> : null}
+                  {hasDespachoInfo && hasPaquetesDespacho ? (
+                    <TrackingPaquetesDespachoCard result={pieza} />
+                  ) : null}
                 </div>
                 <aside className="space-y-5 xl:sticky xl:top-4">
-                  <TrackingDetailsCard result={result} />
-                  {hasDespachoInfo && hasOperadorEntrega ? <TrackingOperadorEntregaCard result={result} /> : null}
+                  <TrackingDetailsCard result={pieza} />
+                  {hasDespachoInfo && hasOperadorEntrega ? (
+                    <TrackingOperadorEntregaCard result={pieza} />
+                  ) : null}
                   <TrackingActionsBar
-                    onShare={() => {
-                      void handleShare();
-                    }}
-                    onCopyLink={() => {
-                      void handleCopyLink();
-                    }}
-                    onDownloadImage={() => {
-                      void handleDownloadImage();
-                    }}
-                    onDownloadPdf={() => {
-                      void handleDownloadPdf();
-                    }}
+                    onShare={handleShare}
+                    onCopyLink={handleCopyLink}
+                    onPrintPdf={handlePrintPdf}
+                    onDownloadPdf={handleDownloadPdf}
+                    onDownloadImage={handleDownloadImage}
+                    onCopyImage={handleCopyImage}
                   />
                 </aside>
               </div>

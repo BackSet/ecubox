@@ -6,6 +6,19 @@ interface TrackingTimelineProps {
   currentIndex: number;
 }
 
+function formatOcurrencia(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString('es-EC', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function TrackingTimeline({ estados, currentIndex }: TrackingTimelineProps) {
   if (estados.length === 0) {
     return (
@@ -101,6 +114,22 @@ export function TrackingTimeline({ estados, currentIndex }: TrackingTimelineProp
                     </span>
                   ) : null}
                 </div>
+                {(() => {
+                  const fecha = formatOcurrencia(item.fechaOcurrencia);
+                  if (fecha) {
+                    return (
+                      <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">{fecha}</p>
+                    );
+                  }
+                  if (!isCompleted && !item.esActual) {
+                    return (
+                      <p className="mt-1 text-xs italic text-[var(--color-muted-foreground)]/70">
+                        Pendiente
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </li>
           );

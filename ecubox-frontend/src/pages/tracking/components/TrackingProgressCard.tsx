@@ -1,3 +1,4 @@
+import { Activity, AlertTriangle, CalendarClock, CheckCircle2, Clock, Hourglass } from 'lucide-react';
 import type { TrackingResponse } from '@/lib/api/tracking.service';
 
 interface TrackingProgressCardProps {
@@ -21,6 +22,7 @@ export function TrackingProgressCard({
   const progress = totalPasosBase > 0
     ? clampPercentage((pasosCompletados / totalPasosBase) * 100)
     : 0;
+  const progressRedondeado = Math.round(progress);
 
   const showDias =
     !result.cuentaRegresivaFinalizada &&
@@ -34,73 +36,114 @@ export function TrackingProgressCard({
   const periodoCumplido = !periodoVencido && result.diasRestantes === 0;
   const periodoEnRango = !periodoVencido && (result.diasRestantes ?? 0) > 0;
 
+  const completo = totalPasosBase > 0 && pasosCompletados >= totalPasosBase;
+
   return (
-    <section className="surface-card p-5 sm:p-6 space-y-5">
-      <div className="space-y-1.5">
-        <h3 className="text-base font-semibold text-[var(--color-foreground)]">
-          Avance y tiempos
-        </h3>
-        <p className="text-sm text-[var(--color-muted-foreground)]">
-          Este avance es una referencia según las etapas de tu envío.
-        </p>
+    <section className="surface-card space-y-5 p-5 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="inline-flex items-center gap-2 text-base font-semibold text-[var(--color-foreground)]">
+            <Activity className="h-4 w-4 text-[var(--color-muted-foreground)]" />
+            Avance y tiempos
+          </h3>
+          <p className="text-sm text-[var(--color-muted-foreground)]">
+            Este avance es una referencia según las etapas de tu envío.
+          </p>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+            completo
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
+              : 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]'
+          }`}
+        >
+          {completo ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Hourglass className="h-3.5 w-3.5" />}
+          {progressRedondeado}%
+        </span>
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-[var(--color-foreground)]">
-            Paso {pasosCompletados} de {totalPasosBase || 0}
+        <div className="flex items-center justify-between text-sm">
+          <p className="font-medium text-[var(--color-foreground)]">
+            Paso{' '}
+            <span className="text-[var(--color-primary)]">{pasosCompletados}</span>{' '}
+            de {totalPasosBase || 0}
           </p>
-          <p className="text-sm font-semibold text-[var(--color-primary)]">{Math.round(progress)}%</p>
+          <p className="text-xs text-[var(--color-muted-foreground)]">
+            Solo etapas principales
+          </p>
         </div>
-        <div className="h-2.5 rounded-full bg-[var(--color-muted)] overflow-hidden">
+
+        {totalPasosBase > 0 ? (
           <div
-            className="h-full rounded-full bg-[var(--color-primary)] transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <p className="text-sm text-[var(--color-muted-foreground)]">
-          El porcentaje considera solo las etapas principales del envío.
-        </p>
+            className="grid gap-1.5"
+            style={{ gridTemplateColumns: `repeat(${totalPasosBase}, minmax(0, 1fr))` }}
+            aria-label={`Progreso ${progressRedondeado} por ciento`}
+          >
+            {Array.from({ length: totalPasosBase }).map((_, i) => {
+              const done = i < pasosCompletados;
+              const current = i === pasosCompletados - 1 && !completo;
+              return (
+                <span
+                  key={i}
+                  className={`h-2 rounded-full transition-all ${
+                    done
+                      ? current
+                        ? 'bg-[var(--color-primary)] shadow-[0_0_0_2px_var(--color-primary)]/15'
+                        : 'bg-[var(--color-primary)]'
+                      : 'bg-[var(--color-muted)]'
+                  }`}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="h-2 rounded-full bg-[var(--color-muted)]" />
+        )}
       </div>
 
       {result.cuentaRegresivaFinalizada ? (
-        <p className="rounded-lg border border-[var(--color-success)]/35 bg-[var(--color-success)]/12 px-4 py-3 text-sm font-medium text-[var(--color-foreground)]">
-          Cuenta regresiva finalizada para este envío.
-        </p>
+        <div className="flex items-start gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="font-medium">
+            Cuenta regresiva finalizada para este envío.
+          </span>
+        </div>
       ) : showDias ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-3.5">
-            <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Días transcurridos</p>
-            <p className="mt-1 text-2xl font-semibold text-[var(--color-foreground)]">
-              {result.diasTranscurridos ?? 0}
-            </p>
-          </div>
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-3.5">
-            <p className="text-sm font-medium text-[var(--color-muted-foreground)]">
-              Días restantes para retiro
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-[var(--color-foreground)]">
-              {result.diasRestantes ?? 0}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <StatTile
+            label="Días transcurridos"
+            value={result.diasTranscurridos ?? 0}
+            icon={<Clock className="h-4 w-4" />}
+            tone="neutral"
+          />
+          <StatTile
+            label="Días restantes para retiro"
+            value={result.diasRestantes ?? 0}
+            icon={<CalendarClock className="h-4 w-4" />}
+            tone={periodoVencido ? 'danger' : periodoCumplido ? 'warning' : 'success'}
+          />
           {periodoVencido ? (
-            <p className="sm:col-span-2 rounded-lg border border-[var(--color-destructive)]/35 bg-[var(--color-destructive)]/12 px-4 py-3 text-sm font-medium text-[var(--color-destructive)]">
-              El plazo para retirar tu envío venció hace {diasAtrasoRetiro} día(s).
+            <p className="flex items-start gap-2 rounded-lg border border-[var(--color-destructive)]/35 bg-[var(--color-destructive)]/10 px-4 py-3 text-sm font-medium text-[var(--color-destructive)] sm:col-span-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>El plazo para retirar tu envío venció hace {diasAtrasoRetiro} día(s).</span>
             </p>
           ) : null}
           {periodoEnRango ? (
-            <p className="sm:col-span-2 rounded-lg border border-[var(--color-info)]/35 bg-[var(--color-info)]/12 px-4 py-3 text-sm font-medium text-[var(--color-foreground)]">
-              Puedes retirar tu envío en los próximos {result.diasRestantes ?? 0} día(s).
+            <p className="flex items-start gap-2 rounded-lg border border-[var(--color-info)]/35 bg-[var(--color-info)]/10 px-4 py-3 text-sm font-medium text-[var(--color-foreground)] sm:col-span-2">
+              <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-info)]" />
+              <span>Puedes retirar tu envío en los próximos {result.diasRestantes ?? 0} día(s).</span>
             </p>
           ) : null}
           {periodoCumplido ? (
-            <p className="sm:col-span-2 rounded-lg border border-[var(--color-success)]/35 bg-[var(--color-success)]/12 px-4 py-3 text-sm font-medium text-[var(--color-foreground)]">
-              Hoy es el último día para retirar tu envío.
+            <p className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100 sm:col-span-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Hoy es el último día para retirar tu envío.</span>
             </p>
           ) : null}
         </div>
       ) : (
-        <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-3 text-sm text-[var(--color-muted-foreground)]">
+        <p className="rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/30 px-4 py-3 text-sm text-[var(--color-muted-foreground)]">
           No contamos con un plazo de retiro para este envío por el momento.
         </p>
       )}
@@ -108,3 +151,32 @@ export function TrackingProgressCard({
   );
 }
 
+interface StatTileProps {
+  label: string;
+  value: number | string;
+  icon: React.ReactNode;
+  tone: 'neutral' | 'success' | 'warning' | 'danger';
+}
+
+function StatTile({ label, value, icon, tone }: StatTileProps) {
+  const toneClasses: Record<StatTileProps['tone'], string> = {
+    neutral:
+      'border-[var(--color-border)] bg-[var(--color-muted)]/30 text-[var(--color-foreground)]',
+    success:
+      'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100',
+    warning:
+      'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100',
+    danger:
+      'border-[var(--color-destructive)]/40 bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]',
+  };
+
+  return (
+    <div className={`rounded-lg border px-4 py-3 ${toneClasses[tone]}`}>
+      <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide opacity-80">
+        {icon}
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-semibold leading-tight">{value}</p>
+    </div>
+  );
+}

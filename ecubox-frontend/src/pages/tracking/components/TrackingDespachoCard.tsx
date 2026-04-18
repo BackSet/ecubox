@@ -7,19 +7,9 @@ interface TrackingDespachoCardProps {
 
 export function TrackingDespachoCard({ result }: TrackingDespachoCardProps) {
   const despacho = result.despacho;
-  const sacaActual = result.sacaActual;
   const totalKg = despacho?.pesoTotalKg ?? (despacho?.pesoTotalLbs != null ? lbsToKg(despacho.pesoTotalLbs) : null);
   const totalLbs = despacho?.pesoTotalLbs ?? (despacho?.pesoTotalKg != null ? kgToLbs(despacho.pesoTotalKg) : null);
-  const sacaKg = sacaActual?.pesoKg ?? (sacaActual?.pesoLbs != null ? lbsToKg(sacaActual.pesoLbs) : null);
-  const sacaLbs = sacaActual?.pesoLbs ?? (sacaActual?.pesoKg != null ? kgToLbs(sacaActual.pesoKg) : null);
   const agenciaDistribucionAsociada = result.operadorEntrega?.distribuidorNombre;
-  const toSacaLabel = (raw?: string) => {
-    if (!raw) return 'Ubicación por confirmar';
-    const match = raw.match(/(\d+)$/);
-    if (!match) return raw;
-    const numero = Number(match[1]);
-    return Number.isNaN(numero) ? raw : `Bolsa ${numero}`;
-  };
 
   return (
     <section className="surface-card p-5 sm:p-6 space-y-4">
@@ -61,18 +51,6 @@ export function TrackingDespachoCard({ result }: TrackingDespachoCardProps) {
             {totalKg != null || totalLbs != null ? `${totalKg ?? 0} kg / ${totalLbs ?? 0} lbs` : '0 kg / 0 lbs'}
           </p>
         </div>
-      </div>
-
-      <div className="rounded-lg border border-[var(--color-border)] p-4">
-        <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Ubicación del paquete</p>
-        <p className="mt-1 text-base font-semibold text-[var(--color-foreground)]">
-          {toSacaLabel(sacaActual?.numeroOrden)}
-        </p>
-        {sacaKg != null || sacaLbs != null ? (
-          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-            Peso aproximado: {sacaKg ?? 0} kg / {sacaLbs ?? 0} lbs
-          </p>
-        ) : null}
       </div>
     </section>
   );
