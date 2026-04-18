@@ -3,31 +3,28 @@ import { toast } from 'sonner';
 import { usePaquetes, useDeletePaquete } from '@/hooks/usePaquetes';
 import { useAuthStore } from '@/stores/authStore';
 import { PaqueteForm } from './PaqueteForm';
-import { AsignarGuiaEnvioPage } from '@/pages/dashboard/asignar-guia-envio/AsignarGuiaEnvioPage';
+import { PaqueteBulkCreateForm } from './PaqueteBulkCreateForm';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { ListTableShell } from '@/components/ListTableShell';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, Link2 } from 'lucide-react';
+import { Package, Pencil, Trash2 } from 'lucide-react';
 import type { Paquete } from '@/types/paquete';
 import { getApiErrorMessage } from '@/lib/api/error-message';
+import { GuiaMasterPiezaCell, DestinatarioCell } from './PaqueteCells';
 
 export function PaqueteListPage() {
   const hasPaquetesCreate = useAuthStore((s) => s.hasPermission('PAQUETES_CREATE'));
   const hasPaquetesUpdate = useAuthStore((s) => s.hasPermission('PAQUETES_UPDATE'));
   const hasPaquetesDelete = useAuthStore((s) => s.hasPermission('PAQUETES_DELETE'));
   const hasPesoWrite = useAuthStore((s) => s.hasPermission('PAQUETES_PESO_WRITE'));
-  const canAccessAsignarGuia = useAuthStore((s) => s.hasRole('ADMIN') || s.hasRole('OPERARIO'));
   const { data: paquetes, isLoading, error } = usePaquetes();
   const deletePaquete = useDeletePaquete();
   const [createOpen, setCreateOpen] = useState(false);
-  const [asignarGuiaOpen, setAsignarGuiaOpen] = useState(false);
   const [editingPaquete, setEditingPaquete] = useState<Paquete | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
@@ -39,7 +36,8 @@ export function PaqueteListPage() {
     return raw.filter(
       (p) =>
         p.numeroGuia?.toLowerCase().includes(q) ||
-        (hasPesoWrite && (p.numeroGuiaEnvio?.toLowerCase().includes(q) ?? false)) ||
+        (hasPesoWrite && (p.guiaMasterTrackingBase?.toLowerCase().includes(q) ?? false)) ||
+        (hasPesoWrite && (p.envioConsolidadoCodigo?.toLowerCase().includes(q) ?? false)) ||
         (p.ref?.toLowerCase().includes(q) ?? false) ||
         (p.destinatarioNombre?.toLowerCase().includes(q) ?? false) ||
         (p.contenido?.toLowerCase().includes(q) ?? false)
@@ -62,21 +60,11 @@ export function PaqueteListPage() {
   return (
     <div className="space-y-4">
       <ListToolbar
-        title="Mis Paquetes"
-        searchPlaceholder={
-          hasPesoWrite
-            ? 'Buscar por guía, guía de envío, destinatario, contenido...'
-            : 'Buscar por guía, destinatario, contenido...'
-        }
+        title="Gestión de paquetes"
+        searchPlaceholder="Buscar por guía master, pieza, envío, destinatario o contenido..."
         onSearchChange={setSearch}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            {canAccessAsignarGuia && (
-              <Button type="button" variant="outline" className="w-full gap-2 sm:w-auto" onClick={() => setAsignarGuiaOpen(true)}>
-                <Link2 className="h-4 w-4" />
-                Asignar guía de envío
-              </Button>
-            )}
             {hasPaquetesCreate && (
               <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>Registrar paquete</Button>
             )}
@@ -105,7 +93,7 @@ export function PaqueteListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Ref</TableHead>
-                  <TableHead>Número de guía</TableHead>
+                  <TableHead>Guía master / Pieza</TableHead>
                   {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
                   <TableHead>Destinatario</TableHead>
                   <TableHead>Estado</TableHead>
@@ -118,16 +106,24 @@ export function PaqueteListPage() {
                 {list.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell data-label="Ref" className="font-mono text-xs text-muted-foreground">{p.ref ?? '—'}</TableCell>
-                    <TableCell data-label="Número de guía" className="font-medium">
-                      <a
-                        href={`/tracking?numeroGuia=${encodeURIComponent(p.numeroGuia)}`}
-                        className="text-primary hover:underline"
-                      >
-                        {p.numeroGuia}
-                      </a>
+                    <TableCell data-label="Guía master / Pieza" className="max-w-[14rem] align-top">
+                      <GuiaMasterPiezaCell paquete={p} />
                     </TableCell>
-                    {hasPesoWrite && <TableCell data-label="Guía de envío">{p.numeroGuiaEnvio ?? '—'}</TableCell>}
-                    <TableCell data-label="Destinatario">{p.destinatarioNombre ?? '—'}</TableCell>
+                    {hasPesoWrite && (
+                      <TableCell data-label="Guía de envío" className="font-mono text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span>{p.envioConsolidadoCodigo ?? '—'}</span>
+                          {p.envioConsolidadoCodigo && (
+                            <Badge variant="outline" className="text-[10px] font-normal">
+                              {p.envioConsolidadoCerrado ? 'Cerrado' : 'Abierto'}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
+                    <TableCell data-label="Destinatario" className="align-top">
+                      <DestinatarioCell paquete={p} />
+                    </TableCell>
                     <TableCell data-label="Estado">
                       <Badge variant="secondary" className="font-normal">
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
@@ -143,15 +139,29 @@ export function PaqueteListPage() {
                     </TableCell>
                     {(hasPaquetesUpdate || hasPaquetesDelete) && (
                       <TableCell data-label="Acciones" className="text-right md:text-right">
-                        <div className="flex items-center justify-end md:justify-end">
-                          <RowActionsMenu
-                            items={[
-                              ...(hasPaquetesUpdate ? [{ label: 'Editar', onSelect: () => setEditingPaquete(p) }] : []),
-                              ...(hasPaquetesDelete
-                                ? [{ label: 'Eliminar', onSelect: () => setDeleteConfirmId(p.id), destructive: true }]
-                                : []),
-                            ]}
-                          />
+                        <div className="flex items-center justify-end gap-1">
+                          {hasPaquetesUpdate && (
+                            <button
+                              type="button"
+                              onClick={() => setEditingPaquete(p)}
+                              aria-label="Editar paquete"
+                              title="Editar paquete"
+                              className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-muted)] hover:text-foreground"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {hasPaquetesDelete && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmId(p.id)}
+                              aria-label="Eliminar paquete"
+                              title="Eliminar paquete"
+                              className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-destructive)]/10 hover:text-[var(--color-destructive)] hover:border-[var(--color-destructive)]/40"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                     )}
@@ -163,7 +173,7 @@ export function PaqueteListPage() {
       )}
 
       {createOpen && (
-        <PaqueteForm
+        <PaqueteBulkCreateForm
           onClose={() => setCreateOpen(false)}
           onSuccess={() => setCreateOpen(false)}
         />
@@ -176,15 +186,6 @@ export function PaqueteListPage() {
           onSuccess={() => setEditingPaquete(null)}
         />
       )}
-
-      <Dialog open={asignarGuiaOpen} onOpenChange={setAsignarGuiaOpen}>
-        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
-          <DialogHeader className="px-4 pb-0 pt-4 sm:px-6 sm:pt-5">
-            <DialogTitle>Asignar guía de envío</DialogTitle>
-          </DialogHeader>
-          <AsignarGuiaEnvioPage />
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={deleteConfirmId != null}

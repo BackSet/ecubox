@@ -2,12 +2,19 @@ import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useTarifaCalculadora, useUpdateTarifaCalculadora } from '@/hooks/useTarifaCalculadora';
-import { Button } from '@/components/ui/button';
-import { LoadingState } from '@/components/LoadingState';
+import { AlertCircle, DollarSign, Loader2, RotateCcw, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { LoadingState } from '@/components/LoadingState';
+import {
+  useTarifaCalculadora,
+  useUpdateTarifaCalculadora,
+} from '@/hooks/useTarifaCalculadora';
 import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { clampNonNegative, roundToDecimals } from '@/lib/utils/decimal';
+import { cn } from '@/lib/utils';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 const formSchema = z.object({
   tarifaPorLibra: z
@@ -54,9 +61,15 @@ export function TarifaCalculadoraForm() {
         tarifaPorLibra: tarifaNormalizada,
       });
       toast.success('Tarifa guardada correctamente');
-    } catch {
-      toast.error('Error al guardar la tarifa');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) ?? 'Error al guardar la tarifa');
     }
+  }
+
+  function handleReset() {
+    if (tarifa == null) return;
+    form.reset({ tarifaPorLibra: tarifa.tarifaPorLibra ?? 0 });
+    setTarifaInput(String(tarifa.tarifaPorLibra ?? 0));
   }
 
   if (isLoading) {
@@ -70,50 +83,95 @@ export function TarifaCalculadoraForm() {
     );
   }
 
+  const currentValue = form.watch('tarifaPorLibra') ?? 0;
+  const originalValue = tarifa?.tarifaPorLibra ?? 0;
+  const isDirty = Number(currentValue) !== Number(originalValue);
+  const error_ = form.formState.errors.tarifaPorLibra;
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-md space-y-4">
-      <div>
-        <label
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label
           htmlFor="tarifaPorLibra"
-          className="block text-sm font-medium text-[var(--color-foreground)] mb-1"
+          className="flex items-center gap-1.5 text-xs text-foreground"
         >
-          Tarifa por libra (USD)
-        </label>
+          <span>Tarifa por libra (USD)</span>
+          <span className="text-[var(--color-destructive)]">*</span>
+        </Label>
         <Controller
           control={form.control}
           name="tarifaPorLibra"
           render={({ field }) => (
-            <input
-              id="tarifaPorLibra"
-              type="text"
-              inputMode="decimal"
-              name={field.name}
-              ref={field.ref}
-              onBlur={field.onBlur}
-              value={tarifaInput}
-              onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaInput)}
-              onChange={(e) => {
-                const s = normalizeTarifaInput(e.target.value);
-                setTarifaInput(s);
-                const n = s === '' || s === '.' ? NaN : Number(s);
-                field.onChange(n);
-              }}
-              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
-            />
+            <div className="relative">
+              <span className="pointer-events-none absolute top-1/2 left-3 inline-flex -translate-y-1/2 items-center gap-1 text-sm font-semibold text-muted-foreground">
+                <DollarSign className="h-4 w-4" />
+              </span>
+              <input
+                id="tarifaPorLibra"
+                type="text"
+                inputMode="decimal"
+                name={field.name}
+                ref={field.ref}
+                onBlur={field.onBlur}
+                value={tarifaInput}
+                onKeyDown={(e) => onKeyDownNumericDecimal(e, tarifaInput)}
+                onChange={(e) => {
+                  const s = normalizeTarifaInput(e.target.value);
+                  setTarifaInput(s);
+                  const n = s === '' || s === '.' ? NaN : Number(s);
+                  field.onChange(n);
+                }}
+                aria-invalid={Boolean(error_)}
+                className={cn(
+                  'block h-12 w-full rounded-md border bg-[var(--color-background)] pr-16 pl-9 text-right font-mono text-lg font-semibold text-foreground transition-colors',
+                  'border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]',
+                  error_ && 'border-[var(--color-destructive)] focus:ring-[var(--color-destructive)]/30',
+                )}
+              />
+              <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                / lb
+              </span>
+            </div>
           )}
         />
-        <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-          Puedes usar punto o coma. Máximo 4 decimales.
-        </p>
-        {form.formState.errors.tarifaPorLibra && (
-          <p className="mt-1 text-sm text-[var(--color-destructive)]">
-            {form.formState.errors.tarifaPorLibra.message}
+        {error_ ? (
+          <p className="flex items-center gap-1 text-xs text-[var(--color-destructive)]">
+            <AlertCircle className="h-3 w-3" />
+            {error_.message}
+          </p>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">
+            Puedes usar punto o coma. Máximo 4 decimales.
           </p>
         )}
       </div>
-      <Button type="submit" disabled={updateMutation.isPending}>
-        {updateMutation.isPending ? 'Guardando...' : 'Guardar'}
-      </Button>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={updateMutation.isPending || !isDirty}>
+          {updateMutation.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Guardando…
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Guardar tarifa
+            </>
+          )}
+        </Button>
+        {isDirty && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleReset}
+            disabled={updateMutation.isPending}
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Descartar
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

@@ -1,6 +1,8 @@
 import { SiteHeader } from '@/components/SiteHeader';
 import { Hero } from '@/components/Hero';
 import { ServicesGrid } from '@/components/ServicesGrid';
+import { HowItWorks } from '@/components/HowItWorks';
+import { CallToActionBanner } from '@/components/CallToActionBanner';
 import { FAQ } from '@/components/FAQ';
 import { SiteFooter } from '@/components/SiteFooter';
 
@@ -12,6 +14,8 @@ export function HomePage() {
       <main className="relative z-10 flex-1">
         <Hero />
         <ServicesGrid />
+        <HowItWorks />
+        <CallToActionBanner />
         <FAQ />
       </main>
       <SiteFooter />

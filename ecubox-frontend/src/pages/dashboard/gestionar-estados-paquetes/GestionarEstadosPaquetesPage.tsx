@@ -1,39 +1,167 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { usePaquetesSinSaca } from '@/hooks/useOperarioDespachos';
 import { useCambiarEstadoRastreoBulk } from '@/hooks/usePaquetesOperario';
 import { useEstadosRastreoActivos } from '@/hooks/useEstadosRastreo';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import { ListToolbar } from '@/components/ListToolbar';
+import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tag } from 'lucide-react';
+import { SearchableCombobox } from '@/components/ui/searchable-combobox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  ListChecks,
+  Search,
+  Tag,
+  Users,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { GuiaMasterPiezaCell, DestinatarioCell } from '../paquetes/PaqueteCells';
+import type { Paquete } from '@/types/paquete';
+
+const SIN_FILTRO = '__all__';
 
 export function GestionarEstadosPaquetesPage() {
   const { data: paquetes, isLoading, error } = usePaquetesSinSaca();
   const { data: estadosRastreo = [] } = useEstadosRastreoActivos();
   const cambiarEstadoBulk = useCambiarEstadoRastreoBulk();
+
   const [search, setSearch] = useState('');
+  const [estadoActualFiltro, setEstadoActualFiltro] = useState<string>(SIN_FILTRO);
+  const [envioFiltro, setEnvioFiltro] = useState<string>(SIN_FILTRO);
+  const [soloSeleccionados, setSoloSeleccionados] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [estadoId, setEstadoId] = useState<string>('');
+  const [estadoTargetId, setEstadoTargetId] = useState<string>('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [resultadoDialog, setResultadoDialog] = useState<
+    | {
+        actualizados: number;
+        rechazados: { paqueteId: number; motivo: string; numeroGuia?: string }[];
+      }
+    | null
+  >(null);
+
+  const all = useMemo(() => paquetes ?? [], [paquetes]);
   const opcionesEstado: EstadoRastreo[] = estadosRastreo;
 
-  const list = useMemo(() => {
-    const raw = paquetes ?? [];
-    if (!search.trim()) return raw;
-    const q = search.trim().toLowerCase();
-    return raw.filter(
-      (p) =>
-        p.ref?.toLowerCase().includes(q) ||
-        p.numeroGuia?.toLowerCase().includes(q) ||
-        (p.numeroGuiaEnvio?.toLowerCase().includes(q) ?? false) ||
-        (p.destinatarioNombre?.toLowerCase().includes(q) ?? false) ||
-        (p.contenido?.toLowerCase().includes(q) ?? false)
+  const estadoTarget = useMemo(
+    () => opcionesEstado.find((e) => String(e.id) === estadoTargetId) ?? null,
+    [opcionesEstado, estadoTargetId],
+  );
+
+  const codigosEnvio = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of all) {
+      if (p.envioConsolidadoCodigo) set.add(p.envioConsolidadoCodigo);
+    }
+    return Array.from(set).sort();
+  }, [all]);
+
+  const estadosActualesPresentes = useMemo(() => {
+    const map = new Map<string, { codigo: string; nombre: string }>();
+    for (const p of all) {
+      const codigo = p.estadoRastreoCodigo ?? p.estadoRastreoNombre ?? '';
+      if (!codigo) continue;
+      if (!map.has(codigo)) {
+        map.set(codigo, { codigo, nombre: p.estadoRastreoNombre ?? codigo });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      a.nombre.localeCompare(b.nombre, 'es'),
     );
-  }, [paquetes, search]);
+  }, [all]);
+
+  const list = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return all.filter((p) => {
+      if (
+        estadoActualFiltro !== SIN_FILTRO &&
+        (p.estadoRastreoCodigo ?? p.estadoRastreoNombre) !== estadoActualFiltro
+      ) {
+        return false;
+      }
+      if (
+        envioFiltro !== SIN_FILTRO &&
+        (p.envioConsolidadoCodigo ?? '') !== envioFiltro
+      ) {
+        return false;
+      }
+      if (soloSeleccionados && !selectedIds.has(p.id)) return false;
+      if (!q) return true;
+      return [
+        p.numeroGuia,
+        p.guiaMasterTrackingBase,
+        p.ref,
+        p.contenido,
+        p.destinatarioNombre,
+        p.destinatarioTelefono,
+        p.envioConsolidadoCodigo,
+        p.estadoRastreoNombre,
+        p.estadoRastreoCodigo,
+      ]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [all, search, estadoActualFiltro, envioFiltro, soloSeleccionados, selectedIds]);
+
+  const visibleAllSelected = useMemo(
+    () => list.length > 0 && list.every((p) => selectedIds.has(p.id)),
+    [list, selectedIds],
+  );
+  const visibleSomeSelected = useMemo(
+    () => list.some((p) => selectedIds.has(p.id)),
+    [list, selectedIds],
+  );
+
+  const seleccionados = useMemo(
+    () => all.filter((p) => selectedIds.has(p.id)),
+    [all, selectedIds],
+  );
+
+  const stats = useMemo(() => {
+    const grupos = new Map<string, number>();
+    for (const p of seleccionados) {
+      const key = p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—';
+      grupos.set(key, (grupos.get(key) ?? 0) + 1);
+    }
+    return {
+      totalDisponibles: all.length,
+      totalFiltrados: list.length,
+      totalSeleccionados: seleccionados.length,
+      gruposEstado: Array.from(grupos.entries()).sort((a, b) => b[1] - a[1]),
+    };
+  }, [all, list, seleccionados]);
 
   const toggleSelected = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -44,41 +172,81 @@ export function GestionarEstadosPaquetesPage() {
     });
   }, []);
 
-  const toggleAll = useCallback(() => {
-    const visibleIds = list.map((p) => p.id);
+  const toggleAllVisibles = useCallback(() => {
     setSelectedIds((prev) => {
-      const allSelected = visibleIds.length > 0 && visibleIds.every((id) => prev.has(id));
-      if (allSelected) return new Set([...prev].filter((id) => !visibleIds.includes(id)));
-      return new Set([...prev, ...visibleIds]);
+      const next = new Set(prev);
+      const allSelected = list.length > 0 && list.every((p) => next.has(p.id));
+      if (allSelected) {
+        for (const p of list) next.delete(p.id);
+      } else {
+        for (const p of list) next.add(p.id);
+      }
+      return next;
     });
   }, [list]);
 
-  const handleAplicar = useCallback(async () => {
-    const id = estadoId === '' ? null : Number(estadoId);
-    if (id == null || Number.isNaN(id)) {
-      toast.error('Selecciona un estado');
-      return;
-    }
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) {
-      toast.error('Selecciona al menos un paquete');
-      return;
-    }
-    try {
-      const res = await cambiarEstadoBulk.mutateAsync({ paqueteIds: ids, estadoRastreoId: id });
-      if (res.rechazados.length > 0) {
-        const motivos = res.rechazados.map((r) => `#${r.paqueteId}: ${r.motivo}`).join('; ');
-        toast.warning(`${res.actualizados} actualizado(s). Rechazados: ${res.rechazados.length}. ${motivos}`);
-      } else {
-        toast.success(`${res.actualizados} paquete(s) actualizado(s)`);
-      }
-      setSelectedIds(new Set());
-    } catch {
-      toast.error('Error al aplicar estado');
-    }
-  }, [estadoId, selectedIds, cambiarEstadoBulk]);
+  const limpiarSeleccion = useCallback(() => {
+    setSelectedIds(new Set());
+    setSoloSeleccionados(false);
+  }, []);
 
-  const allPaquetes = paquetes ?? [];
+  const limpiarFiltros = useCallback(() => {
+    setSearch('');
+    setEstadoActualFiltro(SIN_FILTRO);
+    setEnvioFiltro(SIN_FILTRO);
+    setSoloSeleccionados(false);
+  }, []);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && selectedIds.size > 0 && !confirmOpen && !resultadoDialog) {
+        limpiarSeleccion();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedIds, confirmOpen, resultadoDialog, limpiarSeleccion]);
+
+  useEffect(() => {
+    if (soloSeleccionados && selectedIds.size === 0) {
+      setSoloSeleccionados(false);
+    }
+  }, [soloSeleccionados, selectedIds]);
+
+  const ejecutar = useCallback(async () => {
+    if (estadoTarget == null) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      const res = await cambiarEstadoBulk.mutateAsync({
+        paqueteIds: ids,
+        estadoRastreoId: estadoTarget.id,
+      });
+      const rechazadosEnriquecidos = res.rechazados.map((r) => ({
+        ...r,
+        numeroGuia: all.find((p) => p.id === r.paqueteId)?.numeroGuia,
+      }));
+      if (res.rechazados.length === 0) {
+        toast.success(
+          `${res.actualizados} paquete${res.actualizados === 1 ? '' : 's'} actualizado${res.actualizados === 1 ? '' : 's'}.`,
+        );
+      } else {
+        toast.warning(
+          `${res.actualizados} actualizado${res.actualizados === 1 ? '' : 's'} · ${res.rechazados.length} rechazado${res.rechazados.length === 1 ? '' : 's'}.`,
+        );
+      }
+      setSelectedIds(
+        (prev) => new Set([...prev].filter((id) => res.rechazados.some((r) => r.paqueteId === id))),
+      );
+      setEstadoTargetId('');
+      if (res.rechazados.length > 0) {
+        setResultadoDialog({ actualizados: res.actualizados, rechazados: rechazadosEnriquecidos });
+      }
+      setConfirmOpen(false);
+    } catch {
+      toast.error('Error al aplicar el estado.');
+    }
+  }, [estadoTarget, selectedIds, cambiarEstadoBulk, all]);
 
   if (isLoading) {
     return <LoadingState text="Cargando paquetes..." />;
@@ -91,96 +259,463 @@ export function GestionarEstadosPaquetesPage() {
     );
   }
 
+  const tieneFiltros =
+    search.trim() !== '' ||
+    estadoActualFiltro !== SIN_FILTRO ||
+    envioFiltro !== SIN_FILTRO ||
+    soloSeleccionados;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-32">
       <ListToolbar
         title="Gestionar estados de paquetes"
-        searchPlaceholder="Buscar por guía, ref, destinatario..."
+        searchPlaceholder="Buscar por guía, ref, destinatario, envío o contenido..."
         onSearchChange={setSearch}
-        actions={
-          <div className="flex items-center gap-2">
-            <Tag className="h-4 w-4 opacity-70" aria-hidden />
-            <Select value={estadoId} onValueChange={setEstadoId}>
-              <SelectTrigger className="min-w-[200px]" aria-label="Estado a aplicar">
-                <SelectValue placeholder="Seleccionar estado" />
+      />
+
+      {all.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <KpiCard icon={ListChecks} label="Disponibles" value={stats.totalDisponibles} />
+          <KpiCard
+            icon={Search}
+            label="Filtrados"
+            value={stats.totalFiltrados}
+            tone={stats.totalFiltrados !== stats.totalDisponibles ? 'accent' : 'muted'}
+          />
+          <KpiCard
+            icon={CheckCircle2}
+            label="Seleccionados"
+            value={stats.totalSeleccionados}
+            tone={stats.totalSeleccionados > 0 ? 'success' : 'muted'}
+          />
+          <KpiCard
+            icon={Users}
+            label="Estados distintos"
+            value={estadosActualesPresentes.length}
+          />
+        </div>
+      )}
+
+      {all.length > 0 && (
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Estado actual
+            </span>
+            <Select value={estadoActualFiltro} onValueChange={setEstadoActualFiltro}>
+              <SelectTrigger className="h-9 w-[12rem]">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {opcionesEstado.map((e) => (
-                  <SelectItem key={e.id} value={String(e.id)}>
+                <SelectItem value={SIN_FILTRO}>Todos los estados</SelectItem>
+                {estadosActualesPresentes.map((e) => (
+                  <SelectItem key={e.codigo} value={e.codigo}>
                     {e.nombre}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Envío consolidado
+            </span>
+            <Select value={envioFiltro} onValueChange={setEnvioFiltro}>
+              <SelectTrigger className="h-9 w-[12rem]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_FILTRO}>Todos</SelectItem>
+                {codigosEnvio.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    <span className="font-mono text-xs">{c}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Vista
+            </span>
             <Button
-              onClick={handleAplicar}
-              disabled={cambiarEstadoBulk.isPending || selectedIds.size === 0 || !estadoId}
+              type="button"
+              variant={soloSeleccionados ? 'default' : 'outline'}
+              onClick={() => setSoloSeleccionados((v) => !v)}
+              disabled={selectedIds.size === 0}
+              className="h-9 gap-2 whitespace-nowrap"
             >
-              {cambiarEstadoBulk.isPending ? 'Aplicando...' : `Aplicar estado (${selectedIds.size})`}
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>
+                {soloSeleccionados ? 'Mostrar todos' : 'Solo seleccionados'}
+              </span>
             </Button>
           </div>
-        }
-      />
+          {tieneFiltros && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={limpiarFiltros}
+              className="ml-auto h-9 gap-1.5 whitespace-nowrap"
+            >
+              <X className="h-3.5 w-3.5 shrink-0" />
+              <span>Limpiar filtros</span>
+            </Button>
+          )}
+        </div>
+      )}
 
-      <p className="text-sm text-[var(--color-muted-foreground)]">
-        Solo se listan paquetes sin despacho. Puedes asignar cualquier estado activo a los seleccionados. Los paquetes
-        que estén en un lote de recepción serán rechazados al aplicar.
-      </p>
-
-      {allPaquetes.length === 0 ? (
+      {all.length === 0 ? (
         <EmptyState
           icon={Tag}
-          title="No hay paquetes sin saca"
-          description="Todos los paquetes tienen saca asignada o no hay paquetes."
+          title="No hay paquetes para gestionar"
+          description="Todos los paquetes tienen saca asignada o no hay paquetes registrados."
         />
       ) : list.length === 0 ? (
         <EmptyState
           icon={Tag}
           title="Sin resultados"
-          description="No hay paquetes que coincidan con la búsqueda."
+          description="No hay paquetes que coincidan con los filtros aplicados."
         />
       ) : (
-        <div className="surface-card overflow-hidden p-0">
-          <table className="compact-table">
-            <thead>
-              <tr>
-                <th className="w-10">
+        <ListTableShell>
+          <Table className="min-w-[1080px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
                   <Checkbox
-                    checked={list.length > 0 && list.every((p) => selectedIds.has(p.id))}
-                    onCheckedChange={toggleAll}
-                    aria-label="Seleccionar todos"
+                    checked={
+                      visibleAllSelected
+                        ? true
+                        : visibleSomeSelected
+                          ? 'indeterminate'
+                          : false
+                    }
+                    onCheckedChange={toggleAllVisibles}
+                    aria-label="Seleccionar todos los visibles"
                   />
-                </th>
-                <th>Ref</th>
-                <th>Guía</th>
-                <th>Guía de envío</th>
-                <th>Destinatario</th>
-                <th>Estado actual</th>
-                <th>Flujo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((p) => (
-                <tr key={p.id}>
-                  <td className="text-center">
-                    <Checkbox
-                      checked={selectedIds.has(p.id)}
-                      onCheckedChange={() => toggleSelected(p.id)}
-                      aria-label={`Seleccionar ${p.numeroGuia}`}
-                    />
-                  </td>
-                  <td className="font-mono text-sm">{p.ref ?? '—'}</td>
-                  <td className="font-medium">{p.numeroGuia}</td>
-                  <td>{p.numeroGuiaEnvio ?? '—'}</td>
-                  <td>{p.destinatarioNombre ?? '—'}</td>
-                  <td>{p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}</td>
-                  <td>{p.enFlujoAlterno ? 'Alterno' : 'Normal'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                </TableHead>
+                <TableHead className="w-[16rem]">Guía / Pieza</TableHead>
+                <TableHead className="min-w-[16rem]">Destinatario</TableHead>
+                <TableHead>Estado actual</TableHead>
+                <TableHead>Envío</TableHead>
+                <TableHead>Contenido</TableHead>
+                <TableHead className="text-right">Peso</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.map((p) => {
+                const selected = selectedIds.has(p.id);
+                return (
+                  <TableRow
+                    key={p.id}
+                    onClick={() => toggleSelected(p.id)}
+                    className={`cursor-pointer ${
+                      selected ? 'bg-primary/5 hover:bg-primary/10' : ''
+                    }`}
+                  >
+                    <TableCell
+                      className="align-top"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        checked={selected}
+                        onCheckedChange={() => toggleSelected(p.id)}
+                        aria-label={`Seleccionar ${p.numeroGuia}`}
+                      />
+                    </TableCell>
+                    <TableCell className="max-w-[16rem] align-top">
+                      <GuiaMasterPiezaCell paquete={p} />
+                      {p.ref && (
+                        <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                          {p.ref}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[20rem] align-top">
+                      <DestinatarioCell paquete={p} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <Badge variant="secondary" className="font-normal">
+                        {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      {p.envioConsolidadoCodigo ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs">
+                            {p.envioConsolidadoCodigo}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-normal"
+                          >
+                            {p.envioConsolidadoCerrado ? 'Cerrado' : 'Abierto'}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[16rem] align-top text-sm text-muted-foreground">
+                      <span className="line-clamp-2 break-words">
+                        {p.contenido ?? '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right align-top text-sm tabular-nums">
+                      {p.pesoLbs != null ? <div>{p.pesoLbs.toFixed(2)} lbs</div> : null}
+                      {p.pesoKg != null ? (
+                        <div className="text-xs text-muted-foreground">
+                          {p.pesoKg.toFixed(2)} kg
+                        </div>
+                      ) : null}
+                      {p.pesoLbs == null && p.pesoKg == null && (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </ListTableShell>
       )}
+
+      {selectedIds.size > 0 && (
+        <SelectionActionBar
+          total={selectedIds.size}
+          gruposEstado={stats.gruposEstado}
+          opcionesEstado={opcionesEstado}
+          estadoTargetId={estadoTargetId}
+          onChangeEstado={setEstadoTargetId}
+          onClear={limpiarSeleccion}
+          onApply={() => {
+            if (!estadoTargetId) {
+              toast.error('Selecciona el estado a aplicar.');
+              return;
+            }
+            setConfirmOpen(true);
+          }}
+          loading={cambiarEstadoBulk.isPending}
+        />
+      )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(o) => !o && !cambiarEstadoBulk.isPending && setConfirmOpen(false)}
+        title="¿Aplicar nuevo estado?"
+        description={
+          estadoTarget
+            ? `Se aplicará el estado "${estadoTarget.nombre}" a ${selectedIds.size} paquete${
+                selectedIds.size === 1 ? '' : 's'
+              }. Los que tengan restricciones (lote/despacho) serán rechazados.`
+            : undefined
+        }
+        confirmLabel={`Aplicar a ${selectedIds.size}`}
+        loading={cambiarEstadoBulk.isPending}
+        onConfirm={ejecutar}
+      />
+
+      <ResultadoDialog
+        data={resultadoDialog}
+        onClose={() => setResultadoDialog(null)}
+        paquetes={all}
+      />
+    </div>
+  );
+}
+
+interface SelectionActionBarProps {
+  total: number;
+  gruposEstado: [string, number][];
+  opcionesEstado: EstadoRastreo[];
+  estadoTargetId: string;
+  onChangeEstado: (v: string) => void;
+  onClear: () => void;
+  onApply: () => void;
+  loading: boolean;
+}
+
+function SelectionActionBar({
+  total,
+  gruposEstado,
+  opcionesEstado,
+  estadoTargetId,
+  onChangeEstado,
+  onClear,
+  onApply,
+  loading,
+}: SelectionActionBarProps) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <Badge className="bg-primary text-primary-foreground hover:bg-primary">
+            {total} seleccionado{total === 1 ? '' : 's'}
+          </Badge>
+          <div className="flex flex-wrap items-center gap-1">
+            {gruposEstado.slice(0, 3).map(([nombre, count]) => (
+              <Badge key={nombre} variant="outline" className="font-normal">
+                {nombre} · {count}
+              </Badge>
+            ))}
+            {gruposEstado.length > 3 && (
+              <Badge variant="outline" className="font-normal">
+                +{gruposEstado.length - 3} más
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          <div className="w-[18rem]">
+            <SearchableCombobox<EstadoRastreo>
+              value={estadoTargetId === '' ? undefined : Number(estadoTargetId)}
+              onChange={(v) =>
+                onChangeEstado(v == null ? '' : String(v))
+              }
+              options={opcionesEstado}
+              getKey={(e) => e.id}
+              getLabel={(e) => e.nombre}
+              getSearchText={(e) => `${e.nombre} ${e.codigo ?? ''}`}
+              placeholder="Estado a aplicar"
+              searchPlaceholder="Buscar estado..."
+              emptyMessage="Sin estados"
+              renderOption={(e) => (
+                <div className="flex w-full items-center justify-between">
+                  <span>{e.nombre}</span>
+                  {e.codigo && (
+                    <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                      {e.codigo}
+                    </span>
+                  )}
+                </div>
+              )}
+              renderSelected={(e) => <span className="text-sm">{e.nombre}</span>}
+              clearable={false}
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={onApply}
+            disabled={loading || !estadoTargetId}
+          >
+            <Tag className="mr-2 h-4 w-4" />
+            Aplicar
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClear}
+            disabled={loading}
+            title="Limpiar selección (Esc)"
+          >
+            <X className="mr-1 h-3.5 w-3.5" />
+            Limpiar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ResultadoDialogProps {
+  data:
+    | { actualizados: number; rechazados: { paqueteId: number; motivo: string; numeroGuia?: string }[] }
+    | null;
+  paquetes: Paquete[];
+  onClose: () => void;
+}
+
+function ResultadoDialog({ data, onClose, paquetes }: ResultadoDialogProps) {
+  if (!data) return null;
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-500" />
+            Algunos paquetes no se actualizaron
+          </DialogTitle>
+          <DialogDescription>
+            {data.actualizados} actualizado{data.actualizados === 1 ? '' : 's'} y{' '}
+            {data.rechazados.length} rechazado{data.rechazados.length === 1 ? '' : 's'}.
+            Revisa los motivos abajo.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[24rem] overflow-y-auto rounded-md border border-border">
+          <Table className="text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Paquete</TableHead>
+                <TableHead>Motivo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.rechazados.map((r) => {
+                const p = paquetes.find((pp) => pp.id === r.paqueteId);
+                return (
+                  <TableRow key={r.paqueteId}>
+                    <TableCell className="align-top">
+                      <div className="flex flex-col">
+                        <span className="font-mono text-xs">
+                          {r.numeroGuia ?? `#${r.paqueteId}`}
+                        </span>
+                        {p?.destinatarioNombre && (
+                          <span className="text-xs text-muted-foreground">
+                            {p.destinatarioNombre}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top text-sm">{r.motivo}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose}>Entendido</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface KpiCardProps {
+  icon: LucideIcon;
+  label: string;
+  value: number | string;
+  tone?: 'accent' | 'success' | 'muted';
+}
+
+function KpiCard({ icon: Icon, label, value, tone = 'muted' }: KpiCardProps) {
+  const toneClasses =
+    tone === 'accent'
+      ? 'border-primary/30 bg-primary/5'
+      : tone === 'success'
+        ? 'border-emerald-500/30 bg-emerald-500/5'
+        : 'border-border bg-[var(--color-muted)]/40';
+  const iconBg =
+    tone === 'accent'
+      ? 'bg-primary/10 text-primary'
+      : tone === 'success'
+        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+        : 'bg-[var(--color-muted)] text-muted-foreground';
+  return (
+    <div className={`flex items-center gap-3 rounded-lg border p-3 ${toneClasses}`}>
+      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-md ${iconBg}`}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        <p className="text-lg font-semibold leading-none text-foreground">{value}</p>
+      </div>
     </div>
   );
 }

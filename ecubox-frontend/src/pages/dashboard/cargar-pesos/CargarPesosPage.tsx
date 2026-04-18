@@ -1,34 +1,44 @@
-import { useState, useCallback, useMemo } from 'react';
-import { usePaquetesOperario, useBulkUpdatePesos, useAsignarGuiaEnvio } from '@/hooks/usePaquetesOperario';
+import { useCallback, useMemo, useState } from 'react';
+import { Eraser, Save, Weight } from 'lucide-react';
+import { toast } from 'sonner';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Weight } from 'lucide-react';
-import { toast } from 'sonner';
-import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useBulkUpdatePesos, usePaquetesOperario } from '@/hooks/usePaquetesOperario';
 import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
+import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
 import type { Paquete } from '@/types/paquete';
+import { DestinatarioCell, GuiaMasterPiezaCell } from '../paquetes/PaqueteCells';
 
 type WeightInputs = Record<number, { lbs: string; kg: string }>;
 
-function getWeightState(
-  state: WeightInputs,
-  id: number
-): { lbs: string; kg: string } {
+function getWeightState(state: WeightInputs, id: number): { lbs: string; kg: string } {
   return state[id] ?? { lbs: '', kg: '' };
+}
+
+function parsePositive(value: string): number | null {
+  if (!value || !value.trim()) return null;
+  const n = Number(value);
+  if (Number.isNaN(n) || n <= 0) return null;
+  return n;
 }
 
 export function CargarPesosPage() {
   const { data: paquetes, isLoading, error } = usePaquetesOperario(true);
   const bulkUpdate = useBulkUpdatePesos();
-  const asignarGuiaEnvio = useAsignarGuiaEnvio();
   const [weights, setWeights] = useState<WeightInputs>({});
-  const [editingGuiaEnvioId, setEditingGuiaEnvioId] = useState<number | null>(null);
-  const [guiaEnvioDraft, setGuiaEnvioDraft] = useState<string>('');
   const [search, setSearch] = useState('');
 
   const list = useMemo(() => {
@@ -39,17 +49,16 @@ export function CargarPesosPage() {
       (p) =>
         p.ref?.toLowerCase().includes(q) ||
         p.numeroGuia?.toLowerCase().includes(q) ||
-        (p.numeroGuiaEnvio?.toLowerCase().includes(q) ?? false) ||
+        (p.guiaMasterTrackingBase?.toLowerCase().includes(q) ?? false) ||
         (p.destinatarioNombre?.toLowerCase().includes(q) ?? false) ||
-        (p.contenido?.toLowerCase().includes(q) ?? false)
+        (p.contenido?.toLowerCase().includes(q) ?? false),
     );
   }, [paquetes, search]);
 
   const setLbs = useCallback((id: number, value: string) => {
     const sanitized = sanitizeNumericDecimal(value);
     const n = sanitized === '' ? NaN : Number(sanitized);
-    const kgStr =
-      !Number.isNaN(n) && n >= 0 ? String(lbsToKg(n)) : '';
+    const kgStr = !Number.isNaN(n) && n >= 0 ? String(lbsToKg(n)) : '';
     setWeights((prev) => ({
       ...prev,
       [id]: { lbs: sanitized, kg: kgStr },
@@ -59,40 +68,77 @@ export function CargarPesosPage() {
   const setKg = useCallback((id: number, value: string) => {
     const sanitized = sanitizeNumericDecimal(value);
     const n = sanitized === '' ? NaN : Number(sanitized);
-    const lbsStr =
-      !Number.isNaN(n) && n >= 0 ? String(kgToLbs(n)) : '';
+    const lbsStr = !Number.isNaN(n) && n >= 0 ? String(kgToLbs(n)) : '';
     setWeights((prev) => ({
       ...prev,
       [id]: { lbs: lbsStr, kg: sanitized },
     }));
   }, []);
 
+  const clearRow = useCallback((id: number) => {
+    setWeights((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setWeights({});
+  }, []);
+
+  const stats = useMemo(() => {
+    const all = paquetes ?? [];
+    let listos = 0;
+    let pendientesConValor = 0;
+    let pesoLbsTotal = 0;
+    for (const p of all) {
+      const w = getWeightState(weights, p.id);
+      const lbs = parsePositive(w.lbs);
+      const kg = parsePositive(w.kg);
+      if (lbs != null || kg != null) {
+        listos += 1;
+        if (lbs != null) pesoLbsTotal += lbs;
+      }
+      if (w.lbs.trim() !== '' || w.kg.trim() !== '') {
+        if (lbs == null && kg == null) pendientesConValor += 1;
+      }
+    }
+    return {
+      pendientes: all.length,
+      listos,
+      invalidos: pendientesConValor,
+      pesoLbsTotal,
+    };
+  }, [paquetes, weights]);
+
   const handleGuardar = useCallback(async () => {
     const all = paquetes ?? [];
     const items = all
       .map((p: Paquete) => {
         const w = getWeightState(weights, p.id);
-        const lbs = w.lbs.trim() === '' ? undefined : Number(w.lbs);
-        const kg = w.kg.trim() === '' ? undefined : Number(w.kg);
-        const hasLbs = lbs != null && !Number.isNaN(lbs) && lbs > 0;
-        const hasKg = kg != null && !Number.isNaN(kg) && kg > 0;
-        if (!hasLbs && !hasKg) return null;
+        const lbs = parsePositive(w.lbs);
+        const kg = parsePositive(w.kg);
+        if (lbs == null && kg == null) return null;
         return {
           paqueteId: p.id,
-          ...(hasLbs && { pesoLbs: lbs }),
-          ...(hasKg && { pesoKg: kg }),
+          ...(lbs != null && { pesoLbs: lbs }),
+          ...(kg != null && { pesoKg: kg }),
         };
       })
       .filter((x): x is NonNullable<typeof x> => x != null);
 
     if (items.length === 0) {
-      toast.error('Ingresa al menos un peso en alguna fila');
+      toast.error('Ingresa al menos un peso válido en alguna fila');
       return;
     }
 
     try {
       await bulkUpdate.mutateAsync(items);
-      toast.success(`Pesos actualizados: ${items.length} paquete(s)`);
+      toast.success(
+        `Pesos actualizados: ${items.length} paquete${items.length === 1 ? '' : 's'}`,
+      );
       setWeights((prev) => {
         const next = { ...prev };
         items.forEach((i) => delete next[i.paqueteId]);
@@ -102,30 +148,6 @@ export function CargarPesosPage() {
       toast.error('Error al guardar los pesos');
     }
   }, [paquetes, weights, bulkUpdate]);
-
-  const handleGuiaEnvioBlur = useCallback(
-    (paqueteId: number) => {
-      setEditingGuiaEnvioId(null);
-      const value = guiaEnvioDraft.trim() || null;
-      const p = paquetes?.find((x) => x.id === paqueteId);
-      if (!p || (value === (p.numeroGuiaEnvio ?? null))) return;
-      asignarGuiaEnvio.mutate(
-        { paqueteId, numeroGuiaEnvio: value },
-        {
-          onSuccess: () => toast.success('Guía de envío actualizada'),
-          onError: () => toast.error('Error al actualizar guía de envío'),
-        }
-      );
-    },
-    [guiaEnvioDraft, paquetes, asignarGuiaEnvio]
-  );
-
-  const startEditGuiaEnvio = useCallback((p: Paquete) => {
-    setEditingGuiaEnvioId(p.id);
-    setGuiaEnvioDraft(p.numeroGuiaEnvio ?? '');
-  }, []);
-
-  const allPaquetes = paquetes ?? [];
 
   if (isLoading) {
     return <LoadingState text="Cargando paquetes..." />;
@@ -138,21 +160,71 @@ export function CargarPesosPage() {
     );
   }
 
+  const allPaquetes = paquetes ?? [];
+  const hayCambios = stats.listos > 0 || stats.invalidos > 0;
+
   return (
     <div className="space-y-4">
       <ListToolbar
         title="Cargar pesos"
-        searchPlaceholder="Buscar por guía, guía de envío, destinatario, contenido..."
+        searchPlaceholder="Buscar por ref, guía, destinatario o contenido..."
         onSearchChange={setSearch}
         actions={
-          <Button
-            onClick={handleGuardar}
-            disabled={bulkUpdate.isPending || allPaquetes.length === 0}
-          >
-            {bulkUpdate.isPending ? 'Guardando...' : 'Guardar pesos'}
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {hayCambios && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={clearAll}
+                disabled={bulkUpdate.isPending}
+                className="w-full sm:w-auto"
+              >
+                <Eraser className="mr-2 h-4 w-4" />
+                Limpiar
+              </Button>
+            )}
+            <Button
+              onClick={handleGuardar}
+              disabled={bulkUpdate.isPending || stats.listos === 0}
+              className="w-full sm:w-auto"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {bulkUpdate.isPending
+                ? 'Guardando...'
+                : stats.listos > 0
+                  ? `Guardar ${stats.listos} peso${stats.listos === 1 ? '' : 's'}`
+                  : 'Guardar pesos'}
+            </Button>
+          </div>
         }
       />
+
+      {allPaquetes.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <KpiCard
+            label="Sin peso"
+            value={stats.pendientes}
+            tone="muted"
+          />
+          <KpiCard
+            label="Listos para guardar"
+            value={stats.listos}
+            tone={stats.listos > 0 ? 'success' : 'muted'}
+          />
+          <KpiCard
+            label="Filas inválidas"
+            value={stats.invalidos}
+            tone={stats.invalidos > 0 ? 'destructive' : 'muted'}
+          />
+          <KpiCard
+            label="Total a registrar"
+            value={
+              stats.pesoLbsTotal > 0 ? `${stats.pesoLbsTotal.toFixed(2)} lbs` : '—'
+            }
+            tone="muted"
+          />
+        </div>
+      )}
 
       {allPaquetes.length === 0 ? (
         <EmptyState
@@ -167,87 +239,170 @@ export function CargarPesosPage() {
           description="No hay paquetes que coincidan con la búsqueda."
         />
       ) : (
-        <ListTableShell>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Ref</TableHead>
-                <TableHead>Guía</TableHead>
-                <TableHead>Guía de envío</TableHead>
-                <TableHead>Destinatario</TableHead>
-                <TableHead>Contenido</TableHead>
-                <TableHead>Estado rastreo</TableHead>
-                <TableHead>Peso (lbs)</TableHead>
-                <TableHead>Peso (kg)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list.map((p) => {
-                const w = getWeightState(weights, p.id);
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-mono text-sm">{p.ref ?? '—'}</TableCell>
-                    <TableCell className="font-medium">{p.numeroGuia}</TableCell>
-                    <TableCell>
-                      {editingGuiaEnvioId === p.id ? (
-                        <Input
-                          type="text"
-                          value={guiaEnvioDraft}
-                          onChange={(e) => setGuiaEnvioDraft(e.target.value)}
-                          onBlur={() => handleGuiaEnvioBlur(p.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                          }}
-                          autoFocus
-                          className="h-8 w-32"
-                          placeholder="Guía consolidador"
+        <>
+          <p className="text-xs text-muted-foreground">
+            {list.length} paquete{list.length === 1 ? '' : 's'} sin peso
+            {list.length !== allPaquetes.length ? ` de ${allPaquetes.length}` : ''}
+            {' · escribe en lbs o kg, la otra unidad se calcula automáticamente.'}
+          </p>
+          <ListTableShell>
+            <Table className="min-w-[960px] text-left">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[14rem]">Ref / Guía</TableHead>
+                  <TableHead className="min-w-[14rem]">Destinatario</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Contenido</TableHead>
+                  <TableHead className="w-[10rem]">Peso (lbs)</TableHead>
+                  <TableHead className="w-[10rem]">Peso (kg)</TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {list.map((p) => {
+                  const w = getWeightState(weights, p.id);
+                  const lbsValue = parsePositive(w.lbs);
+                  const kgValue = parsePositive(w.kg);
+                  const tieneAlgo = w.lbs.trim() !== '' || w.kg.trim() !== '';
+                  const valido = lbsValue != null || kgValue != null;
+                  const invalido = tieneAlgo && !valido;
+
+                  return (
+                    <TableRow
+                      key={p.id}
+                      className={
+                        invalido
+                          ? 'bg-[var(--color-destructive)]/5'
+                          : valido
+                            ? 'bg-emerald-500/5'
+                            : undefined
+                      }
+                    >
+                      <TableCell className="max-w-[14rem] align-top">
+                        <GuiaMasterPiezaCell paquete={p} />
+                        {p.ref && (
+                          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                            {p.ref}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-[18rem] align-top">
+                        <DestinatarioCell paquete={p} />
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <Badge variant="secondary" className="font-normal">
+                          {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[16rem] align-top text-sm text-muted-foreground">
+                        <span className="line-clamp-2 break-words">{p.contenido ?? '—'}</span>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <PesoInput
+                          value={w.lbs}
+                          onChange={(v) => setLbs(p.id, v)}
+                          unit="lbs"
+                          ariaLabel={`Peso en libras para ${p.numeroGuia}`}
+                          highlight={valido}
+                          invalid={invalido && w.lbs.trim() !== ''}
                         />
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => startEditGuiaEnvio(p)}
-                          className="h-7 w-full justify-start px-1 text-sm"
-                        >
-                          {p.numeroGuiaEnvio ?? '—'}
-                        </Button>
-                      )}
-                    </TableCell>
-                    <TableCell>{p.destinatarioNombre ?? '—'}</TableCell>
-                    <TableCell>{p.contenido ?? '—'}</TableCell>
-                    <TableCell>{p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={w.lbs}
-                        onChange={(e) => setLbs(p.id, e.target.value)}
-                        onKeyDown={(e) => onKeyDownNumericDecimal(e, w.lbs)}
-                        className="h-8 w-24"
-                        placeholder="—"
-                        aria-label={`Peso en lbs para ${p.numeroGuia}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={w.kg}
-                        onChange={(e) => setKg(p.id, e.target.value)}
-                        onKeyDown={(e) => onKeyDownNumericDecimal(e, w.kg)}
-                        className="h-8 w-24"
-                        placeholder="—"
-                        aria-label={`Peso en kg para ${p.numeroGuia}`}
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </ListTableShell>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <PesoInput
+                          value={w.kg}
+                          onChange={(v) => setKg(p.id, v)}
+                          unit="kg"
+                          ariaLabel={`Peso en kilogramos para ${p.numeroGuia}`}
+                          highlight={valido}
+                          invalid={invalido && w.kg.trim() !== ''}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right align-top">
+                        {tieneAlgo && (
+                          <button
+                            type="button"
+                            onClick={() => clearRow(p.id)}
+                            aria-label="Limpiar fila"
+                            title="Limpiar fila"
+                            className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-muted)] hover:text-foreground"
+                          >
+                            <Eraser className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ListTableShell>
+        </>
       )}
+    </div>
+  );
+}
+
+interface PesoInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  unit: 'lbs' | 'kg';
+  ariaLabel: string;
+  highlight?: boolean;
+  invalid?: boolean;
+}
+
+function PesoInput({ value, onChange, unit, ariaLabel, highlight, invalid }: PesoInputProps) {
+  const borderClass = invalid
+    ? 'border-[var(--color-destructive)] focus-within:ring-[var(--color-destructive)]/40'
+    : highlight
+      ? 'border-emerald-500/60 focus-within:ring-emerald-500/30'
+      : '';
+  return (
+    <div
+      className={`flex h-9 items-center overflow-hidden rounded-md border bg-background ${borderClass}`}
+    >
+      <Input
+        type="text"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => onKeyDownNumericDecimal(e, value)}
+        placeholder="0.00"
+        aria-label={ariaLabel}
+        className="h-9 flex-1 border-0 px-2 text-sm shadow-none focus-visible:ring-0"
+      />
+      <span className="select-none border-l border-border bg-[var(--color-muted)]/40 px-2 text-xs font-medium text-muted-foreground">
+        {unit}
+      </span>
+    </div>
+  );
+}
+
+interface KpiCardProps {
+  label: string;
+  value: number | string;
+  tone: 'success' | 'destructive' | 'muted';
+}
+
+function KpiCard({ label, value, tone }: KpiCardProps) {
+  const toneClasses: Record<KpiCardProps['tone'], string> = {
+    success: 'border-emerald-500/30 bg-emerald-500/5',
+    destructive: 'border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5',
+    muted: 'border-border bg-[var(--color-muted)]/40',
+  };
+  const valueClasses: Record<KpiCardProps['tone'], string> = {
+    success: 'text-emerald-700 dark:text-emerald-400',
+    destructive: 'text-[var(--color-destructive)]',
+    muted: 'text-foreground',
+  };
+  return (
+    <div className={`rounded-lg border p-3 ${toneClasses[tone]}`}>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className={`mt-1 text-lg font-semibold leading-none ${valueClasses[tone]}`}>
+        {value}
+      </p>
     </div>
   );
 }

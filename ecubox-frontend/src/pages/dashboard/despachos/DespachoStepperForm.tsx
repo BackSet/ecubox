@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
@@ -24,7 +24,27 @@ import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
 import type { DestinatarioFinal } from '@/types/destinatario';
 import type { Despacho, TipoEntrega, TamanioSaca } from '@/types/despacho';
 import { SelectionCard } from '@/components/ui/selection-card';
-import { ArrowLeft, Plus, Trash2, Package, Truck, ArrowRight, Check, ClipboardList, Building2, Users, MapPin, Store } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Boxes,
+  Building2,
+  Calendar,
+  Check,
+  ClipboardList,
+  FileText,
+  MapPin,
+  Package,
+  Plus,
+  Scale,
+  ShieldCheck,
+  Store,
+  Trash2,
+  Truck,
+  UserCircle2,
+  Users,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -33,6 +53,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { PROVINCIAS_ECUADOR, getCantonesByProvincia } from '@/data/provincias-cantones-ecuador';
 import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { AgregarPaquetesSacaDialog } from './AgregarPaquetesSacaDialog';
@@ -227,6 +251,7 @@ export function DespachoStepperForm({
     sacaLabel: '',
     guia: '',
   });
+  const [confirmSalirOpen, setConfirmSalirOpen] = useState(false);
   const [modalCrearAgencia, setModalCrearAgencia] = useState({
     provincia: '',
     canton: '',
@@ -893,20 +918,46 @@ export function DespachoStepperForm({
     setPasoActual(3);
   }
 
+  const isDirty = form.formState.isDirty;
+  const tryNavigateBack = () => {
+    if (isDirty && !loading) {
+      setConfirmSalirOpen(true);
+    } else {
+      navigate({ to: '/despachos' });
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-        <Link
-          to="/despachos"
-          aria-label="Volver a despachos"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-[var(--color-secondary)]"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl font-semibold text-[var(--color-foreground)]">{title}</h1>
-          <p className="text-sm text-[var(--color-muted-foreground)]">{subtitle}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center sm:gap-4">
+        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Volver a despachos"
+            onClick={tryNavigateBack}
+            className="shrink-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-semibold text-[var(--color-foreground)]">
+              {title}
+            </h1>
+            <p className="text-sm text-[var(--color-muted-foreground)]">{subtitle}</p>
+          </div>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={tryNavigateBack}
+          className="hidden gap-2 sm:inline-flex"
+        >
+          <X className="h-4 w-4" />
+          Cancelar
+        </Button>
       </div>
 
       <div className="grid gap-2 sm:gap-3 md:grid-cols-3">
@@ -974,10 +1025,48 @@ export function DespachoStepperForm({
         ))}
       </div>
       {pasoActual >= 2 && (
-        <div className="rounded-md border border-[var(--color-border)]/50 bg-[var(--color-muted)]/30 px-3 py-2 text-center text-sm text-[var(--color-muted-foreground)]">
-          <span className="font-medium text-[var(--color-foreground)]">{totalSacasDisplay} sacas</span>
-          <span> · </span>
-          <span className="font-medium text-[var(--color-foreground)]">{totalPaquetesDisplay} paquetes</span>
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-[var(--color-muted)]/30 p-2 sm:grid-cols-4 sm:gap-3 sm:p-3">
+          <ResumenChip
+            icon={Boxes}
+            label="Sacas"
+            value={totalSacasDisplay}
+            tone={totalSacasDisplay > 0 ? 'accent' : 'muted'}
+          />
+          <ResumenChip
+            icon={Package}
+            label="Paquetes"
+            value={totalPaquetesDisplay}
+            tone={totalPaquetesDisplay > 0 ? 'accent' : 'muted'}
+          />
+          <ResumenChip
+            icon={Scale}
+            label="Peso total"
+            value={
+              pesoTotalDespacho.kg > 0 || pesoTotalDespacho.lbs > 0
+                ? [
+                    pesoTotalDespacho.kg > 0
+                      ? `${pesoTotalDespacho.kg.toFixed(2)} kg`
+                      : null,
+                    pesoTotalDespacho.lbs > 0
+                      ? `${pesoTotalDespacho.lbs.toFixed(2)} lb`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' / ')
+                : '—'
+            }
+          />
+          <ResumenChip
+            icon={Truck}
+            label="Tipo"
+            value={
+              tipoEntrega === 'DOMICILIO'
+                ? 'Domicilio'
+                : tipoEntrega === 'AGENCIA_DISTRIBUIDOR'
+                  ? 'Ag. distribuidor'
+                  : 'Agencia'
+            }
+          />
         </div>
       )}
 
@@ -997,41 +1086,57 @@ export function DespachoStepperForm({
                 </div>
 
                 <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="operario-responsable"
+                      className="flex items-center gap-1.5 text-sm"
+                    >
+                      <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
                       Operario responsable
-                    </label>
-                    <input
+                    </Label>
+                    <Input
+                      id="operario-responsable"
                       type="text"
                       readOnly
                       value={username ?? '—'}
-                      className="input-clean bg-muted/50 text-muted-foreground cursor-not-allowed"
+                      className="cursor-not-allowed bg-muted/50 text-muted-foreground"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="fecha-hora"
+                      className="flex items-center gap-1.5 text-sm"
+                    >
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                       Fecha y hora
-                    </label>
-                    <input
+                    </Label>
+                    <Input
+                      id="fecha-hora"
                       type="datetime-local"
                       {...form.register('fechaHora')}
-                      className="input-clean"
                     />
                     {form.formState.errors.fechaHora && (
-                      <p className="text-sm text-destructive">{form.formState.errors.fechaHora.message}</p>
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.fechaHora.message}
+                      </p>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="observaciones"
+                    className="flex items-center gap-1.5 text-sm"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                     Observaciones (opcional)
-                  </label>
-                  <textarea
+                  </Label>
+                  <Textarea
+                    id="observaciones"
                     {...form.register('observaciones')}
                     rows={3}
-                    className="input-clean min-h-[80px] resize-none"
+                    className="min-h-[80px] resize-none"
                     placeholder="Escribe cualquier detalle relevante sobre este lote..."
                   />
                 </div>
@@ -1216,7 +1321,9 @@ export function DespachoStepperForm({
                             <table className="compact-table table-mobile-cards min-w-[980px]">
                               <thead>
                                 <tr>
-                                  <th>Guía</th>
+                                  <th>Número de guía</th>
+                                  <th>Guía master / Pieza</th>
+                                  <th>Guía de envío</th>
                                   <th>Destinatario</th>
                                   <th>Teléfono</th>
                                   <th>Provincia / Cantón</th>
@@ -1227,7 +1334,20 @@ export function DespachoStepperForm({
                               <tbody>
                                 {s.paquetes.map((p) => (
                                   <tr key={p.id}>
-                                    <td data-label="Guía" className="font-medium">{p.numeroGuia ?? `#${p.id}`}</td>
+                                    <td data-label="Número de guía" className="font-medium">{p.numeroGuia ?? `#${p.id}`}</td>
+                                    <td data-label="Guía master / Pieza" className="font-mono text-xs">
+                                      {p.guiaMasterTrackingBase ? (
+                                        <>
+                                          {p.guiaMasterTrackingBase}
+                                          {p.piezaNumero != null && p.piezaTotal != null
+                                            ? ` ${p.piezaNumero}/${p.piezaTotal}`
+                                            : ''}
+                                        </>
+                                      ) : (
+                                        '—'
+                                      )}
+                                    </td>
+                                    <td data-label="Guía de envío" className="font-mono text-xs">{p.envioConsolidadoCodigo ?? '—'}</td>
                                     <td data-label="Destinatario">{p.destinatarioNombre ?? '—'}</td>
                                     <td data-label="Teléfono">{p.destinatarioTelefono ?? '—'}</td>
                                     <td data-label="Provincia / Cantón">{[p.destinatarioProvincia, p.destinatarioCanton].filter(Boolean).join(' / ') || '—'}</td>
@@ -1431,9 +1551,18 @@ export function DespachoStepperForm({
                                         <div className="flex items-center justify-between gap-2">
                                           <span className="font-medium">
                                             {p ? p.numeroGuia : `#${id}`}
-                                            {p?.numeroGuiaEnvio && (
+                                            {p?.guiaMasterTrackingBase && (
                                               <span className="ml-1.5 text-xs font-normal text-[var(--color-muted-foreground)]">
-                                                (envío: {p.numeroGuiaEnvio})
+                                                (master: {p.guiaMasterTrackingBase}
+                                                {p.piezaNumero != null && p.piezaTotal != null
+                                                  ? ` ${p.piezaNumero}/${p.piezaTotal}`
+                                                  : ''}
+                                                )
+                                              </span>
+                                            )}
+                                            {p?.envioConsolidadoCodigo && (
+                                              <span className="ml-1.5 text-xs font-normal text-[var(--color-muted-foreground)]">
+                                                (envío: {p.envioConsolidadoCodigo})
                                               </span>
                                             )}
                                             {p && (p.pesoKg != null || p.pesoLbs != null) &&
@@ -1619,123 +1748,245 @@ export function DespachoStepperForm({
                   )}
                 </div>
               </div>
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-4 space-y-4">
-                <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Datos logísticos</h3>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">Distribuidor</label>
-                  <select
-                    {...form.register('distribuidorId', { valueAsNumber: true })}
-                    className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                  >
-                    <option value={0}>Seleccione distribuidor</option>
-                    {distribuidores.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.nombre} ({d.codigo})
-                      </option>
-                    ))}
-                  </select>
-                  {form.formState.errors.distribuidorId && (
-                    <p className="mt-1 text-sm text-[var(--color-destructive)]">{form.formState.errors.distribuidorId.message}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">Número de guía</label>
-                  <input
-                    {...form.register('numeroGuia')}
-                    className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                    placeholder="Guía del distribuidor"
-                  />
-                  {form.formState.errors.numeroGuia && (
-                    <p className="mt-1 text-sm text-[var(--color-destructive)]">{form.formState.errors.numeroGuia.message}</p>
-                  )}
-                </div>
-              </div>
-              {tipoEntrega === 'AGENCIA' && (
-                <div>
-                  {provinciaCantonRef != null && (() => {
-                    const norm = (s: string | undefined | null) => (s ?? '').trim().toLowerCase();
-                    const sugeridas = agencias.filter(
-                      (a) =>
-                        norm(a.provincia) === provinciaCantonRef.provincia &&
-                        norm(a.canton) === provinciaCantonRef.canton
-                    );
-                    return sugeridas.length > 0 ? (
-                      <p className="mb-2 text-xs text-[var(--color-muted-foreground)]">
-                        Agencia sugerida (por provincia/cantón del envío): {sugeridas[0].nombre} ({sugeridas[0].codigo})
-                      </p>
-                    ) : null;
-                  })()}
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">Agencia</label>
-                  <select
-                    {...form.register('agenciaId', { valueAsNumber: true, setValueAs: (v) => (v === '' || Number.isNaN(Number(v)) ? undefined : Number(v)) })}
-                    className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                  >
-                    <option value="">Seleccione agencia</option>
-                    {agencias.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nombre} ({a.codigo})
-                      </option>
-                    ))}
-                  </select>
-                  {form.formState.errors.agenciaId && (
-                    <p className="mt-1 text-sm text-[var(--color-destructive)]">{form.formState.errors.agenciaId.message}</p>
-                  )}
-                </div>
-              )}
-              {tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && (
-                <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <label className="block text-sm font-medium text-[var(--color-foreground)]">Agencia del distribuidor</label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1"
-                      onClick={openCrearAgenciaDistribuidorModal}
-                      disabled={!hasDistribuidorSeleccionado}
+              <div className="rounded-xl border border-border bg-[var(--color-muted)]/20 p-4 space-y-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <ClipboardList className="h-4 w-4 text-primary" />
+                  Datos logísticos
+                </h3>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="distribuidor"
+                      className="flex items-center gap-1.5 text-sm"
                     >
-                      <Building2 className="h-3.5 w-3.5" />
-                      Crear nueva agencia de distribuidor
-                    </Button>
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      Distribuidor *
+                    </Label>
+                    <SearchableCombobox
+                      id="distribuidor"
+                      value={distribuidorIdForm > 0 ? distribuidorIdForm : undefined}
+                      onChange={(v) => {
+                        const num = typeof v === 'number' ? v : Number(v ?? 0);
+                        form.setValue('distribuidorId', Number.isFinite(num) ? num : 0, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                      }}
+                      options={distribuidores}
+                      getKey={(d) => d.id}
+                      getLabel={(d) => `${d.nombre} (${d.codigo})`}
+                      getSearchText={(d) => `${d.nombre} ${d.codigo} ${d.email ?? ''}`}
+                      placeholder="Selecciona distribuidor"
+                      searchPlaceholder="Buscar por nombre o código..."
+                      clearable={false}
+                      renderOption={(d) => (
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{d.nombre}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Código: {d.codigo}
+                            {d.tarifaEnvio != null
+                              ? ` · Tarifa: $${d.tarifaEnvio}`
+                              : ''}
+                          </div>
+                        </div>
+                      )}
+                    />
+                    {form.formState.errors.distribuidorId && (
+                      <p className="text-sm text-[var(--color-destructive)]">
+                        {form.formState.errors.distribuidorId.message}
+                      </p>
+                    )}
                   </div>
-                  <select
-                    {...form.register('agenciaDistribuidorId', { valueAsNumber: true, setValueAs: (v) => (v === '' || Number.isNaN(Number(v)) ? undefined : Number(v)) })}
-                    className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
-                    disabled={!hasDistribuidorSeleccionado}
-                  >
-                    <option value="">Seleccione agencia del distribuidor</option>
-                    {agenciasDistribuidor.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {agenciaDistribuidorEtiqueta(a)}
-                      </option>
-                    ))}
-                  </select>
-                  {form.formState.errors.agenciaDistribuidorId && (
-                    <p className="mt-1 text-sm text-[var(--color-destructive)]">{form.formState.errors.agenciaDistribuidorId.message}</p>
-                  )}
+
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="numero-guia"
+                      className="flex items-center gap-1.5 text-sm"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      Número de guía *
+                    </Label>
+                    <Input
+                      id="numero-guia"
+                      {...form.register('numeroGuia')}
+                      placeholder="Guía del distribuidor"
+                    />
+                    {form.formState.errors.numeroGuia && (
+                      <p className="text-sm text-[var(--color-destructive)]">
+                        {form.formState.errors.numeroGuia.message}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              )}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">Código de precinto (opcional)</label>
-                <input
-                  {...form.register('codigoPrecinto')}
-                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                  placeholder="Código de precinto"
-                />
+
+                {tipoEntrega === 'AGENCIA' && (
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="agencia"
+                      className="flex items-center gap-1.5 text-sm"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      Agencia *
+                    </Label>
+                    {provinciaCantonRef != null &&
+                      (() => {
+                        const norm = (s: string | undefined | null) =>
+                          (s ?? '').trim().toLowerCase();
+                        const sugeridas = agencias.filter(
+                          (a) =>
+                            norm(a.provincia) === provinciaCantonRef.provincia &&
+                            norm(a.canton) === provinciaCantonRef.canton,
+                        );
+                        return sugeridas.length > 0 ? (
+                          <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                            Sugerida por provincia/cantón: {sugeridas[0].nombre} (
+                            {sugeridas[0].codigo})
+                          </p>
+                        ) : null;
+                      })()}
+                    <SearchableCombobox
+                      id="agencia"
+                      value={agenciaIdForm}
+                      onChange={(v) => {
+                        const num = v == null ? undefined : typeof v === 'number' ? v : Number(v);
+                        form.setValue(
+                          'agenciaId',
+                          num != null && Number.isFinite(num) && num > 0 ? num : undefined,
+                          { shouldDirty: true, shouldValidate: true },
+                        );
+                      }}
+                      options={agencias}
+                      getKey={(a) => a.id}
+                      getLabel={(a) => `${a.nombre} (${a.codigo})`}
+                      getSearchText={(a) =>
+                        `${a.nombre} ${a.codigo} ${a.provincia ?? ''} ${a.canton ?? ''}`
+                      }
+                      placeholder="Selecciona agencia"
+                      searchPlaceholder="Buscar por nombre, código, provincia..."
+                      renderOption={(a) => (
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{a.nombre}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {a.codigo}
+                            {(a.provincia || a.canton) &&
+                              ` · ${[a.provincia, a.canton].filter(Boolean).join(', ')}`}
+                          </div>
+                        </div>
+                      )}
+                    />
+                    {form.formState.errors.agenciaId && (
+                      <p className="text-sm text-[var(--color-destructive)]">
+                        {form.formState.errors.agenciaId.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && (
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label
+                        htmlFor="agencia-distribuidor"
+                        className="flex items-center gap-1.5 text-sm"
+                      >
+                        <Store className="h-3.5 w-3.5 text-muted-foreground" />
+                        Agencia del distribuidor *
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5"
+                        onClick={openCrearAgenciaDistribuidorModal}
+                        disabled={!hasDistribuidorSeleccionado}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Crear nueva
+                      </Button>
+                    </div>
+                    {!hasDistribuidorSeleccionado && (
+                      <p className="text-xs text-muted-foreground">
+                        Selecciona primero un distribuidor.
+                      </p>
+                    )}
+                    <SearchableCombobox
+                      id="agencia-distribuidor"
+                      value={agenciaDistribuidorIdForm}
+                      onChange={(v) => {
+                        const num = v == null ? undefined : typeof v === 'number' ? v : Number(v);
+                        form.setValue(
+                          'agenciaDistribuidorId',
+                          num != null && Number.isFinite(num) && num > 0 ? num : undefined,
+                          { shouldDirty: true, shouldValidate: true },
+                        );
+                      }}
+                      options={agenciasDistribuidor}
+                      getKey={(a) => a.id}
+                      getLabel={(a) => agenciaDistribuidorEtiqueta(a)}
+                      getSearchText={(a) =>
+                        `${a.etiqueta ?? ''} ${a.codigo ?? ''} ${a.provincia ?? ''} ${a.canton ?? ''} ${a.direccion ?? ''}`
+                      }
+                      placeholder={
+                        hasDistribuidorSeleccionado
+                          ? 'Selecciona agencia del distribuidor'
+                          : 'Selecciona un distribuidor primero'
+                      }
+                      disabled={!hasDistribuidorSeleccionado}
+                      searchPlaceholder="Buscar por código, provincia, dirección..."
+                      renderOption={(a) => (
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">
+                            {agenciaDistribuidorEtiqueta(a)}
+                          </div>
+                          {(a.provincia || a.canton || a.direccion) && (
+                            <div className="truncate text-xs text-muted-foreground">
+                              {[a.provincia, a.canton].filter(Boolean).join(', ')}
+                              {a.direccion ? ` · ${a.direccion}` : ''}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    />
+                    {form.formState.errors.agenciaDistribuidorId && (
+                      <p className="text-sm text-[var(--color-destructive)]">
+                        {form.formState.errors.agenciaDistribuidorId.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="codigo-precinto"
+                    className="flex items-center gap-1.5 text-sm"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                    Código de precinto (opcional)
+                  </Label>
+                  <Input
+                    id="codigo-precinto"
+                    {...form.register('codigoPrecinto')}
+                    placeholder="Código de precinto"
+                  />
+                </div>
               </div>
             </section>
-            <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
+            <div className="sticky bottom-2 z-10 flex flex-col-reverse justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)]/95 p-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:flex-row sm:pt-4">
               <Button type="button" variant="outline" onClick={() => setPasoActual(2)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
               </Button>
-              <div className="flex gap-2">
-                <Link
-                  to="/despachos"
-                  className="inline-flex h-9 items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2 text-sm font-medium hover:bg-[var(--color-secondary)]"
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={tryNavigateBack}
+                  disabled={loading}
                 >
                   Cancelar
-                </Link>
-                <Button type="submit" disabled={loading}>
+                </Button>
+                <Button type="submit" disabled={loading} className="gap-2">
+                  <Check className="h-4 w-4" />
                   {loading ? submitLoadingLabel : submitLabel}
                 </Button>
               </div>
@@ -1743,6 +1994,20 @@ export function DespachoStepperForm({
           </>
         )}
       </form>
+
+      <ConfirmDialog
+        open={confirmSalirOpen}
+        onOpenChange={(open) => !open && setConfirmSalirOpen(false)}
+        title="¿Descartar cambios?"
+        description="Tienes cambios sin guardar en este despacho. Si sales ahora se perderán."
+        confirmLabel="Descartar y salir"
+        cancelLabel="Continuar editando"
+        variant="destructive"
+        onConfirm={async () => {
+          setConfirmSalirOpen(false);
+          navigate({ to: '/despachos' });
+        }}
+      />
 
       <ConfirmDialog
         open={confirmQuitarSaca.open}
@@ -1934,6 +2199,42 @@ export function DespachoStepperForm({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+interface ResumenChipProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number | string;
+  tone?: 'accent' | 'muted';
+}
+
+function ResumenChip({ icon: Icon, label, value, tone = 'muted' }: ResumenChipProps) {
+  const accent = tone === 'accent';
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 ${
+        accent
+          ? 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5'
+          : 'border-border bg-[var(--color-card)]'
+      }`}
+    >
+      <span
+        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+          accent
+            ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]'
+            : 'bg-[var(--color-muted)] text-muted-foreground'
+        }`}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <div className="min-w-0">
+        <div className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </div>
+        <div className="truncate text-sm font-semibold text-foreground">{value}</div>
+      </div>
     </div>
   );
 }

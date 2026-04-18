@@ -1,30 +1,37 @@
-import { useState, useMemo } from 'react';
-import { Link } from '@tanstack/react-router';
-import { useLotesRecepcion, useDeleteLoteRecepcion } from '@/hooks/useLotesRecepcion';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import {
+  Boxes,
+  CalendarClock,
+  Eye,
+  FileText,
+  PackageCheck,
+  Plus,
+  Trash2,
+  UserCircle2,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { useDeleteLoteRecepcion, useLotesRecepcion } from '@/hooks/useLotesRecepcion';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
-import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { ListTableShell } from '@/components/ListTableShell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PackageCheck, Plus } from 'lucide-react';
-import { toast } from 'sonner';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { getApiErrorMessage } from '@/lib/api/error-message';
-
-function formatFecha(s: string | undefined): string {
-  if (!s) return '—';
-  try {
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) return s;
-    return d.toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return s;
-  }
-}
+import type { LoteRecepcion } from '@/types/lote-recepcion';
 
 export function LoteRecepcionListPage() {
+  const navigate = useNavigate();
   const { data: lotes, isLoading, error } = useLotesRecepcion();
   const deleteLote = useDeleteLoteRecepcion();
   const [search, setSearch] = useState('');
@@ -36,11 +43,36 @@ export function LoteRecepcionListPage() {
     const q = search.trim().toLowerCase();
     return raw.filter(
       (l) =>
+        String(l.id).includes(q) ||
         l.observaciones?.toLowerCase().includes(q) ||
         l.operarioNombre?.toLowerCase().includes(q) ||
-        l.numeroGuiasEnvio?.some((g) => g.toLowerCase().includes(q))
+        l.numeroGuiasEnvio?.some((g) => g.toLowerCase().includes(q)),
     );
   }, [lotes, search]);
+
+  const stats = useMemo(() => {
+    const all = lotes ?? [];
+    if (all.length === 0) {
+      return { total: 0, paquetes: 0, hoy: 0, guiasUnicas: 0 };
+    }
+    const guias = new Set<string>();
+    let paquetes = 0;
+    let hoy = 0;
+    const ahora = new Date();
+    const hoyStr = `${ahora.getFullYear()}-${ahora.getMonth()}-${ahora.getDate()}`;
+    for (const l of all) {
+      paquetes += l.totalPaquetes ?? 0;
+      l.numeroGuiasEnvio?.forEach((g) => guias.add(g));
+      if (l.fechaRecepcion) {
+        const d = new Date(l.fechaRecepcion);
+        if (!Number.isNaN(d.getTime())) {
+          const dStr = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+          if (dStr === hoyStr) hoy += 1;
+        }
+      }
+    }
+    return { total: all.length, paquetes, hoy, guiasUnicas: guias.size };
+  }, [lotes]);
 
   if (isLoading) {
     return <LoadingState text="Cargando lotes de recepción..." />;
@@ -56,14 +88,14 @@ export function LoteRecepcionListPage() {
   const allLotes = lotes ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <ListToolbar
         title="Lotes de recepción"
-        searchPlaceholder="Buscar por observaciones, operario, guía..."
+        searchPlaceholder="Buscar por #, observaciones, operario o guía..."
         onSearchChange={setSearch}
         actions={
           <Link to="/lotes-recepcion/nuevo">
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Registrar nuevo lote
             </Button>
@@ -71,11 +103,45 @@ export function LoteRecepcionListPage() {
         }
       />
 
+      {allLotes.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <KpiCard
+            icon={PackageCheck}
+            label="Lotes registrados"
+            value={stats.total}
+          />
+          <KpiCard
+            icon={Boxes}
+            label="Paquetes recibidos"
+            value={stats.paquetes}
+          />
+          <KpiCard
+            icon={FileText}
+            label="Guías únicas"
+            value={stats.guiasUnicas}
+          />
+          <KpiCard
+            icon={CalendarClock}
+            label="Lotes hoy"
+            value={stats.hoy}
+            tone={stats.hoy > 0 ? 'accent' : 'muted'}
+          />
+        </div>
+      )}
+
       {allLotes.length === 0 ? (
         <EmptyState
           icon={PackageCheck}
           title="No hay lotes de recepción"
-          description="Registre un lote desde el botón «Registrar nuevo lote». Solo se incluirán las guías que tengan paquetes en el sistema."
+          description='Registra un lote desde el botón "Registrar nuevo lote". Solo se incluirán las guías que tengan paquetes en el sistema.'
+          action={
+            <Link to="/lotes-recepcion/nuevo">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Registrar nuevo lote
+              </Button>
+            </Link>
+          }
         />
       ) : list.length === 0 ? (
         <EmptyState
@@ -84,54 +150,88 @@ export function LoteRecepcionListPage() {
           description="No hay lotes que coincidan con la búsqueda."
         />
       ) : (
-        <ListTableShell>
-          <Table className="min-w-[860px] text-left">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha recepción</TableHead>
-                <TableHead>Observaciones</TableHead>
-                <TableHead>Operario</TableHead>
-                <TableHead className="text-right">Guías</TableHead>
-                <TableHead className="text-right">Paquetes</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list.map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell className="font-medium">{formatFecha(l.fechaRecepcion)}</TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground" title={l.observaciones ?? ''}>
-                    {l.observaciones ? (l.observaciones.length > 50 ? l.observaciones.slice(0, 50) + '…' : l.observaciones) : '—'}
-                  </TableCell>
-                  <TableCell>{l.operarioNombre ?? '—'}</TableCell>
-                  <TableCell className="text-right">{l.numeroGuiasEnvio?.length ?? 0}</TableCell>
-                  <TableCell className="text-right">{l.totalPaquetes ?? '—'}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end">
-                      <RowActionsMenu
-                        items={[
-                          { label: 'Ver detalle', onSelect: () => { window.location.href = `/lotes-recepcion/${l.id}`; } },
-                          {
-                            label: 'Eliminar lote',
-                            destructive: true,
-                            onSelect: () => setDeleteConfirmId(l.id),
-                          },
-                        ]}
-                      />
-                    </div>
-                  </TableCell>
+        <>
+          <p className="text-xs text-muted-foreground">
+            {list.length} lote{list.length === 1 ? '' : 's'}
+            {list.length !== allLotes.length ? ` de ${allLotes.length}` : ''}
+          </p>
+          <ListTableShell>
+            <Table className="min-w-[820px] text-left">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[14rem]">Recepción</TableHead>
+                  <TableHead className="min-w-[14rem]">Operario</TableHead>
+                  <TableHead>Guías</TableHead>
+                  <TableHead>Paquetes</TableHead>
+                  <TableHead className="min-w-[14rem]">Observaciones</TableHead>
+                  <TableHead className="w-24 text-right">Acciones</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </ListTableShell>
+              </TableHeader>
+              <TableBody>
+                {list.map((l) => (
+                  <TableRow
+                    key={l.id}
+                    className="cursor-pointer"
+                    onClick={() =>
+                      navigate({
+                        to: '/lotes-recepcion/$id',
+                        params: { id: String(l.id) },
+                      })
+                    }
+                  >
+                    <TableCell className="align-top">
+                      <RecepcionCell lote={l} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <OperarioCell nombre={l.operarioNombre} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <GuiasCount total={l.numeroGuiasEnvio?.length ?? 0} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <PaquetesBadge total={l.totalPaquetes ?? 0} />
+                    </TableCell>
+                    <TableCell className="max-w-[18rem] align-top">
+                      <ObservacionesCell texto={l.observaciones} />
+                    </TableCell>
+                    <TableCell
+                      className="text-right align-top"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <Link
+                          to="/lotes-recepcion/$id"
+                          params={{ id: String(l.id) }}
+                          aria-label="Ver detalle"
+                          title="Ver detalle"
+                          className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-muted)] hover:text-foreground"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmId(l.id)}
+                          aria-label="Eliminar lote"
+                          title="Eliminar lote"
+                          className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-destructive)]/10 hover:text-[var(--color-destructive)] hover:border-[var(--color-destructive)]/40"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ListTableShell>
+        </>
       )}
 
       <ConfirmDialog
         open={deleteConfirmId != null}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Eliminar lote de recepción"
-        description="Se eliminará el lote y se revertirá el estado de los paquetes del lote cuando aplique."
+        title="¿Eliminar lote de recepción?"
+        description="Se eliminará el lote y se revertirá el estado de los paquetes asociados cuando aplique. Esta acción no se puede deshacer."
         confirmLabel="Eliminar"
         variant="destructive"
         loading={deleteLote.isPending}
@@ -142,15 +242,155 @@ export function LoteRecepcionListPage() {
             const reverted = result.paquetesRevertidos ?? 0;
             toast.success(
               reverted > 0
-                ? `Lote eliminado. ${reverted} paquete(s) volvieron al estado anterior.`
-                : 'Lote eliminado correctamente'
+                ? `Lote eliminado. ${reverted} paquete${reverted === 1 ? '' : 's'} volvieron al estado anterior.`
+                : 'Lote eliminado correctamente',
             );
-          } catch (error: unknown) {
-            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el lote');
-            throw error;
+          } catch (err: unknown) {
+            toast.error(getApiErrorMessage(err) ?? 'Error al eliminar el lote');
+            throw err;
           }
         }}
       />
     </div>
   );
+}
+
+interface KpiCardProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number | string;
+  tone?: 'muted' | 'accent';
+}
+
+function KpiCard({ icon: Icon, label, value, tone = 'muted' }: KpiCardProps) {
+  const toneClasses = tone === 'accent'
+    ? 'border-primary/30 bg-primary/5'
+    : 'border-border bg-[var(--color-muted)]/40';
+  const iconBg = tone === 'accent' ? 'bg-primary/10 text-primary' : 'bg-[var(--color-muted)] text-muted-foreground';
+  return (
+    <div className={`flex items-center gap-3 rounded-lg border p-3 ${toneClasses}`}>
+      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-md ${iconBg}`}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        <p className="text-lg font-semibold leading-none text-foreground">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function RecepcionCell({ lote }: { lote: LoteRecepcion }) {
+  const d = lote.fechaRecepcion ? new Date(lote.fechaRecepcion) : null;
+  const valido = d && !Number.isNaN(d.getTime());
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <span className="text-xs font-mono text-muted-foreground">#{lote.id}</span>
+      {valido ? (
+        <>
+          <span className="text-sm font-medium text-foreground">
+            {d!.toLocaleDateString('es-EC', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {d!.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}
+            {' · '}
+            {relativeTime(d!) ?? ''}
+          </span>
+        </>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      )}
+    </div>
+  );
+}
+
+function OperarioCell({ nombre }: { nombre?: string | null }) {
+  if (!nombre) {
+    return <span className="text-xs italic text-muted-foreground">—</span>;
+  }
+  return (
+    <div className="flex min-w-0 items-center gap-2 text-sm">
+      <UserCircle2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="truncate" title={nombre}>
+        {nombre}
+      </span>
+    </div>
+  );
+}
+
+function GuiasCount({ total }: { total: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Badge
+        className={
+          total > 0
+            ? 'bg-primary/10 text-primary hover:bg-primary/15'
+            : 'bg-[var(--color-muted)] text-muted-foreground hover:bg-[var(--color-muted)]'
+        }
+      >
+        {total}
+      </Badge>
+      <span className="text-xs text-muted-foreground">
+        guía{total === 1 ? '' : 's'}
+      </span>
+    </div>
+  );
+}
+
+function PaquetesBadge({ total }: { total: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Badge
+        className={
+          total > 0
+            ? 'bg-primary/10 text-primary hover:bg-primary/15'
+            : 'bg-[var(--color-muted)] text-muted-foreground hover:bg-[var(--color-muted)]'
+        }
+      >
+        {total}
+      </Badge>
+      <span className="text-xs text-muted-foreground">
+        paquete{total === 1 ? '' : 's'}
+      </span>
+    </div>
+  );
+}
+
+function ObservacionesCell({ texto }: { texto?: string | null }) {
+  const t = texto?.trim();
+  if (!t) {
+    return <span className="text-xs italic text-muted-foreground">Sin observaciones</span>;
+  }
+  return (
+    <p
+      className="line-clamp-2 break-words text-sm text-muted-foreground"
+      title={t}
+    >
+      {t}
+    </p>
+  );
+}
+
+function relativeTime(date: Date): string | null {
+  const diffMs = date.getTime() - Date.now();
+  const diffSec = Math.round(diffMs / 1000);
+  const abs = Math.abs(diffSec);
+  const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
+  if (abs < 60) return rtf.format(diffSec, 'second');
+  const min = Math.round(diffSec / 60);
+  if (Math.abs(min) < 60) return rtf.format(min, 'minute');
+  const hr = Math.round(min / 60);
+  if (Math.abs(hr) < 24) return rtf.format(hr, 'hour');
+  const day = Math.round(hr / 24);
+  if (Math.abs(day) < 30) return rtf.format(day, 'day');
+  const month = Math.round(day / 30);
+  if (Math.abs(month) < 12) return rtf.format(month, 'month');
+  const year = Math.round(month / 12);
+  return rtf.format(year, 'year');
 }

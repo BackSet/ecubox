@@ -10,6 +10,12 @@ const NAV_LINKS = [
   { to: '/calculadora', label: 'Tarifas' },
 ] as const;
 
+const ANCHOR_LINKS = [
+  { hash: '#servicios', label: 'Servicios' },
+  { hash: '#como-funciona', label: 'Cómo funciona' },
+  { hash: '#faq', label: 'FAQ' },
+] as const;
+
 export function SiteHeader() {
   const { theme, toggleTheme } = useThemeStore();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -25,6 +31,10 @@ export function SiteHeader() {
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-6 text-sm font-medium landing-text lg:flex">
+          {ANCHOR_LINKS.map(l => (
+            <a key={l.hash} href={l.hash} className="transition hover:text-[var(--color-primary)]">{l.label}</a>
+          ))}
+          <span className="h-4 w-px bg-[var(--color-landing-border)]" aria-hidden />
           {NAV_LINKS.map(l => (
             <Link key={l.to} to={l.to} className="transition hover:text-[var(--color-primary)]">{l.label}</Link>
           ))}
@@ -51,7 +61,13 @@ export function SiteHeader() {
       {/* Mobile panel */}
       {mobileOpen && (
         <div className="border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-4 pb-6 pt-4 lg:hidden">
-          <nav className="mb-6 flex flex-col gap-3 text-sm font-medium landing-text">
+          <nav className="mb-6 flex flex-col gap-1 text-sm font-medium landing-text">
+            {ANCHOR_LINKS.map(l => (
+              <a key={l.hash} href={l.hash} className="rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]" onClick={() => setMobileOpen(false)}>
+                {l.label}
+              </a>
+            ))}
+            <div className="my-1 h-px bg-[var(--color-landing-border)]" aria-hidden />
             {NAV_LINKS.map(l => (
               <Link key={l.to} to={l.to} className="rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]" onClick={() => setMobileOpen(false)}>
                 {l.label}

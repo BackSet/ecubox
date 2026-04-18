@@ -1,36 +1,83 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { EcuboxLogo } from '@/components/brand';
 import { getTarifaCalculadoraPublic } from '@/lib/api/tarifa-calculadora.service';
 import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
-import { Calculator } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Calculator,
+  Check,
+  Copy,
+  Info,
+  Loader2,
+  Package as PackageIcon,
+  RefreshCw,
+  RotateCcw,
+  Scale,
+  Search,
+  Truck,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const MIN_PESO_LBS_RECARGO = 4;
 const RECARGO_ENVIO_MENOR_PESO = 3.5;
 
+const PRESETS_LBS: Array<{ label: string; valor: number }> = [
+  { label: '1 lb', valor: 1 },
+  { label: '2 lb', valor: 2 },
+  { label: '5 lb', valor: 5 },
+  { label: '10 lb', valor: 10 },
+  { label: '20 lb', valor: 20 },
+];
+
+function fmtLbs(n: number): string {
+  return n.toLocaleString('es-EC', { maximumFractionDigits: 2 });
+}
+
+function fmtMoneda(n: number): string {
+  return n.toLocaleString('es-EC', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export function CalculadoraPage() {
   const [tarifaPorLibra, setTarifaPorLibra] = useState<number | null>(null);
   const [tarifaError, setTarifaError] = useState<string | null>(null);
+  const [tarifaLoading, setTarifaLoading] = useState(true);
   const [pesoLbs, setPesoLbs] = useState<string>('');
   const [pesoKg, setPesoKg] = useState<string>('');
+  const [copiado, setCopiado] = useState(false);
+
+  const cargarTarifa = useMemo(
+    () => async (signal?: AbortSignal) => {
+      setTarifaLoading(true);
+      setTarifaError(null);
+      try {
+        const data = await getTarifaCalculadoraPublic();
+        if (!signal?.aborted) setTarifaPorLibra(data.tarifaPorLibra);
+      } catch {
+        if (!signal?.aborted) setTarifaError('No se pudo cargar la tarifa.');
+      } finally {
+        if (!signal?.aborted) setTarifaLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    setTarifaError(null);
-    getTarifaCalculadoraPublic()
-      .then((data) => {
-        if (!cancelled) setTarifaPorLibra(data.tarifaPorLibra);
-      })
-      .catch(() => {
-        if (!cancelled) setTarifaError('No se pudo cargar la tarifa.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    const controller = new AbortController();
+    void cargarTarifa(controller.signal);
+    return () => controller.abort();
+  }, [cargarTarifa]);
 
   const handleLbsChange = (value: string) => {
     const sanitized = sanitizeNumericDecimal(value);
@@ -54,124 +101,355 @@ export function CalculadoraPage() {
     }
   };
 
+  const aplicarPreset = (lbs: number) => {
+    handleLbsChange(String(lbs));
+  };
+
+  const limpiar = () => {
+    setPesoLbs('');
+    setPesoKg('');
+    setCopiado(false);
+  };
+
   const pesoLbsNum = pesoLbs === '' ? NaN : Number(pesoLbs);
   const hasValidPeso = !Number.isNaN(pesoLbsNum) && pesoLbsNum > 0;
   const tarifa = tarifaPorLibra ?? 0;
-  const costoBase = hasValidPeso && tarifa >= 0 ? pesoLbsNum * tarifa : null;
+  const tarifaConfigurada = tarifa > 0;
+  const costoBase = hasValidPeso && tarifaConfigurada ? pesoLbsNum * tarifa : null;
   const aplicaRecargo = hasValidPeso && pesoLbsNum < MIN_PESO_LBS_RECARGO;
   const recargoEnvio = aplicaRecargo ? RECARGO_ENVIO_MENOR_PESO : 0;
   const costoEstimado = costoBase != null ? costoBase + recargoEnvio : null;
+  const lbsParaEvitarRecargo = aplicaRecargo
+    ? Math.max(0, MIN_PESO_LBS_RECARGO - pesoLbsNum)
+    : 0;
+
+  const handleCopiarResultado = async () => {
+    if (costoEstimado == null) return;
+    const lineas = [
+      `Cotización ECUBOX`,
+      `Peso: ${fmtLbs(pesoLbsNum)} lb (${fmtLbs(lbsToKg(pesoLbsNum))} kg)`,
+      `Tarifa: ${fmtMoneda(tarifa)} / lb`,
+      `Subtotal: ${fmtMoneda(costoBase ?? 0)}`,
+      aplicaRecargo
+        ? `Recargo (< ${MIN_PESO_LBS_RECARGO} lb): ${fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}`
+        : null,
+      `Total: ${fmtMoneda(costoEstimado)}`,
+    ].filter(Boolean);
+    try {
+      await navigator.clipboard.writeText(lineas.join('\n'));
+      setCopiado(true);
+      toast.success('Cotización copiada');
+      window.setTimeout(() => setCopiado(false), 1800);
+    } catch {
+      toast.error('No se pudo copiar');
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] flex flex-col">
-      <header className="border-b border-[var(--color-border)]">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
+      <header className="border-b border-[var(--color-border)] bg-[var(--color-card)]/40 backdrop-blur-sm">
         <div className="content-container-wide mobile-safe-inline flex items-center justify-between gap-3 py-3 sm:py-4">
-          <Link to="/" className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition" aria-label="ECUBOX - Inicio">
+          <Link
+            to="/"
+            className="-m-1 inline-flex rounded-lg p-1 transition hover:bg-[var(--color-muted)]"
+            aria-label="ECUBOX - Inicio"
+          >
             <EcuboxLogo variant="light" size="lg" asLink={false} />
           </Link>
           <Link
             to="/"
-            className="text-xs sm:text-sm text-[var(--color-muted-foreground)] hover:underline"
+            className="inline-flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)] hover:underline sm:text-sm"
           >
+            <ArrowLeft className="h-3.5 w-3.5" />
             Volver al inicio
           </Link>
         </div>
       </header>
 
       <main className="mobile-safe-inline flex-1 py-6 sm:py-10">
-        <div className="content-container w-full max-w-2xl space-y-5 sm:space-y-6">
-          <div className="text-center space-y-2">
-            <h1 className="responsive-title font-bold text-[var(--color-foreground)]">
-              Calculadora de envío
-            </h1>
-            <p className="text-sm text-[var(--color-muted-foreground)]">
-              Ingresa el peso para obtener un costo estimado todo incluido con transporte Servientrega.
-            </p>
+        <div className="content-container w-full max-w-3xl space-y-6">
+          <div className="space-y-3 text-center">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+              <Calculator className="h-6 w-6" />
+            </span>
+            <div className="space-y-1.5">
+              <h1 className="responsive-title font-bold tracking-tight text-[var(--color-foreground)]">
+                Calculadora de envío
+              </h1>
+              <p className="text-sm text-[var(--color-muted-foreground)] sm:text-base">
+                Ingresa el peso de tu paquete para obtener un costo estimado todo
+                incluido con transporte Servientrega.
+              </p>
+            </div>
           </div>
 
           {tarifaError && (
             <div
-              className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)] text-sm"
+              className="flex items-start justify-between gap-3 rounded-lg border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 p-4 text-sm text-[var(--color-destructive)]"
               role="alert"
             >
-              {tarifaError}
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{tarifaError}</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 border-[var(--color-destructive)]/40 text-[var(--color-destructive)] hover:bg-[var(--color-destructive)]/10"
+                onClick={() => void cargarTarifa()}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Reintentar
+              </Button>
             </div>
           )}
 
-          {tarifaPorLibra !== null && !tarifaError && (
-            <>
-              <div className="surface-card p-4 sm:p-5 text-sm text-[var(--color-muted-foreground)]">
-                Tarifa actual: <strong className="text-[var(--color-foreground)]">${tarifa.toFixed(2)} USD / libra</strong>
-                <p className="mt-2">
-                  Transporte Servientrega incluido. Si el paquete pesa menos de {MIN_PESO_LBS_RECARGO} lb, se suma un recargo fijo de ${RECARGO_ENVIO_MENOR_PESO.toFixed(2)}.
-                </p>
-              </div>
-
-              <div className="surface-card p-4 sm:p-5 space-y-4">
-                <div>
-                  <Label htmlFor="pesoLbs" className="mb-1 block">
-                    Peso (libras)
-                  </Label>
-                  <Input
-                    id="pesoLbs"
-                    type="text"
-                    inputMode="decimal"
-                    value={pesoLbs}
-                    onChange={(e) => handleLbsChange(e.target.value)}
-                    onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoLbs)}
-                    placeholder="0"
-                    className="input-clean px-4 py-3"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="pesoKg" className="mb-1 block">
-                    Peso (kg)
-                  </Label>
-                  <Input
-                    id="pesoKg"
-                    type="text"
-                    inputMode="decimal"
-                    value={pesoKg}
-                    onChange={(e) => handleKgChange(e.target.value)}
-                    onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoKg)}
-                    placeholder="0"
-                    className="input-clean px-4 py-3"
-                  />
-                </div>
-              </div>
-
-              {tarifa === 0 && (
-                <p className="text-sm text-[var(--color-muted-foreground)]">
-                  La tarifa aún no ha sido configurada. El costo estimado no está disponible.
-                </p>
-              )}
-
-              {costoEstimado !== null && tarifa > 0 && (
-                <div className="surface-card p-5 sm:p-6 space-y-1">
-                  <div className="flex items-center gap-2 text-[var(--color-foreground)]">
-                    <Calculator className="h-5 w-5 text-[var(--color-muted-foreground)]" />
-                    <span className="font-medium">Costo estimado</span>
-                  </div>
-                  <p className="text-2xl font-bold text-[var(--color-foreground)]">
-                    ${costoEstimado.toFixed(2)} USD
-                  </p>
-                  {costoBase != null && aplicaRecargo ? (
-                    <div className="space-y-0.5 text-sm text-[var(--color-muted-foreground)]">
-                      <p>{pesoLbsNum} lbs × ${tarifa.toFixed(2)}/lb = ${costoBase.toFixed(2)}</p>
-                      <p>Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lb): +${RECARGO_ENVIO_MENOR_PESO.toFixed(2)}</p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-[var(--color-muted-foreground)]">
-                      {pesoLbsNum} lbs × ${tarifa.toFixed(2)}/lb
-                    </p>
-                  )}
-                </div>
-              )}
-            </>
+          {tarifaLoading && !tarifaError && (
+            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-card)]/40 text-sm text-[var(--color-muted-foreground)]">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Cargando tarifa...
+            </div>
           )}
 
-          {tarifaPorLibra === null && !tarifaError && (
-            <p className="text-sm text-[var(--color-muted-foreground)]">Cargando tarifa...</p>
+          {!tarifaLoading && !tarifaError && (
+            <>
+              <section className="surface-card flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                    <Truck className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
+                      Tarifa actual
+                    </p>
+                    <p className="text-base font-semibold text-[var(--color-foreground)]">
+                      {tarifaConfigurada ? `${fmtMoneda(tarifa)} / libra` : 'No configurada'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200"
+                  >
+                    Servientrega incluido
+                  </Badge>
+                  {tarifaConfigurada && (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
+                    >
+                      Recargo {fmtMoneda(RECARGO_ENVIO_MENOR_PESO)} si &lt; {MIN_PESO_LBS_RECARGO} lb
+                    </Badge>
+                  )}
+                </div>
+              </section>
+
+              {!tarifaConfigurada && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    La tarifa aún no ha sido configurada. El costo estimado no estará
+                    disponible hasta que se publique.
+                  </span>
+                </div>
+              )}
+
+              <section className="surface-card space-y-5 p-4 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
+                    <Scale className="h-4 w-4 text-[var(--color-muted-foreground)]" />
+                    Peso del paquete
+                  </h2>
+                  {(pesoLbs || pesoKg) && (
+                    <button
+                      type="button"
+                      onClick={limpiar}
+                      className="inline-flex items-center gap-1 text-xs text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)]"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
+                    Atajos
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRESETS_LBS.map((p) => {
+                      const activo = hasValidPeso && Math.abs(pesoLbsNum - p.valor) < 0.001;
+                      return (
+                        <button
+                          key={p.valor}
+                          type="button"
+                          onClick={() => aplicarPreset(p.valor)}
+                          className={`inline-flex h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors ${
+                            activo
+                              ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+                              : 'border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                          }`}
+                        >
+                          <PackageIcon className="h-3 w-3" />
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="pesoLbs" className="mb-1.5 block text-sm">
+                      Peso (libras)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="pesoLbs"
+                        type="text"
+                        inputMode="decimal"
+                        value={pesoLbs}
+                        onChange={(e) => handleLbsChange(e.target.value)}
+                        onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoLbs)}
+                        placeholder="0.00"
+                        className="h-11 pr-10 text-base"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[var(--color-muted-foreground)]">
+                        lb
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="pesoKg" className="mb-1.5 block text-sm">
+                      Peso (kilogramos)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="pesoKg"
+                        type="text"
+                        inputMode="decimal"
+                        value={pesoKg}
+                        onChange={(e) => handleKgChange(e.target.value)}
+                        onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoKg)}
+                        placeholder="0.00"
+                        className="h-11 pr-10 text-base"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[var(--color-muted-foreground)]">
+                        kg
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {aplicaRecargo && tarifaConfigurada && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Tu paquete pesa menos de{' '}
+                      <span className="font-semibold">{MIN_PESO_LBS_RECARGO} lb</span>,
+                      por lo que se aplicará el recargo. Agrega{' '}
+                      <span className="font-semibold">{fmtLbs(lbsParaEvitarRecargo)} lb</span>{' '}
+                      más para evitarlo.
+                    </span>
+                  </div>
+                )}
+              </section>
+
+              {costoEstimado !== null && tarifaConfigurada ? (
+                <section className="overflow-hidden rounded-2xl border border-[var(--color-primary)]/20 bg-gradient-to-br from-[var(--color-primary)]/5 via-[var(--color-card)] to-[var(--color-card)]">
+                  <div className="space-y-4 p-5 sm:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
+                          Costo estimado
+                        </p>
+                        <p className="mt-1 text-3xl font-bold tracking-tight text-[var(--color-foreground)] sm:text-4xl">
+                          {fmtMoneda(costoEstimado)}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                          Para un paquete de{' '}
+                          <span className="font-medium text-[var(--color-foreground)]">
+                            {fmtLbs(pesoLbsNum)} lb
+                          </span>{' '}
+                          ({fmtLbs(lbsToKg(pesoLbsNum))} kg)
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCopiarResultado}
+                        className={`gap-2 ${copiado ? 'border-emerald-500 text-emerald-700' : ''}`}
+                      >
+                        {copiado ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        {copiado ? 'Copiado' : 'Copiar'}
+                      </Button>
+                    </div>
+
+                    <dl className="space-y-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/60 p-3.5 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <dt className="text-[var(--color-muted-foreground)]">
+                          {fmtLbs(pesoLbsNum)} lb × {fmtMoneda(tarifa)}/lb
+                        </dt>
+                        <dd className="font-medium text-[var(--color-foreground)]">
+                          {fmtMoneda(costoBase ?? 0)}
+                        </dd>
+                      </div>
+                      {aplicaRecargo && (
+                        <div className="flex items-center justify-between gap-2">
+                          <dt className="text-amber-700 dark:text-amber-300">
+                            Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lb)
+                          </dt>
+                          <dd className="font-medium text-amber-700 dark:text-amber-300">
+                            +{fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}
+                          </dd>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] pt-2 text-base">
+                        <dt className="font-semibold text-[var(--color-foreground)]">
+                          Total estimado
+                        </dt>
+                        <dd className="font-bold text-[var(--color-primary)]">
+                          {fmtMoneda(costoEstimado)}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <p className="text-[11px] leading-relaxed text-[var(--color-muted-foreground)]">
+                      * Este valor es referencial. El costo final puede variar según
+                      embalaje, dimensiones y revisión aduanal.
+                    </p>
+                  </div>
+                </section>
+              ) : (
+                <section className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-card)]/40 p-6 text-center">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+                    <Calculator className="h-5 w-5" />
+                  </span>
+                  <p className="mt-3 text-sm font-medium text-[var(--color-foreground)]">
+                    Ingresa el peso para ver tu cotización
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                    Puedes usar libras o kilogramos: la conversión es automática.
+                  </p>
+                </section>
+              )}
+
+              <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-4">
+                <p className="text-sm text-[var(--color-muted-foreground)]">
+                  ¿Ya tienes un envío en camino?
+                </p>
+                <Link
+                  to="/tracking"
+                  className="inline-flex items-center gap-2 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-medium text-[var(--color-primary-foreground)] transition-colors hover:bg-[var(--color-primary)]/90"
+                >
+                  <Search className="h-4 w-4" />
+                  Rastrear envío
+                </Link>
+              </section>
+            </>
           )}
         </div>
       </main>
