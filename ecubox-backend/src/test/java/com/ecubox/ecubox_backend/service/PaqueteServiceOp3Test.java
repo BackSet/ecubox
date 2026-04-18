@@ -1,15 +1,21 @@
 package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
+import com.ecubox.ecubox_backend.dto.PaqueteCreateRequest;
+import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.entity.Despacho;
+import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
 import com.ecubox.ecubox_backend.entity.Distribuidor;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
+import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.entity.PaqueteEstadoEvento;
 import com.ecubox.ecubox_backend.entity.Saca;
+import com.ecubox.ecubox_backend.entity.Usuario;
 import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
+import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
@@ -56,6 +62,10 @@ class PaqueteServiceOp3Test {
     private EstadoRastreoService estadoRastreoService;
     @Mock
     private TrackingEventService trackingEventService;
+    @Mock
+    private GuiaMasterRepository guiaMasterRepository;
+    @Mock
+    private GuiaMasterService guiaMasterService;
 
     private PaqueteService createPaqueteService(boolean useEventTimeline) {
         return new PaqueteService(
@@ -68,6 +78,8 @@ class PaqueteServiceOp3Test {
                 parametroSistemaService,
                 estadoRastreoService,
                 trackingEventService,
+                guiaMasterRepository,
+                guiaMasterService,
                 useEventTimeline
         );
     }
@@ -380,6 +392,47 @@ class PaqueteServiceOp3Test {
 
         assertEquals(1, reverted);
         verify(paqueteRepository).save(any(Paquete.class));
+    }
+
+    @Test
+    void create_autogeneraNumeroGuiaCompuestoConGuiaMasterYPieza() {
+        PaqueteService paqueteService = createPaqueteService(false);
+        Usuario usuario = Usuario.builder().id(7L).build();
+        DestinatarioFinal destinatario = DestinatarioFinal.builder()
+                .id(50L).codigo("D50").usuario(usuario).build();
+        EstadoRastreo registrado = EstadoRastreo.builder().id(1L).codigo("REGISTRADO").orden(1).build();
+        GuiaMaster gm = GuiaMaster.builder()
+                .id(99L).trackingBase("1Z52159R0379385035").totalPiezasEsperadas(3).build();
+
+        when(destinatarioFinalRepository.findById(50L)).thenReturn(Optional.of(destinatario));
+        when(paqueteRepository.countByDestinatarioFinalId(50L)).thenReturn(0L);
+        when(parametroSistemaService.getEstadosRastreoPorPunto())
+                .thenReturn(EstadosRastreoPorPuntoDTO.builder().estadoRastreoRegistroPaqueteId(1L).build());
+        when(estadoRastreoService.findEntityById(1L)).thenReturn(registrado);
+        when(guiaMasterRepository.findById(99L)).thenReturn(Optional.of(gm));
+        when(guiaMasterService.validarYAsignarPieza(gm, 2)).thenReturn(new int[]{2, 3});
+        when(paqueteRepository.existsByNumeroGuia("1Z52159R0379385035 2/3")).thenReturn(false);
+        when(paqueteRepository.save(any(Paquete.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaqueteCreateRequest req = PaqueteCreateRequest.builder()
+                .destinatarioFinalId(50L)
+                .guiaMasterId(99L)
+                .piezaNumero(2)
+                .contenido("Ropa")
+                .build();
+
+        PaqueteDTO dto = paqueteService.create(7L, false, false, req);
+
+        ArgumentCaptor<Paquete> captor = ArgumentCaptor.forClass(Paquete.class);
+        verify(paqueteRepository).save(captor.capture());
+        Paquete saved = captor.getValue();
+        assertEquals("1Z52159R0379385035 2/3", saved.getNumeroGuia());
+        assertEquals(2, saved.getPiezaNumero());
+        assertEquals(3, saved.getPiezaTotal());
+        assertNull(saved.getEnvioConsolidado(),
+                "Crear paquete no debe asignar envio consolidado; eso lo hace el flujo de EnvioConsolidado");
+        assertEquals("1Z52159R0379385035 2/3", dto.getNumeroGuia());
+        assertNull(dto.getEnvioConsolidadoCodigo());
     }
 
     @Test
