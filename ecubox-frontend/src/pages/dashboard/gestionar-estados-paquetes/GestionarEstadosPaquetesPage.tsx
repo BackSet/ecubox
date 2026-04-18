@@ -8,6 +8,7 @@ import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { KpiCard } from '@/components/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -44,7 +45,6 @@ import {
   Tag,
   Users,
   X,
-  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { GuiaMasterPiezaCell, DestinatarioCell } from '../paquetes/PaqueteCells';
@@ -253,7 +253,7 @@ export function GestionarEstadosPaquetesPage() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar paquetes.
       </div>
     );
@@ -274,24 +274,32 @@ export function GestionarEstadosPaquetesPage() {
       />
 
       {all.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiCard icon={ListChecks} label="Disponibles" value={stats.totalDisponibles} />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
-            icon={Search}
+            icon={<ListChecks className="h-5 w-5" />}
+            label="Disponibles"
+            value={stats.totalDisponibles}
+            tone="primary"
+          />
+          <KpiCard
+            icon={<Search className="h-5 w-5" />}
             label="Filtrados"
             value={stats.totalFiltrados}
-            tone={stats.totalFiltrados !== stats.totalDisponibles ? 'accent' : 'muted'}
+            tone={
+              stats.totalFiltrados !== stats.totalDisponibles ? 'warning' : 'neutral'
+            }
           />
           <KpiCard
-            icon={CheckCircle2}
+            icon={<CheckCircle2 className="h-5 w-5" />}
             label="Seleccionados"
             value={stats.totalSeleccionados}
-            tone={stats.totalSeleccionados > 0 ? 'success' : 'muted'}
+            tone={stats.totalSeleccionados > 0 ? 'success' : 'neutral'}
           />
           <KpiCard
-            icon={Users}
+            icon={<Users className="h-5 w-5" />}
             label="Estados distintos"
             value={estadosActualesPresentes.length}
+            tone="neutral"
           />
         </div>
       )}
@@ -636,7 +644,7 @@ function ResultadoDialog({ data, onClose, paquetes }: ResultadoDialogProps) {
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-amber-500" />
+            <AlertCircle className="h-5 w-5 text-[var(--color-warning)]" />
             Algunos paquetes no se actualizaron
           </DialogTitle>
           <DialogDescription>
@@ -685,37 +693,3 @@ function ResultadoDialog({ data, onClose, paquetes }: ResultadoDialogProps) {
   );
 }
 
-interface KpiCardProps {
-  icon: LucideIcon;
-  label: string;
-  value: number | string;
-  tone?: 'accent' | 'success' | 'muted';
-}
-
-function KpiCard({ icon: Icon, label, value, tone = 'muted' }: KpiCardProps) {
-  const toneClasses =
-    tone === 'accent'
-      ? 'border-primary/30 bg-primary/5'
-      : tone === 'success'
-        ? 'border-emerald-500/30 bg-emerald-500/5'
-        : 'border-border bg-[var(--color-muted)]/40';
-  const iconBg =
-    tone === 'accent'
-      ? 'bg-primary/10 text-primary'
-      : tone === 'success'
-        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-        : 'bg-[var(--color-muted)] text-muted-foreground';
-  return (
-    <div className={`flex items-center gap-3 rounded-lg border p-3 ${toneClasses}`}>
-      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-md ${iconBg}`}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <p className="text-lg font-semibold leading-none text-foreground">{value}</p>
-      </div>
-    </div>
-  );
-}

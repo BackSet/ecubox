@@ -4,7 +4,13 @@ import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SurfaceCard } from '@/components/ui/surface-card';
 
-export type KpiTone = 'neutral' | 'success' | 'warning' | 'danger' | 'primary';
+export type KpiTone =
+  | 'neutral'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'primary'
+  | 'info';
 
 interface KpiCardProps {
   icon: ReactNode;
@@ -22,6 +28,7 @@ const TONE_ICON_BG: Record<KpiTone, string> = {
   success: 'bg-[var(--color-success)]/10 text-[var(--color-success)]',
   warning: 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]',
   danger: 'bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]',
+  info: 'bg-[var(--color-info)]/10 text-[var(--color-info)]',
 };
 
 const TONE_VALUE_TEXT: Record<KpiTone, string> = {
@@ -30,6 +37,7 @@ const TONE_VALUE_TEXT: Record<KpiTone, string> = {
   success: 'text-[var(--color-success)]',
   warning: 'text-[var(--color-warning)]',
   danger: 'text-[var(--color-destructive)]',
+  info: 'text-[var(--color-info)]',
 };
 
 export function KpiCard({

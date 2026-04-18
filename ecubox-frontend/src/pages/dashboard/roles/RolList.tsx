@@ -129,14 +129,14 @@ export function RolList() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar roles.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Roles"
         searchPlaceholder="Buscar por nombre o por código de permiso..."

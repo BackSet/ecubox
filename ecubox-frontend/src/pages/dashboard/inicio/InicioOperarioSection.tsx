@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { KpiCard } from '@/components/KpiCard';
 import { SurfaceCard } from '@/components/ui/surface-card';
+import { PageHeader } from '@/components/PageHeader';
 import { useDashboardGuiasMaster } from '@/hooks/useGuiasMaster';
 import {
   usePaquetesOperario,
@@ -97,31 +98,23 @@ export function InicioOperarioSection() {
   );
 
   return (
-    <section className="space-y-4">
-      <SurfaceCard className="p-6">
-        <h2 className="text-2xl font-semibold tracking-tight text-[var(--color-foreground)]">
-          Panel operativo
-        </h2>
-        <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-          Estado actual de la operación y accesos rápidos.
-        </p>
-      </SurfaceCard>
+    <section className="page-stack">
+      <PageHeader
+        title="Panel operativo"
+        description="Estado actual de la operación y accesos rápidos."
+      />
 
       {canPesoWrite && totalVencidos > 0 && (
-        <SurfaceCard className="border-[var(--color-warning)]/35 bg-[var(--color-warning)]/10 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="rounded-full bg-[var(--color-warning)]/20 p-2 text-[var(--color-warning)]">
-                <AlertTriangle className="h-4 w-4" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">
-                  Hay {totalVencidos} paquete(s) que superaron el plazo de retiro
-                </p>
-                <p className="text-sm text-[var(--color-muted-foreground)]">
-                  Revísalos para gestionar el siguiente paso operativo.
-                </p>
-              </div>
+        <div className="ui-alert ui-alert-warning">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="flex flex-wrap items-center justify-between gap-3 flex-1 min-w-0">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-[var(--color-foreground)]">
+                Hay {totalVencidos} paquete(s) que superaron el plazo de retiro
+              </p>
+              <p className="text-sm text-[var(--color-muted-foreground)]">
+                Revísalos para gestionar el siguiente paso operativo.
+              </p>
             </div>
             <Link
               to="/paquetes-vencidos"
@@ -131,7 +124,7 @@ export function InicioOperarioSection() {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-        </SurfaceCard>
+        </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

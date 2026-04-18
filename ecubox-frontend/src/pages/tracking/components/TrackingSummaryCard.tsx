@@ -12,7 +12,7 @@ export function TrackingSummaryCard({
   fechaFormateada,
 }: TrackingSummaryCardProps) {
   const estadoTexto = result.estadoRastreoNombre ?? 'Estado no disponible';
-  const estadoVariant = result.flujoActual === 'ALTERNO' ? 'pending' : 'in-progress';
+  const estadoTone = result.flujoActual === 'ALTERNO' ? 'warning' : 'info';
   const diasAtrasoRetiro =
     result.diasMaxRetiro != null && result.diasTranscurridos != null
       ? Math.max(0, result.diasTranscurridos - result.diasMaxRetiro)
@@ -35,7 +35,7 @@ export function TrackingSummaryCard({
             </p>
           ) : null}
         </div>
-        <StatusBadge variant={estadoVariant}>{estadoTexto}</StatusBadge>
+        <StatusBadge tone={estadoTone}>{estadoTexto}</StatusBadge>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/25 px-4 py-3">

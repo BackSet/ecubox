@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { useEffect, useState } from 'react';
 import {
   AlertCircle,
-  ArrowLeft,
   ArrowRight,
   Eye,
   EyeOff,
@@ -16,7 +15,8 @@ import {
   UserRound,
 } from 'lucide-react';
 
-import { EcuboxLogo } from '@/components/brand';
+import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter } from '@/components/SiteFooter';
 import { login } from '@/lib/api/auth.service';
 import { useAuthStore } from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
@@ -114,24 +114,7 @@ export function LoginPage() {
   return (
     <div className="landing-shell">
       <div className="landing-overlay" />
-      <header className="relative z-10 border-b border-[var(--color-landing-border)] bg-[color-mix(in_oklab,var(--color-landing-bg)_82%,transparent)] backdrop-blur-md">
-        <div className="content-container-wide mobile-safe-inline flex items-center justify-between gap-3 py-3 sm:py-4">
-          <Link
-            to="/"
-            className="-m-1 inline-flex rounded-lg p-1 transition hover:bg-[var(--color-landing-card-muted)]"
-            aria-label="ECUBOX - Inicio"
-          >
-            <EcuboxLogo variant="light" size="lg" asLink={false} />
-          </Link>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 text-xs font-medium landing-text-muted transition hover:text-[var(--color-primary)] sm:text-sm"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Volver al inicio
-          </Link>
-        </div>
-      </header>
+      <SiteHeader variant="auth" />
 
       <main className="relative z-10 mobile-safe-inline flex-1 py-6 sm:py-10">
         <div className="content-container-wide grid w-full gap-8 lg:grid-cols-2 lg:items-center lg:gap-12">
@@ -143,9 +126,9 @@ export function LoginPage() {
                 Bienvenido de nuevo
               </span>
             </span>
-            <h1 className="landing-text text-3xl font-bold leading-tight xl:text-4xl">
+            <h1 className="responsive-title landing-text font-bold leading-tight">
               Tu casillero, tus envíos,{' '}
-              <span className="bg-gradient-to-br from-[var(--color-primary)] to-[#5B9CFF] bg-clip-text text-transparent">
+              <span className="brand-gradient-text">
                 en un solo lugar.
               </span>
             </h1>
@@ -345,6 +328,8 @@ export function LoginPage() {
           </div>
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

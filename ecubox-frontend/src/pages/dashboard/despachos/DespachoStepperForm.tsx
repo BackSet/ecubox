@@ -1839,7 +1839,7 @@ export function DespachoStepperForm({
                             norm(a.canton) === provinciaCantonRef.canton,
                         );
                         return sugeridas.length > 0 ? (
-                          <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                          <p className="text-xs text-[var(--color-success)] dark:text-[var(--color-success)]">
                             Sugerida por provincia/cantón: {sugeridas[0].nombre} (
                             {sugeridas[0].codigo})
                           </p>

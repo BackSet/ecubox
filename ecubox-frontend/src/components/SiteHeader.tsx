@@ -16,11 +16,30 @@ const ANCHOR_LINKS = [
   { hash: '#faq', label: 'FAQ' },
 ] as const;
 
-export function SiteHeader() {
+export type SiteHeaderVariant = 'default' | 'auth' | 'tool';
+
+interface SiteHeaderProps {
+  variant?: SiteHeaderVariant;
+}
+
+/**
+ * Cabecera publica unificada.
+ * - "default": landing principal (anchors + tools).
+ * - "auth":    paginas de cuenta (sin anchors, sin botones de cuenta repetidos).
+ * - "tool":    herramientas publicas (Tracking / Calculadora) con nav cruzada y CTAs.
+ */
+export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
   const { theme, toggleTheme } = useThemeStore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const themeIcon = theme === 'dark' ? <Moon className="h-4 w-4" /> : theme === 'system' ? <Monitor className="h-4 w-4" /> : <Sun className="h-4 w-4" />;
+  const themeIcon = theme === 'dark'
+    ? <Moon className="h-4 w-4" />
+    : theme === 'system'
+      ? <Monitor className="h-4 w-4" />
+      : <Sun className="h-4 w-4" />;
+
+  const showAnchors = variant === 'default';
+  const showAccountButtons = variant !== 'auth';
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-landing-border)] bg-[color-mix(in_oklab,var(--color-landing-bg)_82%,transparent)] backdrop-blur-md">
@@ -31,10 +50,12 @@ export function SiteHeader() {
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-6 text-sm font-medium landing-text lg:flex">
-          {ANCHOR_LINKS.map(l => (
+          {showAnchors && ANCHOR_LINKS.map(l => (
             <a key={l.hash} href={l.hash} className="transition hover:text-[var(--color-primary)]">{l.label}</a>
           ))}
-          <span className="h-4 w-px bg-[var(--color-landing-border)]" aria-hidden />
+          {showAnchors && (
+            <span className="h-4 w-px bg-[var(--color-landing-border)]" aria-hidden />
+          )}
           {NAV_LINKS.map(l => (
             <Link key={l.to} to={l.to} className="transition hover:text-[var(--color-primary)]">{l.label}</Link>
           ))}
@@ -44,12 +65,21 @@ export function SiteHeader() {
           <Button type="button" variant="outline" size="icon" className="landing-text" onClick={toggleTheme} aria-label="Cambiar tema">
             {themeIcon}
           </Button>
-          <Link to="/login" className="rounded-lg border border-[var(--color-primary)]/45 px-4 py-2 text-sm font-medium landing-text transition hover:bg-[var(--color-primary)]/10">
-            Iniciar sesión
-          </Link>
-          <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary-foreground)] transition hover:opacity-90">
-            Registrarse
-          </Link>
+          {showAccountButtons && (
+            <>
+              <Link to="/login" className="rounded-lg border border-[var(--color-primary)]/45 px-4 py-2 text-sm font-medium landing-text transition hover:bg-[var(--color-primary)]/10">
+                Iniciar sesión
+              </Link>
+              <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary-foreground)] transition hover:opacity-90">
+                Registrarse
+              </Link>
+            </>
+          )}
+          {variant === 'auth' && (
+            <Link to="/" className="text-sm font-medium landing-text-muted transition hover:text-[var(--color-primary)]">
+              Volver al inicio
+            </Link>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -62,17 +92,24 @@ export function SiteHeader() {
       {mobileOpen && (
         <div className="border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-4 pb-6 pt-4 lg:hidden">
           <nav className="mb-6 flex flex-col gap-1 text-sm font-medium landing-text">
-            {ANCHOR_LINKS.map(l => (
+            {showAnchors && ANCHOR_LINKS.map(l => (
               <a key={l.hash} href={l.hash} className="rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]" onClick={() => setMobileOpen(false)}>
                 {l.label}
               </a>
             ))}
-            <div className="my-1 h-px bg-[var(--color-landing-border)]" aria-hidden />
+            {showAnchors && (
+              <div className="my-1 h-px bg-[var(--color-landing-border)]" aria-hidden />
+            )}
             {NAV_LINKS.map(l => (
               <Link key={l.to} to={l.to} className="rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]" onClick={() => setMobileOpen(false)}>
                 {l.label}
               </Link>
             ))}
+            {variant === 'auth' && (
+              <Link to="/" className="rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]" onClick={() => setMobileOpen(false)}>
+                Volver al inicio
+              </Link>
+            )}
           </nav>
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -81,12 +118,16 @@ export function SiteHeader() {
                 {themeIcon}
               </Button>
             </div>
-            <Link to="/login" className="rounded-lg border border-[var(--color-primary)]/45 px-4 py-2.5 text-center text-sm font-medium landing-text transition hover:bg-[var(--color-primary)]/10" onClick={() => setMobileOpen(false)}>
-              Iniciar sesión
-            </Link>
-            <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-center text-sm font-medium text-[var(--color-primary-foreground)] transition hover:opacity-90" onClick={() => setMobileOpen(false)}>
-              Registrarse
-            </Link>
+            {showAccountButtons && (
+              <>
+                <Link to="/login" className="rounded-lg border border-[var(--color-primary)]/45 px-4 py-2.5 text-center text-sm font-medium landing-text transition hover:bg-[var(--color-primary)]/10" onClick={() => setMobileOpen(false)}>
+                  Iniciar sesión
+                </Link>
+                <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-center text-sm font-medium text-[var(--color-primary-foreground)] transition hover:opacity-90" onClick={() => setMobileOpen(false)}>
+                  Registrarse
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

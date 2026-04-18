@@ -68,11 +68,11 @@ const ESTADO_LABELS: Record<EstadoManifiesto, string> = {
 
 const ESTADO_BADGE: Record<EstadoManifiesto, string> = {
   PENDIENTE:
-    'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200',
+    'border-[color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-warning)_15%,transparent)] text-[color-mix(in_oklab,var(--color-warning)_75%,var(--color-foreground))]',
   PAGADO:
-    'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200',
+    'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
   ANULADO:
-    'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-200',
+    'border-[color-mix(in_oklab,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-destructive)_15%,transparent)] text-[color-mix(in_oklab,var(--color-destructive)_75%,var(--color-foreground))]',
 };
 
 const FILTRO_LABELS: Record<FiltroManifiesto, string> = {
@@ -218,21 +218,21 @@ export function ManifiestoListPage() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar manifiestos.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Manifiestos"
         searchPlaceholder="Buscar por código, distribuidor, agencia..."
         onSearchChange={setSearch}
         actions={
-          <Button onClick={() => setCreateOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
             Nuevo manifiesto
           </Button>
         }
@@ -359,8 +359,8 @@ export function ManifiestoListPage() {
           title="No hay manifiestos"
           description="Crea un manifiesto para liquidar despachos por periodo, distribuidor o agencia."
           action={
-            <Button onClick={() => setCreateOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
               Crear manifiesto
             </Button>
           }
@@ -509,7 +509,7 @@ export function ManifiestoListPage() {
                           aria-label="Descargar Excel"
                           title="Descargar Excel"
                           disabled={exporting?.id === m.id}
-                          className="text-emerald-600 hover:text-emerald-600"
+                          className="text-[var(--color-success)] hover:text-[var(--color-success)]"
                           onClick={() => handleExport(m.id, 'xlsx')}
                         >
                           {exporting?.id === m.id && exporting.mode === 'xlsx' ? (

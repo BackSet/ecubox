@@ -170,7 +170,7 @@ function PiezaRow({ pieza, totalEsperadas, esActual, onSelectPieza }: PiezaRowPr
               </span>
             ) : null}
             {pieza.enFlujoAlterno ? (
-              <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600">
+              <span className="inline-flex items-center rounded-full bg-[var(--color-warning)]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-warning)]">
                 Flujo alterno
               </span>
             ) : null}

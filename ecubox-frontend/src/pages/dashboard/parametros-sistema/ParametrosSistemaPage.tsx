@@ -58,6 +58,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { LabeledField as FormField } from '@/components/LabeledField';
 import {
   Select,
   SelectContent,
@@ -380,7 +381,7 @@ export function ParametrosSistemaPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       {/* Hero */}
       <header className="relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-gradient-to-br from-[var(--color-card)] via-[var(--color-card)] to-[var(--color-primary)]/[0.07] px-5 py-5 sm:px-6">
         <div
@@ -685,7 +686,7 @@ function WhatsAppDespachoPanel({
   if (loading) return <LoadingState text="Cargando configuración de WhatsApp..." />;
   if (error)
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar la configuración de WhatsApp.
       </div>
     );
@@ -709,7 +710,7 @@ function WhatsAppDespachoPanel({
   const previewText = plantillaToPreviewText(plantillaLocal);
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       {/* Stats */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatPill icon={<Type className="h-3.5 w-3.5" />} label="Caracteres" value={stats.chars} />
@@ -934,7 +935,7 @@ function AgenciaEeuuPanel({
   if (loading) return <LoadingState text="Cargando mensaje de agencia USA..." />;
   if (error)
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar el mensaje de agencia USA.
       </div>
     );
@@ -946,7 +947,7 @@ function AgenciaEeuuPanel({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <div className="grid grid-cols-3 gap-2">
         <StatPill icon={<Type className="h-3.5 w-3.5" />} label="Caracteres" value={stats.chars} />
         <StatPill icon={<Hash className="h-3.5 w-3.5" />} label="Líneas" value={stats.lines} />
@@ -1078,7 +1079,7 @@ function AgenciaEeuuPanel({
 
 function TarifaCalculadoraPanel() {
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_280px]">
           <div className="space-y-3">
@@ -1318,7 +1319,7 @@ function EstadosRastreoView() {
   if (isLoading) return <LoadingState text="Cargando estados..." />;
   if (error)
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar estados de rastreo.
       </div>
     );
@@ -1402,7 +1403,7 @@ function EstadosRastreoView() {
     Boolean(search.trim()) || filtroFlujo !== 'todos' || filtroEstado !== 'todos';
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         <KpiCard
@@ -2285,7 +2286,7 @@ function EstadosRastreoPorPuntoView() {
   if (isLoading) return <LoadingState text="Cargando configuración..." />;
   if (error)
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar la configuración.
       </div>
     );
@@ -2312,7 +2313,7 @@ function EstadosRastreoPorPuntoView() {
   const estadoById = new Map(estados.map((e) => [e.id, e]));
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       {/* Estado de la configuración */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <StatPill
@@ -2680,33 +2681,6 @@ function FormSection({ icon, title, description, children }: FormSectionProps) {
   );
 }
 
-interface FormFieldProps {
-  label: string;
-  required?: boolean;
-  error?: string;
-  hint?: string;
-  children: ReactNode;
-}
-
-function FormField({ label, required, error, hint, children }: FormFieldProps) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="flex items-center gap-1.5 text-xs text-foreground">
-        <span>{label}</span>
-        {required && <span className="text-[var(--color-destructive)]">*</span>}
-      </Label>
-      {children}
-      {error ? (
-        <p className="flex items-center gap-1 text-xs text-[var(--color-destructive)]">
-          <AlertCircle className="h-3 w-3" />
-          {error}
-        </p>
-      ) : hint ? (
-        <p className="text-[11px] text-muted-foreground">{hint}</p>
-      ) : null}
-    </div>
-  );
-}
 
 // ============================================================================
 // Vista previa WhatsApp

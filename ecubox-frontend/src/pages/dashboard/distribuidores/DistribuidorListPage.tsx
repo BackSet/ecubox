@@ -11,6 +11,7 @@ import {
   Link2,
   Mail,
   Pencil,
+  Plus,
   Trash2,
   Truck,
 } from 'lucide-react';
@@ -103,22 +104,18 @@ export function DistribuidorListPage() {
     return <LoadingState text="Cargando distribuidores..." />;
   }
   if (error) {
-    return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
-        Error al cargar distribuidores.
-      </div>
-    );
+    return <div className="ui-alert ui-alert-error">Error al cargar distribuidores.</div>;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Distribuidores"
         searchPlaceholder="Buscar por nombre, código, email, horario o página..."
         onSearchChange={setSearch}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
-            <Truck className="mr-1.5 h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" />
             Nuevo distribuidor
           </Button>
         }

@@ -3,10 +3,11 @@ import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { SurfaceCard } from '@/components/ui/surface-card';
+import { PageHeader } from '@/components/PageHeader';
 
 interface ListToolbarProps {
   title: string;
+  description?: string;
   searchPlaceholder?: string;
   onSearchChange?: (value: string) => void;
   debounceMs?: number;
@@ -16,6 +17,7 @@ interface ListToolbarProps {
 
 export function ListToolbar({
   title,
+  description,
   searchPlaceholder = 'Buscar...',
   onSearchChange,
   debounceMs = 300,
@@ -42,45 +44,44 @@ export function ListToolbar({
     onSearchChange?.('');
   }, [onSearchChange]);
 
-  return (
-    <SurfaceCard
-      className={cn(
-        'p-3 sm:p-4',
-        'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between',
-        className
+  const searchAndActions = (
+    <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:justify-end">
+      {onSearchChange && (
+        <div className="relative w-full sm:flex-1 lg:max-w-[320px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted-foreground)]" />
+          <Input
+            type="text"
+            placeholder={searchPlaceholder}
+            value={localValue}
+            onChange={(e) => setLocalValue(e.target.value)}
+            className="pl-9 pr-8"
+            aria-label={searchPlaceholder}
+          />
+          {localValue && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              onClick={handleClear}
+              aria-label="Limpiar busqueda"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       )}
-    >
-      <div>
-        <h1 className="text-base sm:text-lg font-semibold tracking-tight text-[var(--color-foreground)]">{title}</h1>
-      </div>
-      <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center lg:justify-end">
-        {onSearchChange && (
-          <div className="relative w-full sm:flex-1 lg:max-w-[320px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted-foreground)]" />
-            <Input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={localValue}
-              onChange={(e) => setLocalValue(e.target.value)}
-              className="pl-9 pr-8"
-              aria-label={searchPlaceholder}
-            />
-            {localValue && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                onClick={handleClear}
-                aria-label="Limpiar búsqueda"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
-        {actions}
-      </div>
-    </SurfaceCard>
+      {actions}
+    </div>
+  );
+
+  return (
+    <PageHeader
+      title={title}
+      description={description}
+      actions={searchAndActions}
+      variant="list"
+      className={cn(className)}
+    />
   );
 }

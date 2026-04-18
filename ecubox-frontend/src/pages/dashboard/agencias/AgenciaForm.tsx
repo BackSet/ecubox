@@ -4,7 +4,6 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import {
-  AlertCircle,
   Building2,
   CalendarClock,
   Clock,
@@ -28,7 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { LabeledField as FormField } from '@/components/LabeledField';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -696,35 +695,6 @@ function FormSection({ icon, title, description, children }: FormSectionProps) {
   );
 }
 
-interface FormFieldProps {
-  label: string;
-  required?: boolean;
-  error?: string;
-  hint?: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}
-
-function FormField({ label, required, error, hint, icon, children }: FormFieldProps) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="flex items-center gap-1.5 text-xs text-foreground">
-        {icon && <span className="text-muted-foreground">{icon}</span>}
-        <span>{label}</span>
-        {required && <span className="text-[var(--color-destructive)]">*</span>}
-      </Label>
-      {children}
-      {error ? (
-        <p className="flex items-center gap-1 text-xs text-[var(--color-destructive)]">
-          <AlertCircle className="h-3 w-3" />
-          {error}
-        </p>
-      ) : hint ? (
-        <p className="text-[11px] text-muted-foreground">{hint}</p>
-      ) : null}
-    </div>
-  );
-}
 
 interface PreviewCardProps {
   nombre?: string;

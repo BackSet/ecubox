@@ -9,6 +9,7 @@ import {
   DollarSign,
   MapPin,
   Pencil,
+  Plus,
   Trash2,
   Truck,
   X,
@@ -134,7 +135,7 @@ export function AgenciaDistribuidorListPage() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar agencias de distribuidor.
       </div>
     );
@@ -146,14 +147,14 @@ export function AgenciaDistribuidorListPage() {
     search.trim().length > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Agencias de distribuidor"
         searchPlaceholder="Buscar por código, distribuidor, provincia, cantón..."
         onSearchChange={setSearch}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
-            <Building2 className="mr-1.5 h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" />
             Nueva agencia de distribuidor
           </Button>
         }

@@ -30,12 +30,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useDashboardGuiasMaster } from '@/hooks/useGuiasMaster';
+import { KpiCard } from '@/components/KpiCard';
 import type { EstadoGuiaMaster, GuiaMaster } from '@/types/guia-master';
 import {
-  GUIA_MASTER_ESTADO_COLORS,
   GUIA_MASTER_ESTADO_LABELS_PLURAL,
+  GUIA_MASTER_ESTADO_TONES,
   GuiaMasterEstadoBadge,
 } from './_estado';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 interface GuiasMasterMetricasSheetProps {
   open: boolean;
@@ -114,28 +116,28 @@ export function GuiasMasterMetricasSheet({
                 </SectionTitle>
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                   <KpiCard
-                    icon={<Boxes className="h-4 w-4" />}
+                    icon={<Boxes className="h-5 w-5" />}
                     label="Total"
                     value={totalGuias}
-                    accent="primary"
+                    tone="primary"
                   />
                   <KpiCard
-                    icon={<Flame className="h-4 w-4" />}
+                    icon={<Flame className="h-5 w-5" />}
                     label="Activas"
                     value={data.totalActivas ?? 0}
-                    accent="blue"
+                    tone="info"
                   />
                   <KpiCard
-                    icon={<CheckCircle2 className="h-4 w-4" />}
+                    icon={<CheckCircle2 className="h-5 w-5" />}
                     label="Cerradas"
                     value={data.totalCerradas ?? 0}
-                    accent="emerald"
+                    tone="success"
                   />
                   <KpiCard
-                    icon={<XCircle className="h-4 w-4" />}
+                    icon={<XCircle className="h-5 w-5" />}
                     label="C/ faltante"
                     value={data.totalCerradasConFaltante ?? 0}
-                    accent="red"
+                    tone="danger"
                   />
                 </div>
               </section>
@@ -253,49 +255,6 @@ function SectionTitle({
   );
 }
 
-const ACCENT_STYLES = {
-  primary:
-    'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 text-[var(--color-primary)]',
-  blue: 'border-blue-300/40 bg-blue-50 text-blue-700 dark:border-blue-700/40 dark:bg-blue-900/20 dark:text-blue-300',
-  emerald:
-    'border-emerald-300/40 bg-emerald-50 text-emerald-700 dark:border-emerald-700/40 dark:bg-emerald-900/20 dark:text-emerald-300',
-  red: 'border-red-300/40 bg-red-50 text-red-700 dark:border-red-700/40 dark:bg-red-900/20 dark:text-red-300',
-  amber:
-    'border-amber-300/40 bg-amber-50 text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300',
-} as const;
-
-type Accent = keyof typeof ACCENT_STYLES;
-
-function KpiCard({
-  icon,
-  label,
-  value,
-  accent = 'primary',
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  accent?: Accent;
-}) {
-  return (
-    <div className="rounded-md border border-border bg-[var(--color-card)] p-3 transition-shadow hover:shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <span
-          className={`flex h-6 w-6 items-center justify-center rounded-md border ${ACCENT_STYLES[accent]}`}
-        >
-          {icon}
-        </span>
-      </div>
-      <p className="mt-1 text-2xl font-semibold leading-tight text-foreground">
-        {value}
-      </p>
-    </div>
-  );
-}
-
 function ParametroCard({
   icon,
   label,
@@ -334,13 +293,9 @@ function EstadoRow({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2 text-xs">
-        <span
-          className={`inline-flex items-center rounded px-2 py-0.5 font-medium ${
-            GUIA_MASTER_ESTADO_COLORS[estado] ?? ''
-          }`}
-        >
+        <StatusBadge tone={GUIA_MASTER_ESTADO_TONES[estado] ?? 'neutral'}>
           {GUIA_MASTER_ESTADO_LABELS_PLURAL[estado] ?? estado}
-        </span>
+        </StatusBadge>
         <span className="font-mono tabular-nums text-muted-foreground">
           <span className="font-semibold text-foreground">{count}</span>
           <span className="ml-1 text-[11px]">({pct}%)</span>
@@ -361,15 +316,15 @@ function barClassFor(estado: EstadoGuiaMaster): string {
     case 'INCOMPLETA':
       return 'bg-muted-foreground/40';
     case 'PARCIAL_RECIBIDA':
-      return 'bg-amber-400 dark:bg-amber-500';
+      return 'bg-[var(--color-warning)]';
     case 'COMPLETA_RECIBIDA':
-      return 'bg-blue-400 dark:bg-blue-500';
+      return 'bg-[var(--color-info)]';
     case 'PARCIAL_DESPACHADA':
-      return 'bg-indigo-400 dark:bg-indigo-500';
+      return 'bg-[var(--color-primary)]';
     case 'CERRADA':
-      return 'bg-emerald-500';
+      return 'bg-[var(--color-success)]';
     case 'CERRADA_CON_FALTANTE':
-      return 'bg-red-500';
+      return 'bg-[var(--color-destructive)]';
     default:
       return 'bg-muted-foreground/40';
   }
@@ -428,9 +383,9 @@ function AntiguaRow({
             <span
               className={`inline-flex items-center gap-1 text-xs font-semibold ${
                 enRiesgo
-                  ? 'text-red-700 dark:text-red-300'
+                  ? 'text-[var(--color-destructive)] dark:text-[var(--color-destructive)]'
                   : cerca
-                    ? 'text-amber-700 dark:text-amber-300'
+                    ? 'text-[var(--color-warning)] dark:text-[var(--color-warning)]'
                     : 'text-foreground'
               }`}
             >
@@ -441,10 +396,10 @@ function AntiguaRow({
               <div
                 className={`h-full rounded-full ${
                   enRiesgo
-                    ? 'bg-red-500'
+                    ? 'bg-[var(--color-destructive)]'
                     : cerca
-                      ? 'bg-amber-400 dark:bg-amber-500'
-                      : 'bg-emerald-500'
+                      ? 'bg-[var(--color-warning)] dark:bg-[var(--color-warning)]'
+                      : 'bg-[var(--color-success)]'
                 }`}
                 style={{ width: `${pct}%` }}
               />

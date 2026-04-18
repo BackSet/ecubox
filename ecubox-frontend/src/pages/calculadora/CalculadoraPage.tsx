@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { EcuboxLogo } from '@/components/brand';
 import { getTarifaCalculadoraPublic } from '@/lib/api/tarifa-calculadora.service';
 import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import {
   AlertTriangle,
-  ArrowLeft,
   Calculator,
   Check,
   Copy,
@@ -23,7 +21,9 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter } from '@/components/SiteFooter';
 
 const MIN_PESO_LBS_RECARGO = 4;
 const RECARGO_ENVIO_MENOR_PESO = 3.5;
@@ -146,37 +146,21 @@ export function CalculadoraPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)]">
-      <header className="border-b border-[var(--color-border)] bg-[var(--color-card)]/40 backdrop-blur-sm">
-        <div className="content-container-wide mobile-safe-inline flex items-center justify-between gap-3 py-3 sm:py-4">
-          <Link
-            to="/"
-            className="-m-1 inline-flex rounded-lg p-1 transition hover:bg-[var(--color-muted)]"
-            aria-label="ECUBOX - Inicio"
-          >
-            <EcuboxLogo variant="light" size="lg" asLink={false} />
-          </Link>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)] hover:underline sm:text-sm"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Volver al inicio
-          </Link>
-        </div>
-      </header>
+    <div className="landing-shell">
+      <div className="landing-overlay" />
+      <SiteHeader variant="tool" />
 
-      <main className="mobile-safe-inline flex-1 py-6 sm:py-10">
+      <main className="mobile-safe-inline relative z-10 flex-1 py-6 sm:py-10">
         <div className="content-container w-full max-w-3xl space-y-6">
           <div className="space-y-3 text-center">
             <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
               <Calculator className="h-6 w-6" />
             </span>
             <div className="space-y-1.5">
-              <h1 className="responsive-title font-bold tracking-tight text-[var(--color-foreground)]">
+              <h1 className="responsive-title landing-text font-bold tracking-tight">
                 Calculadora de envío
               </h1>
-              <p className="text-sm text-[var(--color-muted-foreground)] sm:text-base">
+              <p className="landing-text-muted text-sm sm:text-base">
                 Ingresa el peso de tu paquete para obtener un costo estimado todo
                 incluido con transporte Servientrega.
               </p>
@@ -206,7 +190,7 @@ export function CalculadoraPage() {
           )}
 
           {tarifaLoading && !tarifaError && (
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-card)]/40 text-sm text-[var(--color-muted-foreground)]">
+            <div className="landing-card flex h-40 items-center justify-center text-sm landing-text-muted">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Cargando tarifa...
             </div>
@@ -214,40 +198,32 @@ export function CalculadoraPage() {
 
           {!tarifaLoading && !tarifaError && (
             <>
-              <section className="surface-card flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+              <section className="landing-card flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
                     <Truck className="h-5 w-5" />
                   </span>
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
+                    <p className="text-xs font-medium uppercase tracking-wide landing-text-muted">
                       Tarifa actual
                     </p>
-                    <p className="text-base font-semibold text-[var(--color-foreground)]">
+                    <p className="text-base font-semibold landing-text">
                       {tarifaConfigurada ? `${fmtMoneda(tarifa)} / libra` : 'No configurada'}
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200"
-                  >
-                    Servientrega incluido
-                  </Badge>
+                  <StatusBadge tone="success">Servientrega incluido</StatusBadge>
                   {tarifaConfigurada && (
-                    <Badge
-                      variant="outline"
-                      className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
-                    >
+                    <StatusBadge tone="warning">
                       Recargo {fmtMoneda(RECARGO_ENVIO_MENOR_PESO)} si &lt; {MIN_PESO_LBS_RECARGO} lb
-                    </Badge>
+                    </StatusBadge>
                   )}
                 </div>
               </section>
 
               {!tarifaConfigurada && (
-                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+                <div className="ui-alert ui-alert-warning flex items-start gap-2">
                   <Info className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
                     La tarifa aún no ha sido configurada. El costo estimado no estará
@@ -256,7 +232,7 @@ export function CalculadoraPage() {
                 </div>
               )}
 
-              <section className="surface-card space-y-5 p-4 sm:p-6">
+              <section className="landing-card space-y-5 p-4 sm:p-6">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
                     <Scale className="h-4 w-4 text-[var(--color-muted-foreground)]" />
@@ -344,7 +320,7 @@ export function CalculadoraPage() {
                 </div>
 
                 {aplicaRecargo && tarifaConfigurada && (
-                  <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+                  <div className="ui-alert ui-alert-warning flex items-start gap-2">
                     <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
                       Tu paquete pesa menos de{' '}
@@ -358,7 +334,7 @@ export function CalculadoraPage() {
               </section>
 
               {costoEstimado !== null && tarifaConfigurada ? (
-                <section className="overflow-hidden rounded-2xl border border-[var(--color-primary)]/20 bg-gradient-to-br from-[var(--color-primary)]/5 via-[var(--color-card)] to-[var(--color-card)]">
+                <section className="landing-card-elevated overflow-hidden">
                   <div className="space-y-4 p-5 sm:p-6">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -381,7 +357,7 @@ export function CalculadoraPage() {
                         variant="outline"
                         size="sm"
                         onClick={handleCopiarResultado}
-                        className={`gap-2 ${copiado ? 'border-emerald-500 text-emerald-700' : ''}`}
+                        className={`gap-2 ${copiado ? 'border-[var(--color-success)] text-[var(--color-success)]' : ''}`}
                       >
                         {copiado ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                         {copiado ? 'Copiado' : 'Copiar'}
@@ -399,10 +375,10 @@ export function CalculadoraPage() {
                       </div>
                       {aplicaRecargo && (
                         <div className="flex items-center justify-between gap-2">
-                          <dt className="text-amber-700 dark:text-amber-300">
+                          <dt className="text-[var(--color-warning)]">
                             Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lb)
                           </dt>
-                          <dd className="font-medium text-amber-700 dark:text-amber-300">
+                          <dd className="font-medium text-[var(--color-warning)]">
                             +{fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}
                           </dd>
                         </div>
@@ -424,21 +400,21 @@ export function CalculadoraPage() {
                   </div>
                 </section>
               ) : (
-                <section className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-card)]/40 p-6 text-center">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+                <section className="landing-card-muted rounded-2xl p-6 text-center">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-landing-card-muted)] landing-text-muted">
                     <Calculator className="h-5 w-5" />
                   </span>
-                  <p className="mt-3 text-sm font-medium text-[var(--color-foreground)]">
+                  <p className="mt-3 text-sm font-medium landing-text">
                     Ingresa el peso para ver tu cotización
                   </p>
-                  <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                  <p className="mt-1 text-xs landing-text-muted">
                     Puedes usar libras o kilogramos: la conversión es automática.
                   </p>
                 </section>
               )}
 
-              <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-4">
-                <p className="text-sm text-[var(--color-muted-foreground)]">
+              <section className="landing-card flex flex-wrap items-center justify-between gap-3 p-4">
+                <p className="text-sm landing-text-muted">
                   ¿Ya tienes un envío en camino?
                 </p>
                 <Link
@@ -453,6 +429,8 @@ export function CalculadoraPage() {
           )}
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

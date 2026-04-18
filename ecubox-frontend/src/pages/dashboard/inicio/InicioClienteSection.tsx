@@ -16,6 +16,7 @@ import { KpiCard } from '@/components/KpiCard';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/LoadingState';
+import { PageHeader } from '@/components/PageHeader';
 import {
   GuiaMasterEstadoBadge,
   GUIA_MASTER_ESTADO_LABELS,
@@ -60,44 +61,34 @@ export function InicioClienteSection() {
   }
 
   return (
-    <section className="space-y-4">
-      <SurfaceCard className="p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-foreground)]">
-              {username ? `Hola, ${username}` : 'Bienvenido'}
-            </h1>
-            <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-              Resumen de tus guías y envíos.
-            </p>
-          </div>
-          {hasMisGuiasCreate && (
+    <section className="page-stack">
+      <PageHeader
+        title={username ? `Hola, ${username}` : 'Bienvenido'}
+        description="Resumen de tus guías y envíos."
+        actions={
+          hasMisGuiasCreate ? (
             <Button onClick={() => setRegistrarOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Registrar guía
             </Button>
-          )}
-        </div>
-      </SurfaceCard>
+          ) : null
+        }
+      />
 
       {data.totalGuiasSinTotalDefinido > 0 && (
-        <SurfaceCard className="border-[var(--color-warning)]/35 bg-[var(--color-warning)]/10 p-4">
-          <div className="flex items-start gap-2.5">
-            <span className="mt-0.5 rounded-full bg-[var(--color-warning)]/20 p-2 text-[var(--color-warning)]">
-              <AlertCircle className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-[var(--color-foreground)]">
-                {data.totalGuiasSinTotalDefinido === 1
-                  ? '1 guía pendiente de revisar'
-                  : `${data.totalGuiasSinTotalDefinido} guías pendientes de revisar`}
-              </p>
-              <p className="text-sm text-[var(--color-muted-foreground)]">
-                El operario aún debe confirmar el total de piezas. Te avisaremos cuando esté listo.
-              </p>
-            </div>
+        <div className="ui-alert ui-alert-warning">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">
+              {data.totalGuiasSinTotalDefinido === 1
+                ? '1 guía pendiente de revisar'
+                : `${data.totalGuiasSinTotalDefinido} guías pendientes de revisar`}
+            </p>
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              El operario aún debe confirmar el total de piezas. Te avisaremos cuando esté listo.
+            </p>
           </div>
-        </SurfaceCard>
+        </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

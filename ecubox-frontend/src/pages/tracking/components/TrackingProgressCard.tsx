@@ -53,7 +53,7 @@ export function TrackingProgressCard({
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
             completo
-              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
+              ? 'bg-[color-mix(in_oklab,var(--color-success)_18%,transparent)] text-[color-mix(in_oklab,var(--color-success)_80%,var(--color-foreground))]'
               : 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]'
           }`}
         >
@@ -103,7 +103,7 @@ export function TrackingProgressCard({
       </div>
 
       {result.cuentaRegresivaFinalizada ? (
-        <div className="flex items-start gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100">
+        <div className="ui-alert ui-alert-success flex items-start gap-2">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span className="font-medium">
             Cuenta regresiva finalizada para este envío.
@@ -136,7 +136,7 @@ export function TrackingProgressCard({
             </p>
           ) : null}
           {periodoCumplido ? (
-            <p className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100 sm:col-span-2">
+            <p className="ui-alert ui-alert-warning flex items-start gap-2 sm:col-span-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>Hoy es el último día para retirar tu envío.</span>
             </p>
@@ -163,9 +163,9 @@ function StatTile({ label, value, icon, tone }: StatTileProps) {
     neutral:
       'border-[var(--color-border)] bg-[var(--color-muted)]/30 text-[var(--color-foreground)]',
     success:
-      'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100',
+      'border-[color-mix(in_oklab,var(--color-success)_35%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_12%,transparent)] text-[color-mix(in_oklab,var(--color-success)_80%,var(--color-foreground))]',
     warning:
-      'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100',
+      'border-[color-mix(in_oklab,var(--color-warning)_35%,transparent)] bg-[color-mix(in_oklab,var(--color-warning)_12%,transparent)] text-[color-mix(in_oklab,var(--color-warning)_80%,var(--color-foreground))]',
     danger:
       'border-[var(--color-destructive)]/40 bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]',
   };

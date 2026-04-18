@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 const STATS = [
   { value: '8-12', label: 'Días promedio USA → EC' },
@@ -41,7 +43,7 @@ export function Hero() {
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -bottom-24 left-[-8%] h-72 w-72 rounded-full bg-[#2E6BE6]/20 blur-3xl"
+        className="pointer-events-none absolute -bottom-24 left-[-8%] h-72 w-72 rounded-full bg-[var(--color-ecubox-acento)]/20 blur-3xl"
       />
 
       <div className="content-container mobile-safe-inline section-spacing relative">
@@ -58,7 +60,7 @@ export function Hero() {
 
           <h1 className="landing-text responsive-title mx-auto mb-5 max-w-4xl font-bold leading-[1.1]">
             Tu casillero en USA.{' '}
-            <span className="bg-gradient-to-br from-[var(--color-primary)] to-[#5B9CFF] bg-clip-text text-transparent">
+            <span className="brand-gradient-text">
               Tu paquete en Ecuador.
             </span>
           </h1>
@@ -81,20 +83,21 @@ export function Hero() {
                 style={{ width: 18, height: 18 }}
                 aria-hidden
               />
-              <input
+              <Input
                 id="hero-tracking"
                 type="text"
+                variant="clean"
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}
                 placeholder="Rastrea ahora: ej. ABC1234567890"
-                className="h-11 w-full rounded-md border border-transparent bg-transparent pl-10 pr-3 text-sm font-mono outline-none placeholder:text-[var(--color-landing-text-muted)] landing-text focus:border-[var(--color-primary)]/40"
+                className="h-11 pl-10 font-mono"
                 autoComplete="off"
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={submitting || !codigo.trim()}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary-foreground)] shadow-md transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-11 gap-2 px-5"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -102,7 +105,7 @@ export function Hero() {
                 <PackageSearch className="h-4 w-4" />
               )}
               Rastrear
-            </button>
+            </Button>
           </form>
 
           <div className="mb-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -140,11 +143,11 @@ export function Hero() {
               Salidas semanales NJ → EC
             </li>
             <li className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+              <ShieldCheck className="h-3.5 w-3.5 text-[var(--color-success)]" />
               Manejo seguro y trazable
             </li>
             <li className="inline-flex items-center gap-1.5">
-              <Globe2 className="h-3.5 w-3.5 text-[#5B9CFF]" />
+              <Globe2 className="h-3.5 w-3.5 text-[var(--color-ecubox-acento-claro)]" />
               Cobertura nacional en Ecuador
             </li>
           </ul>

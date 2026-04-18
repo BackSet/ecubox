@@ -4,7 +4,8 @@ import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
-import { Badge } from '@/components/ui/badge';
+import { KpiCard } from '@/components/KpiCard';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   Table,
   TableBody,
@@ -50,52 +51,48 @@ export function PaquetesVencidosPage() {
     return { total, promedio, maximo, criticos };
   }, [paquetes]);
 
-  if (isLoading) {
-    return <LoadingState text="Cargando paquetes vencidos..." />;
-  }
-  if (error) {
-    return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
-        Error al cargar paquetes vencidos.
-      </div>
-    );
-  }
-
   const allPaquetes = paquetes ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Paquetes vencidos de retiro"
         searchPlaceholder="Buscar por guía, ref, destinatario o estado..."
         onSearchChange={setSearch}
       />
 
+      {isLoading && <LoadingState text="Cargando paquetes vencidos..." variant="inline" />}
+      {error && (
+        <div className="ui-alert ui-alert-error">
+          Error al cargar paquetes vencidos.
+        </div>
+      )}
+
       {allPaquetes.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <KpiCard
-            icon={AlertTriangle}
+            icon={<AlertTriangle className="h-5 w-5" />}
             label="Total vencidos"
             value={stats.total}
-            tone="destructive"
+            tone="danger"
           />
           <KpiCard
-            icon={TrendingUp}
+            icon={<TrendingUp className="h-5 w-5" />}
             label="Atraso máximo"
             value={`${stats.maximo}d`}
             tone="warning"
           />
           <KpiCard
-            icon={Clock}
+            icon={<Clock className="h-5 w-5" />}
             label="Atraso promedio"
             value={`${stats.promedio}d`}
-            tone="muted"
+            tone="neutral"
           />
           <KpiCard
-            icon={AlertTriangle}
+            icon={<AlertTriangle className="h-5 w-5" />}
             label="Críticos (≥15d)"
             value={stats.criticos}
-            tone={stats.criticos > 0 ? 'destructive' : 'muted'}
+            tone={stats.criticos > 0 ? 'danger' : 'neutral'}
           />
         </div>
       )}
@@ -145,9 +142,9 @@ export function PaquetesVencidosPage() {
                       <DestinatarioCell paquete={p} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <Badge variant="secondary" className="font-normal">
+                      <StatusBadge tone="neutral">
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
-                      </Badge>
+                      </StatusBadge>
                     </TableCell>
                     <TableCell className="align-top">
                       <PlazoCell paquete={p} />
@@ -176,39 +173,6 @@ export function PaquetesVencidosPage() {
   );
 }
 
-interface KpiCardProps {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: number | string;
-  tone: 'destructive' | 'warning' | 'muted';
-}
-
-function KpiCard({ icon: Icon, label, value, tone }: KpiCardProps) {
-  const toneClasses: Record<KpiCardProps['tone'], string> = {
-    destructive:
-      'border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 text-[var(--color-destructive)]',
-    warning: 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400',
-    muted: 'border-border bg-[var(--color-muted)]/40 text-muted-foreground',
-  };
-  const iconBg: Record<KpiCardProps['tone'], string> = {
-    destructive: 'bg-[var(--color-destructive)]/10',
-    warning: 'bg-amber-500/10',
-    muted: 'bg-[var(--color-muted)]',
-  };
-
-  return (
-    <div className={`flex items-center gap-3 rounded-lg border p-3 ${toneClasses[tone]}`}>
-      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-md ${iconBg[tone]}`}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide opacity-80">{label}</p>
-        <p className="text-lg font-semibold leading-none text-foreground">{value}</p>
-      </div>
-    </div>
-  );
-}
-
 function PlazoCell({ paquete: p }: { paquete: Paquete }) {
   const transcurridos = p.diasTranscurridos ?? null;
   const max = p.diasMaxRetiro ?? null;
@@ -233,7 +197,7 @@ function PlazoCell({ paquete: p }: { paquete: Paquete }) {
             className={`h-full rounded-full ${
               overflow
                 ? 'bg-[var(--color-destructive)]'
-                : 'bg-amber-500'
+                : 'bg-[var(--color-warning)]'
             }`}
             style={{ width: `${pct}%` }}
           />
@@ -247,18 +211,26 @@ function AtrasoBadge({ dias }: { dias: number }) {
   const severity: 'critical' | 'high' | 'normal' =
     dias >= 15 ? 'critical' : dias >= 7 ? 'high' : 'normal';
 
-  const classes: Record<typeof severity, string> = {
-    critical:
-      'bg-[var(--color-destructive)] text-white hover:bg-[var(--color-destructive)]/90',
-    high: 'bg-amber-500 text-white hover:bg-amber-500/90',
-    normal:
-      'bg-[var(--color-destructive)]/15 text-[var(--color-destructive)] hover:bg-[var(--color-destructive)]/20',
-  };
-
+  if (severity === 'critical') {
+    return (
+      <StatusBadge tone="error" solid>
+        <AlertTriangle className="h-3 w-3" />
+        {dias} día{dias === 1 ? '' : 's'}
+      </StatusBadge>
+    );
+  }
+  if (severity === 'high') {
+    return (
+      <StatusBadge tone="warning" solid>
+        <AlertTriangle className="h-3 w-3" />
+        {dias} día{dias === 1 ? '' : 's'}
+      </StatusBadge>
+    );
+  }
   return (
-    <Badge className={`gap-1 font-medium ${classes[severity]}`}>
+    <StatusBadge tone="error">
       <AlertTriangle className="h-3 w-3" />
       {dias} día{dias === 1 ? '' : 's'}
-    </Badge>
+    </StatusBadge>
   );
 }

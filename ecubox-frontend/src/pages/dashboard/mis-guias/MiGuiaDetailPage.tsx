@@ -61,7 +61,7 @@ export function MiGuiaDetailPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Button>
-        <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+        <div className="ui-alert ui-alert-error">
           No se pudo cargar la guía.
         </div>
       </div>
@@ -73,7 +73,7 @@ export function MiGuiaDetailPage() {
   const tooltipBloqueada = `No editable: la guía está en estado ${guia.estadoGlobal}`;
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/mis-guias' })}>
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -126,7 +126,7 @@ export function MiGuiaDetailPage() {
         <PiezasProgress guia={guia} />
 
         {totalPendiente && (
-          <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+          <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               Estamos esperando que el operario indique cuántas piezas componen esta guía.
@@ -137,7 +137,7 @@ export function MiGuiaDetailPage() {
 
         {!editable && (
           <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-warning)]" />
             <p>
               Esta guía ya tiene piezas en proceso, por lo que el número y el destinatario
               no pueden modificarse. Si necesitas un cambio, contacta al operario.
@@ -319,7 +319,7 @@ function PiezasProgress({ guia }: { guia: GuiaMaster }) {
 
   if (total <= 0) {
     return (
-      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+      <div className="rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-xs text-[var(--color-warning)]">
         Total de piezas pendiente. Se definirá cuando el operario reciba el primer paquete.
       </div>
     );
@@ -338,29 +338,29 @@ function PiezasProgress({ guia }: { guia: GuiaMaster }) {
       </div>
       <div className="relative h-2 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
         <div
-          className="absolute inset-y-0 left-0 bg-blue-400/40 dark:bg-blue-500/30"
+          className="absolute inset-y-0 left-0 bg-[var(--color-info)] dark:bg-[var(--color-info)]/30"
           style={{ width: `${pct(registradas)}%` }}
         />
         <div
-          className="absolute inset-y-0 left-0 bg-amber-400/60 dark:bg-amber-500/50"
+          className="absolute inset-y-0 left-0 bg-[var(--color-warning)] dark:bg-[var(--color-warning)]/50"
           style={{ width: `${pct(recibidas)}%` }}
         />
         <div
-          className="absolute inset-y-0 left-0 bg-emerald-500"
+          className="absolute inset-y-0 left-0 bg-[var(--color-success)]"
           style={{ width: `${pct(despachadas)}%` }}
         />
       </div>
       <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-blue-400/70 dark:bg-blue-500/60" />
+          <span className="h-2 w-2 rounded-full bg-[var(--color-info)] dark:bg-[var(--color-info)]/60" />
           Registradas {registradas}/{total}
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-amber-400 dark:bg-amber-500" />
+          <span className="h-2 w-2 rounded-full bg-[var(--color-warning)] dark:bg-[var(--color-warning)]" />
           Recibidas {recibidas}
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
           Despachadas {despachadas}
         </span>
       </div>
@@ -439,7 +439,7 @@ function PiezaEstadoBadges({ paquete: p }: { paquete: Paquete }) {
       {recibida && (
         <Badge
           variant="outline"
-          className="border-amber-300 bg-amber-50 font-normal text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
+          className="border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 font-normal text-[var(--color-warning)]"
         >
           Recibida
         </Badge>
@@ -447,7 +447,7 @@ function PiezaEstadoBadges({ paquete: p }: { paquete: Paquete }) {
       {despachada && (
         <Badge
           variant="outline"
-          className="border-emerald-300 bg-emerald-50 font-normal text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200"
+          className="border-[var(--color-success)]/30 bg-[var(--color-success)]/10 font-normal text-[var(--color-success)]"
         >
           Despachada
         </Badge>

@@ -7,6 +7,7 @@ import {
   MapPin,
   Pencil,
   Phone,
+  Plus,
   Trash2,
   UserRound,
 } from 'lucide-react';
@@ -80,7 +81,7 @@ export function DestinatarioListPage() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar destinatarios.
       </div>
     );
@@ -91,7 +92,7 @@ export function DestinatarioListPage() {
   const canEdit = hasDestinatariosOperario || hasDestinatariosUpdate;
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title={hasDestinatariosOperario ? 'Destinatarios' : 'Mis destinatarios'}
         searchPlaceholder="Buscar por nombre, código, teléfono, dirección..."
@@ -99,6 +100,7 @@ export function DestinatarioListPage() {
         actions={
           hasDestinatariosCreate ? (
             <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
               Nuevo destinatario
             </Button>
           ) : undefined

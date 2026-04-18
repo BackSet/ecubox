@@ -75,6 +75,7 @@
   --color-ecubox-principal: #0A1628;
   --color-ecubox-marca: #1246A0;
   --color-ecubox-acento: #2E6BE6;
+  --color-ecubox-acento-claro: #5B9CFF;
   --color-ecubox-nuevo-acento: #7B3FE4;
   --color-ecubox-lujo: #C9A84C;
   --color-ecubox-fondo-claro: #F0EEF9;
@@ -372,6 +373,21 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-soft);
   }
+  .landing-card-muted {
+    border: 1px solid var(--color-landing-border);
+    background: var(--color-landing-card-muted);
+    border-radius: var(--radius-lg);
+  }
+  .landing-card-elevated {
+    border: 1px solid color-mix(in oklab, var(--color-landing-border) 70%, var(--color-primary));
+    background:
+      linear-gradient(135deg,
+        color-mix(in oklab, var(--color-primary) 7%, var(--color-landing-card)) 0%,
+        var(--color-landing-card) 55%,
+        var(--color-landing-card) 100%);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-elevated);
+  }
   .landing-chip {
     border: 1px solid var(--color-landing-border);
     background: var(--color-landing-card-muted);
@@ -379,6 +395,36 @@
   }
   .landing-text { color: var(--color-landing-text); }
   .landing-text-muted { color: var(--color-landing-text-muted); }
+
+  .brand-gradient-text {
+    background-image: linear-gradient(
+      to bottom right,
+      var(--color-primary),
+      var(--color-ecubox-acento-claro)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .brand-gradient-bg {
+    background-image: linear-gradient(
+      to bottom right,
+      var(--color-primary),
+      var(--color-ecubox-acento-claro)
+    );
+  }
+
+  .page-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  @media (min-width: 640px) {
+    .page-stack { gap: 1.25rem; }
+  }
+  @media (min-width: 1024px) {
+    .page-stack { gap: 1.5rem; }
+  }
 
   .dashboard-topbar {
     border-bottom: 1px solid var(--color-border);
@@ -560,7 +606,7 @@
     color-scheme: light dark;
   }
 
-  .ui-alert { border-radius: var(--radius-md); border: 1px solid; padding: 0.75rem 0.9rem; font-size: 0.875rem; line-height: 1.4; }
+  .ui-alert { display: flex; gap: 0.625rem; align-items: flex-start; border-radius: var(--radius-md); border: 1px solid; padding: 0.75rem 0.9rem; font-size: 0.875rem; line-height: 1.4; }
   .ui-alert-info {
     border-color: color-mix(in oklab, var(--color-info) 40%, transparent);
     background: color-mix(in oklab, var(--color-info) 12%, transparent);

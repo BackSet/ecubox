@@ -104,7 +104,7 @@ export function TrackingActionsBar({
           {pending === 'copy-link' ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : linkCopied ? (
-            <Check className="h-4 w-4 text-emerald-600" />
+            <Check className="h-4 w-4 text-[var(--color-success)]" />
           ) : (
             <Copy className="h-4 w-4" />
           )}

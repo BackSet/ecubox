@@ -45,7 +45,7 @@ import { LoadingState } from '@/components/LoadingState';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { KpiCard } from '@/components/KpiCard';
 import { ListTableShell } from '@/components/ListTableShell';
-import { cn } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
   useAgregarPaquetesEnvioConsolidado,
   useCerrarEnvioConsolidado,
@@ -134,7 +134,7 @@ export function EnvioConsolidadoDetailPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Button>
-        <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+        <div className="ui-alert ui-alert-error">
           No se pudo cargar el envío consolidado.
         </div>
       </div>
@@ -176,7 +176,7 @@ export function EnvioConsolidadoDetailPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <Button
         variant="ghost"
         size="sm"
@@ -353,30 +353,25 @@ export function EnvioConsolidadoDetailPage() {
       {agregarOpen && (
         <AgregarPaquetesDialog envioId={id} onClose={() => setAgregarOpen(false)} />
       )}
-      {confirmCerrar && (
-        <ConfirmDialog
-          icon={<Lock className="h-5 w-5" />}
-          tone="primary"
-          title="Cerrar envío consolidado"
-          description="Una vez cerrado el envío no podrás agregar ni remover paquetes hasta reabrirlo."
-          confirmLabel="Cerrar envío"
-          loading={cerrar.isPending}
-          onConfirm={handleCerrar}
-          onCancel={() => setConfirmCerrar(false)}
-        />
-      )}
-      {confirmReabrir && (
-        <ConfirmDialog
-          icon={<Unlock className="h-5 w-5" />}
-          tone="warning"
-          title="Reabrir envío consolidado"
-          description="El envío volverá a admitir agregar y remover paquetes."
-          confirmLabel="Reabrir"
-          loading={reabrir.isPending}
-          onConfirm={handleReabrir}
-          onCancel={() => setConfirmReabrir(false)}
-        />
-      )}
+      <ConfirmDialog
+        open={confirmCerrar}
+        onOpenChange={setConfirmCerrar}
+        title="Cerrar envío consolidado"
+        description="Una vez cerrado el envío no podrás agregar ni remover paquetes hasta reabrirlo."
+        confirmLabel="Cerrar envío"
+        loading={cerrar.isPending}
+        onConfirm={handleCerrar}
+      />
+      <ConfirmDialog
+        open={confirmReabrir}
+        onOpenChange={setConfirmReabrir}
+        title="Reabrir envío consolidado"
+        description="El envío volverá a admitir agregar y remover paquetes."
+        confirmLabel="Reabrir"
+        loading={reabrir.isPending}
+        onConfirm={handleReabrir}
+      />
+      
     </div>
   );
 }
@@ -855,63 +850,3 @@ function AgregarPaquetesDialog({
   );
 }
 
-function ConfirmDialog({
-  title,
-  description,
-  confirmLabel,
-  loading,
-  onConfirm,
-  onCancel,
-  icon,
-  tone = 'primary',
-}: {
-  title: string;
-  description: string;
-  confirmLabel: string;
-  loading: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-  icon?: React.ReactNode;
-  tone?: 'primary' | 'warning' | 'destructive';
-}) {
-  const toneClasses =
-    tone === 'warning'
-      ? 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
-      : tone === 'destructive'
-        ? 'bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]'
-        : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]';
-  return (
-    <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <div className="flex items-start gap-3">
-            {icon && (
-              <span
-                className={cn(
-                  'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
-                  toneClasses,
-                )}
-              >
-                {icon}
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <DialogTitle>{title}</DialogTitle>
-              <DialogDescription className="mt-1 text-xs">
-                {description}
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button onClick={onConfirm} disabled={loading}>
-            {loading ? 'Aplicando...' : confirmLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}

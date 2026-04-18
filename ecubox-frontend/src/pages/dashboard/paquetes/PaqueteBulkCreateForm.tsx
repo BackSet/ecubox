@@ -327,7 +327,7 @@ export function PaqueteBulkCreateForm({ onClose, onSuccess }: Props) {
           )}
 
           {excedeCupo && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50/60 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+            <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-3 py-2 text-xs text-[var(--color-warning)] dark:border-[var(--color-warning)]/30 dark:bg-[var(--color-warning)]/10 dark:text-[var(--color-warning)]">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 Vas a registrar {fields.length} paquetes pero la guía declara solo {cupoRestante} cupo

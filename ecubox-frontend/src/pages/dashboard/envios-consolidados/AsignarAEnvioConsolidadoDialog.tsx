@@ -291,7 +291,7 @@ export function AsignarAEnvioConsolidadoDialog({
                   <li key={p.id} className="flex items-center gap-2">
                     <span>{p.numeroGuia}</span>
                     {p.envioConsolidadoCodigo && (
-                      <span className="text-amber-700 dark:text-amber-300">
+                      <span className="text-[var(--color-warning)] dark:text-[var(--color-warning)]">
                         (ya estaba en {p.envioConsolidadoCodigo} → será reasignado)
                       </span>
                     )}
@@ -302,7 +302,7 @@ export function AsignarAEnvioConsolidadoDialog({
           )}
 
           {noEncontradas.length > 0 && (
-            <div className="rounded border border-amber-300 bg-amber-50 p-2 text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+            <div className="rounded border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-2 text-[var(--color-warning)]">
               <p className="mb-1 text-sm font-medium">No encontradas:</p>
               <ul className="text-xs font-mono">
                 {noEncontradas.map((g) => (

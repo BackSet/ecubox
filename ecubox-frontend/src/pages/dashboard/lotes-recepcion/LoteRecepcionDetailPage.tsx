@@ -9,6 +9,7 @@ import { useEnviosConsolidados } from '@/hooks/useEnviosConsolidados';
 import { LoadingState } from '@/components/LoadingState';
 import { ListTableShell } from '@/components/ListTableShell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { KpiCard } from '@/components/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -44,7 +45,6 @@ import {
   Trash2,
   Truck,
   Users,
-  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Paquete } from '@/types/paquete';
@@ -230,7 +230,7 @@ export function LoteRecepcionDetailPage() {
 
   if (Number.isNaN(id)) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         ID de lote no válido.
         <Link to="/lotes-recepcion" className="ml-2 underline">
           Volver a lotes de recepción
@@ -243,7 +243,7 @@ export function LoteRecepcionDetailPage() {
 
   if (error || !lote) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         No se pudo cargar el lote.
         <Link to="/lotes-recepcion" className="ml-2 underline">
           Volver a lotes de recepción
@@ -271,7 +271,7 @@ export function LoteRecepcionDetailPage() {
               <Badge variant="outline" className="font-mono">
                 #{lote.id}
               </Badge>
-              <Badge className="bg-emerald-500/15 font-normal text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-400">
+              <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20 dark:text-[var(--color-success)]">
                 <PackageCheck className="mr-1 h-3 w-3" />
                 Recibido en bodega
               </Badge>
@@ -307,17 +307,27 @@ export function LoteRecepcionDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard icon={Truck} label="Envíos consolidados" value={stats.envios} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard
-          icon={Boxes}
+          icon={<Truck className="h-5 w-5" />}
+          label="Envíos consolidados"
+          value={stats.envios}
+          tone="primary"
+        />
+        <KpiCard
+          icon={<Boxes className="h-5 w-5" />}
           label="Paquetes recibidos"
           value={stats.paquetes}
-          tone="accent"
+          tone="success"
         />
-        <KpiCard icon={Users} label="Destinatarios" value={stats.destinatarios} />
         <KpiCard
-          icon={PackageCheck}
+          icon={<Users className="h-5 w-5" />}
+          label="Destinatarios"
+          value={stats.destinatarios}
+          tone="neutral"
+        />
+        <KpiCard
+          icon={<PackageCheck className="h-5 w-5" />}
           label="Peso total"
           value={
             stats.pesoLbs > 0
@@ -326,6 +336,7 @@ export function LoteRecepcionDetailPage() {
                 ? `${stats.pesoKg.toFixed(2)} kg`
                 : '—'
           }
+          tone="neutral"
         />
       </div>
 
@@ -655,37 +666,6 @@ function CopiableMono({ text }: { text: string }) {
           <Copy className="h-3 w-3" />
         )}
       </button>
-    </div>
-  );
-}
-
-interface KpiCardProps {
-  icon: LucideIcon;
-  label: string;
-  value: number | string;
-  tone?: 'accent' | 'muted';
-}
-
-function KpiCard({ icon: Icon, label, value, tone = 'muted' }: KpiCardProps) {
-  const toneClasses =
-    tone === 'accent'
-      ? 'border-primary/30 bg-primary/5'
-      : 'border-border bg-[var(--color-muted)]/40';
-  const iconBg =
-    tone === 'accent'
-      ? 'bg-primary/10 text-primary'
-      : 'bg-[var(--color-muted)] text-muted-foreground';
-  return (
-    <div className={`flex items-center gap-3 rounded-lg border p-3 ${toneClasses}`}>
-      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-md ${iconBg}`}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <p className="text-lg font-semibold leading-none text-foreground">{value}</p>
-      </div>
     </div>
   );
 }

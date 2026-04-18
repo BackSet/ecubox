@@ -11,8 +11,9 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, Pencil, Trash2 } from 'lucide-react';
+import { Package, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Paquete } from '@/types/paquete';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import { GuiaMasterPiezaCell, DestinatarioCell } from './PaqueteCells';
@@ -48,17 +49,13 @@ export function PaqueteListPage() {
     return <LoadingState text="Cargando paquetes..." />;
   }
   if (error) {
-    return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
-        Error al cargar paquetes.
-      </div>
-    );
+    return <div className="ui-alert ui-alert-error">Error al cargar paquetes.</div>;
   }
 
   const allPaquetes = paquetes ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Gestión de paquetes"
         searchPlaceholder="Buscar por guía master, pieza, envío, destinatario o contenido..."
@@ -66,7 +63,10 @@ export function PaqueteListPage() {
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             {hasPaquetesCreate && (
-              <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>Registrar paquete</Button>
+              <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Registrar paquete
+              </Button>
             )}
           </div>
         }
@@ -125,9 +125,9 @@ export function PaqueteListPage() {
                       <DestinatarioCell paquete={p} />
                     </TableCell>
                     <TableCell data-label="Estado">
-                      <Badge variant="secondary" className="font-normal">
+                      <StatusBadge tone="neutral">
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
-                      </Badge>
+                      </StatusBadge>
                     </TableCell>
                     <TableCell data-label="Contenido" className="text-muted-foreground">{p.contenido ?? '—'}</TableCell>
                     <TableCell data-label="Peso">

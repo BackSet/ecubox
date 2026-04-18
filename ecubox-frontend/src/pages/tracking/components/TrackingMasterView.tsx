@@ -269,7 +269,7 @@ function ProgressBar({
   tone: 'primary' | 'success';
 }) {
   const barColor =
-    tone === 'success' ? 'bg-emerald-500' : 'bg-[var(--color-primary)]';
+    tone === 'success' ? 'bg-[var(--color-success)]' : 'bg-[var(--color-primary)]';
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs text-[var(--color-muted-foreground)]">

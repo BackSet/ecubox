@@ -47,7 +47,7 @@ export function MisGuiasListPage() {
   }, [guias, search]);
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Mis guías"
         searchPlaceholder="Buscar por número de guía o destinatario..."
@@ -63,7 +63,7 @@ export function MisGuiasListPage() {
       {isLoading ? (
         <LoadingState text="Cargando tus guías..." />
       ) : error ? (
-        <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+        <div className="ui-alert ui-alert-error">
           No se pudieron cargar tus guías.
         </div>
       ) : filtered.length === 0 ? (
@@ -103,7 +103,7 @@ export function MisGuiasListPage() {
                   <TableRow
                     key={g.id}
                     className={`cursor-pointer ${
-                      totalPendiente ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''
+                      totalPendiente ? 'bg-[var(--color-warning)]/10 dark:bg-[var(--color-warning)]' : ''
                     }`}
                     onClick={() =>
                       navigate({
@@ -282,7 +282,7 @@ function PiezasMiniProgress({ guia: g }: { guia: GuiaMaster }) {
   if (total == null) {
     return (
       <div className="space-y-1">
-        <Badge variant="outline" className="border-amber-400 text-amber-700">
+        <Badge variant="outline" className="border-[var(--color-warning)]/30 text-[var(--color-warning)]">
           Total pendiente
         </Badge>
         <p className="text-[11px] text-muted-foreground">
@@ -311,25 +311,25 @@ function PiezasMiniProgress({ guia: g }: { guia: GuiaMaster }) {
       </div>
       <div className="relative h-1.5 overflow-hidden rounded-full bg-[var(--color-muted)]">
         <div
-          className="absolute inset-y-0 left-0 bg-blue-500/70"
+          className="absolute inset-y-0 left-0 bg-[var(--color-info)]/70"
           style={{ width: `${pctRegistradas}%` }}
           title={`Registradas: ${registradas}/${total}`}
         />
         <div
-          className="absolute inset-y-0 left-0 bg-amber-500/80"
+          className="absolute inset-y-0 left-0 bg-[var(--color-warning)]/80"
           style={{ width: `${pctRecibidas}%` }}
           title={`Recibidas: ${recibidas}/${total}`}
         />
         <div
-          className="absolute inset-y-0 left-0 bg-emerald-500/80"
+          className="absolute inset-y-0 left-0 bg-[var(--color-success)]/80"
           style={{ width: `${pctDespachadas}%` }}
           title={`Despachadas: ${despachadas}/${total}`}
         />
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-        <Dot color="bg-blue-500" label={`Reg ${registradas}`} />
-        <Dot color="bg-amber-500" label={`Rec ${recibidas}`} />
-        <Dot color="bg-emerald-500" label={`Desp ${despachadas}`} />
+        <Dot color="bg-[var(--color-info)]" label={`Reg ${registradas}`} />
+        <Dot color="bg-[var(--color-warning)]" label={`Rec ${recibidas}`} />
+        <Dot color="bg-[var(--color-success)]" label={`Desp ${despachadas}`} />
       </div>
     </div>
   );

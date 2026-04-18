@@ -44,7 +44,7 @@ const FEATURES: Feature[] = [
     icon: MapPin,
     href: '/tracking',
     ctaLabel: 'Rastrear ahora',
-    accent: 'from-[#5B9CFF]/20 to-[#5B9CFF]/0',
+    accent: 'from-[var(--color-ecubox-acento-claro)]/20 to-[var(--color-ecubox-acento-claro)]/0',
     bullets: [
       { icon: ShieldCheck, text: 'Actualizaciones por estado oficial' },
       { icon: Sparkles, text: 'Funciona con guía o consolidador' },

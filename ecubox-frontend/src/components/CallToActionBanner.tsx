@@ -4,7 +4,7 @@ import { ArrowRight, Calculator, PackageOpen } from 'lucide-react';
 export function CallToActionBanner() {
   return (
     <section className="content-container mobile-safe-inline section-spacing">
-      <div className="relative overflow-hidden rounded-2xl border border-[var(--color-primary)]/30 bg-gradient-to-br from-[var(--color-primary)] via-[#7039D6] to-[#5B9CFF] p-7 text-center shadow-xl sm:p-10 md:p-14">
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--color-primary)]/30 brand-gradient-bg p-7 text-center shadow-xl sm:p-10 md:p-14">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/15 blur-3xl"
@@ -18,7 +18,7 @@ export function CallToActionBanner() {
           <PackageOpen className="h-3.5 w-3.5" />
           Tu casillero te espera
         </span>
-        <h2 className="relative mx-auto mt-4 max-w-2xl text-2xl font-bold leading-tight text-white sm:text-3xl md:text-4xl">
+        <h2 className="responsive-title relative mx-auto mt-4 max-w-2xl font-bold text-white">
           Empieza a comprar en USA y recibe en Ecuador hoy mismo
         </h2>
         <p className="relative mx-auto mt-3 max-w-xl text-sm text-white/85 sm:text-base">

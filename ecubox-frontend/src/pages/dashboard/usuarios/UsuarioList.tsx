@@ -5,6 +5,7 @@ import {
   Filter,
   Mail,
   Pencil,
+  Plus,
   Power,
   PowerOff,
   Shield,
@@ -13,7 +14,6 @@ import {
   UserCircle2,
   UserCog,
   UserMinus,
-  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -28,6 +28,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -135,15 +137,11 @@ export function UsuarioList() {
     return <LoadingState text="Cargando usuarios..." />;
   }
   if (error) {
-    return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
-        Error al cargar usuarios.
-      </div>
-    );
+    return <div className="ui-alert ui-alert-error">Error al cargar usuarios.</div>;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Usuarios"
         searchPlaceholder="Buscar por usuario, email o rol..."
@@ -151,7 +149,7 @@ export function UsuarioList() {
         actions={
           hasWrite ? (
             <Button onClick={() => setCreateOpen(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4" />
               Nuevo usuario
             </Button>
           ) : undefined
@@ -187,7 +185,7 @@ export function UsuarioList() {
         />
       </div>
 
-      <div className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-3 sm:flex-row sm:items-center sm:justify-between">
+      <SurfaceCard className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Filter className="h-3.5 w-3.5" />
@@ -250,7 +248,7 @@ export function UsuarioList() {
             </Button>
           )}
         </div>
-      </div>
+      </SurfaceCard>
 
       {list.length === 0 ? (
         <EmptyState
@@ -264,7 +262,7 @@ export function UsuarioList() {
           action={
             allUsuarios.length === 0 && hasWrite ? (
               <Button onClick={() => setCreateOpen(true)}>
-                <UserPlus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4" />
                 Nuevo usuario
               </Button>
             ) : filtersActive ? (
@@ -507,15 +505,15 @@ function ContactoCell({ email }: { email?: string | null }) {
 
 function EstadoCell({ enabled }: { enabled: boolean }) {
   return enabled ? (
-    <span className="inline-flex items-center gap-1 rounded-md border border-[var(--color-success)]/30 bg-[var(--color-success)]/10 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
+    <StatusBadge tone="success">
       <CheckCircle2 className="h-3 w-3" />
       Activo
-    </span>
+    </StatusBadge>
   ) : (
-    <span className="inline-flex items-center gap-1 rounded-md border border-[var(--color-muted-foreground)]/30 bg-[var(--color-muted)]/40 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+    <StatusBadge tone="neutral">
       <PowerOff className="h-3 w-3" />
       Inactivo
-    </span>
+    </StatusBadge>
   );
 }
 

@@ -1,10 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Eraser, Save, Weight } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Eraser,
+  PackageX,
+  Save,
+  Scale,
+  Weight,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
+import { KpiCard } from '@/components/KpiCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -154,7 +163,7 @@ export function CargarPesosPage() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar paquetes.
       </div>
     );
@@ -164,7 +173,7 @@ export function CargarPesosPage() {
   const hayCambios = stats.listos > 0 || stats.invalidos > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Cargar pesos"
         searchPlaceholder="Buscar por ref, guía, destinatario o contenido..."
@@ -200,28 +209,32 @@ export function CargarPesosPage() {
       />
 
       {allPaquetes.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
+            icon={<PackageX className="h-5 w-5" />}
             label="Sin peso"
             value={stats.pendientes}
-            tone="muted"
+            tone="neutral"
           />
           <KpiCard
+            icon={<CheckCircle2 className="h-5 w-5" />}
             label="Listos para guardar"
             value={stats.listos}
-            tone={stats.listos > 0 ? 'success' : 'muted'}
+            tone={stats.listos > 0 ? 'success' : 'neutral'}
           />
           <KpiCard
+            icon={<AlertCircle className="h-5 w-5" />}
             label="Filas inválidas"
             value={stats.invalidos}
-            tone={stats.invalidos > 0 ? 'destructive' : 'muted'}
+            tone={stats.invalidos > 0 ? 'danger' : 'neutral'}
           />
           <KpiCard
+            icon={<Scale className="h-5 w-5" />}
             label="Total a registrar"
             value={
               stats.pesoLbsTotal > 0 ? `${stats.pesoLbsTotal.toFixed(2)} lbs` : '—'
             }
-            tone="muted"
+            tone="primary"
           />
         </div>
       )}
@@ -274,7 +287,7 @@ export function CargarPesosPage() {
                         invalido
                           ? 'bg-[var(--color-destructive)]/5'
                           : valido
-                            ? 'bg-emerald-500/5'
+                            ? 'bg-[var(--color-success)]/5'
                             : undefined
                       }
                     >
@@ -355,7 +368,7 @@ function PesoInput({ value, onChange, unit, ariaLabel, highlight, invalid }: Pes
   const borderClass = invalid
     ? 'border-[var(--color-destructive)] focus-within:ring-[var(--color-destructive)]/40'
     : highlight
-      ? 'border-emerald-500/60 focus-within:ring-emerald-500/30'
+      ? 'border-[var(--color-success)]/30 focus-within:ring-emerald-500/30'
       : '';
   return (
     <div
@@ -378,31 +391,3 @@ function PesoInput({ value, onChange, unit, ariaLabel, highlight, invalid }: Pes
   );
 }
 
-interface KpiCardProps {
-  label: string;
-  value: number | string;
-  tone: 'success' | 'destructive' | 'muted';
-}
-
-function KpiCard({ label, value, tone }: KpiCardProps) {
-  const toneClasses: Record<KpiCardProps['tone'], string> = {
-    success: 'border-emerald-500/30 bg-emerald-500/5',
-    destructive: 'border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5',
-    muted: 'border-border bg-[var(--color-muted)]/40',
-  };
-  const valueClasses: Record<KpiCardProps['tone'], string> = {
-    success: 'text-emerald-700 dark:text-emerald-400',
-    destructive: 'text-[var(--color-destructive)]',
-    muted: 'text-foreground',
-  };
-  return (
-    <div className={`rounded-lg border p-3 ${toneClasses[tone]}`}>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className={`mt-1 text-lg font-semibold leading-none ${valueClasses[tone]}`}>
-        {value}
-      </p>
-    </div>
-  );
-}

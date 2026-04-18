@@ -11,7 +11,7 @@ export function EditarDespachoPage() {
 
   if (Number.isNaN(despachoId)) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         ID de despacho no válido.
         <Link to="/despachos" className="ml-2 underline">Volver a despachos</Link>
       </div>
@@ -24,7 +24,7 @@ export function EditarDespachoPage() {
 
   if (error || !despacho) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         No se pudo cargar el despacho.
         <Link to="/despachos" className="ml-2 underline">Volver a despachos</Link>
       </div>

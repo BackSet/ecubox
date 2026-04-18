@@ -97,11 +97,11 @@ const ESTADO_LABELS: Record<EstadoManifiesto, string> = {
 
 const ESTADO_BADGE: Record<EstadoManifiesto, string> = {
   PENDIENTE:
-    'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200',
+    'border-[color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-warning)_15%,transparent)] text-[color-mix(in_oklab,var(--color-warning)_75%,var(--color-foreground))]',
   PAGADO:
-    'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200',
+    'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
   ANULADO:
-    'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-200',
+    'border-[color-mix(in_oklab,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-destructive)_15%,transparent)] text-[color-mix(in_oklab,var(--color-destructive)_75%,var(--color-foreground))]',
 };
 
 const ESTADO_ICON: Record<
@@ -127,11 +127,11 @@ const TIPO_LABELS: Record<string, string> = {
 
 const TIPO_BADGE: Record<string, string> = {
   DOMICILIO:
-    'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-200',
+    'border-[var(--color-info)]/30 bg-[var(--color-info)]/10 text-[var(--color-info)]',
   AGENCIA:
-    'border-purple-300 bg-purple-50 text-purple-800 dark:border-purple-700 dark:bg-purple-900/30 dark:text-purple-200',
+    'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
   AGENCIA_DISTRIBUIDOR:
-    'border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-700 dark:bg-orange-900/30 dark:text-orange-200',
+    'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
 };
 
 const SIN_FILTRO = '__all__';
@@ -330,7 +330,7 @@ export function ManifiestoDetailPage() {
   const hayFiltrosTabla = tipoFilter !== SIN_FILTRO || search.trim() !== '';
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       {/* ===== HEADER CARD ===== */}
       <SurfaceCard className="p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -421,7 +421,7 @@ export function ManifiestoDetailPage() {
               size="sm"
               onClick={handleExcel}
               disabled={!!exporting}
-              className="gap-2 text-emerald-700 hover:text-emerald-700"
+              className="gap-2 text-[var(--color-success)] hover:text-[var(--color-success)]"
             >
               {exporting === 'xlsx' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -535,10 +535,10 @@ export function ManifiestoDetailPage() {
                       'inline-flex items-center gap-1.5 rounded-[5px] px-2.5 py-1 text-xs font-medium transition disabled:cursor-default',
                       active
                         ? est === 'PAGADO'
-                          ? 'bg-emerald-600 text-white shadow-sm'
+                          ? 'bg-[var(--color-success)] text-white shadow-sm'
                           : est === 'ANULADO'
-                            ? 'bg-rose-600 text-white shadow-sm'
-                            : 'bg-amber-500 text-white shadow-sm'
+                            ? 'bg-[var(--color-destructive)] text-white shadow-sm'
+                            : 'bg-[var(--color-warning)] text-white shadow-sm'
                         : 'text-muted-foreground hover:bg-[var(--color-muted)] hover:text-foreground',
                     )}
                   >
@@ -1106,7 +1106,7 @@ function AsignarDespachosDialog({
                             </Badge>
                           )}
                           {yaEsta && (
-                            <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800 font-normal">
+                            <Badge variant="outline" className="border-[var(--color-success)]/30 bg-[var(--color-success)]/10 text-[var(--color-success)] font-normal">
                               <Check className="mr-1 h-3 w-3" />
                               Ya asignado
                             </Badge>
@@ -1197,7 +1197,7 @@ function ErrorScreen({ mensaje }: { mensaje: string }) {
           Volver
         </Button>
       </Link>
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         {mensaje}
       </div>
     </div>

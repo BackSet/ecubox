@@ -369,7 +369,7 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
             <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <CheckCircle2 className="h-4 w-4 text-[var(--color-success)]" />
                   <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
                     Vista previa del período
                   </span>
@@ -409,7 +409,7 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
                     />
                   </div>
                   {preview.total === 0 ? (
-                    <div className="mt-3 flex items-start gap-1.5 rounded-md border border-amber-300/50 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-200">
+                    <div className="mt-3 flex items-start gap-1.5 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-2.5 py-2 text-xs text-[var(--color-warning)]">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <span>
                         No hay despachos registrados en este período. Puedes crear el manifiesto de

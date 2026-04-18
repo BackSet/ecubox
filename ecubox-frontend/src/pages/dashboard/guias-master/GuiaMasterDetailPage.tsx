@@ -78,7 +78,7 @@ export function GuiaMasterDetailPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Button>
-        <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+        <div className="ui-alert ui-alert-error">
           No se pudo cargar la guía master.
         </div>
       </div>
@@ -89,7 +89,7 @@ export function GuiaMasterDetailPage() {
     guia.estadoGlobal === 'CERRADA' || guia.estadoGlobal === 'CERRADA_CON_FALTANTE';
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
@@ -152,7 +152,7 @@ export function GuiaMasterDetailPage() {
         <PiezasProgress guia={guia} />
 
         {guia.totalPiezasEsperadas == null && (
-          <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+          <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               Esta guía aún no tiene un total de piezas esperadas. Edita los
@@ -162,7 +162,7 @@ export function GuiaMasterDetailPage() {
         )}
 
         {guia.despachoParcialEnCurso && (
-          <div className="flex items-start gap-2 rounded-md border border-indigo-300 bg-indigo-50 p-3 text-sm text-indigo-900 dark:border-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-100">
+          <div className="flex items-start gap-2 rounded-md border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 p-3 text-sm text-[var(--color-primary)]">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">Despacho parcial en curso</p>
@@ -176,7 +176,7 @@ export function GuiaMasterDetailPage() {
         )}
 
         {!guia.despachoParcialEnCurso && guia.listaParaDespachoParcial && (
-          <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+          <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               Lista para despacho parcial. Pulsa <strong>Despachar parcial</strong>{' '}
@@ -420,7 +420,7 @@ function PiezasProgress({ guia }: { guia: GuiaMaster }) {
 
   if (total <= 0) {
     return (
-      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+      <div className="rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-xs text-[var(--color-warning)]">
         Total de piezas pendiente. Se definirá al registrar el primer paquete.
       </div>
     );
@@ -439,29 +439,29 @@ function PiezasProgress({ guia }: { guia: GuiaMaster }) {
       </div>
       <div className="relative h-2 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
         <div
-          className="absolute inset-y-0 left-0 bg-blue-400/40 dark:bg-blue-500/30"
+          className="absolute inset-y-0 left-0 bg-[var(--color-info)] dark:bg-[var(--color-info)]/30"
           style={{ width: `${pct(registradas)}%` }}
         />
         <div
-          className="absolute inset-y-0 left-0 bg-amber-400/60 dark:bg-amber-500/50"
+          className="absolute inset-y-0 left-0 bg-[var(--color-warning)] dark:bg-[var(--color-warning)]/50"
           style={{ width: `${pct(recibidas)}%` }}
         />
         <div
-          className="absolute inset-y-0 left-0 bg-emerald-500"
+          className="absolute inset-y-0 left-0 bg-[var(--color-success)]"
           style={{ width: `${pct(despachadas)}%` }}
         />
       </div>
       <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-blue-400/70 dark:bg-blue-500/60" />
+          <span className="h-2 w-2 rounded-full bg-[var(--color-info)] dark:bg-[var(--color-info)]/60" />
           Registradas {registradas}/{total}
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-amber-400 dark:bg-amber-500" />
+          <span className="h-2 w-2 rounded-full bg-[var(--color-warning)] dark:bg-[var(--color-warning)]" />
           Recibidas {recibidas}
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
           Despachadas {despachadas}
         </span>
       </div>
@@ -540,7 +540,7 @@ function PiezaEstadoBadges({ paquete: p }: { paquete: Paquete }) {
       {recibida && (
         <Badge
           variant="outline"
-          className="border-amber-300 bg-amber-50 font-normal text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
+          className="border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 font-normal text-[var(--color-warning)]"
         >
           Recibida
         </Badge>
@@ -548,7 +548,7 @@ function PiezaEstadoBadges({ paquete: p }: { paquete: Paquete }) {
       {despachada && (
         <Badge
           variant="outline"
-          className="border-emerald-300 bg-emerald-50 font-normal text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200"
+          className="border-[var(--color-success)]/30 bg-[var(--color-success)]/10 font-normal text-[var(--color-success)]"
         >
           Despachada
         </Badge>

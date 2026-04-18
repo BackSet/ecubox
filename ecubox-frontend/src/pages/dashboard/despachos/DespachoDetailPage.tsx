@@ -85,17 +85,20 @@ const TIPO_LABELS: Record<TipoEntrega, string> = {
 
 const TIPO_BADGE: Record<TipoEntrega, string> = {
   DOMICILIO:
-    'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200',
+    'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
   AGENCIA:
-    'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-200',
+    'border-[color-mix(in_oklab,var(--color-info)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-info)_15%,transparent)] text-[color-mix(in_oklab,var(--color-info)_75%,var(--color-foreground))]',
   AGENCIA_DISTRIBUIDOR:
-    'border-purple-300 bg-purple-50 text-purple-800 dark:border-purple-700 dark:bg-purple-900/30 dark:text-purple-200',
+    'border-[color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
 };
 
 const TIPO_ICON_BG: Record<TipoEntrega, string> = {
-  DOMICILIO: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  AGENCIA: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  AGENCIA_DISTRIBUIDOR: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+  DOMICILIO:
+    'bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
+  AGENCIA:
+    'bg-[color-mix(in_oklab,var(--color-info)_15%,transparent)] text-[color-mix(in_oklab,var(--color-info)_75%,var(--color-foreground))]',
+  AGENCIA_DISTRIBUIDOR:
+    'bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
 };
 
 function fmtFechaCompleta(s?: string | null): string {
@@ -294,7 +297,7 @@ export function DespachoDetailPage() {
   const filtroActivo = search.trim() !== '';
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <Button
         variant="ghost"
         size="sm"
@@ -398,7 +401,7 @@ export function DespachoDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
+              className="gap-1.5 text-[var(--color-success)] hover:text-[var(--color-success)] dark:text-[var(--color-success)] dark:hover:text-[var(--color-success)]"
               disabled={exporting != null}
               onClick={() => handleExport('xlsx')}
             >
@@ -413,7 +416,7 @@ export function DespachoDetailPage() {
               <Button
                 variant="outline"
                 size="icon"
-                className="text-emerald-600 hover:text-emerald-700"
+                className="text-[var(--color-success)] hover:text-[var(--color-success)]"
                 aria-label="Generar mensaje WhatsApp"
                 title="Generar mensaje WhatsApp"
                 onClick={() => setWhatsappOpen(true)}
@@ -639,7 +642,7 @@ export function DespachoDetailPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-emerald-600" />
+              <MessageCircle className="h-4 w-4 text-[var(--color-success)]" />
               Mensaje WhatsApp
             </DialogTitle>
           </DialogHeader>
@@ -663,7 +666,7 @@ function ErrorScreen({ message }: { message: string }) {
           Volver
         </Button>
       </Link>
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         {message}
       </div>
     </div>
@@ -1055,7 +1058,7 @@ function WhatsAppPanel({
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+            className="inline-flex items-center gap-2 rounded-md bg-[var(--color-success)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-success)]"
           >
             <MessageCircle className="h-4 w-4" />
             Abrir en WhatsApp

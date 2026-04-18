@@ -222,14 +222,14 @@ export function PermisoList() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar permisos.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Permisos"
         searchPlaceholder="Buscar por código o descripción..."

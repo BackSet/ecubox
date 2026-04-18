@@ -145,7 +145,7 @@ export function EnviosConsolidadosListPage() {
   const totalPages = data?.totalPages ?? 0;
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Envíos consolidados"
         searchPlaceholder="Buscar por código..."
@@ -221,7 +221,7 @@ export function EnviosConsolidadosListPage() {
       {isLoading ? (
         <LoadingState text="Cargando envíos..." />
       ) : error ? (
-        <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+        <div className="ui-alert ui-alert-error">
           Error al cargar envíos consolidados.
         </div>
       ) : filtered.length === 0 ? (

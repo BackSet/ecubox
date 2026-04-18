@@ -77,7 +77,7 @@ export function TarifaCalculadoraForm() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar la tarifa.
       </div>
     );

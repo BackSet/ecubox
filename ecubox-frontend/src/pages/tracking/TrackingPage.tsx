@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link } from '@tanstack/react-router';
-import { EcuboxLogo } from '@/components/brand';
-import { ArrowLeft, Calculator, Loader2, PackageSearch, ShieldCheck } from 'lucide-react';
+import { Loader2, PackageSearch, ShieldCheck } from 'lucide-react';
+import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter } from '@/components/SiteFooter';
 import { getTrackingByCodigo } from '@/lib/api/tracking.service';
 import type {
   TrackingResolveResponse,
@@ -354,53 +354,27 @@ export function TrackingPage() {
     autoQueryDone && !loading && !error && !resolved && !validationError;
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] flex flex-col">
-      <header className="border-b border-[var(--color-border)] bg-[var(--color-card)]/40 backdrop-blur-sm">
-        <div className="content-container-wide mobile-safe-inline flex items-center justify-between gap-3 py-3 sm:py-4">
-          <Link
-            to="/"
-            className="inline-flex p-1 -m-1 rounded-lg hover:bg-[var(--color-muted)] transition"
-            aria-label="ECUBOX - Inicio"
-          >
-            <EcuboxLogo variant="light" size="lg" asLink={false} />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              to="/calculadora"
-              className="hidden items-center gap-1.5 text-xs text-[var(--color-muted-foreground)] hover:underline sm:inline-flex sm:text-sm"
-            >
-              <Calculator className="h-3.5 w-3.5" />
-              Calculadora
-            </Link>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)] hover:underline sm:text-sm"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Volver al inicio</span>
-              <span className="sm:hidden">Inicio</span>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="landing-shell">
+      <div className="landing-overlay" />
+      <SiteHeader variant="tool" />
 
-      <main className="mobile-safe-inline flex-1 py-5 sm:py-6">
+      <main className="mobile-safe-inline relative z-10 flex-1 py-5 sm:py-8">
         <div className="content-container-wide w-full space-y-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="space-y-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-primary)]/25 bg-[var(--color-primary)]/10 px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-primary)]">
+              <span className="landing-chip inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-primary)]">
                 <PackageSearch className="h-3 w-3" />
                 Rastreo público
               </span>
-              <h1 className="responsive-title font-bold tracking-tight text-[var(--color-foreground)]">
+              <h1 className="responsive-title landing-text font-bold tracking-tight">
                 Seguimiento de envío
               </h1>
-              <p className="text-sm sm:text-base text-[var(--color-muted-foreground)]">
+              <p className="landing-text-muted text-sm sm:text-base">
                 Ingresa el número de pieza o la guía del consolidador para ver su estado.
               </p>
             </div>
-            <p className="hidden items-center gap-1.5 text-xs text-[var(--color-muted-foreground)] sm:inline-flex">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+            <p className="landing-text-muted hidden items-center gap-1.5 text-xs sm:inline-flex">
+              <ShieldCheck className="h-3.5 w-3.5 text-[var(--color-success)]" />
               Información oficial de ECUBOX
             </p>
           </div>
@@ -417,7 +391,7 @@ export function TrackingPage() {
           />
 
           {loading && !resolved && !error && (
-            <div className="surface-card flex items-center justify-center gap-2 p-8 text-sm text-[var(--color-muted-foreground)]">
+            <div className="landing-card flex items-center justify-center gap-2 p-8 text-sm landing-text-muted">
               <Loader2 className="h-4 w-4 animate-spin" />
               Buscando información del envío...
             </div>
@@ -425,7 +399,7 @@ export function TrackingPage() {
 
           {error && (
             <div
-              className="surface-card flex flex-col items-start gap-3 border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 p-5 text-sm text-[var(--color-destructive)] sm:flex-row sm:items-center sm:justify-between"
+              className="landing-card flex flex-col items-start gap-3 border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 p-5 text-sm text-[var(--color-destructive)] sm:flex-row sm:items-center sm:justify-between"
               role="alert"
             >
               <div className="flex items-start gap-2.5">
@@ -441,15 +415,15 @@ export function TrackingPage() {
           )}
 
           {sinResultados && (
-            <div className="surface-card flex flex-col items-center gap-3 p-8 text-center">
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+            <div className="landing-card flex flex-col items-center gap-3 p-8 text-center">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-landing-card-muted)] landing-text-muted">
                 <PackageSearch className="h-6 w-6" />
               </span>
               <div className="space-y-1">
-                <p className="text-base font-semibold text-[var(--color-foreground)]">
+                <p className="text-base font-semibold landing-text">
                   Aún no has consultado un envío
                 </p>
-                <p className="max-w-md text-sm text-[var(--color-muted-foreground)]">
+                <p className="landing-text-muted max-w-md text-sm">
                   Ingresa el número de guía o pieza arriba para ver el estado, el avance
                   y los datos de entrega de tu envío.
                 </p>
@@ -532,6 +506,8 @@ export function TrackingPage() {
           ) : null}
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

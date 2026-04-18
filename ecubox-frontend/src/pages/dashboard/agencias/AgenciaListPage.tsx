@@ -9,6 +9,7 @@ import {
   DollarSign,
   MapPin,
   Pencil,
+  Plus,
   Trash2,
   UserRound,
   X,
@@ -110,7 +111,7 @@ export function AgenciaListPage() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar agencias.
       </div>
     );
@@ -119,14 +120,14 @@ export function AgenciaListPage() {
   const filterActive = provinciaFilter !== ALL_PROVINCIAS || search.trim().length > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Agencias"
         searchPlaceholder="Buscar por nombre, código, encargado, provincia..."
         onSearchChange={setSearch}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
-            <Building2 className="mr-1.5 h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" />
             Nueva agencia
           </Button>
         }

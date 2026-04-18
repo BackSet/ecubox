@@ -3,6 +3,8 @@ import { Copy, MapPin, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { LoadingState } from '@/components/LoadingState';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/PageHeader';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { useMensajeAgenciaEeuu } from '@/hooks/useMensajeAgenciaEeuu';
 import { parseWhatsAppPreviewToReact } from '@/pages/dashboard/parametros-sistema/whatsappFormatPreview';
 import { cn } from '@/lib/utils';
@@ -23,60 +25,27 @@ export function AgenciaEeuuPage() {
   }, [hayMensaje, mensajePlano]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <header
-        className={cn(
-          'relative overflow-hidden rounded-2xl border border-[var(--color-border)]',
-          'bg-gradient-to-br from-[var(--color-card)] via-[var(--color-card)] to-[var(--color-primary)]/[0.06]',
-          'px-6 py-8 sm:px-8 sm:py-10'
-        )}
-      >
-        <div
-          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[var(--color-primary)]/[0.08] blur-2xl"
-          aria-hidden
-        />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-          <div
-            className={cn(
-              'flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl',
-              'border border-[var(--color-primary)]/25 bg-[var(--color-primary)]/10',
-              'text-[var(--color-primary)]'
-            )}
-            aria-hidden
-          >
-            <MapPin className="h-7 w-7" strokeWidth={2} />
-          </div>
-          <div className="min-w-0 flex-1 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-muted-foreground)]">
-              Envíos desde Estados Unidos
-            </p>
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--color-foreground)] sm:text-3xl">
-              Destino agencia USA
-            </h1>
-            <p className="max-w-xl text-sm leading-relaxed text-[var(--color-muted-foreground)] sm:text-[15px]">
-              Dirección y horarios de nuestra agencia en EE. UU. para que envíes o retires tus paquetes con
-              claridad.
-            </p>
-          </div>
-        </div>
-      </header>
+    <div className="mx-auto max-w-3xl page-stack">
+      <PageHeader
+        icon={<MapPin className="h-5 w-5" />}
+        title="Destino agencia USA"
+        description="Dirección y horarios de nuestra agencia en EE. UU. para que envíes o retires tus paquetes con claridad."
+        breadcrumbs={
+          <span className="font-semibold uppercase tracking-[0.12em]">
+            Envíos desde Estados Unidos
+          </span>
+        }
+      />
 
       {isLoading ? (
         <LoadingState text="Cargando información…" />
       ) : error ? (
-        <div
-          role="alert"
-          className="rounded-2xl border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 p-5 text-sm text-[var(--color-destructive)]"
-        >
+        <div role="alert" className="ui-alert ui-alert-error">
           No se pudo cargar el mensaje. Intenta de nuevo más tarde.
         </div>
       ) : (
-        <section
-          className={cn(
-            'overflow-hidden rounded-2xl border border-[var(--color-border)]',
-            'bg-[var(--color-card)] shadow-sm',
-            'ring-1 ring-[var(--color-border)]/40'
-          )}
+        <SurfaceCard
+          className={cn('overflow-hidden p-0 ring-1 ring-[var(--color-border)]/40')}
         >
           <div className="flex flex-col gap-3 border-b border-[var(--color-border)] bg-[var(--color-muted)]/25 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
@@ -111,7 +80,7 @@ export function AgenciaEeuuPage() {
               </p>
             )}
           </div>
-        </section>
+        </SurfaceCard>
       )}
     </div>
   );

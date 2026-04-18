@@ -49,6 +49,7 @@ import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
+import { KpiCard } from '@/components/KpiCard';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -88,11 +89,11 @@ const TIPO_LABELS: Record<TipoEntrega, string> = {
 
 const TIPO_COLORS: Record<TipoEntrega, string> = {
   DOMICILIO:
-    'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200',
+    'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
   AGENCIA:
-    'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-200',
+    'border-[color-mix(in_oklab,var(--color-info)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-info)_15%,transparent)] text-[color-mix(in_oklab,var(--color-info)_75%,var(--color-foreground))]',
   AGENCIA_DISTRIBUIDOR:
-    'border-purple-300 bg-purple-50 text-purple-800 dark:border-purple-700 dark:bg-purple-900/30 dark:text-purple-200',
+    'border-[color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
 };
 
 const SIN_FILTRO = '__all__';
@@ -290,7 +291,7 @@ export function DespachoListPage() {
   }
   if (error) {
     return (
-      <div className="rounded-md bg-[var(--color-destructive)]/10 p-4 text-[var(--color-destructive)]">
+      <div className="ui-alert ui-alert-error">
         Error al cargar despachos.
       </div>
     );
@@ -300,7 +301,7 @@ export function DespachoListPage() {
   const tieneFiltros = tipoFiltro !== SIN_FILTRO || distribuidorFiltro !== SIN_FILTRO;
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <ListToolbar
         title="Despachos"
         searchPlaceholder="Buscar por #, guía, distribuidor, destinatario, agencia..."
@@ -311,16 +312,16 @@ export function DespachoListPage() {
               type="button"
               variant="outline"
               onClick={() => abrirAplicarEstado('periodo')}
-              className="w-full gap-2 sm:w-auto"
+              className="w-full sm:w-auto"
             >
-              <Tag className="h-4 w-4" />
+              <Tag className="mr-2 h-4 w-4" />
               Aplicar estado
             </Button>
             <Link
               to="/despachos/nuevo"
-              className={cn(buttonVariants(), 'w-full gap-2 sm:w-auto')}
+              className={cn(buttonVariants(), 'w-full sm:w-auto')}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4" />
               Nuevo despacho
             </Link>
           </div>
@@ -328,16 +329,31 @@ export function DespachoListPage() {
       />
 
       {allDespachos.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiCard icon={Truck} label="Despachos" value={stats.total} />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
-            icon={CalendarClock}
+            icon={<Truck className="h-5 w-5" />}
+            label="Despachos"
+            value={stats.total}
+            tone="primary"
+          />
+          <KpiCard
+            icon={<CalendarClock className="h-5 w-5" />}
             label="Despachos hoy"
             value={stats.hoy}
-            tone={stats.hoy > 0 ? 'accent' : 'muted'}
+            tone={stats.hoy > 0 ? 'warning' : 'neutral'}
           />
-          <KpiCard icon={Boxes} label="Sacas asignadas" value={stats.sacas} />
-          <KpiCard icon={Users} label="Distribuidores" value={stats.distribuidores} />
+          <KpiCard
+            icon={<Boxes className="h-5 w-5" />}
+            label="Sacas asignadas"
+            value={stats.sacas}
+            tone="success"
+          />
+          <KpiCard
+            icon={<Users className="h-5 w-5" />}
+            label="Distribuidores"
+            value={stats.distribuidores}
+            tone="neutral"
+          />
         </div>
       )}
 
@@ -405,8 +421,8 @@ export function DespachoListPage() {
           title="No hay despachos"
           description="Crea un despacho para asignar sacas y enviar con un distribuidor."
           action={
-            <Link to="/despachos/nuevo" className={cn(buttonVariants(), 'gap-2')}>
-              <Plus className="h-4 w-4" />
+            <Link to="/despachos/nuevo" className={cn(buttonVariants())}>
+              <Plus className="mr-2 h-4 w-4" />
               Nuevo despacho
             </Link>
           }
@@ -540,7 +556,7 @@ export function DespachoListPage() {
                           aria-label="Descargar Excel"
                           title="Descargar Excel"
                           disabled={exportingId?.id === d.id}
-                          className="text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
+                          className="text-[var(--color-success)] hover:text-[var(--color-success)] dark:text-[var(--color-success)] dark:hover:text-[var(--color-success)]"
                           onClick={() => handleExportar(d.id, 'xlsx')}
                         >
                           {exportingId?.id === d.id && exportingId.mode === 'xlsx' ? (
@@ -555,7 +571,7 @@ export function DespachoListPage() {
                           size="icon"
                           aria-label="Aplicar estado a este despacho"
                           title="Aplicar estado a este despacho"
-                          className="text-amber-600 hover:text-amber-700"
+                          className="text-[var(--color-warning)] hover:text-[var(--color-warning)]"
                           onClick={() => abrirAplicarEstado('despachos', d.id)}
                         >
                           <Tag className="h-4 w-4" />
@@ -567,7 +583,7 @@ export function DespachoListPage() {
                             size="icon"
                             aria-label="Generar mensaje WhatsApp"
                             title="Generar mensaje WhatsApp"
-                            className="text-emerald-600 hover:text-emerald-700"
+                            className="text-[var(--color-success)] hover:text-[var(--color-success)]"
                             onClick={() => setWhatsappDespachoId(d.id)}
                           >
                             <MessageCircle className="h-4 w-4" />
@@ -642,39 +658,6 @@ export function DespachoListPage() {
         }
         despachosEnPeriodo={despachosEnPeriodo}
       />
-    </div>
-  );
-}
-
-interface KpiCardProps {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: number | string;
-  tone?: 'muted' | 'accent';
-}
-
-function KpiCard({ icon: Icon, label, value, tone = 'muted' }: KpiCardProps) {
-  const toneClasses =
-    tone === 'accent'
-      ? 'border-primary/30 bg-primary/5'
-      : 'border-border bg-[var(--color-muted)]/40';
-  const iconBg =
-    tone === 'accent'
-      ? 'bg-primary/10 text-primary'
-      : 'bg-[var(--color-muted)] text-muted-foreground';
-  return (
-    <div className={`flex items-center gap-3 rounded-lg border p-3 ${toneClasses}`}>
-      <span
-        className={`inline-flex h-9 w-9 items-center justify-center rounded-md ${iconBg}`}
-      >
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <p className="text-lg font-semibold leading-none text-foreground">{value}</p>
-      </div>
     </div>
   );
 }
@@ -1050,8 +1033,8 @@ function AplicarEstadoDialog({
                     rangoInvalido
                       ? 'border-[var(--color-destructive)]/40 bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]'
                       : sinDespachosPeriodo
-                        ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100'
-                        : 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100',
+                        ? 'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
+                        : 'border-[var(--color-success)]/30 bg-[var(--color-success)]/10 text-[var(--color-success)]',
                   )}
                 >
                   {rangoInvalido ? (
@@ -1195,8 +1178,8 @@ function AplicarEstadoDialog({
                 className={cn(
                   'rounded-md border p-3 text-sm',
                   sinSeleccion
-                    ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100'
-                    : 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100',
+                    ? 'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
+                    : 'border-[var(--color-success)]/30 bg-[var(--color-success)]/10 text-[var(--color-success)]',
                 )}
               >
                 {sinSeleccion ? (
@@ -1390,7 +1373,7 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-success)]/10 text-[var(--color-success)]">
               <MessageCircle className="h-4 w-4" />
             </span>
             Mensaje WhatsApp
@@ -1439,13 +1422,13 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
                     {wa.ok ? wa.display : telefono}
                   </span>
                   {wa.ok && telefono.replace(/\D+/g, '') !== wa.digits && (
-                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                    <span className="rounded bg-[var(--color-success)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-success)]">
                       normalizado
                     </span>
                   )}
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                <span className="inline-flex items-center gap-1 text-[var(--color-warning)] dark:text-[var(--color-warning)]">
                   <AlertCircle className="h-3.5 w-3.5" />
                   Sin teléfono registrado
                 </span>
@@ -1459,7 +1442,7 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
               Generando mensaje...
             </div>
           ) : sinPlantilla ? (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
+            <div className="rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
               <p className="flex items-start gap-2">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
@@ -1476,7 +1459,7 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
                 </span>
                 <div className="flex items-center gap-2">
                   {dirty && !editar && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-warning)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--color-warning)]">
                       Editado
                     </span>
                   )}
@@ -1511,8 +1494,8 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
                   placeholder="Escribe el mensaje..."
                 />
               ) : (
-                <div className="rounded-2xl bg-emerald-50 p-3 dark:bg-emerald-900/20">
-                  <div className="relative max-h-[280px] overflow-auto whitespace-pre-wrap rounded-xl rounded-tl-sm bg-white p-3 text-sm leading-relaxed text-foreground shadow-sm dark:bg-emerald-950/40">
+                <div className="rounded-2xl bg-[var(--color-success)]/10 p-3 dark:bg-[var(--color-success)]">
+                  <div className="relative max-h-[280px] overflow-auto whitespace-pre-wrap rounded-xl rounded-tl-sm bg-white p-3 text-sm leading-relaxed text-foreground shadow-sm ">
                     {mensaje || (
                       <span className="italic text-muted-foreground">
                         Mensaje vacío
@@ -1575,7 +1558,7 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
               size="sm"
               onClick={handleCopy}
               disabled={!mensaje}
-              className={cn('gap-2', copiado && 'border-emerald-500 text-emerald-700')}
+              className={cn('gap-2', copiado && 'border-[var(--color-success)]/30 text-[var(--color-success)]')}
             >
               {copiado ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               {copiado ? 'Copiado' : 'Copiar'}
@@ -1586,7 +1569,7 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700',
+                  'inline-flex items-center gap-2 rounded-md bg-[var(--color-success)] px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[var(--color-success)]',
                   !mensaje && 'pointer-events-none opacity-50',
                 )}
               >

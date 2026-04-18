@@ -279,7 +279,7 @@ export function LoteRecepcionNuevoPage() {
                             Cerrado
                           </Badge>
                         ) : (
-                          <Badge className="bg-emerald-500/15 font-normal text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-400">
+                          <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20 dark:text-[var(--color-success)]">
                             Abierto
                           </Badge>
                         )}
@@ -426,7 +426,7 @@ export function LoteRecepcionNuevoPage() {
                         {(env.totalPaquetes ?? 0) === 0 && (
                           <Badge
                             variant="secondary"
-                            className="bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                            className="bg-[var(--color-warning)]/15 text-[var(--color-warning)] dark:text-[var(--color-warning)]"
                           >
                             Sin paquetes
                           </Badge>
@@ -543,8 +543,8 @@ export function LoteRecepcionNuevoPage() {
               </div>
             </dl>
 
-            <div className="mt-5 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3">
-              <p className="flex items-start gap-2 text-xs text-emerald-700 dark:text-emerald-400">
+            <div className="mt-5 rounded-md border border-[var(--color-success)]/30 bg-[var(--color-success)]/5 p-3">
+              <p className="flex items-start gap-2 text-xs text-[var(--color-success)] dark:text-[var(--color-success)]">
                 <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
                   Al registrar, los paquetes se marcarán como{' '}
