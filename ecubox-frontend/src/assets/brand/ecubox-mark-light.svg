@@ -1,12 +1,22 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
   <defs>
-    <linearGradient id="ecuboxMarkLight" x1="12" y1="10" x2="52" y2="54" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2E6BE6" />
+    <linearGradient id="ecbMarkLightTop" x1="16" y1="14" x2="48" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B9CFF" />
       <stop offset="1" stop-color="#7B3FE4" />
     </linearGradient>
+    <linearGradient id="ecbMarkLightLeft" x1="16" y1="22" x2="32" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1246A0" />
+      <stop offset="1" stop-color="#2E6BE6" />
+    </linearGradient>
+    <linearGradient id="ecbMarkLightRight" x1="32" y1="30" x2="48" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7B3FE4" />
+      <stop offset="1" stop-color="#9B6AF0" />
+    </linearGradient>
   </defs>
-  <path d="M18 14H46" stroke="url(#ecuboxMarkLight)" stroke-width="6" stroke-linecap="round" />
-  <path d="M18 32H40" stroke="url(#ecuboxMarkLight)" stroke-width="6" stroke-linecap="round" />
-  <path d="M18 50H46" stroke="url(#ecuboxMarkLight)" stroke-width="6" stroke-linecap="round" />
-  <path d="M18 14V50" stroke="url(#ecuboxMarkLight)" stroke-width="6" stroke-linecap="round" />
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M32 14 L48 22 L32 30 L16 22 Z" fill="url(#ecbMarkLightTop)" stroke="#1246A0" stroke-width="1.6" />
+    <path d="M16 22 L32 30 L32 50 L16 42 Z" fill="url(#ecbMarkLightLeft)" stroke="#0A1628" stroke-width="1.6" stroke-opacity="0.85" />
+    <path d="M48 22 L32 30 L32 50 L48 42 Z" fill="url(#ecbMarkLightRight)" stroke="#5F2EB8" stroke-width="1.6" />
+  </g>
+  <path d="M32 14 L32 30" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.55" stroke-linecap="round" />
 </svg>
