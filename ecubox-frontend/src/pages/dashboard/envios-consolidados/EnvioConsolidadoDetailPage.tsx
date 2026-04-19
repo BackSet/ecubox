@@ -12,6 +12,7 @@ import {
   Eye,
   FileSpreadsheet,
   FileText,
+  Loader2,
   Lock,
   Package as PackageIcon,
   Plus,
@@ -21,6 +22,7 @@ import {
   Unlock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,7 +43,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { KpiCard } from '@/components/KpiCard';
 import { ListTableShell } from '@/components/ListTableShell';
@@ -126,7 +131,31 @@ export function EnvioConsolidadoDetailPage() {
     };
   }, [paquetes]);
 
-  if (isLoading) return <LoadingState text="Cargando envío..." />;
+  if (isLoading) {
+    return (
+      <div className="page-stack" aria-busy="true" aria-live="polite">
+        <DetailHeaderSkeleton badges={2} metaLines={2} />
+        <KpiCardsGridSkeleton count={4} />
+        <SurfaceCardSkeleton bodyLines={4} />
+        <ListTableShell>
+          <Table className="min-w-[640px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Paquete</TableHead>
+                <TableHead className="hidden md:table-cell">Destinatario</TableHead>
+                <TableHead className="text-right">Peso</TableHead>
+                <TableHead className="text-right">Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton columns={4} columnClasses={{ 1: 'hidden md:table-cell' }} />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+        <span className="sr-only">Cargando envío...</span>
+      </div>
+    );
+  }
   if (error || !envio) {
     return (
       <div className="space-y-3">
@@ -213,15 +242,23 @@ export function EnvioConsolidadoDetailPage() {
               disabled={manifiestos.pdf.isPending}
               onClick={async () => {
                 try {
-                  const blob = await manifiestos.pdf.mutateAsync(id);
+                  const blob = await notify.run(manifiestos.pdf.mutateAsync(id), {
+                    loading: 'Generando PDF del manifiesto...',
+                    success: 'PDF generado',
+                    error: 'No se pudo generar el PDF',
+                  });
                   descargarBlob(blob, `manifiesto-${envio.codigo}.pdf`);
                 } catch {
-                  toast.error('Error al generar PDF');
+                  // notificado por notify.run
                 }
               }}
             >
-              <FileText className="mr-1.5 h-4 w-4" />
-              {manifiestos.pdf.isPending ? 'Generando...' : 'PDF'}
+              {manifiestos.pdf.isPending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-1.5 h-4 w-4" />
+              )}
+              {manifiestos.pdf.isPending ? 'Generando PDF...' : 'PDF'}
             </Button>
             <Button
               variant="outline"
@@ -229,15 +266,23 @@ export function EnvioConsolidadoDetailPage() {
               disabled={manifiestos.xlsx.isPending}
               onClick={async () => {
                 try {
-                  const blob = await manifiestos.xlsx.mutateAsync(id);
+                  const blob = await notify.run(manifiestos.xlsx.mutateAsync(id), {
+                    loading: 'Generando Excel del manifiesto...',
+                    success: 'Excel generado',
+                    error: 'No se pudo generar el Excel',
+                  });
                   descargarBlob(blob, `manifiesto-${envio.codigo}.xlsx`);
                 } catch {
-                  toast.error('Error al generar XLSX');
+                  // notificado por notify.run
                 }
               }}
             >
-              <FileSpreadsheet className="mr-1.5 h-4 w-4" />
-              {manifiestos.xlsx.isPending ? 'Generando...' : 'Excel'}
+              {manifiestos.xlsx.isPending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+              )}
+              {manifiestos.xlsx.isPending ? 'Generando Excel...' : 'Excel'}
             </Button>
             {envio.cerrado ? (
               <Button

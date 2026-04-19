@@ -9,7 +9,6 @@ import {
   Check,
   Copy,
   Info,
-  Loader2,
   Package as PackageIcon,
   RefreshCw,
   RotateCcw,
@@ -22,6 +21,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { KeyValueGridSkeleton } from '@/components/skeletons/KeyValueGridSkeleton';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 
@@ -190,10 +191,35 @@ export function CalculadoraPage() {
           )}
 
           {tarifaLoading && !tarifaError && (
-            <div className="landing-card flex h-40 items-center justify-center text-sm landing-text-muted">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Cargando tarifa...
-            </div>
+            <>
+              <section
+                className="landing-card flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5"
+                aria-busy="true"
+                aria-live="polite"
+              >
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 rounded-md" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Skeleton className="h-6 w-32 rounded-full" />
+                  <Skeleton className="h-6 w-40 rounded-full" />
+                </div>
+              </section>
+              <section className="landing-card space-y-5 p-4 sm:p-6" aria-hidden>
+                <Skeleton className="h-4 w-40" />
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={`preset-skel-${i}`} className="h-8 w-16 rounded-full" />
+                  ))}
+                </div>
+                <KeyValueGridSkeleton rows={2} cols={2} />
+              </section>
+              <span className="sr-only">Cargando tarifa...</span>
+            </>
           )}
 
           {!tarifaLoading && !tarifaError && (

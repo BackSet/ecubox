@@ -18,14 +18,17 @@ import {
   Truck,
   XCircle,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { useManifiestos, useDeleteManifiesto } from '@/hooks/useManifiestos';
 import { getManifiesto } from '@/lib/api/manifiestos.service';
 import { downloadManifiestoXlsx } from '@/lib/xlsx/manifiestoXlsx';
 import { ManifiestoForm } from './ManifiestoForm';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
@@ -45,7 +48,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { getApiErrorMessage } from '@/lib/api/error-message';
 import { buildManifiestoPdf } from '@/lib/pdf/builders/manifiestoPdf';
 import { runJsPdfAction } from '@/lib/pdf/actions';
 import type {
@@ -114,7 +116,7 @@ function diasEntre(inicio?: string | null, fin?: string | null): number | null {
 
 export function ManifiestoListPage() {
   const navigate = useNavigate();
-  const { data: manifiestos, isLoading, error } = useManifiestos();
+  const { data: manifiestos, isLoading, isFetching, error, refetch } = useManifiestos();
   const deleteManifiesto = useDeleteManifiesto();
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -194,28 +196,37 @@ export function ManifiestoListPage() {
   const handleExport = async (id: number, mode: 'pdf' | 'print' | 'xlsx') => {
     if (exporting) return;
     setExporting({ id, mode });
+    const labels =
+      mode === 'xlsx'
+        ? { loading: 'Generando Excel del manifiesto...', success: 'Excel generado', error: 'No se pudo generar el Excel' }
+        : mode === 'pdf'
+          ? { loading: 'Generando PDF del manifiesto...', success: 'PDF generado', error: 'No se pudo generar el PDF' }
+          : { loading: 'Preparando vista de impresión...', success: 'Vista de impresión lista', error: 'No se pudo preparar la impresión' };
     try {
-      const detalle = await getManifiesto(id);
-      if (mode === 'xlsx') {
-        await downloadManifiestoXlsx({
-          manifiesto: detalle,
-          despachos: detalle.despachos ?? [],
-        });
-        toast.success('Excel generado');
-        return;
-      }
-      const doc = buildManifiestoPdf({
-        manifiesto: detalle,
-        despachos: detalle.despachos ?? [],
-      });
-      runJsPdfAction(doc, {
-        mode: mode === 'pdf' ? 'download' : 'print',
-        filename: `manifiesto-${detalle.codigo ?? detalle.id}.pdf`,
-        printMode: 'popup',
-      });
-      if (mode === 'pdf') toast.success('PDF generado');
+      await notify.run(
+        (async () => {
+          const detalle = await getManifiesto(id);
+          if (mode === 'xlsx') {
+            await downloadManifiestoXlsx({
+              manifiesto: detalle,
+              despachos: detalle.despachos ?? [],
+            });
+            return;
+          }
+          const doc = buildManifiestoPdf({
+            manifiesto: detalle,
+            despachos: detalle.despachos ?? [],
+          });
+          runJsPdfAction(doc, {
+            mode: mode === 'pdf' ? 'download' : 'print',
+            filename: `manifiesto-${detalle.codigo ?? detalle.id}.pdf`,
+            printMode: 'popup',
+          });
+        })(),
+        labels,
+      );
     } catch {
-      toast.error(mode === 'xlsx' ? 'No se pudo generar el Excel' : 'No se pudo generar el PDF');
+      // notificado por notify.run
     } finally {
       setExporting(null);
     }
@@ -230,22 +241,30 @@ export function ManifiestoListPage() {
     if (page > 0 && page >= totalPages) setPage(totalPages - 1);
   }, [page, totalPages]);
 
-  if (isLoading) {
-    return <LoadingState text="Cargando manifiestos..." />;
-  }
-  if (error) {
+  if (error && allManifiestos.length === 0) {
     return (
-      <div className="ui-alert ui-alert-error">
-        Error al cargar manifiestos.
-      </div>
+      <InlineErrorBanner
+        message="Error al cargar manifiestos"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
     );
   }
 
   return (
     <div className="page-stack">
+      {error && allManifiestos.length > 0 && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los manifiestos"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
       <ListToolbar
         title="Manifiestos"
-        searchPlaceholder="Buscar por código, distribuidor, agencia..."
+        searchPlaceholder="Buscar por #, código, distribuidor o agencia..."
         onSearchChange={setSearch}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
@@ -255,7 +274,10 @@ export function ManifiestoListPage() {
         }
       />
 
-      {allManifiestos.length > 0 && (
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} withHint />
+      ) : (
+        allManifiestos.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<FileText className="h-5 w-5" />}
@@ -290,9 +312,13 @@ export function ManifiestoListPage() {
             hint="Suma de manifiestos no anulados"
           />
         </div>
+        )
       )}
 
-      {allManifiestos.length > 0 && (
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={4} filters={1} />
+      ) : (
+        allManifiestos.length > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -363,9 +389,38 @@ export function ManifiestoListPage() {
             )
           }
         />
+        )
       )}
 
-      {allManifiestos.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[760px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[14rem]">Manifiesto</TableHead>
+                <TableHead className="w-[6rem]">Estado</TableHead>
+                <TableHead className="w-[9rem] text-right">Total a pagar</TableHead>
+                <TableHead className="hidden w-[12rem] md:table-cell">Periodo</TableHead>
+                <TableHead className="hidden min-w-[12rem] lg:table-cell">Filtro</TableHead>
+                <TableHead className="hidden w-[7rem] text-center xl:table-cell">Despachos</TableHead>
+                <TableHead className="w-[8rem] text-right">Distribuidor</TableHead>
+                <TableHead className="w-[8rem] text-right">Agencia</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={9}
+                columnClasses={{
+                  3: 'hidden md:table-cell',
+                  4: 'hidden lg:table-cell',
+                  5: 'hidden xl:table-cell',
+                }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : allManifiestos.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="No hay manifiestos"
@@ -392,15 +447,15 @@ export function ManifiestoListPage() {
               : ''}
           </p>
           <ListTableShell>
-            <Table className="min-w-[940px] text-left">
+            <Table className="min-w-[760px] text-left">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[14rem]">Manifiesto</TableHead>
                   <TableHead className="w-[6rem]">Estado</TableHead>
                   <TableHead className="w-[9rem] text-right">Total a pagar</TableHead>
-                  <TableHead className="w-[12rem]">Periodo</TableHead>
-                  <TableHead className="min-w-[12rem]">Filtro</TableHead>
-                  <TableHead className="w-[7rem] text-center">Despachos</TableHead>
+                  <TableHead className="hidden w-[12rem] md:table-cell">Periodo</TableHead>
+                  <TableHead className="hidden min-w-[12rem] lg:table-cell">Filtro</TableHead>
+                  <TableHead className="hidden w-[7rem] text-center xl:table-cell">Despachos</TableHead>
                   <TableHead className="w-[8rem] text-right">Distribuidor</TableHead>
                   <TableHead className="w-[8rem] text-right">Agencia</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
@@ -420,6 +475,9 @@ export function ManifiestoListPage() {
                   >
                     <TableCell className="align-top">
                       <ManifiestoCell manifiesto={m} />
+                      <div className="mt-1 md:hidden">
+                        <PeriodoCell inicio={m.fechaInicio} fin={m.fechaFin} compact />
+                      </div>
                     </TableCell>
                     <TableCell className="align-top">
                       <Badge
@@ -448,13 +506,13 @@ export function ManifiestoListPage() {
                         {fmtMoneda(m.totalPagar)}
                       </span>
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top md:table-cell">
                       <PeriodoCell inicio={m.fechaInicio} fin={m.fechaFin} />
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top lg:table-cell">
                       <FiltroCell manifiesto={m} />
                     </TableCell>
-                    <TableCell className="text-center align-top">
+                    <TableCell className="hidden text-center align-top xl:table-cell">
                       <DespachosBadge total={m.cantidadDespachos ?? 0} />
                     </TableCell>
                     <TableCell className="text-right align-top">
@@ -558,13 +616,11 @@ export function ManifiestoListPage() {
         loading={deleteManifiesto.isPending}
         onConfirm={async () => {
           if (deleteConfirmId == null) return;
-          try {
-            await deleteManifiesto.mutateAsync(deleteConfirmId);
-            toast.success('Manifiesto eliminado');
-          } catch (err: unknown) {
-            toast.error(getApiErrorMessage(err) ?? 'Error al eliminar el manifiesto');
-            throw err;
-          }
+          await notify.run(deleteManifiesto.mutateAsync(deleteConfirmId), {
+            loading: 'Eliminando manifiesto...',
+            success: 'Manifiesto eliminado',
+            error: 'No se pudo eliminar el manifiesto',
+          });
         }}
       />
     </div>
@@ -586,12 +642,25 @@ function ManifiestoCell({ manifiesto: m }: { manifiesto: Manifiesto }) {
 function PeriodoCell({
   inicio,
   fin,
+  compact = false,
 }: {
   inicio?: string | null;
   fin?: string | null;
+  /** Variante de una sola línea para usar como sub-título dentro de otra celda. */
+  compact?: boolean;
 }) {
   if (!inicio && !fin) {
     return <span className="text-xs italic text-muted-foreground">—</span>;
+  }
+  if (compact) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+        <CalendarRange className="h-3 w-3 shrink-0" />
+        <span className="tabular-nums">
+          {fmtFechaCorta(inicio)} → {fmtFechaCorta(fin)}
+        </span>
+      </span>
+    );
   }
   const dias = diasEntre(inicio, fin);
   return (

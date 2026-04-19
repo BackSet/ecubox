@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   useDespachos,
   useDeleteDespacho,
@@ -52,7 +52,10 @@ import { downloadDespachoXlsx } from '@/lib/xlsx/despachoXlsx';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
@@ -86,8 +89,6 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { Despacho, TipoEntrega } from '@/types/despacho';
-import { getApiErrorMessage } from '@/lib/api/error-message';
-
 const TIPO_LABELS: Record<TipoEntrega, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
@@ -107,7 +108,25 @@ const SIN_FILTRO = '__all__';
 
 export function DespachoListPage() {
   const navigate = useNavigate();
-  const { data: despachos, isLoading, error } = useDespachos();
+  // NOTA(deuda técnica - cliente vs servidor):
+  // Este listado todavía carga TODO el dataset (`useDespachos()`) y filtra en
+  // cliente porque hay funcionalidad que depende del universo completo:
+  //   - KPIs globales (total, hoy, sacas, distribuidores).
+  //   - Chips con conteo por tipo/periodo.
+  //   - `distribuidoresPresentes` y `tiposPresentes` para el combobox/filtros.
+  //   - El diálogo "Aplicar estado a despachos" (modo "por despachos") lista
+  //     TODOS los despachos para selección bulk.
+  //   - `despachosEnPeriodo` se calcula sobre la lista completa.
+  // Para migrar a `useDespachosPaginados` (servidor) habría que:
+  //   1. Crear endpoints de KPIs/chips/distribuidores agregados en el backend.
+  //   2. Cargar el catálogo completo bajo demanda solo cuando se abre el
+  //      diálogo de aplicar estado por despachos.
+  //   3. Mover `q + tipo + distribuidor + periodo` al servidor como params.
+  // Mientras tanto, conservamos el patrón actual pero con:
+  //   - Toolbar con búsqueda debounced (`ListToolbar` ya usa `useDebouncedValue`).
+  //   - Manejo de errores que NO oculta resultados previos (banner inline).
+  //   - QueryKey estable (`DESPACHOS_QUERY_KEY`) para evitar re-fetches.
+  const { data: despachos, isLoading, isFetching, error, refetch } = useDespachos();
   const { data: mensajeWhatsApp } = useMensajeWhatsAppDespacho();
   const deleteMutation = useDeleteDespacho();
   const aplicarEstadoPorPeriodo = useAplicarEstadoPorPeriodo();
@@ -150,21 +169,30 @@ export function DespachoListPage() {
   const handleExportar = async (id: number, mode: 'pdf' | 'print' | 'xlsx') => {
     if (exportingId) return;
     setExportingId({ id, mode });
+    const labels =
+      mode === 'xlsx'
+        ? { loading: 'Generando Excel del despacho...', success: 'Excel generado', error: 'No se pudo generar el Excel' }
+        : mode === 'pdf'
+          ? { loading: 'Generando PDF del despacho...', success: 'PDF generado', error: 'No se pudo generar el PDF' }
+          : { loading: 'Preparando vista de impresión...', success: 'Vista de impresión lista', error: 'No se pudo preparar la impresión' };
     try {
-      const detalle = await getDespachoById(id);
-      if (mode === 'xlsx') {
-        await downloadDespachoXlsx(detalle);
-        toast.success('Excel generado');
-      } else {
-        const doc = buildDespachoPdf(detalle);
-        runJsPdfAction(doc, {
-          mode: mode === 'pdf' ? 'download' : 'print',
-          filename: `despacho-${detalle.id}.pdf`,
-        });
-        if (mode === 'pdf') toast.success('PDF generado');
-      }
+      await notify.run(
+        (async () => {
+          const detalle = await getDespachoById(id);
+          if (mode === 'xlsx') {
+            await downloadDespachoXlsx(detalle);
+          } else {
+            const doc = buildDespachoPdf(detalle);
+            runJsPdfAction(doc, {
+              mode: mode === 'pdf' ? 'download' : 'print',
+              filename: `despacho-${detalle.id}.pdf`,
+            });
+          }
+        })(),
+        labels,
+      );
     } catch {
-      toast.error('No se pudo generar el documento');
+      // notificado por notify.run
     } finally {
       setExportingId(null);
     }
@@ -198,39 +226,49 @@ export function DespachoListPage() {
 
   const handleAplicarEstado = async () => {
     if (estadoRastreoSeleccionado == null) {
-      toast.error('Selecciona un estado a aplicar');
+      notify.warning('Selecciona un estado a aplicar');
       return;
     }
     try {
       if (aplicarModo === 'periodo') {
         if (!periodoFechaInicio || !periodoFechaFin) {
-          toast.error('Indica fecha de inicio y fin');
+          notify.warning('Indica fecha de inicio y fin');
           return;
         }
-        const res = await aplicarEstadoPorPeriodo.mutateAsync({
-          fechaInicio: periodoFechaInicio,
-          fechaFin: periodoFechaFin,
-          estadoRastreoId: estadoRastreoSeleccionado,
-        });
-        toast.success(
-          `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s) actualizado(s).`,
+        await notify.run(
+          aplicarEstadoPorPeriodo.mutateAsync({
+            fechaInicio: periodoFechaInicio,
+            fechaFin: periodoFechaFin,
+            estadoRastreoId: estadoRastreoSeleccionado,
+          }),
+          {
+            loading: 'Aplicando estado por periodo...',
+            success: (res) =>
+              `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s)`,
+            error: 'No se pudo aplicar el estado',
+          },
         );
       } else {
         if (despachosSeleccionados.length === 0) {
-          toast.error('Selecciona al menos un despacho');
+          notify.warning('Selecciona al menos un despacho');
           return;
         }
-        const res = await aplicarEstadoEnDespachos.mutateAsync({
-          despachoIds: despachosSeleccionados,
-          estadoRastreoId: estadoRastreoSeleccionado,
-        });
-        toast.success(
-          `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s) actualizado(s).`,
+        await notify.run(
+          aplicarEstadoEnDespachos.mutateAsync({
+            despachoIds: despachosSeleccionados,
+            estadoRastreoId: estadoRastreoSeleccionado,
+          }),
+          {
+            loading: `Aplicando estado a ${despachosSeleccionados.length} despacho${despachosSeleccionados.length === 1 ? '' : 's'}...`,
+            success: (res) =>
+              `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s)`,
+            error: 'No se pudo aplicar el estado',
+          },
         );
       }
       cerrarAplicarEstado();
-    } catch (err) {
-      toast.error(getApiErrorMessage(err) ?? 'Error al aplicar estado');
+    } catch {
+      // notificado por notify.run
     }
   };
 
@@ -371,14 +409,17 @@ export function DespachoListPage() {
     if (page > 0 && page >= totalPages) setPage(totalPages - 1);
   }, [page, totalPages]);
 
-  if (isLoading) {
-    return <LoadingState text="Cargando despachos..." />;
-  }
-  if (error) {
+  // Solo bloqueamos la página completa si nunca tuvimos datos. Si el usuario
+  // ya estaba viendo despachos y la siguiente recarga falla, mostramos el
+  // banner arriba (más abajo en el render) y conservamos la tabla previa.
+  if (error && !despachos) {
     return (
-      <div className="ui-alert ui-alert-error">
-        Error al cargar despachos.
-      </div>
+      <InlineErrorBanner
+        message="Error al cargar despachos"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
     );
   }
 
@@ -395,9 +436,18 @@ export function DespachoListPage() {
 
   return (
     <div className="page-stack">
+      {error && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los despachos"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
+
       <ListToolbar
         title="Despachos"
-        searchPlaceholder="Buscar por #, guía, distribuidor, destinatario, agencia..."
+        searchPlaceholder="Buscar por #, guía, precinto, distribuidor, agencia, destinatario, operario u observaciones..."
         onSearchChange={setSearch}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -421,7 +471,10 @@ export function DespachoListPage() {
         }
       />
 
-      {allDespachos.length > 0 && (
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} />
+      ) : (
+        allDespachos.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<Truck className="h-5 w-5" />}
@@ -448,9 +501,13 @@ export function DespachoListPage() {
             tone="neutral"
           />
         </div>
+        )
       )}
 
-      {allDespachos.length > 0 && (
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={5} filters={1} />
+      ) : (
+        allDespachos.length > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -544,9 +601,34 @@ export function DespachoListPage() {
             )
           }
         />
+        )
       )}
 
-      {allDespachos.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[820px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[14rem]">Despacho</TableHead>
+                <TableHead className="hidden w-[10rem] lg:table-cell">Tipo</TableHead>
+                <TableHead className="min-w-[14rem]">Destino</TableHead>
+                <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
+                <TableHead className="hidden w-[8rem] md:table-cell">Sacas</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={6}
+                columnClasses={{
+                  1: 'hidden lg:table-cell',
+                  4: 'hidden md:table-cell',
+                }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : allDespachos.length === 0 ? (
         <EmptyState
           icon={Truck}
           title="No hay despachos"
@@ -582,10 +664,10 @@ export function DespachoListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[14rem]">Despacho</TableHead>
-                  <TableHead className="w-[10rem]">Tipo</TableHead>
+                  <TableHead className="hidden w-[10rem] lg:table-cell">Tipo</TableHead>
                   <TableHead className="min-w-[14rem]">Destino</TableHead>
                   <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
-                  <TableHead className="w-[8rem]">Sacas</TableHead>
+                  <TableHead className="hidden w-[8rem] md:table-cell">Sacas</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
@@ -604,7 +686,7 @@ export function DespachoListPage() {
                     <TableCell className="align-top">
                       <DespachoCell despacho={d} />
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top lg:table-cell">
                       <Badge
                         variant="outline"
                         className={`${TIPO_COLORS[d.tipoEntrega]} font-normal`}
@@ -618,7 +700,7 @@ export function DespachoListPage() {
                     <TableCell className="align-top">
                       <DistribuidorCell nombre={d.distribuidorNombre} />
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top md:table-cell">
                       <SacasBadge total={d.sacaIds?.length ?? 0} />
                     </TableCell>
                     <TableCell
@@ -718,13 +800,11 @@ export function DespachoListPage() {
         loading={deleteMutation.isPending}
         onConfirm={async () => {
           if (deleteConfirmId == null) return;
-          try {
-            await deleteMutation.mutateAsync(deleteConfirmId);
-            toast.success('Despacho eliminado');
-          } catch (error: unknown) {
-            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el despacho');
-            throw error;
-          }
+          await notify.run(deleteMutation.mutateAsync(deleteConfirmId), {
+            loading: 'Eliminando despacho...',
+            success: 'Despacho eliminado',
+            error: 'No se pudo eliminar el despacho',
+          });
         }}
       />
 
@@ -1478,10 +1558,10 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
     try {
       await navigator.clipboard.writeText(mensaje);
       setCopiado(true);
-      toast.success('Mensaje copiado');
+      notify.success('Mensaje copiado');
       window.setTimeout(() => setCopiado(false), 1800);
     } catch {
-      toast.error('No se pudo copiar el mensaje');
+      notify.error('No se pudo copiar el mensaje');
     }
   };
 

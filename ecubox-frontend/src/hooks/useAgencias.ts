@@ -25,8 +25,18 @@ export function useAgencias() {
 }
 
 export function useAgenciasPaginadas(params: PageQuery = {}) {
+  // Usamos una tupla explícita en vez del objeto `params` para que la
+  // queryKey solo cambie cuando los valores cambien realmente. Si pasáramos
+  // el objeto entero, una nueva referencia en cada render invalidaría la
+  // cache y dispararía refetchs/loadings innecesarios.
   return useQuery({
-    queryKey: [...AGENCIAS_QUERY_KEY, 'page', params],
+    queryKey: [
+      ...AGENCIAS_QUERY_KEY,
+      'page',
+      params.q ?? '',
+      params.page ?? 0,
+      params.size ?? 25,
+    ] as const,
     queryFn: () => listarAgenciasPaginado(params),
     placeholderData: keepPreviousData,
   });

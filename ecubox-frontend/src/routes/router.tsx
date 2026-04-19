@@ -1,6 +1,6 @@
 import { createRootRoute, createRoute, createRouter, RouterProvider, Outlet, redirect } from '@tanstack/react-router';
 import { useEffect, type ComponentType } from 'react';
-import { Toaster } from 'sonner';
+import { AppToaster } from '@/components/ui/sonner';
 import { HomePage } from '@/pages/home/HomePage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { RegistroSimplePage } from '@/pages/registro/RegistroSimplePage';
@@ -51,7 +51,7 @@ function RootLayout() {
   return (
     <>
       <Outlet />
-      <Toaster position="top-right" richColors />
+      <AppToaster />
     </>
   );
 }

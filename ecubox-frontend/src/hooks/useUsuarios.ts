@@ -29,7 +29,13 @@ export function useUsuarios() {
 
 export function useUsuariosPaginados(params: PageQuery = {}) {
   return useQuery({
-    queryKey: [...QUERY_KEY, 'page', params],
+    queryKey: [
+      ...QUERY_KEY,
+      'page',
+      params.q ?? '',
+      params.page ?? 0,
+      params.size ?? 25,
+    ] as const,
     queryFn: () => listarUsuariosPaginado(params),
     placeholderData: keepPreviousData,
   });

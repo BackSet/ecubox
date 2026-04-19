@@ -15,7 +15,11 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { ListTableShell } from '@/components/ListTableShell';
+import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import {
   Table,
@@ -55,7 +59,30 @@ export function MiGuiaDetailPage() {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  if (isLoading) return <LoadingState text="Cargando guía..." />;
+  if (isLoading) {
+    return (
+      <div className="page-stack" aria-busy="true" aria-live="polite">
+        <DetailHeaderSkeleton badges={2} metaLines={2} />
+        <KpiCardsGridSkeleton count={3} gridClassName="grid grid-cols-2 gap-3 md:grid-cols-3" />
+        <SurfaceCardSkeleton bodyLines={3} />
+        <ListTableShell>
+          <Table className="min-w-[600px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Pieza</TableHead>
+                <TableHead className="hidden md:table-cell">Destinatario</TableHead>
+                <TableHead className="text-right">Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton columns={3} columnClasses={{ 1: 'hidden md:table-cell' }} />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+        <span className="sr-only">Cargando guía...</span>
+      </div>
+    );
+  }
   if (error || !guia) {
     return (
       <div className="space-y-3">
@@ -194,9 +221,7 @@ export function MiGuiaDetailPage() {
             </span>
           )}
         </div>
-        {loadingPiezas ? (
-          <LoadingState text="Cargando piezas..." />
-        ) : !piezas || piezas.length === 0 ? (
+        {!loadingPiezas && (!piezas || piezas.length === 0) ? (
           <p className="rounded-md border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
             Todavía no hay piezas registradas para esta guía. Te avisaremos en cuanto la
             bodega de EE.UU. reciba la primera.
@@ -213,7 +238,8 @@ export function MiGuiaDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {piezas.map((p) => (
+                {loadingPiezas && <TableRowsSkeleton columns={4} rows={4} />}
+                {(piezas ?? []).map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="align-top font-mono text-xs">
                       {p.piezaNumero != null && p.piezaTotal != null

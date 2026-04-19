@@ -4,6 +4,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Eraser,
+  Loader2,
   PackageX,
   Save,
   Scale,
@@ -11,11 +12,14 @@ import {
   Weight,
   X,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { KpiCard } from '@/components/KpiCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -88,7 +92,7 @@ function fmtDecimal(n: number): string {
 }
 
 export function CargarPesosPage() {
-  const { data: paquetes, isLoading, error } = usePaquetesOperario(true);
+  const { data: paquetes, isLoading, isFetching, error, refetch } = usePaquetesOperario(true);
   const bulkUpdate = useBulkUpdatePesos();
   const [weights, setWeights] = useState<WeightInputs>({});
   const [search, setSearchRaw] = useState('');
@@ -356,33 +360,34 @@ export function CargarPesosPage() {
       .filter((x): x is NonNullable<typeof x> => x != null);
 
     if (items.length === 0) {
-      toast.error('Ingresa al menos un peso válido en alguna fila');
+      notify.warning('Ingresa al menos un peso válido en alguna fila');
       return;
     }
 
     try {
-      await bulkUpdate.mutateAsync(items);
-      toast.success(
-        `Pesos actualizados: ${items.length} paquete${items.length === 1 ? '' : 's'}`,
-      );
+      await notify.run(bulkUpdate.mutateAsync(items), {
+        loading: `Guardando ${items.length} peso${items.length === 1 ? '' : 's'}...`,
+        success: `Pesos actualizados (${items.length} paquete${items.length === 1 ? '' : 's'})`,
+        error: 'No se pudieron guardar los pesos',
+      });
       setWeights((prev) => {
         const next = { ...prev };
         items.forEach((i) => delete next[i.paqueteId]);
         return next;
       });
     } catch {
-      toast.error('Error al guardar los pesos');
+      // notificado por notify.run
     }
   }, [paquetes, weights, bulkUpdate]);
 
-  if (isLoading) {
-    return <LoadingState text="Cargando paquetes..." />;
-  }
-  if (error) {
+  if (error && (!paquetes || paquetes.length === 0)) {
     return (
-      <div className="ui-alert ui-alert-error">
-        Error al cargar paquetes.
-      </div>
+      <InlineErrorBanner
+        message="Error al cargar paquetes"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
     );
   }
 
@@ -391,9 +396,17 @@ export function CargarPesosPage() {
 
   return (
     <div className="page-stack">
+      {error && allPaquetes.length > 0 && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los paquetes"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
       <ListToolbar
         title="Cargar pesos"
-        searchPlaceholder="Buscar por ref, guía, destinatario, envío consolidado o contenido..."
+        searchPlaceholder="Buscar por ref, guía/master, destinatario, contenido o envío..."
         onSearchChange={setSearch}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -424,7 +437,11 @@ export function CargarPesosPage() {
               disabled={bulkUpdate.isPending || stats.listos === 0}
               className="w-full sm:w-auto"
             >
-              <Save className="mr-2 h-4 w-4" />
+              {bulkUpdate.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
               {bulkUpdate.isPending
                 ? 'Guardando...'
                 : stats.listos > 0
@@ -435,7 +452,10 @@ export function CargarPesosPage() {
         }
       />
 
-      {allPaquetes.length > 0 && (
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} />
+      ) : (
+        allPaquetes.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<PackageX className="h-5 w-5" />}
@@ -464,9 +484,13 @@ export function CargarPesosPage() {
             tone="primary"
           />
         </div>
+        )
       )}
 
-      {allPaquetes.length > 0 && (
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={4} filters={3} />
+      ) : (
+        allPaquetes.length > 0 && (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
           <div className="flex flex-wrap items-center gap-2">
             <ChipFiltro
@@ -591,9 +615,36 @@ export function CargarPesosPage() {
             </div>
           )}
         </div>
+        )
       )}
 
-      {allPaquetes.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[820px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[14rem]">Ref / Guía</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="min-w-[14rem]">Destinatario</TableHead>
+                <TableHead className="hidden lg:table-cell">Envío consolidado</TableHead>
+                <TableHead className="hidden xl:table-cell">Contenido</TableHead>
+                <TableHead className="w-[10rem]">Peso (lbs)</TableHead>
+                <TableHead className="w-[10rem]">Peso (kg)</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={8}
+                columnClasses={{
+                  3: 'hidden lg:table-cell',
+                  4: 'hidden xl:table-cell',
+                }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : allPaquetes.length === 0 ? (
         <EmptyState
           icon={Weight}
           title="No hay paquetes sin peso"
@@ -625,14 +676,14 @@ export function CargarPesosPage() {
             {' · escribe en lbs o kg, la otra unidad se calcula automáticamente.'}
           </p>
           <ListTableShell>
-            <Table className="min-w-[1100px] text-left">
+            <Table className="min-w-[820px] text-left">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[14rem]">Ref / Guía</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="min-w-[14rem]">Destinatario</TableHead>
-                  <TableHead>Envío consolidado</TableHead>
-                  <TableHead>Contenido</TableHead>
+                  <TableHead className="hidden lg:table-cell">Envío consolidado</TableHead>
+                  <TableHead className="hidden xl:table-cell">Contenido</TableHead>
                   <TableHead className="w-[10rem]">Peso (lbs)</TableHead>
                   <TableHead className="w-[10rem]">Peso (kg)</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
@@ -674,7 +725,7 @@ export function CargarPesosPage() {
                       <TableCell className="max-w-[18rem] align-top">
                         <DestinatarioCell paquete={p} />
                       </TableCell>
-                      <TableCell className="align-top">
+                      <TableCell className="hidden align-top lg:table-cell">
                         {p.envioConsolidadoCodigo ? (
                           <div className="flex items-center gap-1.5">
                             <MonoTrunc
@@ -694,7 +745,7 @@ export function CargarPesosPage() {
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="max-w-[16rem] align-top text-sm text-muted-foreground">
+                      <TableCell className="hidden max-w-[16rem] align-top text-sm text-muted-foreground xl:table-cell">
                         <span className="line-clamp-2 break-words">{p.contenido ?? '—'}</span>
                       </TableCell>
                       <TableCell className="align-top">
@@ -757,7 +808,7 @@ export function CargarPesosPage() {
         onAplicar={(items) => {
           aplicarPesosEnBloque(items);
           setDistribuirOpen(false);
-          toast.success(
+          notify.success(
             `Peso distribuido entre ${items.length} paquete${items.length === 1 ? '' : 's'}`,
           );
         }}
@@ -920,15 +971,15 @@ function DistribuirTotalDialog({
 
   function handleAplicar() {
     if (totalNum == null) {
-      toast.error('Ingresa un peso total mayor que 0');
+      notify.warning('Ingresa un peso total mayor que 0');
       return;
     }
     if (!target) {
-      toast.error(`Selecciona un ${modo === 'envio' ? 'envío consolidado' : 'guía master'}`);
+      notify.warning(`Selecciona un ${modo === 'envio' ? 'envío consolidado' : 'guía master'}`);
       return;
     }
     if (aplicaA.length === 0) {
-      toast.error(
+      notify.warning(
         sobrescribir
           ? 'No hay paquetes en este grupo'
           : 'No hay paquetes vacíos en este grupo. Activa "Sobrescribir" para reemplazar valores existentes.',

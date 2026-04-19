@@ -17,8 +17,9 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { ListTableShell } from '@/components/ListTableShell';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ListToolbar } from '@/components/ListToolbar';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
@@ -79,7 +80,7 @@ export function MisGuiasListPage() {
   const [registrarOpen, setRegistrarOpen] = useState(false);
   const [editingGuia, setEditingGuia] = useState<GuiaMaster | null>(null);
   const [deletingGuia, setDeletingGuia] = useState<GuiaMaster | null>(null);
-  const { data: guias = [], isLoading, error } = useMisGuias();
+  const { data: guias = [], isLoading, isFetching, error, refetch } = useMisGuias();
   const eliminar = useEliminarMiGuia();
 
   const conteosPorEstado = useMemo(() => {
@@ -222,13 +223,23 @@ export function MisGuiasListPage() {
         />
       )}
 
-      {isLoading ? (
-        <LoadingState text="Cargando tus guías..." />
-      ) : error ? (
-        <div className="ui-alert ui-alert-error">
-          No se pudieron cargar tus guías.
-        </div>
-      ) : filtered.length === 0 ? (
+      {error && filtered.length > 0 && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar tus guías"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
+
+      {error && filtered.length === 0 && !isLoading ? (
+        <InlineErrorBanner
+          message="No se pudieron cargar tus guías"
+          hint="Verifica tu conexión o intenta de nuevo."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      ) : !isLoading && filtered.length === 0 ? (
         <EmptyState
           icon={Boxes}
           title={
@@ -264,11 +275,17 @@ export function MisGuiasListPage() {
                 <TableHead>Estado</TableHead>
                 <TableHead className="min-w-[12rem]">Piezas</TableHead>
                 <TableHead className="w-[20rem]">Destinatario</TableHead>
-                <TableHead>Registrada</TableHead>
+                <TableHead className="hidden md:table-cell">Registrada</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && (
+                <TableRowsSkeleton
+                  columns={6}
+                  columnClasses={{ 4: 'hidden md:table-cell' }}
+                />
+              )}
               {pagedFiltered.map((g) => {
                 const totalPendiente = g.totalPiezasEsperadas == null;
                 const editable = g.estadoGlobal === ESTADO_EDITABLE;
@@ -310,7 +327,7 @@ export function MisGuiasListPage() {
                         emptyItalic
                       />
                     </TableCell>
-                    <TableCell className="align-top text-xs text-muted-foreground">
+                    <TableCell className="hidden align-top text-xs text-muted-foreground md:table-cell">
                       <FechaCreada createdAt={g.createdAt} />
                     </TableCell>
                     <TableCell

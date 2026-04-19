@@ -52,7 +52,10 @@ class TrackingViewProjectorTest {
         eventRepo = mock(PaqueteEstadoEventoRepository.class);
         viewRepo = mock(TrackingViewPaqueteRepository.class);
         stateRepo = mock(TrackingProjectorStateRepository.class);
-        projector = new TrackingViewProjector(eventRepo, viewRepo, stateRepo, /*meterRegistry*/ null);
+        // En tests no hay proxy AOP de Spring, así que pasamos `this` como self
+        // para que `run()` siga llamando a `drainBatch()` sobre la misma instancia.
+        projector = new TrackingViewProjector(eventRepo, viewRepo, stateRepo, /*meterRegistry*/ null, /*self*/ null);
+        ReflectionTestUtils.setField(projector, "self", projector);
         ReflectionTestUtils.setField(projector, "batchSize", 100);
         ReflectionTestUtils.setField(projector, "enabled", true);
 

@@ -430,7 +430,7 @@ public class GuiaMasterService {
      * Variante paginada del listado de guías master con búsqueda libre.
      * <p>Campos contemplados por {@code q}: {@code trackingBase} (tracking),
      * {@code destinatarioFinal.nombre}, {@code destinatarioFinal.codigo},
-     * {@code clienteUsuario.nombre}, {@code clienteUsuario.email}.</p>
+     * {@code clienteUsuario.username}, {@code clienteUsuario.email}.</p>
      */
     @Transactional(readOnly = true)
     public Page<GuiaMaster> findAllPaginated(String q, java.util.Collection<EstadoGuiaMaster> estados,
@@ -441,7 +441,7 @@ public class GuiaMasterService {
                 SearchSpecifications.field("trackingBase"),
                 SearchSpecifications.path("destinatarioFinal", "nombre"),
                 SearchSpecifications.path("destinatarioFinal", "codigo"),
-                SearchSpecifications.path("clienteUsuario", "nombre"),
+                SearchSpecifications.path("clienteUsuario", "username"),
                 SearchSpecifications.path("clienteUsuario", "email"));
         if (estados != null && !estados.isEmpty()) {
             final java.util.Collection<EstadoGuiaMaster> finalEstados = estados;

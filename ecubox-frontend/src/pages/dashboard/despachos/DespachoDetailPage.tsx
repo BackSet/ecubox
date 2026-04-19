@@ -27,7 +27,7 @@ import {
   Truck,
   User as UserIcon,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -45,7 +45,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { KpiCard } from '@/components/KpiCard';
 import { ListTableShell } from '@/components/ListTableShell';
@@ -61,7 +65,6 @@ import { buildDespachoPdf } from '@/lib/pdf/builders/despachoPdf';
 import { runJsPdfAction } from '@/lib/pdf/actions';
 import { downloadDespachoXlsx } from '@/lib/xlsx/despachoXlsx';
 import { lbsToKg } from '@/lib/utils/weight';
-import { getApiErrorMessage } from '@/lib/api/error-message';
 import { cn } from '@/lib/utils';
 import type { Despacho, Saca, TamanioSaca, TipoEntrega } from '@/types/despacho';
 import type { Paquete } from '@/types/paquete';
@@ -239,7 +242,32 @@ export function DespachoDetailPage() {
       <ErrorScreen message="ID de despacho no válido." />
     );
   }
-  if (isLoading) return <LoadingState text="Cargando despacho..." />;
+  if (isLoading) {
+    return (
+      <div className="page-stack" aria-busy="true" aria-live="polite">
+        <DetailHeaderSkeleton badges={3} metaLines={2} />
+        <KpiCardsGridSkeleton count={4} />
+        <SurfaceCardSkeleton bodyLines={4} />
+        <SurfaceCardSkeleton bodyLines={3} withHeader />
+        <ListTableShell>
+          <Table className="min-w-[640px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Saca</TableHead>
+                <TableHead>Destinatario</TableHead>
+                <TableHead className="hidden md:table-cell">Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton columns={4} columnClasses={{ 2: 'hidden md:table-cell' }} />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+        <span className="sr-only">Cargando despacho...</span>
+      </div>
+    );
+  }
   if (error || !despacho) {
     return <ErrorScreen message="No se pudo cargar el despacho." />;
   }
@@ -252,20 +280,29 @@ export function DespachoDetailPage() {
   const handleExport = async (mode: 'pdf' | 'print' | 'xlsx') => {
     if (exporting) return;
     setExporting(mode);
+    const labels =
+      mode === 'xlsx'
+        ? { loading: 'Generando Excel del despacho...', success: 'Excel generado', error: 'No se pudo generar el Excel' }
+        : mode === 'pdf'
+          ? { loading: 'Generando PDF del despacho...', success: 'PDF generado', error: 'No se pudo generar el PDF' }
+          : { loading: 'Preparando vista de impresión...', success: 'Vista de impresión lista', error: 'No se pudo preparar la impresión' };
     try {
-      if (mode === 'xlsx') {
-        await downloadDespachoXlsx(d);
-        toast.success('Excel generado');
-      } else {
-        const doc = buildDespachoPdf(d);
-        runJsPdfAction(doc, {
-          mode: mode === 'pdf' ? 'download' : 'print',
-          filename: `despacho-${d.id}.pdf`,
-        });
-        if (mode === 'pdf') toast.success('PDF generado');
-      }
+      await notify.run(
+        (async () => {
+          if (mode === 'xlsx') {
+            await downloadDespachoXlsx(d);
+          } else {
+            const doc = buildDespachoPdf(d);
+            runJsPdfAction(doc, {
+              mode: mode === 'pdf' ? 'download' : 'print',
+              filename: `despacho-${d.id}.pdf`,
+            });
+          }
+        })(),
+        labels,
+      );
     } catch {
-      toast.error('No se pudo generar el documento');
+      // notificado por notify.run
     } finally {
       setExporting(null);
     }
@@ -273,11 +310,13 @@ export function DespachoDetailPage() {
 
   const handleDelete = async () => {
     try {
-      await deleteMutation.mutateAsync(d.id);
-      toast.success('Despacho eliminado');
+      await notify.run(deleteMutation.mutateAsync(d.id), {
+        loading: 'Eliminando despacho...',
+        success: 'Despacho eliminado',
+        error: 'No se pudo eliminar el despacho',
+      });
       navigate({ to: '/despachos' });
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) ?? 'Error al eliminar el despacho');
+    } catch (err) {
       throw err;
     }
   };
@@ -896,7 +935,7 @@ function SacaCard({
                   <TableHead>Guía master / Pieza</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Destinatario</TableHead>
-                  <TableHead className="max-w-[220px]">Contenido</TableHead>
+                  <TableHead className="hidden max-w-[220px] md:table-cell">Contenido</TableHead>
                   <TableHead className="text-right">Peso</TableHead>
                   <TableHead className="w-[60px] text-right">Acción</TableHead>
                 </TableRow>
@@ -919,7 +958,7 @@ function SacaCard({
                     <TableCell>
                       <DestinatarioCell paquete={p} />
                     </TableCell>
-                    <TableCell className="max-w-[220px]">
+                    <TableCell className="hidden max-w-[220px] md:table-cell">
                       {p.contenido ? (
                         <span
                           className="line-clamp-2 break-words text-xs text-muted-foreground"
@@ -1013,7 +1052,7 @@ function CopyButton({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      toast.error('No se pudo copiar');
+      notify.error('No se pudo copiar');
     }
   }
   const Icon = copied ? Check : Copy;
@@ -1053,15 +1092,27 @@ function WhatsAppPanel({
     if (!text) return;
     void navigator.clipboard
       .writeText(text)
-      .then(() => toast.success('Mensaje copiado'))
-      .catch(() => toast.error('No se pudo copiar'));
+      .then(() => notify.success('Mensaje copiado'))
+      .catch(() => notify.error('No se pudo copiar'));
   };
 
   if (loading) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Generando mensaje...
+      <div className="space-y-3" aria-busy="true" aria-live="polite">
+        <div className="rounded-2xl border border-[var(--color-success)]/20 bg-[color-mix(in_oklab,var(--color-success)_8%,transparent)] p-3">
+          <div className="space-y-2 rounded-xl rounded-tl-sm border border-border bg-[var(--color-card)] p-3">
+            <Skeleton className="h-3 w-11/12" />
+            <Skeleton className="h-3 w-10/12" />
+            <Skeleton className="h-3 w-9/12" />
+            <Skeleton className="h-3 w-8/12" />
+            <Skeleton className="h-3 w-11/12" />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        <span className="sr-only">Generando mensaje...</span>
       </div>
     );
   }

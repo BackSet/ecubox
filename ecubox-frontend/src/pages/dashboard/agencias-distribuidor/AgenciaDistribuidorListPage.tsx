@@ -22,7 +22,10 @@ import { useDistribuidoresAdmin } from '@/hooks/useDistribuidoresAdmin';
 import { AgenciaDistribuidorForm } from './AgenciaDistribuidorForm';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
@@ -61,6 +64,7 @@ export function AgenciaDistribuidorListPage() {
     isLoading,
     isFetching,
     error,
+    refetch,
   } = useAgenciasDistribuidorPaginadas({ q: q.trim() || undefined, page, size });
   const { data: distribuidores = [] } = useDistribuidoresAdmin();
   const deleteMutation = useDeleteAgenciaDistribuidor();
@@ -171,14 +175,14 @@ export function AgenciaDistribuidorListPage() {
     return { total, distribs, provs, promedio };
   }, [all, distribuidoresEnUso, provincias, totalElements]);
 
-  if (isLoading) {
-    return <LoadingState text="Cargando agencias de distribuidor..." />;
-  }
-  if (error) {
+  if (error && !data) {
     return (
-      <div className="ui-alert ui-alert-error">
-        Error al cargar agencias de distribuidor.
-      </div>
+      <InlineErrorBanner
+        message="Error al cargar agencias de distribuidor"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
     );
   }
 
@@ -186,7 +190,8 @@ export function AgenciaDistribuidorListPage() {
     <div className="page-stack">
       <ListToolbar
         title="Agencias de distribuidor"
-        searchPlaceholder="Buscar por código, distribuidor, provincia, cantón..."
+        searchPlaceholder="Buscar por código, distribuidor, ubicación u horario..."
+        value={q}
         onSearchChange={setQ}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
@@ -196,7 +201,19 @@ export function AgenciaDistribuidorListPage() {
         }
       />
 
-      {totalElements > 0 && (
+      {error && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar las agencias de distribuidor"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
+
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} withHint />
+      ) : (
+        totalElements > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<Building2 className="h-4 w-4" />}
@@ -229,9 +246,13 @@ export function AgenciaDistribuidorListPage() {
             hint="Solo agencias con tarifa > 0"
           />
         </div>
+        )
       )}
 
-      {totalElements > 0 && (
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={5} filters={2} />
+      ) : (
+        totalElements > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -337,9 +358,34 @@ export function AgenciaDistribuidorListPage() {
             )
           }
         />
+        )
       )}
 
-      {list.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[1000px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[20rem]">Agencia</TableHead>
+                <TableHead className="min-w-[14rem]">Distribuidor</TableHead>
+                <TableHead className="min-w-[18rem]">Ubicación</TableHead>
+                <TableHead className="hidden min-w-[14rem] md:table-cell">Operación</TableHead>
+                <TableHead className="hidden text-right lg:table-cell">Tarifa</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={6}
+                columnClasses={{
+                  3: 'hidden md:table-cell',
+                  4: 'hidden lg:table-cell',
+                }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : list.length === 0 ? (
         <EmptyState
           icon={Building2}
           title={totalElements === 0 ? 'No hay agencias de distribuidor' : 'Sin resultados'}
@@ -368,8 +414,8 @@ export function AgenciaDistribuidorListPage() {
                 <TableHead className="w-[20rem]">Agencia</TableHead>
                 <TableHead className="min-w-[14rem]">Distribuidor</TableHead>
                 <TableHead className="min-w-[18rem]">Ubicación</TableHead>
-                <TableHead className="min-w-[14rem]">Operación</TableHead>
-                <TableHead className="text-right">Tarifa</TableHead>
+                <TableHead className="hidden min-w-[14rem] md:table-cell">Operación</TableHead>
+                <TableHead className="hidden text-right lg:table-cell">Tarifa</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -389,13 +435,13 @@ export function AgenciaDistribuidorListPage() {
                       canton={a.canton}
                     />
                   </TableCell>
-                  <TableCell className="max-w-[16rem] align-top">
+                  <TableCell className="hidden max-w-[16rem] align-top md:table-cell">
                     <OperacionCell
                       horario={a.horarioAtencion}
                       diasMaxRetiro={a.diasMaxRetiro}
                     />
                   </TableCell>
-                  <TableCell className="align-top text-right">
+                  <TableCell className="hidden align-top text-right lg:table-cell">
                     <TarifaCell tarifa={a.tarifa} />
                   </TableCell>
                   <TableCell className="align-top text-right">

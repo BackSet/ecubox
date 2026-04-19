@@ -16,7 +16,10 @@ import { toast } from 'sonner';
 import { useDeleteLoteRecepcion, useLotesRecepcion } from '@/hooks/useLotesRecepcion';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { ListTableShell } from '@/components/ListTableShell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
@@ -95,7 +98,7 @@ function dateInputAMs(s: string, finDelDia: boolean): number | null {
 
 export function LoteRecepcionListPage() {
   const navigate = useNavigate();
-  const { data: lotes, isLoading, error } = useLotesRecepcion();
+  const { data: lotes, isLoading, isFetching, error, refetch } = useLotesRecepcion();
   const deleteLote = useDeleteLoteRecepcion();
   const [search, setSearchRaw] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -208,14 +211,14 @@ export function LoteRecepcionListPage() {
     if (page > 0 && page >= totalPages) setPage(totalPages - 1);
   }, [page, totalPages]);
 
-  if (isLoading) {
-    return <LoadingState text="Cargando lotes de recepción..." />;
-  }
-  if (error) {
+  if (error && (!lotes || lotes.length === 0)) {
     return (
-      <div className="ui-alert ui-alert-error">
-        Error al cargar lotes de recepción.
-      </div>
+      <InlineErrorBanner
+        message="Error al cargar lotes de recepción"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
     );
   }
 
@@ -223,9 +226,17 @@ export function LoteRecepcionListPage() {
 
   return (
     <div className="page-stack">
+      {error && allLotes.length > 0 && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los lotes"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
       <ListToolbar
         title="Lotes de recepción"
-        searchPlaceholder="Buscar por #, observaciones, operario o guía..."
+        searchPlaceholder="Buscar por #, observaciones, operario o número de guía..."
         onSearchChange={setSearch}
         actions={
           <Link to="/lotes-recepcion/nuevo">
@@ -237,7 +248,10 @@ export function LoteRecepcionListPage() {
         }
       />
 
-      {allLotes.length > 0 && (
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} />
+      ) : (
+        allLotes.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<PackageCheck className="h-5 w-5" />}
@@ -264,9 +278,13 @@ export function LoteRecepcionListPage() {
             tone={stats.hoy > 0 ? 'warning' : 'neutral'}
           />
         </div>
+        )
       )}
 
-      {allLotes.length > 0 && (
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={0} filters={2} />
+      ) : (
+        allLotes.length > 0 && (
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -355,9 +373,31 @@ export function LoteRecepcionListPage() {
             </Button>
           )}
         </div>
+        )
       )}
 
-      {allLotes.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[820px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[14rem]">Recepción</TableHead>
+                <TableHead>Paquetes</TableHead>
+                <TableHead>Guías</TableHead>
+                <TableHead className="min-w-[14rem]">Operario</TableHead>
+                <TableHead className="hidden min-w-[14rem] md:table-cell">Observaciones</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={6}
+                columnClasses={{ 4: 'hidden md:table-cell' }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : allLotes.length === 0 ? (
         <EmptyState
           icon={PackageCheck}
           title="No hay lotes de recepción"
@@ -403,7 +443,7 @@ export function LoteRecepcionListPage() {
                   <TableHead>Paquetes</TableHead>
                   <TableHead>Guías</TableHead>
                   <TableHead className="min-w-[14rem]">Operario</TableHead>
-                  <TableHead className="min-w-[14rem]">Observaciones</TableHead>
+                  <TableHead className="hidden min-w-[14rem] md:table-cell">Observaciones</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
@@ -431,7 +471,7 @@ export function LoteRecepcionListPage() {
                     <TableCell className="align-top">
                       <OperarioCell nombre={l.operarioNombre} />
                     </TableCell>
-                    <TableCell className="max-w-[18rem] align-top">
+                    <TableCell className="hidden max-w-[18rem] align-top md:table-cell">
                       <ObservacionesCell texto={l.observaciones} />
                     </TableCell>
                     <TableCell

@@ -46,7 +46,7 @@ public class AgenciaService {
 
     /**
      * Lista paginada con búsqueda libre (LIKE multi-token) sobre nombre,
-     * código, cantón, provincia y dirección.
+     * código, encargado, cantón, provincia, dirección y horario de atención.
      */
     @Transactional(readOnly = true)
     public Page<AgenciaDTO> findAllPaginated(String q, int page, int size) {
@@ -56,9 +56,11 @@ public class AgenciaService {
         Specification<Agencia> spec = SearchSpecifications.tokensLike(q,
                 SearchSpecifications.field("nombre"),
                 SearchSpecifications.field("codigo"),
+                SearchSpecifications.field("encargado"),
                 SearchSpecifications.field("canton"),
                 SearchSpecifications.field("provincia"),
-                SearchSpecifications.field("direccion"));
+                SearchSpecifications.field("direccion"),
+                SearchSpecifications.field("horarioAtencion"));
         return agenciaRepository.findAll(spec, pageable).map(this::toDTO);
     }
 

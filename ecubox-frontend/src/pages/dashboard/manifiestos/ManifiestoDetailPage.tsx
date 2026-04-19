@@ -34,6 +34,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   useManifiesto,
   useRecalcularTotales,
@@ -44,7 +45,11 @@ import {
 } from '@/hooks/useManifiestos';
 import { useAgencias } from '@/hooks/useAgencias';
 import { useDistribuidoresAdmin } from '@/hooks/useDistribuidoresAdmin';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
+import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -78,7 +83,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { getApiErrorMessage } from '@/lib/api/error-message';
 import { buildManifiestoPdf } from '@/lib/pdf/builders/manifiestoPdf';
 import { runJsPdfAction } from '@/lib/pdf/actions';
 import { downloadManifiestoXlsx } from '@/lib/xlsx/manifiestoXlsx';
@@ -195,7 +199,37 @@ export function ManifiestoDetailPage() {
   const [exportFiltersOpen, setExportFiltersOpen] = useState(false);
 
   if (!idValido) return <ErrorScreen mensaje="ID de manifiesto no válido" />;
-  if (isLoading) return <LoadingState text="Cargando manifiesto..." />;
+  if (isLoading) {
+    return (
+      <div className="page-stack" aria-busy="true" aria-live="polite">
+        <DetailHeaderSkeleton badges={3} metaLines={2} />
+        <KpiCardsGridSkeleton count={4} />
+        <SurfaceCardSkeleton bodyLines={4} />
+        <ListTableShell>
+          <Table className="min-w-[760px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Despacho</TableHead>
+                <TableHead className="hidden md:table-cell">Distribuidor</TableHead>
+                <TableHead className="hidden lg:table-cell">Agencia</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={4}
+                columnClasses={{
+                  1: 'hidden md:table-cell',
+                  2: 'hidden lg:table-cell',
+                }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+        <span className="sr-only">Cargando manifiesto...</span>
+      </div>
+    );
+  }
   if (error || !manifiesto) return <ErrorScreen mensaje="No se pudo cargar el manifiesto" />;
 
   const m = manifiesto;
@@ -261,48 +295,61 @@ export function ManifiestoDetailPage() {
     );
   })();
 
-  function handleRecalcular() {
-    recalcular.mutate(m.id, {
-      onSuccess: () => toast.success('Totales recalculados'),
-      onError: (err: unknown) =>
-        toast.error(getApiErrorMessage(err) ?? 'Error al recalcular'),
-    });
+  async function handleRecalcular() {
+    try {
+      await notify.run(recalcular.mutateAsync(m.id), {
+        loading: 'Recalculando totales...',
+        success: 'Totales recalculados',
+        error: 'No se pudieron recalcular los totales',
+      });
+    } catch {
+      // notificado por notify.run
+    }
   }
 
-  function handleCambiarEstado(estado: EstadoManifiesto) {
+  async function handleCambiarEstado(estado: EstadoManifiesto) {
     if (estado === m.estado) return;
     if (estado === 'ANULADO') {
       setConfirmAnular(true);
       return;
     }
-    cambiarEstado.mutate(
-      { id: m.id, estado },
-      {
-        onSuccess: () => toast.success(`Estado cambiado a ${ESTADO_LABELS[estado]}`),
-        onError: (err: unknown) =>
-          toast.error(getApiErrorMessage(err) ?? 'Error al cambiar estado'),
-      },
-    );
+    try {
+      await notify.run(cambiarEstado.mutateAsync({ id: m.id, estado }), {
+        loading: `Cambiando estado a ${ESTADO_LABELS[estado]}...`,
+        success: `Estado cambiado a ${ESTADO_LABELS[estado]}`,
+        error: 'No se pudo cambiar el estado',
+      });
+    } catch {
+      // notificado por notify.run
+    }
   }
 
-  function handlePdfManifiesto(mode: 'download' | 'print') {
+  async function handlePdfManifiesto(mode: 'download' | 'print') {
     if (exporting) return;
     setExporting(mode === 'download' ? 'pdf' : 'print');
+    const labels =
+      mode === 'download'
+        ? { loading: 'Generando PDF del manifiesto...', success: 'PDF generado', error: 'No se pudo generar el PDF' }
+        : { loading: 'Preparando vista de impresión...', success: 'Vista de impresión lista', error: 'No se pudo preparar la impresión' };
     try {
-      const doc = buildManifiestoPdf({
-        manifiesto: m,
-        despachos: despachosFiltradosExport,
-        filtroAgenciaNombre: agenciaSeleccionada?.nombre,
-        filtroDistribuidorNombre: distribuidorSeleccionado?.nombre,
-      });
-      runJsPdfAction(doc, {
-        mode,
-        filename: `manifiesto-${m.codigo ?? m.id}.pdf`,
-        printMode: 'popup',
-      });
-      if (mode === 'download') toast.success('PDF generado');
+      await notify.run(
+        (async () => {
+          const doc = buildManifiestoPdf({
+            manifiesto: m,
+            despachos: despachosFiltradosExport,
+            filtroAgenciaNombre: agenciaSeleccionada?.nombre,
+            filtroDistribuidorNombre: distribuidorSeleccionado?.nombre,
+          });
+          runJsPdfAction(doc, {
+            mode,
+            filename: `manifiesto-${m.codigo ?? m.id}.pdf`,
+            printMode: 'popup',
+          });
+        })(),
+        labels,
+      );
     } catch {
-      toast.error('No se pudo generar el PDF');
+      // notificado por notify.run
     } finally {
       setExporting(null);
     }
@@ -312,15 +359,21 @@ export function ManifiestoDetailPage() {
     if (exporting) return;
     setExporting('xlsx');
     try {
-      await downloadManifiestoXlsx({
-        manifiesto: m,
-        despachos: despachosFiltradosExport,
-        filtroAgenciaNombre: agenciaSeleccionada?.nombre,
-        filtroDistribuidorNombre: distribuidorSeleccionado?.nombre,
-      });
-      toast.success('Excel generado');
+      await notify.run(
+        downloadManifiestoXlsx({
+          manifiesto: m,
+          despachos: despachosFiltradosExport,
+          filtroAgenciaNombre: agenciaSeleccionada?.nombre,
+          filtroDistribuidorNombre: distribuidorSeleccionado?.nombre,
+        }),
+        {
+          loading: 'Generando Excel del manifiesto...',
+          success: 'Excel generado',
+          error: 'No se pudo generar el Excel',
+        },
+      );
     } catch {
-      toast.error('No se pudo generar el Excel');
+      // notificado por notify.run
     } finally {
       setExporting(null);
     }
@@ -785,7 +838,7 @@ export function ManifiestoDetailPage() {
                 <TableRow>
                   <TableHead className="w-[3.5rem] text-center">#</TableHead>
                   <TableHead className="w-[12rem]">Guía</TableHead>
-                  <TableHead className="w-[8rem]">Tipo</TableHead>
+                  <TableHead className="hidden w-[8rem] md:table-cell">Tipo</TableHead>
                   <TableHead className="min-w-[12rem]">Destinatario</TableHead>
                   <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
                   <TableHead className="min-w-[10rem]">Agencia</TableHead>
@@ -806,7 +859,7 @@ export function ManifiestoDetailPage() {
                         <CopyButton value={d.numeroGuia} small title="Copiar guía" />
                       </div>
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top md:table-cell">
                       <Badge
                         variant="outline"
                         className={cn(
@@ -876,13 +929,11 @@ export function ManifiestoDetailPage() {
         variant="destructive"
         loading={cambiarEstado.isPending}
         onConfirm={async () => {
-          try {
-            await cambiarEstado.mutateAsync({ id: m.id, estado: 'ANULADO' });
-            toast.success('Manifiesto anulado');
-          } catch (err: unknown) {
-            toast.error(getApiErrorMessage(err) ?? 'Error al anular');
-            throw err;
-          }
+          await notify.run(cambiarEstado.mutateAsync({ id: m.id, estado: 'ANULADO' }), {
+            loading: 'Anulando manifiesto...',
+            success: 'Manifiesto anulado',
+            error: 'No se pudo anular el manifiesto',
+          });
         }}
       />
 
@@ -895,14 +946,12 @@ export function ManifiestoDetailPage() {
         variant="destructive"
         loading={deleteMutation.isPending}
         onConfirm={async () => {
-          try {
-            await deleteMutation.mutateAsync(m.id);
-            toast.success('Manifiesto eliminado');
-            navigate({ to: '/manifiestos' });
-          } catch (err: unknown) {
-            toast.error(getApiErrorMessage(err) ?? 'Error al eliminar');
-            throw err;
-          }
+          await notify.run(deleteMutation.mutateAsync(m.id), {
+            loading: 'Eliminando manifiesto...',
+            success: 'Manifiesto eliminado',
+            error: 'No se pudo eliminar el manifiesto',
+          });
+          navigate({ to: '/manifiestos' });
         }}
       />
     </div>
@@ -968,21 +1017,22 @@ function AsignarDespachosDialog({
     }
   }
 
-  function handleAsignar() {
-    asignar.mutate(
-      { id: manifiestoId, body: { despachoIds: selectedIds } },
-      {
-        onSuccess: () => {
-          toast.success(
-            `${selectedIds.length} despacho${selectedIds.length === 1 ? '' : 's'} asignado${selectedIds.length === 1 ? '' : 's'}`,
-          );
-          setSelectedIds([]);
-          onClose();
+  async function handleAsignar() {
+    const cantidad = selectedIds.length;
+    try {
+      await notify.run(
+        asignar.mutateAsync({ id: manifiestoId, body: { despachoIds: selectedIds } }),
+        {
+          loading: `Asignando ${cantidad} despacho${cantidad === 1 ? '' : 's'}...`,
+          success: `${cantidad} despacho${cantidad === 1 ? '' : 's'} asignado${cantidad === 1 ? '' : 's'}`,
+          error: 'No se pudieron asignar los despachos',
         },
-        onError: (err: unknown) =>
-          toast.error(getApiErrorMessage(err) ?? 'Error al asignar despachos'),
-      },
-    );
+      );
+      setSelectedIds([]);
+      onClose();
+    } catch {
+      // notificado por notify.run
+    }
   }
 
   function handleClose() {
@@ -1048,9 +1098,9 @@ function AsignarDespachosDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border">
           {isLoading ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
-              Cargando despachos...
+            <div aria-busy="true" aria-live="polite">
+              <ListItemsSkeleton rows={6} withTrailing />
+              <span className="sr-only">Cargando despachos...</span>
             </div>
           ) : candidatos.length === 0 ? (
             <div className="p-6 text-center">

@@ -20,9 +20,12 @@ import {
 import { usePermisosPaginados } from '@/hooks/usePermisos';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { ListToolbar } from '@/components/ListToolbar';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { KpiCard } from '@/components/KpiCard';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { Badge } from '@/components/ui/badge';
@@ -153,6 +156,7 @@ export function PermisoList() {
     isLoading,
     isFetching,
     error,
+    refetch,
   } = usePermisosPaginados({ q: q.trim() || undefined, page, size });
   const [moduloFiltro, setModuloFiltro] = useState<string>(MODULO_TODOS);
   const [tipoFiltro, setTipoFiltro] = useState<string>(TIPO_TODOS);
@@ -220,14 +224,14 @@ export function PermisoList() {
     resetPage();
   }
 
-  if (isLoading) {
-    return <LoadingState text="Cargando permisos..." />;
-  }
-  if (error) {
+  if (error && !data) {
     return (
-      <div className="ui-alert ui-alert-error">
-        Error al cargar permisos.
-      </div>
+      <InlineErrorBanner
+        message="Error al cargar permisos"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
     );
   }
 
@@ -236,9 +240,22 @@ export function PermisoList() {
       <ListToolbar
         title="Permisos"
         searchPlaceholder="Buscar por código o descripción..."
+        value={q}
         onSearchChange={setQ}
       />
 
+      {error && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los permisos"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
+
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} gridClassName="grid grid-cols-2 gap-3 lg:grid-cols-4" withHint />
+      ) : (
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           icon={<Key className="h-5 w-5" />}
@@ -266,7 +283,11 @@ export function PermisoList() {
           tone="warning"
         />
       </div>
+      )}
 
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={0} filters={2} />
+      ) : (
       <div className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -361,8 +382,28 @@ export function PermisoList() {
           )}
         </div>
       </div>
+      )}
 
-      {list.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[760px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[18rem]">Código</TableHead>
+                <TableHead className="w-[12rem]">Módulo</TableHead>
+                <TableHead className="hidden w-[8rem] md:table-cell">Tipo</TableHead>
+                <TableHead>Descripción</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={4}
+                columnClasses={{ 2: 'hidden md:table-cell' }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : list.length === 0 ? (
         <EmptyState
           icon={Key}
           title={totalElements === 0 ? 'No hay permisos' : 'Sin resultados'}
@@ -387,7 +428,7 @@ export function PermisoList() {
               <TableRow>
                 <TableHead className="w-[18rem]">Código</TableHead>
                 <TableHead className="w-[12rem]">Módulo</TableHead>
-                <TableHead className="w-[8rem]">Tipo</TableHead>
+                <TableHead className="hidden w-[8rem] md:table-cell">Tipo</TableHead>
                 <TableHead>Descripción</TableHead>
               </TableRow>
             </TableHeader>
@@ -410,7 +451,7 @@ export function PermisoList() {
                         {MODULO_LABELS[modulo] ?? modulo}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <span
                         className={cn(
                           'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium',

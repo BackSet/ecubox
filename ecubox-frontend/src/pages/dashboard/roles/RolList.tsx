@@ -21,9 +21,12 @@ import { useUsuarios } from '@/hooks/useUsuarios';
 import { useAuthStore } from '@/stores/authStore';
 import { RolEditPermisos } from './RolEditPermisos';
 import { ListToolbar } from '@/components/ListToolbar';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
@@ -75,6 +78,7 @@ export function RolList() {
     isLoading,
     isFetching,
     error,
+    refetch,
   } = useRolesPaginados({ q: q.trim() || undefined, page, size });
   const { data: permisosTotal = [] } = usePermisos();
   const { data: usuarios = [] } = useUsuarios();
@@ -130,14 +134,14 @@ export function RolList() {
     resetPage();
   }
 
-  if (isLoading) {
-    return <LoadingState text="Cargando roles..." />;
-  }
-  if (error) {
+  if (error && !data) {
     return (
-      <div className="ui-alert ui-alert-error">
-        Error al cargar roles.
-      </div>
+      <InlineErrorBanner
+        message="Error al cargar roles"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
     );
   }
 
@@ -145,10 +149,23 @@ export function RolList() {
     <div className="page-stack">
       <ListToolbar
         title="Roles"
-        searchPlaceholder="Buscar por nombre o por código de permiso..."
+        searchPlaceholder="Buscar por nombre del rol, código o descripción de permiso..."
+        value={q}
         onSearchChange={setQ}
       />
 
+      {error && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los roles"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
+
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} gridClassName="grid grid-cols-2 gap-3 lg:grid-cols-4" withHint />
+      ) : (
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           icon={<ShieldCheck className="h-5 w-5" />}
@@ -178,7 +195,11 @@ export function RolList() {
           hint={stats.sinPermisos > 0 ? 'No otorgan acceso a nada' : 'Todos los roles configurados'}
         />
       </div>
+      )}
 
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={3} filters={0} />
+      ) : (
       <div className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -243,8 +264,29 @@ export function RolList() {
           )}
         </div>
       </div>
+      )}
 
-      {list.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[820px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[16rem]">Rol</TableHead>
+                <TableHead className="w-[8rem]">Usuarios</TableHead>
+                <TableHead className="w-[10rem]">Permisos</TableHead>
+                <TableHead className="hidden md:table-cell">Módulos cubiertos</TableHead>
+                {hasWrite && <TableHead className="w-12 text-right" aria-label="Acciones" />}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={hasWrite ? 5 : 4}
+                columnClasses={{ 3: 'hidden md:table-cell' }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : list.length === 0 ? (
         <EmptyState
           icon={Shield}
           title={totalElements === 0 ? 'No hay roles' : 'Sin resultados'}
@@ -270,7 +312,7 @@ export function RolList() {
                 <TableHead className="w-[16rem]">Rol</TableHead>
                 <TableHead className="w-[8rem]">Usuarios</TableHead>
                 <TableHead className="w-[10rem]">Permisos</TableHead>
-                <TableHead>Módulos cubiertos</TableHead>
+                <TableHead className="hidden md:table-cell">Módulos cubiertos</TableHead>
                 {hasWrite && <TableHead className="w-12 text-right" aria-label="Acciones" />}
               </TableRow>
             </TableHeader>
@@ -291,7 +333,7 @@ export function RolList() {
                         total={stats.totalPermisosSistema}
                       />
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top md:table-cell">
                       <ModulosCell rol={r} />
                     </TableCell>
                     {hasWrite && (

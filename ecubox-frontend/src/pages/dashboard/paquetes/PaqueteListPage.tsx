@@ -7,7 +7,10 @@ import { PaqueteForm } from './PaqueteForm';
 import { PaqueteBulkCreateForm } from './PaqueteBulkCreateForm';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
@@ -46,7 +49,13 @@ export function PaqueteListPage() {
   // Dataset completo: alimenta KPIs, comboboxes de filtro y conteos de chips
   // (que requieren el universo total). La tabla principal usa la versión
   // paginada para soportar búsqueda en todo el dataset desde el server.
-  const { data: paquetes, isLoading, error } = usePaquetes();
+  const {
+    data: paquetes,
+    isLoading,
+    error,
+    isFetching: isFetchingAll,
+    refetch: refetchAll,
+  } = usePaquetes();
   const deletePaquete = useDeletePaquete();
   const [createOpen, setCreateOpen] = useState(false);
   const [editingPaquete, setEditingPaquete] = useState<Paquete | null>(null);
@@ -293,20 +302,32 @@ export function PaqueteListPage() {
     [resetPage],
   );
 
-  if (isLoading) {
-    return <LoadingState text="Cargando paquetes..." />;
-  }
-  if (error) {
-    return <div className="ui-alert ui-alert-error">Error al cargar paquetes.</div>;
+  // Si no hay datos en cache y la petición falló, mostramos el banner como
+  // fallback. Si ya tenemos datos previos, dejamos pasar y mostramos el banner
+  // arriba de la tabla (más abajo en el render) para que el usuario siga
+  // operando con el último snapshot mientras se reintenta.
+  if (error && !paquetes) {
+    return (
+      <InlineErrorBanner
+        message="Error al cargar paquetes"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetchAll()}
+        retrying={isFetchingAll}
+      />
+    );
   }
 
   const allPaquetes = paquetes ?? [];
+  const showStaleAllBanner = !!error && allPaquetes.length > 0;
+  const pageError = pageQuery.error;
+  const showPageBanner = !!pageError && (pageQuery.data?.content?.length ?? 0) > 0;
 
   return (
     <div className="page-stack">
       <ListToolbar
         title="Gestión de paquetes"
-        searchPlaceholder="Buscar por guía master, pieza, envío, destinatario o contenido..."
+        searchPlaceholder="Buscar por guía master, pieza/ref, envío, destinatario o contenido..."
+        value={q}
         onSearchChange={setQ}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -320,7 +341,22 @@ export function PaqueteListPage() {
         }
       />
 
-      {allPaquetes.length > 0 && (
+      {(showStaleAllBanner || showPageBanner) && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los paquetes"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => {
+            if (showStaleAllBanner) refetchAll();
+            if (showPageBanner) pageQuery.refetch();
+          }}
+          retrying={isFetchingAll || pageQuery.isFetching}
+        />
+      )}
+
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} />
+      ) : (
+        allPaquetes.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<Package className="h-5 w-5" />}
@@ -347,9 +383,13 @@ export function PaqueteListPage() {
             tone={stats.vencidos > 0 ? 'danger' : 'neutral'}
           />
         </div>
+        )
       )}
 
-      {allPaquetes.length > 0 && (
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={5} filters={2} />
+      ) : (
+        allPaquetes.length > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -495,9 +535,47 @@ export function PaqueteListPage() {
             )
           }
         />
+        )
       )}
 
-      {list.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="table-mobile-cards min-w-[860px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Guía master / Pieza</TableHead>
+                <TableHead>Ref</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Destinatario</TableHead>
+                {hasPesoWrite && (
+                  <TableHead className="hidden md:table-cell">Guía de envío</TableHead>
+                )}
+                <TableHead className="hidden lg:table-cell">Contenido</TableHead>
+                <TableHead>Peso</TableHead>
+                {(hasPaquetesUpdate || hasPaquetesDelete || hasGuiasMasterUpdate) && (
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={
+                  4 +
+                  (hasPesoWrite ? 1 : 0) +
+                  1 /* contenido */ +
+                  1 /* peso */ +
+                  (hasPaquetesUpdate || hasPaquetesDelete || hasGuiasMasterUpdate ? 1 : 0)
+                }
+                columnClasses={
+                  hasPesoWrite
+                    ? { 4: 'hidden md:table-cell', 5: 'hidden lg:table-cell' }
+                    : { 4: 'hidden lg:table-cell' }
+                }
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : list.length === 0 ? (
         <EmptyState
           icon={Package}
           title={allPaquetes.length === 0 ? 'No hay paquetes' : 'Sin resultados'}
@@ -533,8 +611,10 @@ export function PaqueteListPage() {
                   <TableHead>Ref</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Destinatario</TableHead>
-                  {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
-                  <TableHead>Contenido</TableHead>
+                  {hasPesoWrite && (
+                    <TableHead className="hidden md:table-cell">Guía de envío</TableHead>
+                  )}
+                  <TableHead className="hidden lg:table-cell">Contenido</TableHead>
                   <TableHead>Peso</TableHead>
                   {(hasPaquetesUpdate ||
                     hasPaquetesDelete ||
@@ -559,7 +639,10 @@ export function PaqueteListPage() {
                       <DestinatarioCell paquete={p} />
                     </TableCell>
                     {hasPesoWrite && (
-                      <TableCell data-label="Guía de envío">
+                      <TableCell
+                        data-label="Guía de envío"
+                        className="hidden md:table-cell"
+                      >
                         {p.envioConsolidadoCodigo ? (
                           <div className="flex items-center gap-1.5">
                             <MonoTrunc
@@ -575,7 +658,12 @@ export function PaqueteListPage() {
                         )}
                       </TableCell>
                     )}
-                    <TableCell data-label="Contenido" className="text-muted-foreground">{p.contenido ?? '—'}</TableCell>
+                    <TableCell
+                      data-label="Contenido"
+                      className="hidden text-muted-foreground lg:table-cell"
+                    >
+                      {p.contenido ?? '—'}
+                    </TableCell>
                     <TableCell data-label="Peso">
                       {p.pesoLbs != null || p.pesoKg != null
                         ? [p.pesoLbs != null ? `${p.pesoLbs} lbs` : null, p.pesoKg != null ? `${p.pesoKg} kg` : null]

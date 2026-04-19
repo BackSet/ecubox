@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { toast } from 'sonner';
-import { UserRound } from 'lucide-react';
+import { Loader2, UserRound } from 'lucide-react';
+import { notify } from '@/lib/notify';
+import { getApiStatus } from '@/lib/api/error-message';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,30 +30,31 @@ export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!trackingBase.trim()) {
-      toast.error('Indica el número de guía');
+      notify.warning('Indica el número de guía');
       return;
     }
     if (destinatarioId == null) {
-      toast.error('Selecciona un destinatario');
+      notify.warning('Selecciona un destinatario');
       return;
     }
     try {
-      await registrar.mutateAsync({
-        trackingBase: trackingBase.trim(),
-        destinatarioFinalId: destinatarioId,
-      });
-      toast.success('Guía registrada');
+      await notify.run(
+        registrar.mutateAsync({
+          trackingBase: trackingBase.trim(),
+          destinatarioFinalId: destinatarioId,
+        }),
+        {
+          loading: 'Registrando guía...',
+          success: 'Guía registrada',
+          error: (err) =>
+            getApiStatus(err) === 409
+              ? 'Ya existe una guía con ese número. Si crees que es un error, contacta al operario.'
+              : 'No se pudo registrar la guía',
+        },
+      );
       onClose();
-    } catch (err: unknown) {
-      const res = (err as { response?: { status?: number; data?: { message?: string } } })
-        ?.response;
-      if (res?.status === 409) {
-        toast.error(
-          'Ya existe una guía registrada con ese número. Si crees que es un error, contacta al operario.',
-        );
-      } else {
-        toast.error(res?.data?.message ?? 'No se pudo registrar la guía');
-      }
+    } catch {
+      // Error ya notificado por notify.run.
     }
   }
 
@@ -160,6 +162,7 @@ export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
               Cancelar
             </Button>
             <Button type="submit" disabled={registrar.isPending}>
+              {registrar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {registrar.isPending ? 'Registrando...' : 'Registrar guía'}
             </Button>
           </DialogFooter>

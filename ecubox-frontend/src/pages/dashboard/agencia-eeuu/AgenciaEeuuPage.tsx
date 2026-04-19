@@ -1,7 +1,7 @@
 ﻿import { useCallback } from 'react';
 import { Copy, MapPin, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { LoadingState } from '@/components/LoadingState';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { SurfaceCard } from '@/components/ui/surface-card';
@@ -38,7 +38,10 @@ export function AgenciaEeuuPage() {
       />
 
       {isLoading ? (
-        <LoadingState text="Cargando información…" />
+        <div aria-busy="true" aria-live="polite">
+          <SurfaceCardSkeleton bodyLines={6} />
+          <span className="sr-only">Cargando información…</span>
+        </div>
       ) : error ? (
         <div role="alert" className="ui-alert ui-alert-error">
           No se pudo cargar el mensaje. Intenta de nuevo más tarde.

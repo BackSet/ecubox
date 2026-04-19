@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -53,6 +54,17 @@ public class TrackingViewProjector {
     private final TrackingViewPaqueteRepository viewRepository;
     private final TrackingProjectorStateRepository stateRepository;
     private final MeterRegistry meterRegistry;
+    /**
+     * Self-injection (lazy) para que las llamadas a {@link #drainBatch()} desde
+     * {@link #run()} pasen por el proxy AOP de Spring y respeten {@code @Transactional}.
+     * Si llamáramos directamente {@code drainBatch()} (this) la transacción NO se
+     * aplicaría y los proxies lazy de Hibernate (p. ej. {@code Paquete}) quedarían
+     * sin sesión, lanzando {@link org.hibernate.LazyInitializationException}.
+     */
+    // Nota: NO es final para permitir que en tests unitarios se reasigne via
+    // ReflectionTestUtils sin chocar con las restricciones de mutación de
+    // campos final introducidas en JDK 25.
+    private TrackingViewProjector self;
 
     @Value("${tracking.projector.batch-size:200}")
     private int batchSize;
@@ -67,11 +79,13 @@ public class TrackingViewProjector {
     public TrackingViewProjector(PaqueteEstadoEventoRepository eventRepository,
                                  TrackingViewPaqueteRepository viewRepository,
                                  TrackingProjectorStateRepository stateRepository,
-                                 @Autowired(required = false) MeterRegistry meterRegistry) {
+                                 @Autowired(required = false) MeterRegistry meterRegistry,
+                                 @Lazy TrackingViewProjector self) {
         this.eventRepository = eventRepository;
         this.viewRepository = viewRepository;
         this.stateRepository = stateRepository;
         this.meterRegistry = meterRegistry;
+        this.self = self;
     }
 
     @PostConstruct
@@ -92,7 +106,11 @@ public class TrackingViewProjector {
     public void run() {
         if (!enabled) return;
         try {
-            int total = drainBatch();
+            // IMPORTANTE: invocamos vía self (proxy AOP) para que @Transactional
+            // sobre drainBatch sí se aplique. Una llamada directa drainBatch()
+            // se ejecutaría sin transacción y los proxies lazy de Paquete
+            // quedarían sin sesión Hibernate.
+            int total = self.drainBatch();
             updateLagMetrics();
             if (total > 0) {
                 log.debug("tracking_projector_batch processed={}", total);
@@ -137,10 +155,28 @@ public class TrackingViewProjector {
         if (p == null || p.getId() == null) {
             return;
         }
-        TrackingViewPaquete row = viewRepository.findById(p.getId())
+        // Materializamos las propiedades lazy del paquete ANTES de cualquier
+        // operación que pueda cerrar/limpiar la sesión Hibernate (findById,
+        // save, etc). Si solo se referencian dentro de un lambda diferido
+        // (orElseGet), Hibernate puede haber liberado el proxy y se lanza
+        // LazyInitializationException ("no session"). Por eso primero leemos
+        // todos los valores y luego construimos la fila.
+        Long paqueteId = p.getId();
+        String numeroGuia = p.getNumeroGuia();
+        Integer piezaNumero = p.getPiezaNumero();
+        Integer piezaTotal = p.getPiezaTotal();
+        GuiaMaster gm = p.getGuiaMaster();
+        String trackingBase = gm != null ? gm.getTrackingBase() : null;
+        DestinatarioFinal dest = p.getDestinatarioFinal();
+        Long destId = dest != null ? dest.getId() : null;
+        String destNombre = dest != null ? dest.getNombre() : null;
+        String destProvincia = dest != null ? dest.getProvincia() : null;
+        String destCanton = dest != null ? dest.getCanton() : null;
+
+        TrackingViewPaquete row = viewRepository.findById(paqueteId)
                 .orElseGet(() -> TrackingViewPaquete.builder()
-                        .paqueteId(p.getId())
-                        .numeroGuia(p.getNumeroGuia())
+                        .paqueteId(paqueteId)
+                        .numeroGuia(numeroGuia)
                         .build());
 
         // Si el evento ya fue aplicado, ignorar (idempotencia a nivel fila).
@@ -148,11 +184,10 @@ public class TrackingViewProjector {
             return;
         }
 
-        row.setNumeroGuia(p.getNumeroGuia());
-        GuiaMaster gm = p.getGuiaMaster();
-        row.setTrackingBase(gm != null ? gm.getTrackingBase() : null);
-        row.setPiezaNumero(p.getPiezaNumero());
-        row.setPiezaTotal(p.getPiezaTotal());
+        row.setNumeroGuia(numeroGuia);
+        row.setTrackingBase(trackingBase);
+        row.setPiezaNumero(piezaNumero);
+        row.setPiezaTotal(piezaTotal);
 
         EstadoRastreo destino = ev.getEstadoDestino();
         if (destino != null) {
@@ -164,12 +199,11 @@ public class TrackingViewProjector {
         row.setEnFlujoAlterno(Boolean.TRUE.equals(ev.getEnFlujoAlterno()));
         row.setBloqueado(Boolean.TRUE.equals(ev.getBloqueado()));
 
-        DestinatarioFinal dest = p.getDestinatarioFinal();
-        if (dest != null) {
-            row.setDestinatarioId(dest.getId());
-            row.setDestinatarioNombre(dest.getNombre());
-            row.setDestinatarioProvincia(dest.getProvincia());
-            row.setDestinatarioCanton(dest.getCanton());
+        if (destId != null) {
+            row.setDestinatarioId(destId);
+            row.setDestinatarioNombre(destNombre);
+            row.setDestinatarioProvincia(destProvincia);
+            row.setDestinatarioCanton(destCanton);
         }
 
         row.setLastEventId(ev.getId());

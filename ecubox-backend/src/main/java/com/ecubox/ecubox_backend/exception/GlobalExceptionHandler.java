@@ -1,5 +1,7 @@
 package com.ecubox.ecubox_backend.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -17,6 +19,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
@@ -171,8 +175,15 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    /**
+     * Captura genérico para cualquier excepción no mapeada explícitamente.
+     * Loguea el stacktrace completo para que el operador pueda diagnosticar
+     * la causa raíz; al cliente solo se le devuelve un mensaje neutro.
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneric(Exception ex) {
+        log.error("unexpected_exception type={} message={}",
+                ex.getClass().getName(), ex.getMessage(), ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiErrorResponse(

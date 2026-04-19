@@ -1,6 +1,8 @@
 import { Link, useParams } from '@tanstack/react-router';
 import { useDespacho } from '@/hooks/useOperarioDespachos';
-import { LoadingState } from '@/components/LoadingState';
+import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
+import { FormSkeleton } from '@/components/skeletons/FormSkeleton';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { DespachoStepperForm } from './DespachoStepperForm';
 
 export function EditarDespachoPage() {
@@ -19,7 +21,14 @@ export function EditarDespachoPage() {
   }
 
   if (loadingDespacho) {
-    return <LoadingState text="Cargando despacho..." />;
+    return (
+      <div className="page-stack" aria-busy="true" aria-live="polite">
+        <DetailHeaderSkeleton badges={1} metaLines={1} />
+        <SurfaceCardSkeleton bodyLines={2} />
+        <FormSkeleton fields={6} withTextarea withFooter />
+        <span className="sr-only">Cargando despacho...</span>
+      </div>
+    );
   }
 
   if (error || !despacho) {

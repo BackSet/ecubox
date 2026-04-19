@@ -1,8 +1,9 @@
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 interface ListToolbarProps {
   title: string;
@@ -12,6 +13,17 @@ interface ListToolbarProps {
   debounceMs?: number;
   actions?: React.ReactNode;
   className?: string;
+  /**
+   * Valor controlado opcional. Si se provee, el ListToolbar sincroniza su
+   * estado interno cuando este valor cambia desde el padre (por ejemplo,
+   * cuando el padre limpia la búsqueda mediante un botón externo).
+   *
+   * El input sigue siendo "uncontrolled" para preservar el debounce: el
+   * usuario teclea libremente y el padre solo se entera del valor final
+   * via `onSearchChange`. Pero si el padre quiere FORZAR un valor (limpiar,
+   * presetear desde URL, etc.), pasa `value` y el toolbar se sincroniza.
+   */
+  value?: string;
 }
 
 export function ListToolbar({
@@ -22,26 +34,43 @@ export function ListToolbar({
   debounceMs = 300,
   actions,
   className,
+  value,
 }: ListToolbarProps) {
-  const [localValue, setLocalValue] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [localValue, setLocalValue] = useState(value ?? '');
+  const debouncedValue = useDebouncedValue(localValue, debounceMs);
 
+  // Guardamos onSearchChange en una ref para que el efecto de propagación NO
+  // dependa de su identidad. Si el padre pasa una función inline, antes esto
+  // cancelaba el debounce en cada render y disparaba búsquedas espurias.
+  const onSearchChangeRef = useRef(onSearchChange);
   useEffect(() => {
-    if (!onSearchChange) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      onSearchChange(localValue);
-      debounceRef.current = null;
-    }, debounceMs);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [localValue, debounceMs, onSearchChange]);
+    onSearchChangeRef.current = onSearchChange;
+  }, [onSearchChange]);
+
+  // Sincroniza el estado interno cuando el padre cambia `value` (p. ej. al
+  // limpiar la búsqueda desde un botón fuera del toolbar). Para evitar el
+  // típico bucle padre↔hijo, solo actualizamos cuando difiere realmente del
+  // valor interno actual.
+  useEffect(() => {
+    if (value === undefined) return;
+    setLocalValue((prev) => (prev === value ? prev : value));
+  }, [value]);
+
+  // Evitamos disparar onSearchChange en el primer render (cuando localValue
+  // ya es '' por defecto) para no resetear filtros inicializados por el padre.
+  const isFirstRunRef = useRef(true);
+  useEffect(() => {
+    if (isFirstRunRef.current) {
+      isFirstRunRef.current = false;
+      return;
+    }
+    onSearchChangeRef.current?.(debouncedValue);
+  }, [debouncedValue]);
 
   const handleClear = useCallback(() => {
     setLocalValue('');
-    onSearchChange?.('');
-  }, [onSearchChange]);
+    onSearchChangeRef.current?.('');
+  }, []);
 
   return (
     <div className={cn('flex flex-col gap-4 border-b border-[var(--color-border)] pb-4', className)}>

@@ -42,16 +42,22 @@ public class RolService {
     }
 
     /**
-     * Lista paginada con búsqueda libre (LIKE multi-token) sobre {@code nombre}.
-     * La entidad {@code Rol} no expone un campo {@code descripcion} en el modelo actual.
+     * Lista paginada con búsqueda libre (LIKE multi-token) sobre el nombre del
+     * rol y, vía LEFT JOIN a la colección {@code permisos}, también sobre el
+     * código y la descripción de cualquiera de sus permisos. Se usa
+     * {@link SearchSpecifications#tokensLikeDistinct tokensLikeDistinct} para
+     * que el JOIN a la colección no genere filas duplicadas en el resultado
+     * paginado cuando varios permisos del mismo rol matcheen el token.
      */
     @Transactional(readOnly = true)
     public Page<RolDTO> findAllPaginated(String q, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(0, page),
                 Math.max(1, Math.min(100, size)),
                 Sort.by(Sort.Direction.ASC, "nombre").and(Sort.by(Sort.Direction.ASC, "id")));
-        Specification<Rol> spec = SearchSpecifications.tokensLike(q,
-                SearchSpecifications.field("nombre"));
+        Specification<Rol> spec = SearchSpecifications.tokensLikeDistinct(q,
+                SearchSpecifications.field("nombre"),
+                SearchSpecifications.path("permisos", "codigo"),
+                SearchSpecifications.path("permisos", "descripcion"));
         return rolRepository.findAll(spec, pageable).map(this::toDTO);
     }
 

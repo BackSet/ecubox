@@ -7,7 +7,10 @@ import type { EstadoRastreo } from '@/types/estado-rastreo';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
@@ -43,12 +46,12 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { GuiaMasterPiezaCell, DestinatarioCell } from '../paquetes/PaqueteCells';
 import type { Paquete } from '@/types/paquete';
 
 export function GestionarEstadosPaquetesPage() {
-  const { data: paquetes, isLoading, error } = usePaquetesSinSaca();
+  const { data: paquetes, isLoading, isFetching, error, refetch } = usePaquetesSinSaca();
   const { data: estadosRastreo = [] } = useEstadosRastreoActivos();
   const cambiarEstadoBulk = useCambiarEstadoRastreoBulk();
 
@@ -223,23 +226,24 @@ export function GestionarEstadosPaquetesPage() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     try {
-      const res = await cambiarEstadoBulk.mutateAsync({
-        paqueteIds: ids,
-        estadoRastreoId: estadoTarget.id,
-      });
+      const res = await notify.run(
+        cambiarEstadoBulk.mutateAsync({
+          paqueteIds: ids,
+          estadoRastreoId: estadoTarget.id,
+        }),
+        {
+          loading: `Aplicando estado a ${ids.length} paquete${ids.length === 1 ? '' : 's'}...`,
+          success: (r) =>
+            r.rechazados.length === 0
+              ? `${r.actualizados} paquete${r.actualizados === 1 ? '' : 's'} actualizado${r.actualizados === 1 ? '' : 's'}`
+              : `${r.actualizados} actualizado${r.actualizados === 1 ? '' : 's'} · ${r.rechazados.length} rechazado${r.rechazados.length === 1 ? '' : 's'}`,
+          error: 'No se pudo aplicar el estado',
+        },
+      );
       const rechazadosEnriquecidos = res.rechazados.map((r) => ({
         ...r,
         numeroGuia: all.find((p) => p.id === r.paqueteId)?.numeroGuia,
       }));
-      if (res.rechazados.length === 0) {
-        toast.success(
-          `${res.actualizados} paquete${res.actualizados === 1 ? '' : 's'} actualizado${res.actualizados === 1 ? '' : 's'}.`,
-        );
-      } else {
-        toast.warning(
-          `${res.actualizados} actualizado${res.actualizados === 1 ? '' : 's'} · ${res.rechazados.length} rechazado${res.rechazados.length === 1 ? '' : 's'}.`,
-        );
-      }
       setSelectedIds(
         (prev) => new Set([...prev].filter((id) => res.rechazados.some((r) => r.paqueteId === id))),
       );
@@ -249,7 +253,7 @@ export function GestionarEstadosPaquetesPage() {
       }
       setConfirmOpen(false);
     } catch {
-      toast.error('Error al aplicar el estado.');
+      // notificado por notify.run
     }
   }, [estadoTarget, selectedIds, cambiarEstadoBulk, all]);
 
@@ -262,14 +266,14 @@ export function GestionarEstadosPaquetesPage() {
     if (page > 0 && page >= totalPages) setPage(totalPages - 1);
   }, [page, totalPages]);
 
-  if (isLoading) {
-    return <LoadingState text="Cargando paquetes..." />;
-  }
-  if (error) {
+  if (error && (!paquetes || paquetes.length === 0)) {
     return (
-      <div className="ui-alert ui-alert-error">
-        Error al cargar paquetes.
-      </div>
+      <InlineErrorBanner
+        message="Error al cargar paquetes"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
     );
   }
 
@@ -281,13 +285,24 @@ export function GestionarEstadosPaquetesPage() {
 
   return (
     <div className="space-y-4 pb-32">
+      {error && paquetes && paquetes.length > 0 && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los paquetes"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
       <ListToolbar
         title="Gestionar estados de paquetes"
-        searchPlaceholder="Buscar por guía, ref, destinatario, envío o contenido..."
+        searchPlaceholder="Buscar por guía, ref, destinatario, envío, contenido o estado..."
         onSearchChange={setSearch}
       />
 
-      {all.length > 0 && (
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} />
+      ) : (
+        all.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<ListChecks className="h-5 w-5" />}
@@ -316,9 +331,13 @@ export function GestionarEstadosPaquetesPage() {
             tone="neutral"
           />
         </div>
+        )
       )}
 
-      {all.length > 0 && (
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={1} filters={2} />
+      ) : (
+        all.length > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -376,9 +395,35 @@ export function GestionarEstadosPaquetesPage() {
             </>
           }
         />
+        )
       )}
 
-      {all.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[820px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10" aria-label="Selección" />
+                <TableHead className="w-[16rem]">Guía / Pieza</TableHead>
+                <TableHead>Estado actual</TableHead>
+                <TableHead className="min-w-[16rem]">Destinatario</TableHead>
+                <TableHead className="hidden md:table-cell">Envío</TableHead>
+                <TableHead className="hidden lg:table-cell">Contenido</TableHead>
+                <TableHead className="text-right">Peso</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={7}
+                columnClasses={{
+                  4: 'hidden md:table-cell',
+                  5: 'hidden lg:table-cell',
+                }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : all.length === 0 ? (
         <EmptyState
           icon={Tag}
           title="No hay paquetes para gestionar"
@@ -392,7 +437,7 @@ export function GestionarEstadosPaquetesPage() {
         />
       ) : (
         <ListTableShell>
-          <Table className="min-w-[1080px] text-left">
+          <Table className="min-w-[820px] text-left">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
@@ -411,8 +456,8 @@ export function GestionarEstadosPaquetesPage() {
                 <TableHead className="w-[16rem]">Guía / Pieza</TableHead>
                 <TableHead>Estado actual</TableHead>
                 <TableHead className="min-w-[16rem]">Destinatario</TableHead>
-                <TableHead>Envío</TableHead>
-                <TableHead>Contenido</TableHead>
+                <TableHead className="hidden md:table-cell">Envío</TableHead>
+                <TableHead className="hidden lg:table-cell">Contenido</TableHead>
                 <TableHead className="text-right">Peso</TableHead>
               </TableRow>
             </TableHeader>
@@ -444,6 +489,17 @@ export function GestionarEstadosPaquetesPage() {
                           {p.ref}
                         </p>
                       )}
+                      {p.envioConsolidadoCodigo && (
+                        <p className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground md:hidden">
+                          <span className="opacity-60">Envío:</span>
+                          <MonoTrunc
+                            value={p.envioConsolidadoCodigo}
+                            head={5}
+                            tail={5}
+                            className="text-[11px]"
+                          />
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="align-top">
                       <Badge variant="secondary" className="font-normal">
@@ -453,7 +509,7 @@ export function GestionarEstadosPaquetesPage() {
                     <TableCell className="max-w-[20rem] align-top">
                       <DestinatarioCell paquete={p} />
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top md:table-cell">
                       {p.envioConsolidadoCodigo ? (
                         <div className="flex items-center gap-1.5">
                           <MonoTrunc
@@ -473,7 +529,7 @@ export function GestionarEstadosPaquetesPage() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-[16rem] align-top text-sm text-muted-foreground">
+                    <TableCell className="hidden max-w-[16rem] align-top text-sm text-muted-foreground lg:table-cell">
                       <span className="line-clamp-2 break-words">
                         {p.contenido ?? '—'}
                       </span>
@@ -518,7 +574,7 @@ export function GestionarEstadosPaquetesPage() {
           onClear={limpiarSeleccion}
           onApply={() => {
             if (!estadoTargetId) {
-              toast.error('Selecciona el estado a aplicar.');
+              notify.warning('Selecciona el estado a aplicar.');
               return;
             }
             setConfirmOpen(true);

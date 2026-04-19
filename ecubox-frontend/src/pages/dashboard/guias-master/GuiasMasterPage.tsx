@@ -28,7 +28,8 @@ import { Badge } from '@/components/ui/badge';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
@@ -161,7 +162,8 @@ export function GuiasMasterPage() {
     <div className="page-stack">
       <ListToolbar
         title="Guías"
-        searchPlaceholder="Buscar por número de guía, destinatario o cliente..."
+        searchPlaceholder="Buscar por número de guía, destinatario (nombre/código) o cliente (usuario/email)..."
+        value={q}
         onSearchChange={setQ}
         actions={
           <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
@@ -240,27 +242,70 @@ export function GuiasMasterPage() {
         />
       )}
 
-      {isLoading ? (
-        <LoadingState text="Cargando guías master..." />
-      ) : error ? (
-        <div className="ui-alert ui-alert-error">
-          Error al cargar guías master.
-        </div>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Boxes}
-          title={guias.length === 0 ? 'No hay guías registradas' : 'Sin resultados'}
-          description={
-            guias.length === 0
-              ? 'Registra una guía indicando su número, destinatario y total de piezas esperadas (opcional).'
-              : 'Prueba con otro número de guía.'
-          }
-          action={
-            guias.length === 0 ? (
-              <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
-            ) : undefined
-          }
+      {/*
+       * Mostramos el banner de error ENCIMA de la tabla en lugar de reemplazarla.
+       * Si TanStack Query mantiene los resultados previos (keepPreviousData),
+       * el usuario puede seguir viendo y operando con la última lista mientras
+       * el reintento está en curso. Sólo cuando no hay datos en cache mostramos
+       * el alerta grande.
+       */}
+      {error && filtered.length > 0 && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar las guías"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => pageQuery.refetch()}
+          retrying={pageQuery.isFetching}
         />
+      )}
+
+      {error && filtered.length === 0 && !isLoading ? (
+        <InlineErrorBanner
+          message="Error al cargar guías master"
+          hint="Verifica tu conexión o intenta de nuevo."
+          onRetry={() => pageQuery.refetch()}
+          retrying={pageQuery.isFetching}
+        />
+      ) : !isLoading && filtered.length === 0 ? (
+        // Importante: `filtered` viene del endpoint /page que ya aplica `q` y
+        // `estados`. Por eso usamos `guiasTodas` + el estado de los filtros
+        // para diferenciar:
+        //   - "No hay guías registradas": no existe NINGUNA guía en el sistema
+        //     y tampoco hay búsqueda/filtros aplicados.
+        //   - "Sin resultados": sí hay guías pero la búsqueda/filtro no
+        //     encuentra coincidencias.
+        (() => {
+          const tieneFiltros = q.trim() !== '' || estadosFiltro.size > 0;
+          const sinDatos = guiasTodas.length === 0 && !tieneFiltros;
+          return (
+            <EmptyState
+              icon={Boxes}
+              title={sinDatos ? 'No hay guías registradas' : 'Sin resultados'}
+              description={
+                sinDatos
+                  ? 'Registra una guía indicando su número, destinatario y total de piezas esperadas (opcional).'
+                  : tieneFiltros && q.trim() !== ''
+                    ? `No encontramos guías que coincidan con "${q.trim()}". Prueba con otro número de guía, destinatario o cliente.`
+                    : 'No hay guías que coincidan con los filtros aplicados.'
+              }
+              action={
+                sinDatos ? (
+                  <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
+                ) : tieneFiltros ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setQ('');
+                      setEstadosFiltro(new Set());
+                      resetPage();
+                    }}
+                  >
+                    Limpiar búsqueda
+                  </Button>
+                ) : undefined
+              }
+            />
+          );
+        })()
       ) : (
         <>
         <p className="text-xs text-muted-foreground">
@@ -268,19 +313,28 @@ export function GuiasMasterPage() {
           {pageQuery.isFetching ? ' · cargando...' : ''}
         </p>
         <ListTableShell>
-          <Table className="min-w-[960px]">
+          <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[14rem]">Guía</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="min-w-[14rem]">Piezas</TableHead>
                 <TableHead>Destinatario</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Creada</TableHead>
+                <TableHead className="hidden md:table-cell">Cliente</TableHead>
+                <TableHead className="hidden xl:table-cell">Creada</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && (
+                <TableRowsSkeleton
+                  columns={7}
+                  columnClasses={{
+                    4: 'hidden md:table-cell',
+                    5: 'hidden xl:table-cell',
+                  }}
+                />
+              )}
               {filtered.map((g) => {
                 const totalPendiente = g.totalPiezasEsperadas == null;
                 return (
@@ -317,14 +371,14 @@ export function GuiasMasterPage() {
                         emptyItalic
                       />
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top md:table-cell">
                       <PersonaCell
                         nombre={g.clienteUsuarioNombre}
                         icon={<Building2 className="h-3.5 w-3.5" />}
                         emptyLabel="—"
                       />
                     </TableCell>
-                    <TableCell className="align-top text-xs text-muted-foreground">
+                    <TableCell className="hidden align-top text-xs text-muted-foreground xl:table-cell">
                       <FechaCreada createdAt={g.createdAt} />
                     </TableCell>
                     <TableCell

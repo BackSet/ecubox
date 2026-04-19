@@ -5,7 +5,8 @@ import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
@@ -26,7 +27,7 @@ import { DestinatarioCell, GuiaMasterPiezaCell } from './PaqueteCells';
 
 export function PaquetesVencidosPage() {
   const navigate = useNavigate();
-  const { data: paquetes, isLoading, error } = usePaquetesVencidosOperario(true);
+  const { data: paquetes, isLoading, isFetching, error, refetch } = usePaquetesVencidosOperario(true);
   const [search, setSearch] = useState('');
   // Chip de gravedad: leve (<7d), alto (7-14d), critico (>=15d).
   const [chipActivo, setChipActivo] = useState<
@@ -142,15 +143,25 @@ export function PaquetesVencidosPage() {
     <div className="page-stack">
       <ListToolbar
         title="Paquetes vencidos de retiro"
-        searchPlaceholder="Buscar por guía, ref, destinatario o estado..."
+        searchPlaceholder="Buscar por guía, ref, destinatario, teléfono o estado..."
         onSearchChange={setSearch}
       />
 
-      {isLoading && <LoadingState text="Cargando paquetes vencidos..." variant="inline" />}
       {error && (
-        <div className="ui-alert ui-alert-error">
-          Error al cargar paquetes vencidos.
-        </div>
+        <InlineErrorBanner
+          message={
+            allPaquetes.length > 0
+              ? 'No se pudieron actualizar los paquetes vencidos'
+              : 'Error al cargar paquetes vencidos'
+          }
+          hint={
+            allPaquetes.length > 0
+              ? 'Mostrando los resultados anteriores. Reintentando en segundo plano.'
+              : 'Verifica tu conexión o intenta de nuevo.'
+          }
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
       )}
 
       {allPaquetes.length > 0 && (
@@ -267,7 +278,28 @@ export function PaquetesVencidosPage() {
         />
       )}
 
-      {allPaquetes.length === 0 ? (
+      {isLoading && allPaquetes.length === 0 ? (
+        <ListTableShell>
+          <Table className="min-w-[920px] text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[16rem]">Guía master / Pieza</TableHead>
+                <TableHead>Atraso</TableHead>
+                <TableHead className="hidden min-w-[12rem] md:table-cell">Plazo</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="min-w-[16rem]">Destinatario</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={6}
+                columnClasses={{ 2: 'hidden md:table-cell' }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : allPaquetes.length === 0 ? (
         <EmptyState
           icon={AlertTriangle}
           title="Sin paquetes vencidos"
@@ -302,7 +334,7 @@ export function PaquetesVencidosPage() {
                 <TableRow>
                   <TableHead className="w-[16rem]">Guía master / Pieza</TableHead>
                   <TableHead>Atraso</TableHead>
-                  <TableHead className="min-w-[12rem]">Plazo</TableHead>
+                  <TableHead className="hidden min-w-[12rem] md:table-cell">Plazo</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="min-w-[16rem]">Destinatario</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
@@ -322,7 +354,7 @@ export function PaquetesVencidosPage() {
                     <TableCell className="align-top">
                       <AtrasoBadge dias={p.diasAtrasoRetiro ?? 0} />
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top md:table-cell">
                       <PlazoCell paquete={p} />
                     </TableCell>
                     <TableCell className="align-top">

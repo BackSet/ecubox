@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   AlertCircle,
   ArrowRight,
@@ -188,11 +188,22 @@ export function RegistroSimplePage() {
   async function onSubmit(values: FormValues) {
     setError(null);
     try {
-      await registerClienteSimple({
-        email: values.email,
-        password: values.password,
-      });
-      toast.success('Cuenta creada. Ya puedes iniciar sesión.');
+      await notify.run(
+        registerClienteSimple({
+          email: values.email,
+          password: values.password,
+        }),
+        {
+          loading: 'Creando cuenta...',
+          success: 'Cuenta creada. Ya puedes iniciar sesión.',
+          error: (err) => {
+            const status = (err as { response?: { status?: number } })?.response?.status;
+            return status === 409
+              ? 'Este correo ya está registrado'
+              : 'No se pudo crear la cuenta. Intenta de nuevo.';
+          },
+        },
+      );
       navigate({ to: '/login' });
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;

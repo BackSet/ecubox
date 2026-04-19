@@ -77,7 +77,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { LoadingState } from '@/components/LoadingState';
+import { FormSkeleton } from '@/components/skeletons/FormSkeleton';
+import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
 import { EmptyState } from '@/components/EmptyState';
@@ -673,7 +675,15 @@ function WhatsAppDespachoPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [searchVar, setSearchVar] = useState('');
 
-  if (loading) return <LoadingState text="Cargando configuración de WhatsApp..." />;
+  if (loading) {
+    return (
+      <div aria-busy="true" aria-live="polite" className="space-y-4">
+        <SurfaceCardSkeleton bodyLines={2} />
+        <FormSkeleton fields={3} withTextarea withFooter />
+        <span className="sr-only">Cargando configuración de WhatsApp...</span>
+      </div>
+    );
+  }
   if (error)
     return (
       <div className="ui-alert ui-alert-error">
@@ -922,7 +932,15 @@ function AgenciaEeuuPanel({
 }: AgenciaEeuuPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  if (loading) return <LoadingState text="Cargando mensaje de agencia USA..." />;
+  if (loading) {
+    return (
+      <div aria-busy="true" aria-live="polite" className="space-y-4">
+        <SurfaceCardSkeleton bodyLines={2} />
+        <FormSkeleton fields={2} withTextarea withFooter />
+        <span className="sr-only">Cargando mensaje de agencia USA...</span>
+      </div>
+    );
+  }
   if (error)
     return (
       <div className="ui-alert ui-alert-error">
@@ -1304,7 +1322,14 @@ function EstadosRastreoView() {
     });
   };
 
-  if (isLoading) return <LoadingState text="Cargando estados..." />;
+  if (isLoading) {
+    return (
+      <div aria-busy="true" aria-live="polite" className="space-y-3">
+        <ListItemsSkeleton rows={6} withTrailing />
+        <span className="sr-only">Cargando estados...</span>
+      </div>
+    );
+  }
   if (error)
     return (
       <div className="ui-alert ui-alert-error">
@@ -2195,7 +2220,15 @@ function EstadosRastreoPorPuntoView() {
     setFinCuentaRegresivaId(config.estadoRastreoFinCuentaRegresivaId ?? '');
   };
 
-  if (isLoading) return <LoadingState text="Cargando configuración..." />;
+  if (isLoading) {
+    return (
+      <div aria-busy="true" aria-live="polite" className="space-y-3">
+        <SurfaceCardSkeleton bodyLines={3} />
+        <ListItemsSkeleton rows={5} withTrailing />
+        <span className="sr-only">Cargando configuración...</span>
+      </div>
+    );
+  }
   if (error)
     return (
       <div className="ui-alert ui-alert-error">

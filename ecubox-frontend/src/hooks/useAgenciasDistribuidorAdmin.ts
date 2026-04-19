@@ -27,7 +27,13 @@ export function useAgenciasDistribuidorAdmin() {
 
 export function useAgenciasDistribuidorPaginadas(params: PageQuery = {}) {
   return useQuery({
-    queryKey: [...AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY, 'page', params],
+    queryKey: [
+      ...AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY,
+      'page',
+      params.q ?? '',
+      params.page ?? 0,
+      params.size ?? 25,
+    ] as const,
     queryFn: () => listarAgenciasDistribuidorPaginado(params),
     placeholderData: keepPreviousData,
   });

@@ -1,14 +1,17 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Loader2, PackageSearch, ShieldCheck } from 'lucide-react';
+import { PackageSearch, ShieldCheck } from 'lucide-react';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
+import { KeyValueGridSkeleton } from '@/components/skeletons/KeyValueGridSkeleton';
+import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
 import { getTrackingByCodigo } from '@/lib/api/tracking.service';
 import type {
   TrackingResolveResponse,
   TrackingResponse,
   TrackingEstadoItem,
 } from '@/lib/api/tracking.service';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { buildTrackingPdf } from '@/lib/pdf/builders/trackingPdf';
 import { buildTrackingMasterPdf } from '@/lib/pdf/builders/trackingMasterPdf';
 import { runJsPdfAction } from '@/lib/pdf/actions';
@@ -143,7 +146,7 @@ export function TrackingPage() {
         err instanceof Error ? err.message : 'No pudimos cargar el seguimiento en este momento.';
       const status = (err as Error & { status?: number })?.status;
       if (status === 429) {
-        toast.warning(message, { duration: 6000 });
+        notify.warning(message, { duration: 6000 });
       }
       setError(message);
     } finally {
@@ -186,9 +189,9 @@ export function TrackingPage() {
     if (!currentTrackingUrl) return;
     try {
       await navigator.clipboard.writeText(currentTrackingUrl);
-      toast.success('Enlace de seguimiento copiado.');
+      notify.success('Enlace de seguimiento copiado.');
     } catch {
-      toast.error('No se pudo copiar el enlace.');
+      notify.error('No se pudo copiar el enlace.');
     }
   }
 
@@ -238,32 +241,44 @@ export function TrackingPage() {
     const node = getActiveExportNode();
     const scope = getActiveExportScope();
     if (!node || !scope) return;
-    const tid = toast.loading(
-      format === 'png' ? 'Generando imagen PNG...' : 'Generando imagen JPEG...',
-    );
     try {
-      const blob = await snapshotToBlob(node, format, {
-        quality: format === 'jpeg' ? 0.92 : undefined,
-      });
-      downloadBlob(blob, buildExportFilename(format === 'png' ? 'png' : 'jpg', scope));
-      toast.success('Imagen descargada.', { id: tid });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error desconocido';
-      toast.error(`No se pudo descargar la imagen. ${message}`, { id: tid });
+      await notify.run(
+        (async () => {
+          const blob = await snapshotToBlob(node, format, {
+            quality: format === 'jpeg' ? 0.92 : undefined,
+          });
+          downloadBlob(blob, buildExportFilename(format === 'png' ? 'png' : 'jpg', scope));
+        })(),
+        {
+          loading: format === 'png' ? 'Generando imagen PNG...' : 'Generando imagen JPEG...',
+          success: 'Imagen descargada',
+          error: (err) =>
+            `No se pudo descargar la imagen. ${err instanceof Error ? err.message : ''}`.trim(),
+        },
+      );
+    } catch {
+      // notificado por notify.run
     }
   }
 
   async function handleCopyImage() {
     const node = getActiveExportNode();
     if (!node) return;
-    const tid = toast.loading('Copiando imagen al portapapeles...');
     try {
-      const blob = await snapshotToBlob(node, 'png');
-      await copyImageBlobToClipboard(blob);
-      toast.success('Imagen copiada al portapapeles.', { id: tid });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error desconocido';
-      toast.error(`No se pudo copiar la imagen. ${message}`, { id: tid });
+      await notify.run(
+        (async () => {
+          const blob = await snapshotToBlob(node, 'png');
+          await copyImageBlobToClipboard(blob);
+        })(),
+        {
+          loading: 'Copiando imagen al portapapeles...',
+          success: 'Imagen copiada',
+          error: (err) =>
+            `No se pudo copiar la imagen. ${err instanceof Error ? err.message : ''}`.trim(),
+        },
+      );
+    } catch {
+      // notificado por notify.run
     }
   }
 
@@ -271,64 +286,75 @@ export function TrackingPage() {
     const node = getActiveExportNode();
     const scope = getActiveExportScope();
     if (!node || !scope) return;
-    const tid = toast.loading(
-      mode === 'estructurado'
-        ? 'Generando PDF estructurado...'
-        : 'Generando PDF visual (puede tomar unos segundos)...',
-    );
     try {
-      const filename = buildExportFilename('pdf', scope);
-      if (mode === 'estructurado') {
-        const doc =
-          scope === 'master' && master
-            ? buildTrackingMasterPdf(master)
-            : pieza
-              ? buildTrackingPdf(pieza)
-              : null;
-        if (!doc) throw new Error('No hay datos disponibles para exportar.');
-        runJsPdfAction(doc, { mode: 'download', filename });
-      } else {
-        const refLabel =
-          scope === 'master'
-            ? master?.trackingBase ?? 'consolidado'
-            : pieza?.numeroGuia ?? 'tracking';
-        const result = await snapshotNodeToPdf(node, filename, {
-          orientation: 'portrait',
-          margin: 8,
-          jpegQuality: 0.92,
-          footerLeft: `ECUBOX · ${refLabel}`,
-        });
-        result.download();
-      }
-      toast.success(
-        mode === 'estructurado' ? 'PDF estructurado descargado.' : 'PDF visual descargado.',
-        { id: tid },
+      await notify.run(
+        (async () => {
+          const filename = buildExportFilename('pdf', scope);
+          if (mode === 'estructurado') {
+            const doc =
+              scope === 'master' && master
+                ? buildTrackingMasterPdf(master)
+                : pieza
+                  ? buildTrackingPdf(pieza)
+                  : null;
+            if (!doc) throw new Error('No hay datos disponibles para exportar.');
+            runJsPdfAction(doc, { mode: 'download', filename });
+          } else {
+            const refLabel =
+              scope === 'master'
+                ? master?.trackingBase ?? 'consolidado'
+                : pieza?.numeroGuia ?? 'tracking';
+            const result = await snapshotNodeToPdf(node, filename, {
+              orientation: 'portrait',
+              margin: 8,
+              jpegQuality: 0.92,
+              footerLeft: `ECUBOX · ${refLabel}`,
+            });
+            result.download();
+          }
+        })(),
+        {
+          loading:
+            mode === 'estructurado'
+              ? 'Generando PDF estructurado...'
+              : 'Generando PDF visual (puede tomar unos segundos)...',
+          success:
+            mode === 'estructurado' ? 'PDF estructurado descargado' : 'PDF visual descargado',
+          error: (err) =>
+            `No se pudo generar el PDF. ${err instanceof Error ? err.message : ''}`.trim(),
+        },
       );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error desconocido';
-      toast.error(`No se pudo generar el PDF. ${message}`, { id: tid });
+    } catch {
+      // notificado por notify.run
     }
   }
 
   async function handlePrintPdf() {
     const scope = getActiveExportScope();
     if (!scope) return;
-    const tid = toast.loading('Preparando vista previa de impresión...');
     try {
-      const doc =
-        scope === 'master' && master
-          ? buildTrackingMasterPdf(master)
-          : pieza
-            ? buildTrackingPdf(pieza)
-            : null;
-      if (!doc) throw new Error('No hay datos disponibles para imprimir.');
-      runJsPdfAction(doc, {
-        mode: 'print',
-        filename: buildExportFilename('pdf', scope),
-      });
-      toast.success('Vista previa abierta.', { id: tid });
+      await notify.run(
+        (async () => {
+          const doc =
+            scope === 'master' && master
+              ? buildTrackingMasterPdf(master)
+              : pieza
+                ? buildTrackingPdf(pieza)
+                : null;
+          if (!doc) throw new Error('No hay datos disponibles para imprimir.');
+          runJsPdfAction(doc, {
+            mode: 'print',
+            filename: buildExportFilename('pdf', scope),
+          });
+        })(),
+        {
+          loading: 'Preparando vista previa de impresión...',
+          success: 'Vista previa abierta',
+          error: 'No se pudo abrir la vista previa',
+        },
+      );
     } catch {
-      toast.error('No se pudo abrir la vista previa.', { id: tid });
+      // notificado por notify.run
     }
   }
 
@@ -391,10 +417,29 @@ export function TrackingPage() {
           />
 
           {loading && !resolved && !error && (
-            <div className="landing-card flex items-center justify-center gap-2 p-8 text-sm landing-text-muted">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Buscando información del envío...
-            </div>
+            <section
+              className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-3"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <div className="space-y-5 xl:col-span-2">
+                <div className="landing-card p-5 sm:p-6">
+                  <SurfaceCardSkeleton bodyLines={3} className="border-0 bg-transparent p-0 shadow-none" />
+                </div>
+                <div className="landing-card p-5 sm:p-6">
+                  <KeyValueGridSkeleton rows={6} cols={2} />
+                </div>
+                <div className="landing-card p-5 sm:p-6">
+                  <ListItemsSkeleton rows={4} withTrailing />
+                </div>
+              </div>
+              <aside className="space-y-5">
+                <div className="landing-card p-5 sm:p-6">
+                  <SurfaceCardSkeleton bodyLines={4} className="border-0 bg-transparent p-0 shadow-none" />
+                </div>
+              </aside>
+              <span className="sr-only">Buscando información del envío...</span>
+            </section>
           )}
 
           {error && (

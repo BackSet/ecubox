@@ -15,7 +15,9 @@ import { useMiInicioDashboard } from '@/hooks/useMisGuias';
 import { KpiCard } from '@/components/KpiCard';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Button } from '@/components/ui/button';
-import { LoadingState } from '@/components/LoadingState';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   GuiaMasterEstadoBadge,
   GUIA_MASTER_ESTADO_LABELS,
@@ -44,7 +46,26 @@ export function InicioClienteSection() {
   const [registrarOpen, setRegistrarOpen] = useState(false);
 
   if (isLoading && !data) {
-    return <LoadingState text="Cargando tu resumen..." />;
+    return (
+      <section className="page-stack" aria-busy="true" aria-live="polite">
+        <header className="flex flex-col gap-2 border-b border-[var(--color-border)] pb-4">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-3 w-64" />
+        </header>
+        <KpiCardsGridSkeleton count={4} gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SurfaceCard className="p-4">
+            <Skeleton className="mb-3 h-4 w-40" />
+            <ListItemsSkeleton rows={4} withTrailing />
+          </SurfaceCard>
+          <SurfaceCard className="p-4">
+            <Skeleton className="mb-3 h-4 w-40" />
+            <ListItemsSkeleton rows={4} withTrailing />
+          </SurfaceCard>
+        </div>
+        <span className="sr-only">Cargando tu resumen...</span>
+      </section>
+    );
   }
 
   if (error || !data) {

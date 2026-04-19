@@ -26,7 +26,13 @@ export function useDistribuidoresAdmin() {
 
 export function useDistribuidoresPaginados(params: PageQuery = {}) {
   return useQuery({
-    queryKey: [...DISTRIBUIDORES_ADMIN_QUERY_KEY, 'page', params],
+    queryKey: [
+      ...DISTRIBUIDORES_ADMIN_QUERY_KEY,
+      'page',
+      params.q ?? '',
+      params.page ?? 0,
+      params.size ?? 25,
+    ] as const,
     queryFn: () => listarDistribuidoresPaginado(params),
     placeholderData: keepPreviousData,
   });

@@ -1,7 +1,9 @@
 package com.ecubox.ecubox_backend.util;
 
 import jakarta.persistence.criteria.Expression;
-import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.springframework.data.jpa.domain.Specification;
@@ -45,12 +47,45 @@ public final class SearchSpecifications {
     @SafeVarargs
     public static <T> Specification<T> tokensLike(String q,
                                                   Function<Root<T>, Expression<String>>... fieldExtractors) {
+        return buildTokensLike(q, false, fieldExtractors);
+    }
+
+    /**
+     * Variante de {@link #tokensLike} que además fuerza {@code SELECT DISTINCT}
+     * sobre la query principal. Es la opción correcta cuando uno de los
+     * extractores apunta a una <b>colección</b> (relación a {@code Set}/{@code List}
+     * via {@code @OneToMany} o {@code @ManyToMany}, p. ej. {@code roles},
+     * {@code permisos}). El LEFT JOIN producido multiplicaría la fila padre por
+     * cada elemento que matchee, y sin {@code distinct} aparecerían duplicados
+     * tanto en el contenido como en el conteo de página.
+     *
+     * <p>Para joins a relaciones <em>singulares</em> ({@code @ManyToOne},
+     * {@code @OneToOne}) sigue prefiriéndose {@link #tokensLike}, ya que
+     * {@code distinct} en esos casos es innecesario y puede empeorar el plan
+     * de ejecución del optimizador.</p>
+     */
+    @SafeVarargs
+    public static <T> Specification<T> tokensLikeDistinct(String q,
+                                                          Function<Root<T>, Expression<String>>... fieldExtractors) {
+        return buildTokensLike(q, true, fieldExtractors);
+    }
+
+    private static <T> Specification<T> buildTokensLike(String q,
+                                                        boolean distinct,
+                                                        Function<Root<T>, Expression<String>>[] fieldExtractors) {
         String trimmed = q == null ? "" : q.trim();
         if (trimmed.isEmpty() || fieldExtractors == null || fieldExtractors.length == 0) {
             return (root, query, cb) -> cb.conjunction();
         }
         String[] tokens = trimmed.toLowerCase(Locale.ROOT).split("\\s+");
         return (root, query, cb) -> {
+            // Marcamos distinct sólo en la query principal de selección. Spring
+            // Data emite también un count query (resultType Long); ahí distinct
+            // no aporta nada y puede romper el conteo, así que no lo aplicamos.
+            if (distinct && query != null && query.getResultType() != Long.class
+                    && query.getResultType() != long.class) {
+                query.distinct(true);
+            }
             List<Predicate> tokenPredicates = new ArrayList<>(tokens.length);
             for (String token : tokens) {
                 if (token.isEmpty()) continue;
@@ -79,18 +114,50 @@ public final class SearchSpecifications {
     }
 
     /**
-     * Atajo para campos que cruzan una relación {@code rel.field}.
+     * Atajo para campos que cruzan una o más relaciones {@code rel.[rel...].field}.
+     *
+     * <p><b>Importante:</b> usa {@link JoinType#LEFT LEFT JOIN} para los
+     * segmentos de relación en vez del INNER JOIN implícito que produciría
+     * {@code root.get("rel").get("campo")}. De este modo, si una entidad NO
+     * tiene la relación cargada (por ejemplo una guía sin destinatario o sin
+     * cliente), no se excluye del resultado al hacer una búsqueda libre por
+     * texto sobre otros campos. El INNER JOIN implícito era el causante de
+     * que ciertas guías "desaparecieran" al buscarlas.</p>
+     *
+     * <p>Además, reutiliza joins ya creados sobre el mismo {@link From} cuando
+     * varios extractores apuntan a la misma relación (p. ej.
+     * {@code path("destinatarioFinal", "nombre")} y
+     * {@code path("destinatarioFinal", "codigo")}), evitando producir
+     * múltiples joins duplicados en el SQL.</p>
      */
     public static <T> Function<Root<T>, Expression<String>> path(String... segments) {
         return root -> {
-            Path<?> p = root;
-            for (String s : segments) {
-                p = p.get(s);
+            if (segments == null || segments.length == 0) {
+                throw new IllegalArgumentException("path(...) requiere al menos un segmento");
             }
-            @SuppressWarnings("unchecked")
-            Expression<String> expr = (Expression<String>) p;
-            return expr;
+            // Caso simple: campo directo del root, sin joins.
+            if (segments.length == 1) {
+                return root.<String>get(segments[0]);
+            }
+            From<?, ?> from = root;
+            for (int i = 0; i < segments.length - 1; i++) {
+                from = leftJoinReuse(from, segments[i]);
+            }
+            return from.<String>get(segments[segments.length - 1]);
         };
+    }
+
+    /**
+     * Devuelve un LEFT JOIN sobre {@code attribute} reutilizando el join
+     * existente si {@code from} ya tiene uno con el mismo nombre y tipo LEFT.
+     */
+    private static Join<?, ?> leftJoinReuse(From<?, ?> from, String attribute) {
+        for (Join<?, ?> j : from.getJoins()) {
+            if (attribute.equals(j.getAttribute().getName()) && j.getJoinType() == JoinType.LEFT) {
+                return j;
+            }
+        }
+        return from.join(attribute, JoinType.LEFT);
     }
 
     private static Expression<String> toLower(jakarta.persistence.criteria.CriteriaBuilder cb,

@@ -13,7 +13,13 @@ export function usePermisos() {
 
 export function usePermisosPaginados(params: PageQuery = {}) {
   return useQuery({
-    queryKey: [...QUERY_KEY, 'page', params],
+    queryKey: [
+      ...QUERY_KEY,
+      'page',
+      params.q ?? '',
+      params.page ?? 0,
+      params.size ?? 25,
+    ] as const,
     queryFn: () => listarPermisosPaginado(params),
     placeholderData: keepPreviousData,
   });

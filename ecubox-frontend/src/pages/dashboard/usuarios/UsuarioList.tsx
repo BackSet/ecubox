@@ -28,9 +28,12 @@ import { useRoles } from '@/hooks/useRoles';
 import { useAuthStore } from '@/stores/authStore';
 import { UsuarioForm } from './UsuarioForm';
 import { ListToolbar } from '@/components/ListToolbar';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
@@ -71,6 +74,7 @@ export function UsuarioList() {
     isLoading,
     isFetching,
     error,
+    refetch,
   } = useUsuariosPaginados({ q: q.trim() || undefined, page, size });
   const { data: rolesCatalog = [] } = useRoles();
   const deleteUsuario = useDeleteUsuario();
@@ -141,11 +145,15 @@ export function UsuarioList() {
     }
   }
 
-  if (isLoading) {
-    return <LoadingState text="Cargando usuarios..." />;
-  }
-  if (error) {
-    return <div className="ui-alert ui-alert-error">Error al cargar usuarios.</div>;
+  if (error && !data) {
+    return (
+      <InlineErrorBanner
+        message="Error al cargar usuarios"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
+    );
   }
 
   return (
@@ -153,6 +161,7 @@ export function UsuarioList() {
       <ListToolbar
         title="Usuarios"
         searchPlaceholder="Buscar por usuario, email o rol..."
+        value={q}
         onSearchChange={setQ}
         actions={
           hasWrite ? (
@@ -164,6 +173,18 @@ export function UsuarioList() {
         }
       />
 
+      {error && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los usuarios"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
+
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} gridClassName="grid grid-cols-2 gap-3 lg:grid-cols-4" withHint />
+      ) : (
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           icon={<Users className="h-5 w-5" />}
@@ -192,7 +213,11 @@ export function UsuarioList() {
           hint={stats.sinRol > 0 ? 'Requieren asignación de roles' : 'Todos tienen al menos un rol'}
         />
       </div>
+      )}
 
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={4} filters={1} />
+      ) : (
       <SurfaceCard className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -284,8 +309,29 @@ export function UsuarioList() {
           )}
         </div>
       </SurfaceCard>
+      )}
 
-      {list.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[860px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[18rem]">Usuario</TableHead>
+                <TableHead className="w-[8rem]">Estado</TableHead>
+                <TableHead>Roles</TableHead>
+                <TableHead className="hidden md:table-cell">Contacto</TableHead>
+                {hasWrite && <TableHead className="w-12 text-right" aria-label="Acciones" />}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={hasWrite ? 5 : 4}
+                columnClasses={{ 3: 'hidden md:table-cell' }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : list.length === 0 ? (
         <EmptyState
           icon={Users}
           title={totalElements === 0 ? 'No hay usuarios' : 'Sin resultados'}
@@ -316,7 +362,7 @@ export function UsuarioList() {
                 <TableHead className="w-[18rem]">Usuario</TableHead>
                 <TableHead className="w-[8rem]">Estado</TableHead>
                 <TableHead>Roles</TableHead>
-                <TableHead>Contacto</TableHead>
+                <TableHead className="hidden md:table-cell">Contacto</TableHead>
                 {hasWrite && <TableHead className="w-12 text-right" aria-label="Acciones" />}
               </TableRow>
             </TableHeader>
@@ -336,7 +382,7 @@ export function UsuarioList() {
                     <TableCell className="align-top">
                       <RolesCell roles={u.roles ?? []} />
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top md:table-cell">
                       <ContactoCell email={u.email} />
                     </TableCell>
                     {hasWrite && (

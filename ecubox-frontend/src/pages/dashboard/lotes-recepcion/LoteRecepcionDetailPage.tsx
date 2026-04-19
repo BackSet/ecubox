@@ -6,7 +6,10 @@ import {
   useDeleteLoteRecepcion,
 } from '@/hooks/useLotesRecepcion';
 import { useEnviosConsolidados } from '@/hooks/useEnviosConsolidados';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { ListTableShell } from '@/components/ListTableShell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
@@ -239,7 +242,31 @@ export function LoteRecepcionDetailPage() {
     );
   }
 
-  if (isLoading) return <LoadingState text="Cargando lote..." />;
+  if (isLoading) {
+    return (
+      <div className="page-stack" aria-busy="true" aria-live="polite">
+        <DetailHeaderSkeleton badges={2} metaLines={2} />
+        <KpiCardsGridSkeleton count={3} gridClassName="grid grid-cols-2 gap-3 md:grid-cols-3" />
+        <SurfaceCardSkeleton bodyLines={4} />
+        <ListTableShell>
+          <Table className="min-w-[640px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Guía</TableHead>
+                <TableHead>Paquetes</TableHead>
+                <TableHead className="hidden md:table-cell">Destinatario</TableHead>
+                <TableHead className="text-right">Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton columns={4} columnClasses={{ 2: 'hidden md:table-cell' }} />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+        <span className="sr-only">Cargando lote...</span>
+      </div>
+    );
+  }
 
   if (error || !lote) {
     return (

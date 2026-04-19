@@ -6,7 +6,7 @@ import { AlertCircle, DollarSign, Loader2, RotateCcw, Save } from 'lucide-react'
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { LoadingState } from '@/components/LoadingState';
+import { FormSkeleton } from '@/components/skeletons/FormSkeleton';
 import {
   useTarifaCalculadora,
   useUpdateTarifaCalculadora,
@@ -73,7 +73,12 @@ export function TarifaCalculadoraForm() {
   }
 
   if (isLoading) {
-    return <LoadingState text="Cargando..." />;
+    return (
+      <div aria-busy="true" aria-live="polite">
+        <FormSkeleton fields={1} withFooter footerButtons={2} />
+        <span className="sr-only">Cargando...</span>
+      </div>
+    );
   }
   if (error) {
     return (

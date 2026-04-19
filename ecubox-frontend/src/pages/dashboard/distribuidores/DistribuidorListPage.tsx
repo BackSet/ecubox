@@ -27,7 +27,10 @@ import { useAgenciasDistribuidorAdmin } from '@/hooks/useAgenciasDistribuidorAdm
 import { DistribuidorForm } from './DistribuidorForm';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
@@ -62,6 +65,7 @@ export function DistribuidorListPage() {
     isLoading,
     isFetching,
     error,
+    refetch,
   } = useDistribuidoresPaginados({ q: q.trim() || undefined, page, size });
   const { data: agenciasDist = [] } = useAgenciasDistribuidorAdmin();
   const deleteDistribuidor = useDeleteDistribuidor();
@@ -148,18 +152,23 @@ export function DistribuidorListPage() {
     return { total, conTracking, promedio, totalAgencias };
   }, [all, agenciasDist, totalElements]);
 
-  if (isLoading) {
-    return <LoadingState text="Cargando distribuidores..." />;
-  }
-  if (error) {
-    return <div className="ui-alert ui-alert-error">Error al cargar distribuidores.</div>;
+  if (error && !data) {
+    return (
+      <InlineErrorBanner
+        message="Error al cargar distribuidores"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
+    );
   }
 
   return (
     <div className="page-stack">
       <ListToolbar
         title="Distribuidores"
-        searchPlaceholder="Buscar por nombre, código, email, horario o página..."
+        searchPlaceholder="Buscar por nombre, código, email, horario o página de tracking..."
+        value={q}
         onSearchChange={setQ}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
@@ -169,7 +178,19 @@ export function DistribuidorListPage() {
         }
       />
 
-      {totalElements > 0 && (
+      {error && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los distribuidores"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
+
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={4} withHint />
+      ) : (
+        totalElements > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<Truck className="h-4 w-4" />}
@@ -202,9 +223,13 @@ export function DistribuidorListPage() {
             hint="Solo distribuidores con tarifa > 0"
           />
         </div>
+        )
       )}
 
-      {totalElements > 0 && (
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={5} filters={0} />
+      ) : (
+        totalElements > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -266,9 +291,34 @@ export function DistribuidorListPage() {
             </>
           }
         />
+        )
       )}
 
-      {list.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className="min-w-[1000px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[20rem]">Distribuidor</TableHead>
+                <TableHead className="hidden min-w-[14rem] xl:table-cell">Operación</TableHead>
+                <TableHead className="text-right">Tarifa</TableHead>
+                <TableHead className="min-w-[14rem]">Contacto</TableHead>
+                <TableHead className="hidden min-w-[16rem] lg:table-cell">Tracking</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={6}
+                columnClasses={{
+                  1: 'hidden xl:table-cell',
+                  4: 'hidden lg:table-cell',
+                }}
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : list.length === 0 ? (
         <EmptyState
           icon={Truck}
           title={totalElements === 0 ? 'No hay distribuidores' : 'Sin resultados'}
@@ -293,14 +343,14 @@ export function DistribuidorListPage() {
         />
       ) : (
         <ListTableShell>
-          <Table className="min-w-[1100px]">
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[20rem]">Distribuidor</TableHead>
-                <TableHead className="min-w-[14rem]">Operación</TableHead>
+                <TableHead className="hidden min-w-[14rem] xl:table-cell">Operación</TableHead>
                 <TableHead className="text-right">Tarifa</TableHead>
                 <TableHead className="min-w-[14rem]">Contacto</TableHead>
-                <TableHead className="min-w-[16rem]">Tracking</TableHead>
+                <TableHead className="hidden min-w-[16rem] lg:table-cell">Tracking</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -313,7 +363,7 @@ export function DistribuidorListPage() {
                       agenciasCount={agenciasPorDistribuidor.get(d.id) ?? 0}
                     />
                   </TableCell>
-                  <TableCell className="max-w-[16rem] align-top">
+                  <TableCell className="hidden max-w-[16rem] align-top xl:table-cell">
                     <OperacionCell
                       horario={d.horarioReparto}
                       diasMaxRetiroDomicilio={d.diasMaxRetiroDomicilio}
@@ -325,7 +375,7 @@ export function DistribuidorListPage() {
                   <TableCell className="align-top">
                     <ContactoCell email={d.email} />
                   </TableCell>
-                  <TableCell className="max-w-[18rem] align-top">
+                  <TableCell className="hidden max-w-[18rem] align-top lg:table-cell">
                     <TrackingCell url={d.paginaTracking} />
                   </TableCell>
                   <TableCell className="align-top text-right">

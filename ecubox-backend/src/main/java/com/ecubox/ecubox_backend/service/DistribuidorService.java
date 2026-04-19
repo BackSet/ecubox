@@ -38,7 +38,8 @@ public class DistribuidorService {
 
     /**
      * Lista paginada con búsqueda libre (LIKE multi-token) sobre nombre,
-     * código y email. La entidad no expone RUC ni teléfono.
+     * código, email, horario de reparto y página de tracking. La entidad no
+     * expone RUC ni teléfono.
      */
     @Transactional(readOnly = true)
     public Page<DistribuidorDTO> findAllPaginated(String q, int page, int size) {
@@ -48,7 +49,9 @@ public class DistribuidorService {
         Specification<Distribuidor> spec = SearchSpecifications.tokensLike(q,
                 SearchSpecifications.field("nombre"),
                 SearchSpecifications.field("codigo"),
-                SearchSpecifications.field("email"));
+                SearchSpecifications.field("email"),
+                SearchSpecifications.field("horarioReparto"),
+                SearchSpecifications.field("paginaTracking"));
         return distribuidorRepository.findAll(spec, pageable).map(this::toDTO);
     }
 

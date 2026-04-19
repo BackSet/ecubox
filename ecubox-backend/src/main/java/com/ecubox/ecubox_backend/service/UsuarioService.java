@@ -49,18 +49,22 @@ public class UsuarioService {
     }
 
     /**
-     * Lista paginada con búsqueda libre (LIKE multi-token) sobre {@code username}
-     * y {@code email}. La entidad {@code Usuario} no expone un campo {@code nombre}
-     * separado.
+     * Lista paginada con búsqueda libre (LIKE multi-token) sobre {@code username},
+     * {@code email} y, vía LEFT JOIN a la colección {@code roles}, también sobre
+     * el nombre del rol asignado. Se usa
+     * {@link SearchSpecifications#tokensLikeDistinct tokensLikeDistinct} para
+     * que el JOIN a la colección no genere usuarios duplicados cuando varios
+     * de sus roles matcheen el token.
      */
     @Transactional(readOnly = true)
     public Page<UsuarioDTO> findAllPaginated(String q, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(0, page),
                 Math.max(1, Math.min(100, size)),
                 Sort.by(Sort.Direction.ASC, "username").and(Sort.by(Sort.Direction.ASC, "id")));
-        Specification<Usuario> spec = SearchSpecifications.tokensLike(q,
+        Specification<Usuario> spec = SearchSpecifications.tokensLikeDistinct(q,
                 SearchSpecifications.field("username"),
-                SearchSpecifications.field("email"));
+                SearchSpecifications.field("email"),
+                SearchSpecifications.path("roles", "nombre"));
         return usuarioRepository.findAll(spec, pageable).map(this::toDTO);
     }
 

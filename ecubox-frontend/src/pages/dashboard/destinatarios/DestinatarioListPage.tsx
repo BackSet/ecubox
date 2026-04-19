@@ -23,7 +23,10 @@ import { useAuthStore } from '@/stores/authStore';
 import { DestinatarioForm } from './DestinatarioForm';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
@@ -56,16 +59,28 @@ export function DestinatarioListPage() {
   const [size, setSizeRaw] = useState(25);
   const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
   const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
-  const { data: misData, isLoading: misLoading, error: misError } = useDestinatarios(
-    !hasDestinatariosOperario,
-  );
-  const { data: opData, isLoading: opLoading, error: opError } = useDestinatariosOperario(
+  const {
+    data: misData,
+    isLoading: misLoading,
+    isFetching: misFetching,
+    error: misError,
+    refetch: refetchMis,
+  } = useDestinatarios(!hasDestinatariosOperario);
+  const {
+    data: opData,
+    isLoading: opLoading,
+    isFetching: opFetching,
+    error: opError,
+    refetch: refetchOp,
+  } = useDestinatariosOperario(
     search.trim() || undefined,
     hasDestinatariosOperario,
   );
   const destinatarios = hasDestinatariosOperario ? opData : misData;
   const isLoading = hasDestinatariosOperario ? opLoading : misLoading;
+  const isFetching = hasDestinatariosOperario ? opFetching : misFetching;
   const error = hasDestinatariosOperario ? opError : misError;
+  const refetch = hasDestinatariosOperario ? refetchOp : refetchMis;
   const deleteDestinatario = useDeleteDestinatario();
   const deleteDestinatarioOperario = useDeleteDestinatarioOperario();
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -207,14 +222,14 @@ export function DestinatarioListPage() {
     if (page > 0 && page >= totalPages) setPage(totalPages - 1);
   }, [page, totalPages]);
 
-  if (isLoading) {
-    return <LoadingState text="Cargando destinatarios..." />;
-  }
-  if (error) {
+  if (error && !destinatarios) {
     return (
-      <div className="ui-alert ui-alert-error">
-        Error al cargar destinatarios.
-      </div>
+      <InlineErrorBanner
+        message="Error al cargar destinatarios"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
     );
   }
 
@@ -224,9 +239,18 @@ export function DestinatarioListPage() {
 
   return (
     <div className="page-stack">
+      {error && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los destinatarios"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
+
       <ListToolbar
         title={hasDestinatariosOperario ? 'Destinatarios' : 'Mis destinatarios'}
-        searchPlaceholder="Buscar por nombre, código, teléfono, dirección..."
+        searchPlaceholder="Buscar por nombre, código, teléfono o ubicación..."
         onSearchChange={setSearch}
         actions={
           hasDestinatariosCreate ? (
@@ -238,7 +262,10 @@ export function DestinatarioListPage() {
         }
       />
 
-      {allDestinatarios.length > 0 && (
+      {isLoading ? (
+        <KpiCardsGridSkeleton count={hasDestinatariosOperario ? 4 : 2} />
+      ) : (
+        allDestinatarios.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<UserRound className="h-5 w-5" />}
@@ -269,9 +296,13 @@ export function DestinatarioListPage() {
             />
           )}
         </div>
+        )
       )}
 
-      {allDestinatarios.length > 0 && (
+      {isLoading ? (
+        <FiltrosBarSkeleton chips={hasDestinatariosOperario ? 5 : 3} filters={hasDestinatariosOperario ? 2 : 1} />
+      ) : (
+        allDestinatarios.length > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -366,6 +397,7 @@ export function DestinatarioListPage() {
             )
           }
         />
+        )
       )}
 
       {list.length > 0 && (
@@ -377,7 +409,33 @@ export function DestinatarioListPage() {
         </p>
       )}
 
-      {list.length === 0 ? (
+      {isLoading ? (
+        <ListTableShell>
+          <Table className={hasDestinatariosOperario ? 'min-w-[760px]' : 'min-w-[640px]'}>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[18rem]">Destinatario</TableHead>
+                {hasDestinatariosOperario && (
+                  <TableHead className="hidden md:table-cell">Cliente</TableHead>
+                )}
+                <TableHead className="min-w-[16rem]">Ubicación</TableHead>
+                <TableHead className="hidden md:table-cell">Contacto</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton
+                columns={hasDestinatariosOperario ? 5 : 4}
+                columnClasses={
+                  hasDestinatariosOperario
+                    ? { 1: 'hidden md:table-cell', 3: 'hidden md:table-cell' }
+                    : { 2: 'hidden md:table-cell' }
+                }
+              />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : list.length === 0 ? (
         <EmptyState
           icon={MapPin}
           title={allDestinatarios.length === 0 ? 'No hay destinatarios' : 'Sin resultados'}
@@ -400,13 +458,15 @@ export function DestinatarioListPage() {
         />
       ) : (
         <ListTableShell>
-          <Table className={showClienteColumn ? 'min-w-[900px]' : 'min-w-[720px]'}>
+          <Table className={showClienteColumn ? 'min-w-[760px]' : 'min-w-[640px]'}>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[18rem]">Destinatario</TableHead>
-                {showClienteColumn && <TableHead>Cliente</TableHead>}
+                {showClienteColumn && (
+                  <TableHead className="hidden md:table-cell">Cliente</TableHead>
+                )}
                 <TableHead className="min-w-[16rem]">Ubicación</TableHead>
-                <TableHead>Contacto</TableHead>
+                <TableHead className="hidden md:table-cell">Contacto</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -415,9 +475,14 @@ export function DestinatarioListPage() {
                 <TableRow key={d.id}>
                   <TableCell className="max-w-[18rem] align-top">
                     <NombreCodigoCell destinatario={d} />
+                    {d.telefono && (
+                      <div className="mt-1 md:hidden">
+                        <ContactoCell telefono={d.telefono} />
+                      </div>
+                    )}
                   </TableCell>
                   {showClienteColumn && (
-                    <TableCell className="align-top">
+                    <TableCell className="hidden align-top md:table-cell">
                       <ClienteCell nombre={d.clienteUsuarioNombre} />
                     </TableCell>
                   )}
@@ -428,7 +493,7 @@ export function DestinatarioListPage() {
                       canton={d.canton}
                     />
                   </TableCell>
-                  <TableCell className="align-top">
+                  <TableCell className="hidden align-top md:table-cell">
                     <ContactoCell telefono={d.telefono} />
                   </TableCell>
                   <TableCell className="text-right align-top">

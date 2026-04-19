@@ -40,8 +40,9 @@ import {
 } from '@/components/ui/table';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { EmptyState } from '@/components/EmptyState';
+import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
@@ -86,7 +87,7 @@ export function EnviosConsolidadosListPage() {
     s.hasPermission('ENVIOS_CONSOLIDADOS_DELETE'),
   );
 
-  const { data, isLoading, isFetching, error } = useEnviosConsolidados({
+  const { data, isLoading, isFetching, error, refetch } = useEnviosConsolidados({
     estado: estadoFilter,
     q: q.trim() || undefined,
     page,
@@ -182,6 +183,7 @@ export function EnviosConsolidadosListPage() {
       <ListToolbar
         title="Envíos consolidados"
         searchPlaceholder="Buscar por código..."
+        value={q}
         onSearchChange={setQ}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
@@ -265,13 +267,23 @@ export function EnviosConsolidadosListPage() {
         }
       />
 
-      {isLoading ? (
-        <LoadingState text="Cargando envíos..." />
-      ) : error ? (
-        <div className="ui-alert ui-alert-error">
-          Error al cargar envíos consolidados.
-        </div>
-      ) : items.length === 0 ? (
+      {error && items.length > 0 && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar los envíos"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      )}
+
+      {error && items.length === 0 && !isLoading ? (
+        <InlineErrorBanner
+          message="Error al cargar envíos consolidados"
+          hint="Verifica tu conexión o intenta de nuevo."
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
+      ) : !isLoading && items.length === 0 ? (
         <EmptyState
           icon={Boxes}
           title={
@@ -300,7 +312,7 @@ export function EnviosConsolidadosListPage() {
       ) : (
         <>
           <ListTableShell>
-            <Table>
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
@@ -308,11 +320,17 @@ export function EnviosConsolidadosListPage() {
                   <TableHead className="text-center">Paquetes</TableHead>
                   <TableHead>Peso</TableHead>
                   <TableHead>Creado</TableHead>
-                  <TableHead>Cerrado</TableHead>
+                  <TableHead className="hidden md:table-cell">Cerrado</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {isLoading && (
+                  <TableRowsSkeleton
+                    columns={7}
+                    columnClasses={{ 5: 'hidden md:table-cell' }}
+                  />
+                )}
                 {items.map((e) => (
                   <TableRow
                     key={e.id}
@@ -342,7 +360,7 @@ export function EnviosConsolidadosListPage() {
                     <TableCell className="text-xs text-muted-foreground">
                       <FechaCell value={e.createdAt} />
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
                       <FechaCell value={e.fechaCerrado} mutedIfEmpty />
                     </TableCell>
                     <TableCell

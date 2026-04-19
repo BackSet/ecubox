@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   History,
+  Loader2,
   Pencil,
   RefreshCw,
   RotateCcw,
@@ -19,7 +20,7 @@ import {
   Building2,
   Package as PackageIcon,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +35,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { LoadingState } from '@/components/LoadingState';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { ListTableShell } from '@/components/ListTableShell';
+import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
+import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import {
   Table,
@@ -93,7 +99,30 @@ export function GuiaMasterDetailPage() {
   const [salirRevisionOpen, setSalirRevisionOpen] = useState(false);
   const [reabrirOpen, setReabrirOpen] = useState(false);
 
-  if (isLoading) return <LoadingState text="Cargando guía master..." />;
+  if (isLoading) {
+    return (
+      <div className="page-stack" aria-busy="true" aria-live="polite">
+        <DetailHeaderSkeleton badges={3} metaLines={2} />
+        <KpiCardsGridSkeleton count={4} />
+        <SurfaceCardSkeleton bodyLines={4} />
+        <ListTableShell>
+          <Table className="min-w-[640px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Pieza</TableHead>
+                <TableHead className="hidden md:table-cell">Destinatario</TableHead>
+                <TableHead className="text-right">Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton columns={3} columnClasses={{ 1: 'hidden md:table-cell' }} />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+        <span className="sr-only">Cargando guía master...</span>
+      </div>
+    );
+  }
   if (error || !guia) {
     return (
       <div className="space-y-3">
@@ -158,17 +187,24 @@ export function GuiaMasterDetailPage() {
                 size="sm"
                 onClick={async () => {
                   try {
-                    await recalcular.mutateAsync(id);
-                    toast.success('Estado recalculado');
+                    await notify.run(recalcular.mutateAsync(id), {
+                      loading: 'Recalculando estado...',
+                      success: 'Estado recalculado',
+                      error: 'No se pudo recalcular el estado',
+                    });
                   } catch {
-                    toast.error('Error al recalcular el estado');
+                    // notificado por notify.run
                   }
                 }}
                 disabled={recalcular.isPending}
                 title="Vuelve a calcular el estado a partir de las piezas registradas"
               >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Recalcular
+                {recalcular.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                {recalcular.isPending ? 'Recalculando...' : 'Recalcular'}
               </Button>
             )}
             {puedeMarcarRevision && (
@@ -307,9 +343,7 @@ export function GuiaMasterDetailPage() {
             </span>
           )}
         </div>
-        {loadingPiezas ? (
-          <LoadingState text="Cargando piezas..." />
-        ) : !piezas || piezas.length === 0 ? (
+        {!loadingPiezas && (!piezas || piezas.length === 0) ? (
           <p className="rounded-md border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
             Aún no hay piezas registradas.
           </p>
@@ -321,13 +355,20 @@ export function GuiaMasterDetailPage() {
                   <TableHead className="w-[5rem]">Pieza</TableHead>
                   <TableHead className="min-w-[14rem]">Guía ECUBOX</TableHead>
                   <TableHead className="min-w-[10rem]">Estado</TableHead>
-                  <TableHead className="min-w-[10rem]">Despacho</TableHead>
+                  <TableHead className="hidden min-w-[10rem] md:table-cell">Despacho</TableHead>
                   <TableHead className="w-[6rem]">Peso</TableHead>
                   <TableHead className="w-[10rem] text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {piezas.map((p) => {
+                {loadingPiezas && (
+                  <TableRowsSkeleton
+                    columns={6}
+                    rows={4}
+                    columnClasses={{ 3: 'hidden md:table-cell' }}
+                  />
+                )}
+                {(piezas ?? []).map((p) => {
                   const recibida = piezaRecibida(p);
                   const despachada = piezaDespachada(p);
                   const puedeDespacharParcial =
@@ -348,7 +389,7 @@ export function GuiaMasterDetailPage() {
                       <TableCell className="align-top">
                         <PiezaEstadoBadges paquete={p} />
                       </TableCell>
-                      <TableCell className="max-w-[14rem] align-top text-xs">
+                      <TableCell className="hidden max-w-[14rem] align-top text-xs md:table-cell">
                         {p.despachoNumeroGuia ? (
                           <span
                             className="break-all font-mono text-foreground"
@@ -532,10 +573,10 @@ function CopyButton({ text, label = 'Copiar guía' }: { text: string; label?: st
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      toast.success('Guía copiada');
+      notify.success('Guía copiada');
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      toast.error('No se pudo copiar');
+      notify.error('No se pudo copiar');
     }
   }
 
@@ -622,10 +663,10 @@ function PiezaGuiaCell({ numeroGuia }: { numeroGuia: string }) {
     try {
       await navigator.clipboard.writeText(numeroGuia);
       setCopied(true);
-      toast.success('Guía copiada');
+      notify.success('Guía copiada');
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      toast.error('No se pudo copiar');
+      notify.error('No se pudo copiar');
     }
   }
 
@@ -713,15 +754,20 @@ function CerrarConFaltanteAlert({
 
   async function handleConfirm() {
     try {
-      await cerrar.mutateAsync({
-        id: guiaMasterId,
-        body: { motivo: motivo.trim() || undefined },
-      });
-      toast.success('Guía master cerrada con faltante');
+      await notify.run(
+        cerrar.mutateAsync({
+          id: guiaMasterId,
+          body: { motivo: motivo.trim() || undefined },
+        }),
+        {
+          loading: 'Cerrando guía con faltante...',
+          success: 'Guía master cerrada con faltante',
+          error: 'No se pudo cerrar la guía master',
+        },
+      );
       onClose();
-    } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'No se pudo cerrar la guía master');
+    } catch {
+      // notificado por notify.run
     }
   }
 
@@ -759,6 +805,7 @@ function CerrarConFaltanteAlert({
               onClick={handleConfirm}
               disabled={cerrar.isPending}
             >
+              {cerrar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {cerrar.isPending ? 'Cerrando...' : 'Cerrar con faltante'}
             </Button>
           </AlertDialogAction>
@@ -782,15 +829,20 @@ function DespacharParcialAlert({
 
   async function handleConfirm() {
     try {
-      await confirmar.mutateAsync({
-        id: guiaMasterId,
-        body: { piezaId, motivo: motivo.trim() || undefined },
-      });
-      toast.success('Despacho parcial confirmado');
+      await notify.run(
+        confirmar.mutateAsync({
+          id: guiaMasterId,
+          body: { piezaId, motivo: motivo.trim() || undefined },
+        }),
+        {
+          loading: 'Confirmando despacho parcial...',
+          success: 'Despacho parcial confirmado',
+          error: 'No se pudo confirmar el despacho parcial',
+        },
+      );
       onClose();
-    } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'No se pudo confirmar el despacho parcial');
+    } catch {
+      // notificado por notify.run
     }
   }
 
@@ -912,7 +964,7 @@ function HistorialEstadosCard({ guiaMasterId }: { guiaMasterId: number }) {
         )}
       </div>
       {isLoading ? (
-        <LoadingState text="Cargando historial..." />
+        <ListItemsSkeleton rows={4} withTrailing />
       ) : error ? (
         <p className="rounded-md border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 p-3 text-sm text-[var(--color-destructive)]">
           No se pudo cargar el historial.
@@ -980,19 +1032,21 @@ function CancelarGuiaAlert({
 
   async function handleConfirm() {
     if (!motivo.trim()) {
-      toast.error('Debes indicar un motivo para cancelar la guía');
+      notify.warning('Debes indicar un motivo para cancelar la guía');
       return;
     }
     try {
-      await cancelar.mutateAsync({
-        id: guiaMasterId,
-        body: { motivo: motivo.trim() },
-      });
-      toast.success('Guía cancelada');
+      await notify.run(
+        cancelar.mutateAsync({ id: guiaMasterId, body: { motivo: motivo.trim() } }),
+        {
+          loading: 'Cancelando guía...',
+          success: 'Guía cancelada',
+          error: 'No se pudo cancelar la guía',
+        },
+      );
       onClose();
-    } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'No se pudo cancelar la guía');
+    } catch {
+      // notificado por notify.run
     }
   }
 
@@ -1030,6 +1084,7 @@ function CancelarGuiaAlert({
               onClick={handleConfirm}
               disabled={cancelar.isPending}
             >
+              {cancelar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {cancelar.isPending ? 'Cancelando...' : 'Cancelar guía'}
             </Button>
           </AlertDialogAction>
@@ -1051,15 +1106,17 @@ function MarcarRevisionAlert({
 
   async function handleConfirm() {
     try {
-      await marcar.mutateAsync({
-        id: guiaMasterId,
-        body: { motivo: motivo.trim() || undefined },
-      });
-      toast.success('Guía marcada en revisión');
+      await notify.run(
+        marcar.mutateAsync({ id: guiaMasterId, body: { motivo: motivo.trim() || undefined } }),
+        {
+          loading: 'Marcando guía en revisión...',
+          success: 'Guía marcada en revisión',
+          error: 'No se pudo marcar en revisión',
+        },
+      );
       onClose();
-    } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'No se pudo marcar en revisión');
+    } catch {
+      // notificado por notify.run
     }
   }
 
@@ -1093,6 +1150,7 @@ function MarcarRevisionAlert({
           </AlertDialogCancel>
           <AlertDialogAction asChild>
             <Button onClick={handleConfirm} disabled={marcar.isPending}>
+              {marcar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {marcar.isPending ? 'Marcando...' : 'Marcar en revisión'}
             </Button>
           </AlertDialogAction>
@@ -1114,15 +1172,17 @@ function SalirRevisionAlert({
 
   async function handleConfirm() {
     try {
-      await salir.mutateAsync({
-        id: guiaMasterId,
-        body: { motivo: motivo.trim() || undefined },
-      });
-      toast.success('Revisión finalizada y estado recalculado');
+      await notify.run(
+        salir.mutateAsync({ id: guiaMasterId, body: { motivo: motivo.trim() || undefined } }),
+        {
+          loading: 'Finalizando revisión y recalculando...',
+          success: 'Revisión finalizada y estado recalculado',
+          error: 'No se pudo salir de revisión',
+        },
+      );
       onClose();
-    } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'No se pudo salir de revisión');
+    } catch {
+      // notificado por notify.run
     }
   }
 
@@ -1156,6 +1216,7 @@ function SalirRevisionAlert({
           </AlertDialogCancel>
           <AlertDialogAction asChild>
             <Button onClick={handleConfirm} disabled={salir.isPending}>
+              {salir.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {salir.isPending ? 'Saliendo...' : 'Salir de revisión'}
             </Button>
           </AlertDialogAction>
@@ -1177,19 +1238,21 @@ function ReabrirGuiaAlert({
 
   async function handleConfirm() {
     if (!motivo.trim()) {
-      toast.error('Debes indicar un motivo para reabrir la guía');
+      notify.warning('Debes indicar un motivo para reabrir la guía');
       return;
     }
     try {
-      await reabrir.mutateAsync({
-        id: guiaMasterId,
-        body: { motivo: motivo.trim() },
-      });
-      toast.success('Guía reabierta');
+      await notify.run(
+        reabrir.mutateAsync({ id: guiaMasterId, body: { motivo: motivo.trim() } }),
+        {
+          loading: 'Reabriendo guía...',
+          success: 'Guía reabierta',
+          error: 'No se pudo reabrir la guía',
+        },
+      );
       onClose();
-    } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'No se pudo reabrir la guía');
+    } catch {
+      // notificado por notify.run
     }
   }
 
@@ -1223,6 +1286,7 @@ function ReabrirGuiaAlert({
           </AlertDialogCancel>
           <AlertDialogAction asChild>
             <Button onClick={handleConfirm} disabled={reabrir.isPending}>
+              {reabrir.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {reabrir.isPending ? 'Reabriendo...' : 'Reabrir'}
             </Button>
           </AlertDialogAction>

@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useFieldArray, useForm, type UseFormSetValue } from 'react-hook-form';
 import { z } from 'zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   Loader2,
   UserRound,
@@ -244,7 +244,7 @@ export function PaqueteBulkCreateForm({
         setRemovedIds([]);
       })
       .catch(() => {
-        toast.error('No se pudieron cargar las piezas de la guía');
+        notify.error('No se pudieron cargar las piezas de la guía');
       })
       .finally(() => {
         if (!cancelado) setCargandoExistentes(false);
@@ -351,18 +351,23 @@ export function PaqueteBulkCreateForm({
 
   async function onSubmitCreate(values: FormValues) {
     if (destinatarioId == null) {
-      toast.error('La guía seleccionada no tiene destinatario asignado');
+      notify.warning('La guía seleccionada no tiene destinatario asignado');
       return;
     }
     const guiaId = values.guiaMasterId as number;
     const total = values.paquetes.length;
     setProgreso({ enviando: true, actual: 0, total, fase: 'crear' });
+    const toastId = notify.loading(
+      total === 1 ? 'Registrando paquete...' : `Registrando ${total} paquetes...`,
+    );
 
     if (totalEsperadas == null) {
       try {
         await actualizarGuiaMaster(guiaId, { totalPiezasEsperadas: total });
       } catch {
-        toast.error('No se pudo actualizar el total de piezas esperadas de la guía');
+        notify.error('No se pudo actualizar el total de piezas esperadas de la guía', {
+          id: toastId,
+        });
         setProgreso({ enviando: false, actual: 0, total: 0, fase: null });
         return;
       }
@@ -403,7 +408,7 @@ export function PaqueteBulkCreateForm({
     setProgreso({ enviando: false, actual: 0, total: 0, fase: null });
 
     if (errorMsg) {
-      toast.error(`Se registraron ${creados} de ${total}. ${errorMsg}`);
+      notify.error(`Se registraron ${creados} de ${total}. ${errorMsg}`, { id: toastId });
       if (creados > 0 && errorIndex != null) {
         const restantes = values.paquetes.slice(errorIndex);
         setValue('paquetes', restantes);
@@ -411,14 +416,17 @@ export function PaqueteBulkCreateForm({
         setActiveIndex(0);
       }
     } else {
-      toast.success(creados === 1 ? 'Paquete registrado' : `${creados} paquetes registrados`);
+      notify.success(
+        creados === 1 ? 'Paquete registrado' : `${creados} paquetes registrados`,
+        { id: toastId },
+      );
       onSuccess();
     }
   }
 
   async function onSubmitEdit(values: FormValues) {
     if (destinatarioId == null) {
-      toast.error('La guía no tiene destinatario asignado');
+      notify.warning('La guía no tiene destinatario asignado');
       return;
     }
     const guiaId = values.guiaMasterId as number;
@@ -449,16 +457,16 @@ export function PaqueteBulkCreateForm({
       idsAEliminar.length === 0 &&
       !totalChanged
     ) {
-      toast.info('No hay cambios que guardar');
+      notify.info('No hay cambios que guardar');
       return;
     }
 
     if (idsAEliminar.length > 0 && !hasPaquetesDelete) {
-      toast.error('No tienes permisos para eliminar paquetes');
+      notify.error('No tienes permisos para eliminar paquetes');
       return;
     }
     if (itemsAActualizar.length > 0 && !hasPaquetesUpdate) {
-      toast.error('No tienes permisos para editar paquetes');
+      notify.error('No tienes permisos para editar paquetes');
       return;
     }
 
@@ -474,6 +482,7 @@ export function PaqueteBulkCreateForm({
       total: totalOps,
       fase: idsAEliminar.length > 0 ? 'eliminar' : itemsAActualizar.length > 0 ? 'actualizar' : 'crear',
     });
+    const toastId = notify.loading(`Guardando cambios (${totalOps} operaciones)...`);
 
     let realizados = 0;
     const bump = (fase: 'crear' | 'actualizar' | 'eliminar') => {
@@ -540,12 +549,17 @@ export function PaqueteBulkCreateForm({
       if (itemsACrear.length > 0) partes.push(`${itemsACrear.length} creado${itemsACrear.length === 1 ? '' : 's'}`);
       if (itemsAActualizar.length > 0) partes.push(`${itemsAActualizar.length} actualizado${itemsAActualizar.length === 1 ? '' : 's'}`);
       if (idsAEliminar.length > 0) partes.push(`${idsAEliminar.length} eliminado${idsAEliminar.length === 1 ? '' : 's'}`);
-      toast.success(partes.length > 0 ? `Cambios guardados: ${partes.join(', ')}.` : 'Guía actualizada.');
+      notify.success(
+        partes.length > 0 ? `Cambios guardados: ${partes.join(', ')}` : 'Guía actualizada',
+        { id: toastId },
+      );
       onSuccess();
     } catch (err: unknown) {
       const res = (err as { response?: { status?: number; data?: { message?: string } } })?.response;
-      const message = res?.data?.message?.trim() || 'Error al guardar los cambios';
-      toast.error(`${message} (${realizados} de ${totalOps} operaciones aplicadas)`);
+      const message = res?.data?.message?.trim() || 'No se pudieron guardar los cambios';
+      notify.error(`${message} (${realizados} de ${totalOps} operaciones aplicadas)`, {
+        id: toastId,
+      });
       qc.invalidateQueries({ queryKey: ['paquetes'] });
       qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
     } finally {

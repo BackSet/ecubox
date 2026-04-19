@@ -16,7 +16,8 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { KpiCard } from '@/components/KpiCard';
 import { SurfaceCard } from '@/components/ui/surface-card';
-import { LoadingState } from '@/components/LoadingState';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
+import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
 import { useUsuarios } from '@/hooks/useUsuarios';
 import { useRoles } from '@/hooks/useRoles';
 import { usePermisos } from '@/hooks/usePermisos';
@@ -95,7 +96,14 @@ export function InicioAdminSection() {
       </header>
 
       {cargando && !usuarios && !roles && !permisos ? (
-        <LoadingState text="Cargando información administrativa..." />
+        <div aria-busy="true" aria-live="polite" className="space-y-4">
+          <KpiCardsGridSkeleton count={8} gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" />
+          <KpiCardsGridSkeleton count={3} gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" />
+          <SurfaceCard className="overflow-hidden">
+            <ListItemsSkeleton rows={6} withTrailing />
+          </SurfaceCard>
+          <span className="sr-only">Cargando información administrativa...</span>
+        </div>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
