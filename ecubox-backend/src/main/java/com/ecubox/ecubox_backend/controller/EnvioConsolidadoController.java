@@ -4,6 +4,7 @@ import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateRequest;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoDTO;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoPaquetesRequest;
+import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
@@ -17,9 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/envios-consolidados")
@@ -39,22 +37,14 @@ public class EnvioConsolidadoController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_READ')")
-    public ResponseEntity<Map<String, Object>> findAll(
+    public ResponseEntity<PageResponse<EnvioConsolidadoDTO>> findAll(
             @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Boolean cerradoFilter = parseEstadoFilter(estado);
-        Page<EnvioConsolidado> resultado = envioConsolidadoService.findAll(cerradoFilter, page, size);
-        List<EnvioConsolidadoDTO> contenido = resultado.getContent().stream()
-                .map(e -> envioConsolidadoService.toDTO(e, false))
-                .toList();
-        return ResponseEntity.ok(Map.of(
-                "content", contenido,
-                "page", resultado.getNumber(),
-                "size", resultado.getSize(),
-                "totalElements", resultado.getTotalElements(),
-                "totalPages", resultado.getTotalPages()
-        ));
+        Page<EnvioConsolidado> resultado = envioConsolidadoService.findAll(cerradoFilter, q, page, size);
+        return ResponseEntity.ok(PageResponse.of(resultado, e -> envioConsolidadoService.toDTO(e, false)));
     }
 
     @GetMapping("/{id}")

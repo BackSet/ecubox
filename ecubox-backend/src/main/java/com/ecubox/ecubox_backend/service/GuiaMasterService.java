@@ -33,13 +33,18 @@ import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
+import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +55,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -421,6 +427,47 @@ public class GuiaMasterService {
     }
 
     /**
+     * Variante paginada del listado de guías master con búsqueda libre.
+     * <p>Campos contemplados por {@code q}: {@code trackingBase} (tracking),
+     * {@code destinatarioFinal.nombre}, {@code destinatarioFinal.codigo},
+     * {@code clienteUsuario.nombre}, {@code clienteUsuario.email}.</p>
+     */
+    @Transactional(readOnly = true)
+    public Page<GuiaMaster> findAllPaginated(String q, java.util.Collection<EstadoGuiaMaster> estados,
+                                             int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        Specification<GuiaMaster> spec = SearchSpecifications.tokensLike(q,
+                SearchSpecifications.field("trackingBase"),
+                SearchSpecifications.path("destinatarioFinal", "nombre"),
+                SearchSpecifications.path("destinatarioFinal", "codigo"),
+                SearchSpecifications.path("clienteUsuario", "nombre"),
+                SearchSpecifications.path("clienteUsuario", "email"));
+        if (estados != null && !estados.isEmpty()) {
+            final java.util.Collection<EstadoGuiaMaster> finalEstados = estados;
+            spec = spec.and((root, query, cb) -> root.get("estadoGlobal").in(finalEstados));
+        }
+        return guiaMasterRepository.findAll(spec, pageable);
+    }
+
+    /** Variante paginada filtrada por cliente (rol cliente). */
+    @Transactional(readOnly = true)
+    public Page<GuiaMaster> findAllByClientePaginated(Long clienteUsuarioId, String q,
+                                                      int page, int size) {
+        if (clienteUsuarioId == null) {
+            return Page.empty();
+        }
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        Specification<GuiaMaster> ownership = (root, query, cb) ->
+                cb.equal(root.get("clienteUsuario").get("id"), clienteUsuarioId);
+        Specification<GuiaMaster> textFilter = SearchSpecifications.tokensLike(q,
+                SearchSpecifications.field("trackingBase"),
+                SearchSpecifications.path("destinatarioFinal", "nombre"));
+        return guiaMasterRepository.findAll(ownership.and(textFilter), pageable);
+    }
+
+    /**
      * Busca una guia master por su tracking_base y construye el DTO publico para tracking.
      * No expone PII del destinatario mas alla del nombre. Usado por el endpoint unificado
      * {@code GET /api/v1/tracking?codigo=...}.
@@ -572,7 +619,7 @@ public class GuiaMasterService {
      */
     @Transactional
     public int[] validarYAsignarPieza(GuiaMaster gm, Integer piezaNumero) {
-        int total = gm.getTotalPiezasEsperadas() != null ? gm.getTotalPiezasEsperadas() : 0;
+        int total = Optional.ofNullable(gm.getTotalPiezasEsperadas()).orElse(0);
         if (total < 1) {
             throw new BadRequestException("La guía master no tiene total de piezas definido");
         }
@@ -698,7 +745,7 @@ public class GuiaMasterService {
         }
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(guiaMasterId);
         long despachadas = piezas.stream().filter(this::piezaDespachada).count();
-        int total = gm.getTotalPiezasEsperadas() != null ? gm.getTotalPiezasEsperadas() : 0;
+        int total = Optional.ofNullable(gm.getTotalPiezasEsperadas()).orElse(0);
         if (despachadas == 0) {
             throw new BadRequestException("No se puede cerrar con faltante: ninguna pieza ha sido despachada");
         }
@@ -915,7 +962,7 @@ public class GuiaMasterService {
     @Transactional(readOnly = true)
     public DespachoParcialResumen resumenDespachoParcial(Long guiaMasterId) {
         GuiaMaster gm = findById(guiaMasterId);
-        int total = gm.getTotalPiezasEsperadas() != null ? gm.getTotalPiezasEsperadas() : 0;
+        int total = Optional.ofNullable(gm.getTotalPiezasEsperadas()).orElse(0);
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
         long recibidas = piezas.stream().filter(this::piezaRecibida).count();
         long despachadas = piezas.stream().filter(this::piezaDespachada).count();
@@ -1131,8 +1178,8 @@ public class GuiaMasterService {
             }
             EstadoGuiaMaster est = estado != null ? EstadoGuiaMaster.valueOf(estado) : null;
             if (est == null || !finalizados.contains(est)) {
-                int registradas = dto.getPiezasRegistradas() != null ? dto.getPiezasRegistradas() : 0;
-                int despachadas = dto.getPiezasDespachadas() != null ? dto.getPiezasDespachadas() : 0;
+                int registradas = Optional.ofNullable(dto.getPiezasRegistradas()).orElse(0);
+                int despachadas = Optional.ofNullable(dto.getPiezasDespachadas()).orElse(0);
                 piezasEnTransito += Math.max(0, registradas - despachadas);
             }
         }
@@ -1288,7 +1335,7 @@ public class GuiaMasterService {
         int registradas = piezas.size();
         int recibidas = (int) piezas.stream().filter(this::piezaRecibida).count();
         int despachadas = (int) piezas.stream().filter(this::piezaDespachada).count();
-        int total = gm.getTotalPiezasEsperadas() != null ? gm.getTotalPiezasEsperadas() : 0;
+        int total = Optional.ofNullable(gm.getTotalPiezasEsperadas()).orElse(0);
         int minPiezas = parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial();
         boolean lista = recibidas >= minPiezas && despachadas < total;
         boolean enCurso = despachadas > 0 && despachadas < total;

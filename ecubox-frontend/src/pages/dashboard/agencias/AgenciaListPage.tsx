@@ -13,7 +13,8 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
-import { useAgencias, useDeleteAgencia } from '@/hooks/useAgencias';
+import { useAgenciasPaginadas, useDeleteAgencia } from '@/hooks/useAgencias';
+import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { AgenciaForm } from './AgenciaForm';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
@@ -24,6 +25,7 @@ import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
@@ -35,7 +37,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { createContainsMatcher } from '@/lib/search';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { Agencia } from '@/types/despacho';
 
@@ -48,12 +49,18 @@ function fmtMoneda(n: number | undefined | null): string {
 }
 
 export function AgenciaListPage() {
-  const { data: agencias, isLoading, error } = useAgencias();
+  const { q, setQ, page, size, setPage, setSize, resetPage } =
+    useSearchPagination({ initialSize: 25 });
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+  } = useAgenciasPaginadas({ q: q.trim() || undefined, page, size });
   const deleteAgencia = useDeleteAgencia();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
   const [provinciaFiltro, setProvinciaFiltro] = useState<string | undefined>(
     undefined,
   );
@@ -62,7 +69,9 @@ export function AgenciaListPage() {
     'todos' | 'sin_tarifa' | 'con_tarifa' | 'sin_horario' | 'sin_encargado'
   >('todos');
 
-  const allAgencias = useMemo(() => agencias ?? [], [agencias]);
+  const allAgencias = useMemo<Agencia[]>(() => data?.content ?? [], [data]);
+  const totalElements = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 0;
 
   const provincias = useMemo(() => {
     const set = new Set<string>();
@@ -74,20 +83,11 @@ export function AgenciaListPage() {
   }, [allAgencias]);
 
   const baseList = useMemo(() => {
-    const contains = createContainsMatcher(search);
     return allAgencias.filter((a) => {
       if (provinciaFiltro && (a.provincia ?? '') !== provinciaFiltro) return false;
-      if (!contains) return true;
-      return (
-        contains(a.nombre) ||
-        contains(a.codigo) ||
-        contains(a.encargado) ||
-        contains(a.direccion) ||
-        contains(a.provincia) ||
-        contains(a.canton)
-      );
+      return true;
     });
-  }, [allAgencias, search, provinciaFiltro]);
+  }, [allAgencias, provinciaFiltro]);
 
   const chipCounts = useMemo(() => {
     let conTarifa = 0;
@@ -117,15 +117,16 @@ export function AgenciaListPage() {
   }, [baseList, chipActivo]);
 
   const tieneFiltros =
-    !!provinciaFiltro || chipActivo !== 'todos' || search.trim().length > 0;
+    !!provinciaFiltro || chipActivo !== 'todos' || q.trim().length > 0;
   const limpiarFiltros = useCallback(() => {
     setProvinciaFiltro(undefined);
     setChipActivo('todos');
-    setSearch('');
-  }, []);
+    setQ('');
+    resetPage();
+  }, [resetPage, setQ]);
 
   const stats = useMemo(() => {
-    const total = allAgencias.length;
+    const total = totalElements;
     const provs = provincias.length;
     const tarifas = allAgencias
       .map((a) => Number(a.tarifaServicio ?? 0))
@@ -137,7 +138,7 @@ export function AgenciaListPage() {
         : 0;
     const maxima = conTarifa.length > 0 ? Math.max(...conTarifa) : 0;
     return { total, provs, promedio, maxima };
-  }, [allAgencias, provincias]);
+  }, [allAgencias, provincias, totalElements]);
 
   if (isLoading) {
     return <LoadingState text="Cargando agencias..." />;
@@ -155,7 +156,7 @@ export function AgenciaListPage() {
       <ListToolbar
         title="Agencias"
         searchPlaceholder="Buscar por nombre, código, encargado, provincia..."
-        onSearchChange={setSearch}
+        onSearchChange={setQ}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -164,7 +165,7 @@ export function AgenciaListPage() {
         }
       />
 
-      {allAgencias.length > 0 && (
+      {totalElements > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<Building2 className="h-4 w-4" />}
@@ -196,7 +197,7 @@ export function AgenciaListPage() {
         </div>
       )}
 
-      {allAgencias.length > 0 && (
+      {totalElements > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -206,14 +207,20 @@ export function AgenciaListPage() {
                 label="Todas"
                 count={chipCounts.todos}
                 active={chipActivo === 'todos'}
-                onClick={() => setChipActivo('todos')}
+                onClick={() => {
+                  setChipActivo('todos');
+                  resetPage();
+                }}
               />
               <ChipFiltro
                 label="Con tarifa"
                 count={chipCounts.conTarifa}
                 active={chipActivo === 'con_tarifa'}
                 tone="success"
-                onClick={() => setChipActivo('con_tarifa')}
+                onClick={() => {
+                  setChipActivo('con_tarifa');
+                  resetPage();
+                }}
                 hideWhenZero
               />
               <ChipFiltro
@@ -221,7 +228,10 @@ export function AgenciaListPage() {
                 count={chipCounts.sinTarifa}
                 active={chipActivo === 'sin_tarifa'}
                 tone="neutral"
-                onClick={() => setChipActivo('sin_tarifa')}
+                onClick={() => {
+                  setChipActivo('sin_tarifa');
+                  resetPage();
+                }}
                 hideWhenZero
               />
               <ChipFiltro
@@ -229,7 +239,10 @@ export function AgenciaListPage() {
                 count={chipCounts.sinHorario}
                 active={chipActivo === 'sin_horario'}
                 tone="warning"
-                onClick={() => setChipActivo('sin_horario')}
+                onClick={() => {
+                  setChipActivo('sin_horario');
+                  resetPage();
+                }}
                 hideWhenZero
               />
               <ChipFiltro
@@ -237,7 +250,10 @@ export function AgenciaListPage() {
                 count={chipCounts.sinEncargado}
                 active={chipActivo === 'sin_encargado'}
                 tone="warning"
-                onClick={() => setChipActivo('sin_encargado')}
+                onClick={() => {
+                  setChipActivo('sin_encargado');
+                  resetPage();
+                }}
                 hideWhenZero
               />
             </>
@@ -247,9 +263,10 @@ export function AgenciaListPage() {
               <FiltroCampo label="Provincia" width="w-[14rem]">
                 <SearchableCombobox<string>
                   value={provinciaFiltro}
-                  onChange={(v) =>
-                    setProvinciaFiltro(v === undefined ? undefined : String(v))
-                  }
+                  onChange={(v) => {
+                    setProvinciaFiltro(v === undefined ? undefined : String(v));
+                    resetPage();
+                  }}
                   options={provincias}
                   getKey={(p) => p}
                   getLabel={(p) => p}
@@ -264,26 +281,19 @@ export function AgenciaListPage() {
         />
       )}
 
-      {list.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {list.length} agencia{list.length === 1 ? '' : 's'}
-          {list.length !== allAgencias.length ? ` de ${allAgencias.length}` : ''}
-        </p>
-      )}
-
       {list.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title={allAgencias.length === 0 ? 'No hay agencias' : 'Sin resultados'}
+          title={totalElements === 0 ? 'No hay agencias' : 'Sin resultados'}
           description={
-            allAgencias.length === 0
+            totalElements === 0
               ? 'Registra una agencia para usarla como punto de retiro en despachos.'
               : tieneFiltros
                 ? 'No hay agencias que coincidan con los filtros aplicados.'
                 : 'No se encontraron agencias con ese criterio.'
           }
           action={
-            allAgencias.length === 0 ? (
+            totalElements === 0 ? (
               <Button onClick={() => setCreateOpen(true)}>Registrar agencia</Button>
             ) : (
               <Button variant="outline" onClick={limpiarFiltros}>
@@ -353,6 +363,18 @@ export function AgenciaListPage() {
             </TableBody>
           </Table>
         </ListTableShell>
+      )}
+
+      {totalElements > 0 && (
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+          loading={isFetching}
+        />
       )}
 
       {createOpen && (

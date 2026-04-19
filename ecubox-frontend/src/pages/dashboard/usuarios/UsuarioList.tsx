@@ -18,7 +18,12 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useUsuarios, useDeleteUsuario, useUpdateUsuario } from '@/hooks/useUsuarios';
+import {
+  useUsuariosPaginados,
+  useDeleteUsuario,
+  useUpdateUsuario,
+} from '@/hooks/useUsuarios';
+import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { useRoles } from '@/hooks/useRoles';
 import { useAuthStore } from '@/stores/authStore';
 import { UsuarioForm } from './UsuarioForm';
@@ -30,6 +35,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -58,7 +64,14 @@ const ROL_TODOS = '__todos__';
 const ROL_SIN_ROL = '__sin_rol__';
 
 export function UsuarioList() {
-  const { data: usuarios, isLoading, error } = useUsuarios();
+  const { q, setQ, page, size, setPage, setSize, resetPage } =
+    useSearchPagination({ initialSize: 25 });
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+  } = useUsuariosPaginados({ q: q.trim() || undefined, page, size });
   const { data: rolesCatalog = [] } = useRoles();
   const deleteUsuario = useDeleteUsuario();
   const updateUsuario = useUpdateUsuario();
@@ -68,23 +81,15 @@ export function UsuarioList() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>('todos');
   const [rolFiltro, setRolFiltro] = useState<string>(ROL_TODOS);
 
-  const allUsuarios = useMemo(() => usuarios ?? [], [usuarios]);
+  const allUsuarios = useMemo<UsuarioDTO[]>(() => data?.content ?? [], [data]);
+  const totalElements = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 0;
 
   const list = useMemo(() => {
     let raw = allUsuarios;
-    const q = search.trim().toLowerCase();
-    if (q) {
-      raw = raw.filter(
-        (u) =>
-          u.username?.toLowerCase().includes(q) ||
-          (u.email?.toLowerCase().includes(q) ?? false) ||
-          (u.roles?.some((r) => r.toLowerCase().includes(q)) ?? false),
-      );
-    }
     if (estadoFiltro !== 'todos') {
       raw = raw.filter((u) => (estadoFiltro === 'activos' ? u.enabled : !u.enabled));
     }
@@ -95,15 +100,15 @@ export function UsuarioList() {
           : raw.filter((u) => (u.roles ?? []).includes(rolFiltro));
     }
     return raw;
-  }, [allUsuarios, search, estadoFiltro, rolFiltro]);
+  }, [allUsuarios, estadoFiltro, rolFiltro]);
 
   const stats = useMemo(() => {
-    const total = allUsuarios.length;
+    const total = totalElements;
     const activos = allUsuarios.filter((u) => u.enabled).length;
-    const inactivos = total - activos;
+    const inactivos = allUsuarios.length - activos;
     const sinRol = allUsuarios.filter((u) => (u.roles?.length ?? 0) === 0).length;
     return { total, activos, inactivos, sinRol };
-  }, [allUsuarios]);
+  }, [allUsuarios, totalElements]);
 
   const rolesOptions = useMemo(() => {
     const fromUsers = new Set<string>();
@@ -115,12 +120,13 @@ export function UsuarioList() {
   }, [allUsuarios, rolesCatalog]);
 
   const filtersActive =
-    Boolean(search.trim()) || estadoFiltro !== 'todos' || rolFiltro !== ROL_TODOS;
+    Boolean(q.trim()) || estadoFiltro !== 'todos' || rolFiltro !== ROL_TODOS;
 
   function clearFilters() {
-    setSearch('');
+    setQ('');
     setEstadoFiltro('todos');
     setRolFiltro(ROL_TODOS);
+    resetPage();
   }
 
   async function handleToggleEnabled(u: UsuarioDTO) {
@@ -147,7 +153,7 @@ export function UsuarioList() {
       <ListToolbar
         title="Usuarios"
         searchPlaceholder="Buscar por usuario, email o rol..."
-        onSearchChange={setSearch}
+        onSearchChange={setQ}
         actions={
           hasWrite ? (
             <Button onClick={() => setCreateOpen(true)}>
@@ -198,7 +204,10 @@ export function UsuarioList() {
               label="Todos"
               count={stats.total}
               active={estadoFiltro === 'todos'}
-              onClick={() => setEstadoFiltro('todos')}
+              onClick={() => {
+                setEstadoFiltro('todos');
+                resetPage();
+              }}
             />
             <ChipFiltro
               label="Activos"
@@ -206,7 +215,10 @@ export function UsuarioList() {
               active={estadoFiltro === 'activos'}
               tone="success"
               icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-              onClick={() => setEstadoFiltro('activos')}
+              onClick={() => {
+                setEstadoFiltro('activos');
+                resetPage();
+              }}
             />
             <ChipFiltro
               label="Inactivos"
@@ -214,7 +226,10 @@ export function UsuarioList() {
               active={estadoFiltro === 'inactivos'}
               tone="warning"
               icon={<PowerOff className="h-3.5 w-3.5" />}
-              onClick={() => setEstadoFiltro('inactivos')}
+              onClick={() => {
+                setEstadoFiltro('inactivos');
+                resetPage();
+              }}
             />
             <ChipFiltro
               label="Sin rol"
@@ -222,13 +237,20 @@ export function UsuarioList() {
               active={rolFiltro === ROL_SIN_ROL}
               tone="danger"
               icon={<UserMinus className="h-3.5 w-3.5" />}
-              onClick={() =>
-                setRolFiltro(rolFiltro === ROL_SIN_ROL ? ROL_TODOS : ROL_SIN_ROL)
-              }
+              onClick={() => {
+                setRolFiltro(rolFiltro === ROL_SIN_ROL ? ROL_TODOS : ROL_SIN_ROL);
+                resetPage();
+              }}
               hideWhenZero
             />
           </div>
-          <Select value={rolFiltro} onValueChange={setRolFiltro}>
+          <Select
+            value={rolFiltro}
+            onValueChange={(v) => {
+              setRolFiltro(v);
+              resetPage();
+            }}
+          >
             <SelectTrigger className="h-9 w-full sm:w-[200px]">
               <SelectValue placeholder="Filtrar por rol" />
             </SelectTrigger>
@@ -246,7 +268,7 @@ export function UsuarioList() {
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>
             <span className="font-semibold text-foreground">{list.length}</span> de{' '}
-            {allUsuarios.length}
+            {totalElements}
           </span>
           {filtersActive && (
             <Button
@@ -266,14 +288,14 @@ export function UsuarioList() {
       {list.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={allUsuarios.length === 0 ? 'No hay usuarios' : 'Sin resultados'}
+          title={totalElements === 0 ? 'No hay usuarios' : 'Sin resultados'}
           description={
-            allUsuarios.length === 0
+            totalElements === 0
               ? 'Crea el primer usuario para comenzar.'
               : 'No se encontraron usuarios con esos filtros.'
           }
           action={
-            allUsuarios.length === 0 && hasWrite ? (
+            totalElements === 0 && hasWrite ? (
               <Button onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Nuevo usuario
@@ -351,6 +373,18 @@ export function UsuarioList() {
             </TableBody>
           </Table>
         </ListTableShell>
+      )}
+
+      {totalElements > 0 && (
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+          loading={isFetching}
+        />
       )}
 
       {createOpen && (

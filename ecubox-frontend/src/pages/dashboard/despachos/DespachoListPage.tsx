@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   AlertCircle,
@@ -115,11 +116,18 @@ export function DespachoListPage() {
   const { data: estadosAplicables } = useEstadosAplicablesDespacho(aplicarEstadoOpen);
   const { data: estadosPorPunto } = useEstadosRastreoPorPunto();
 
-  const [search, setSearch] = useState('');
-  const [tipoFiltro, setTipoFiltro] = useState<TipoEntrega | typeof SIN_FILTRO>(SIN_FILTRO);
-  const [distribuidorFiltro, setDistribuidorFiltro] = useState<string | undefined>(undefined);
+  const [search, setSearchRaw] = useState('');
+  const [tipoFiltro, setTipoFiltroRaw] = useState<TipoEntrega | typeof SIN_FILTRO>(SIN_FILTRO);
+  const [distribuidorFiltro, setDistribuidorFiltroRaw] = useState<string | undefined>(undefined);
   // Chip rapido sobre el conjunto: hoy, ultimos 7 dias.
-  const [chipPeriodo, setChipPeriodo] = useState<'todos' | 'hoy' | '7d'>('todos');
+  const [chipPeriodo, setChipPeriodoRaw] = useState<'todos' | 'hoy' | '7d'>('todos');
+  const [page, setPage] = useState(0);
+  const [size, setSizeRaw] = useState(25);
+  const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
+  const setTipoFiltro = (v: TipoEntrega | typeof SIN_FILTRO) => { setTipoFiltroRaw(v); setPage(0); };
+  const setDistribuidorFiltro = (v: string | undefined) => { setDistribuidorFiltroRaw(v); setPage(0); };
+  const setChipPeriodo = (v: 'todos' | 'hoy' | '7d') => { setChipPeriodoRaw(v); setPage(0); };
+  const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [whatsappDespachoId, setWhatsappDespachoId] = useState<number | null>(null);
   const [aplicarModo, setAplicarModo] = useState<'periodo' | 'despachos'>('periodo');
@@ -354,6 +362,15 @@ export function DespachoListPage() {
     return { count, invalid: false };
   }, [allDespachos, periodoFechaInicio, periodoFechaFin]);
 
+  const pagedList = useMemo(
+    () => list.slice(page * size, page * size + size),
+    [list, page, size],
+  );
+  const totalPages = Math.max(1, Math.ceil(list.length / Math.max(1, size)));
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
+  }, [page, totalPages]);
+
   if (isLoading) {
     return <LoadingState text="Cargando despachos..." />;
   }
@@ -573,7 +590,7 @@ export function DespachoListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((d) => (
+                {pagedList.map((d) => (
                   <TableRow
                     key={d.id}
                     className="cursor-pointer"
@@ -680,6 +697,14 @@ export function DespachoListPage() {
               </TableBody>
             </Table>
           </ListTableShell>
+          <TablePagination
+            page={page}
+            size={size}
+            totalElements={list.length}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onSizeChange={setSize}
+          />
         </>
       )}
 

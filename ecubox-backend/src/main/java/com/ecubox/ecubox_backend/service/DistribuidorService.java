@@ -7,6 +7,12 @@ import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.mapper.DistribuidorMapper;
 import com.ecubox.ecubox_backend.repository.DistribuidorRepository;
+import com.ecubox.ecubox_backend.util.SearchSpecifications;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +34,22 @@ public class DistribuidorService {
         return distribuidorRepository.findAll().stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    /**
+     * Lista paginada con búsqueda libre (LIKE multi-token) sobre nombre,
+     * código y email. La entidad no expone RUC ni teléfono.
+     */
+    @Transactional(readOnly = true)
+    public Page<DistribuidorDTO> findAllPaginated(String q, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page),
+                Math.max(1, Math.min(100, size)),
+                Sort.by(Sort.Direction.ASC, "nombre").and(Sort.by(Sort.Direction.ASC, "id")));
+        Specification<Distribuidor> spec = SearchSpecifications.tokensLike(q,
+                SearchSpecifications.field("nombre"),
+                SearchSpecifications.field("codigo"),
+                SearchSpecifications.field("email"));
+        return distribuidorRepository.findAll(spec, pageable).map(this::toDTO);
     }
 
     @Transactional(readOnly = true)

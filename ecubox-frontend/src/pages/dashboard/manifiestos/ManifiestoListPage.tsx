@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { useNavigate } from '@tanstack/react-router';
 import {
   Building2,
@@ -119,13 +120,19 @@ export function ManifiestoListPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
-  const [estadoFilter, setEstadoFilter] = useState<EstadoManifiesto | typeof SIN_FILTRO>(
+  const [search, setSearchRaw] = useState('');
+  const [estadoFilter, setEstadoFilterRaw] = useState<EstadoManifiesto | typeof SIN_FILTRO>(
     SIN_FILTRO,
   );
-  const [filtroTipoFilter, setFiltroTipoFilter] = useState<FiltroManifiesto | undefined>(
+  const [filtroTipoFilter, setFiltroTipoFilterRaw] = useState<FiltroManifiesto | undefined>(
     undefined,
   );
+  const [page, setPage] = useState(0);
+  const [size, setSizeRaw] = useState(25);
+  const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
+  const setEstadoFilter = (v: EstadoManifiesto | typeof SIN_FILTRO) => { setEstadoFilterRaw(v); setPage(0); };
+  const setFiltroTipoFilter = (v: FiltroManifiesto | undefined) => { setFiltroTipoFilterRaw(v); setPage(0); };
+  const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
   const [exporting, setExporting] = useState<{
     id: number;
     mode: 'pdf' | 'print' | 'xlsx';
@@ -213,6 +220,15 @@ export function ManifiestoListPage() {
       setExporting(null);
     }
   };
+
+  const pagedList = useMemo(
+    () => list.slice(page * size, page * size + size),
+    [list, page, size],
+  );
+  const totalPages = Math.max(1, Math.ceil(list.length / Math.max(1, size)));
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
+  }, [page, totalPages]);
 
   if (isLoading) {
     return <LoadingState text="Cargando manifiestos..." />;
@@ -391,7 +407,7 @@ export function ManifiestoListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((m) => (
+                {pagedList.map((m) => (
                   <TableRow
                     key={m.id}
                     className="cursor-pointer"
@@ -507,6 +523,14 @@ export function ManifiestoListPage() {
               </TableBody>
             </Table>
           </ListTableShell>
+          <TablePagination
+            page={page}
+            size={size}
+            totalElements={list.length}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onSizeChange={setSize}
+          />
         </>
       )}
 

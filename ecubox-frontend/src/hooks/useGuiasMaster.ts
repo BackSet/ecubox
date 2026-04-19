@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   listarGuiasMaster,
+  listarGuiasMasterPaginado,
   obtenerGuiaMaster,
   listarPiezasDeGuiaMaster,
   crearGuiaMaster,
@@ -15,6 +16,7 @@ import {
   salirGuiaMasterDeRevision,
   reabrirGuiaMaster,
   listarHistorialGuiaMaster,
+  type ListarGuiasMasterPageParams,
 } from '@/lib/api/guias-master.service';
 import type {
   EstadoGuiaMaster,
@@ -37,6 +39,26 @@ export function useGuiasMaster(
   return useQuery({
     queryKey: [...GUIAS_MASTER_QUERY_KEY, 'list', trackingBase ?? '', estadosKey],
     queryFn: () => listarGuiasMaster(trackingBase, estados),
+  });
+}
+
+/** Versión paginada con búsqueda libre + filtro por estados. */
+export function useGuiasMasterPaginadas(params: ListarGuiasMasterPageParams) {
+  const estadosKey =
+    params.estados && params.estados.length > 0
+      ? [...params.estados].sort().join(',')
+      : '';
+  return useQuery({
+    queryKey: [
+      ...GUIAS_MASTER_QUERY_KEY,
+      'page',
+      params.q ?? '',
+      estadosKey,
+      params.page ?? 0,
+      params.size ?? 25,
+    ] as const,
+    queryFn: () => listarGuiasMasterPaginado(params),
+    placeholderData: keepPreviousData,
   });
 }
 

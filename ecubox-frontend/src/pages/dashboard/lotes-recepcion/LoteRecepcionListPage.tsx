@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   Boxes,
@@ -96,14 +97,22 @@ export function LoteRecepcionListPage() {
   const navigate = useNavigate();
   const { data: lotes, isLoading, error } = useLotesRecepcion();
   const deleteLote = useDeleteLoteRecepcion();
-  const [search, setSearch] = useState('');
+  const [search, setSearchRaw] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  const [operarioFiltro, setOperarioFiltro] = useState<string | undefined>(
+  const [operarioFiltro, setOperarioFiltroRaw] = useState<string | undefined>(
     undefined,
   );
-  const [periodo, setPeriodo] = useState<Periodo>(SIN_FILTRO);
-  const [desde, setDesde] = useState('');
-  const [hasta, setHasta] = useState('');
+  const [periodo, setPeriodoRaw] = useState<Periodo>(SIN_FILTRO);
+  const [desde, setDesdeRaw] = useState('');
+  const [hasta, setHastaRaw] = useState('');
+  const [page, setPage] = useState(0);
+  const [size, setSizeRaw] = useState(25);
+  const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
+  const setOperarioFiltro = (v: string | undefined) => { setOperarioFiltroRaw(v); setPage(0); };
+  const setPeriodo = (v: Periodo) => { setPeriodoRaw(v); setPage(0); };
+  const setDesde = (v: string) => { setDesdeRaw(v); setPage(0); };
+  const setHasta = (v: string) => { setHastaRaw(v); setPage(0); };
+  const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
 
   // Operarios distintos presentes en los lotes, para poblar el dropdown.
   const operarios = useMemo(() => {
@@ -189,6 +198,15 @@ export function LoteRecepcionListPage() {
     }
     return { total: all.length, paquetes, hoy, guiasUnicas: guias.size };
   }, [lotes]);
+
+  const pagedList = useMemo(
+    () => list.slice(page * size, page * size + size),
+    [list, page, size],
+  );
+  const totalPages = Math.max(1, Math.ceil(list.length / Math.max(1, size)));
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
+  }, [page, totalPages]);
 
   if (isLoading) {
     return <LoadingState text="Cargando lotes de recepción..." />;
@@ -390,7 +408,7 @@ export function LoteRecepcionListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((l) => (
+                {pagedList.map((l) => (
                   <TableRow
                     key={l.id}
                     className="cursor-pointer"
@@ -446,6 +464,14 @@ export function LoteRecepcionListPage() {
               </TableBody>
             </Table>
           </ListTableShell>
+          <TablePagination
+            page={page}
+            size={size}
+            totalElements={list.length}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onSizeChange={setSize}
+          />
         </>
       )}
 

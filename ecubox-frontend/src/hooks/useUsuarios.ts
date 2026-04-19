@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useQuery,
   useMutation,
   useQueryClient,
@@ -9,11 +10,13 @@ import {
   createUsuario,
   updateUsuario,
   deleteUsuario,
+  listarUsuariosPaginado,
 } from '@/lib/api/usuario.service';
 import type {
   UsuarioCreateRequest,
   UsuarioUpdateRequest,
 } from '@/types/usuario';
+import type { PageQuery } from '@/types/page';
 
 const QUERY_KEY = ['usuarios'] as const;
 
@@ -21,6 +24,14 @@ export function useUsuarios() {
   return useQuery({
     queryKey: QUERY_KEY,
     queryFn: getUsuarios,
+  });
+}
+
+export function useUsuariosPaginados(params: PageQuery = {}) {
+  return useQuery({
+    queryKey: [...QUERY_KEY, 'page', params],
+    queryFn: () => listarUsuariosPaginado(params),
+    placeholderData: keepPreviousData,
   });
 }
 

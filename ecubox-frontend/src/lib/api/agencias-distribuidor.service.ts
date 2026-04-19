@@ -1,11 +1,22 @@
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 import type { AgenciaDistribuidor, AgenciaDistribuidorRequest } from '@/types/despacho';
+import type { PageQuery, PageResponse } from '@/types/page';
 
 const BASE = API_ENDPOINTS.agenciasDistribuidor;
 
 export async function getAgenciasDistribuidorAll(): Promise<AgenciaDistribuidor[]> {
   const { data } = await apiClient.get<AgenciaDistribuidor[]>(BASE);
+  return data;
+}
+
+export async function listarAgenciasDistribuidorPaginado(
+  params: PageQuery = {},
+): Promise<PageResponse<AgenciaDistribuidor>> {
+  const { data } = await apiClient.get<PageResponse<AgenciaDistribuidor>>(
+    `${BASE}/page`,
+    { params },
+  );
   return data;
 }
 

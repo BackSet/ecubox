@@ -8,6 +8,12 @@ import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.mapper.AgenciaMapper;
 import com.ecubox.ecubox_backend.repository.AgenciaRepository;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
+import com.ecubox.ecubox_backend.util.SearchSpecifications;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +42,24 @@ public class AgenciaService {
         return agenciaRepository.findAll().stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    /**
+     * Lista paginada con búsqueda libre (LIKE multi-token) sobre nombre,
+     * código, cantón, provincia y dirección.
+     */
+    @Transactional(readOnly = true)
+    public Page<AgenciaDTO> findAllPaginated(String q, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page),
+                Math.max(1, Math.min(100, size)),
+                Sort.by(Sort.Direction.ASC, "nombre").and(Sort.by(Sort.Direction.ASC, "id")));
+        Specification<Agencia> spec = SearchSpecifications.tokensLike(q,
+                SearchSpecifications.field("nombre"),
+                SearchSpecifications.field("codigo"),
+                SearchSpecifications.field("canton"),
+                SearchSpecifications.field("provincia"),
+                SearchSpecifications.field("direccion"));
+        return agenciaRepository.findAll(spec, pageable).map(this::toDTO);
     }
 
     @Transactional(readOnly = true)

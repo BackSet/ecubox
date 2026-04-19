@@ -4,6 +4,7 @@ import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.enums.EstadoGuiaMaster;
 import com.ecubox.ecubox_backend.projection.ConteoEstadoGuiaMasterView;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,7 +13,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-public interface GuiaMasterRepository extends JpaRepository<GuiaMaster, Long> {
+public interface GuiaMasterRepository extends JpaRepository<GuiaMaster, Long>,
+        JpaSpecificationExecutor<GuiaMaster> {
 
     Optional<GuiaMaster> findByTrackingBaseIgnoreCase(String trackingBase);
 

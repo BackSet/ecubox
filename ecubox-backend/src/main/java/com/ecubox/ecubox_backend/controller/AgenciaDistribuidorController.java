@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.dto.AgenciaDistribuidorDTO;
 import com.ecubox.ecubox_backend.dto.AgenciaDistribuidorRequest;
+import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.service.AgenciaDistribuidorService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,15 @@ public class AgenciaDistribuidorController {
     @PreAuthorize("hasAuthority('AGENCIAS_DISTRIBUIDOR_READ')")
     public ResponseEntity<List<AgenciaDistribuidorDTO>> findAll() {
         return ResponseEntity.ok(agenciaDistribuidorService.findAll());
+    }
+
+    @GetMapping("/page")
+    @PreAuthorize("hasAuthority('AGENCIAS_DISTRIBUIDOR_READ')")
+    public ResponseEntity<PageResponse<AgenciaDistribuidorDTO>> findAllPaginated(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(PageResponse.of(agenciaDistribuidorService.findAllPaginated(q, page, size)));
     }
 
     @GetMapping("/{id}")

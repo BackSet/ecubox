@@ -19,9 +19,10 @@ import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import {
-  useDistribuidoresAdmin,
+  useDistribuidoresPaginados,
   useDeleteDistribuidor,
 } from '@/hooks/useDistribuidoresAdmin';
+import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { useAgenciasDistribuidorAdmin } from '@/hooks/useAgenciasDistribuidorAdmin';
 import { DistribuidorForm } from './DistribuidorForm';
 import { ListToolbar } from '@/components/ListToolbar';
@@ -30,6 +31,7 @@ import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,7 +42,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { createContainsMatcher } from '@/lib/search';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { Distribuidor } from '@/types/despacho';
 
@@ -54,18 +55,26 @@ function fmtMoneda(n: number | undefined | null): string {
 }
 
 export function DistribuidorListPage() {
-  const { data: distribuidores, isLoading, error } = useDistribuidoresAdmin();
+  const { q, setQ, page, size, setPage, setSize, resetPage } =
+    useSearchPagination({ initialSize: 25 });
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+  } = useDistribuidoresPaginados({ q: q.trim() || undefined, page, size });
   const { data: agenciasDist = [] } = useAgenciasDistribuidorAdmin();
   const deleteDistribuidor = useDeleteDistribuidor();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
   const [chipActivo, setChipActivo] = useState<
     'todos' | 'con_tracking' | 'sin_tracking' | 'sin_tarifa' | 'sin_agencias'
   >('todos');
 
-  const all = useMemo(() => distribuidores ?? [], [distribuidores]);
+  const all = useMemo<Distribuidor[]>(() => data?.content ?? [], [data]);
+  const totalElements = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 0;
 
   const agenciasPorDistribuidor = useMemo(() => {
     const map = new Map<number, number>();
@@ -77,18 +86,7 @@ export function DistribuidorListPage() {
     return map;
   }, [agenciasDist]);
 
-  const baseList = useMemo(() => {
-    const contains = createContainsMatcher(search);
-    if (!contains) return all;
-    return all.filter(
-      (d) =>
-        contains(d.nombre) ||
-        contains(d.codigo) ||
-        contains(d.email) ||
-        contains(d.horarioReparto) ||
-        contains(d.paginaTracking),
-    );
-  }, [all, search]);
+  const baseList = useMemo(() => all, [all]);
 
   const tieneTrackingValido = useCallback(
     (d: Distribuidor) =>
@@ -127,11 +125,15 @@ export function DistribuidorListPage() {
     });
   }, [baseList, chipActivo, agenciasPorDistribuidor, tieneTrackingValido]);
 
-  const tieneFiltros = chipActivo !== 'todos';
-  const limpiarFiltros = useCallback(() => setChipActivo('todos'), []);
+  const tieneFiltros = chipActivo !== 'todos' || q.trim().length > 0;
+  const limpiarFiltros = useCallback(() => {
+    setChipActivo('todos');
+    setQ('');
+    resetPage();
+  }, [resetPage, setQ]);
 
   const stats = useMemo(() => {
-    const total = all.length;
+    const total = totalElements;
     const conTracking = all.filter(
       (d) => d.paginaTracking && /^https?:\/\//i.test(d.paginaTracking),
     ).length;
@@ -144,7 +146,7 @@ export function DistribuidorListPage() {
         : 0;
     const totalAgencias = agenciasDist.length;
     return { total, conTracking, promedio, totalAgencias };
-  }, [all, agenciasDist]);
+  }, [all, agenciasDist, totalElements]);
 
   if (isLoading) {
     return <LoadingState text="Cargando distribuidores..." />;
@@ -158,7 +160,7 @@ export function DistribuidorListPage() {
       <ListToolbar
         title="Distribuidores"
         searchPlaceholder="Buscar por nombre, código, email, horario o página..."
-        onSearchChange={setSearch}
+        onSearchChange={setQ}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -167,7 +169,7 @@ export function DistribuidorListPage() {
         }
       />
 
-      {all.length > 0 && (
+      {totalElements > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<Truck className="h-4 w-4" />}
@@ -202,7 +204,7 @@ export function DistribuidorListPage() {
         </div>
       )}
 
-      {all.length > 0 && (
+      {totalElements > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -212,14 +214,20 @@ export function DistribuidorListPage() {
                 label="Todos"
                 count={chipCounts.todos}
                 active={chipActivo === 'todos'}
-                onClick={() => setChipActivo('todos')}
+                onClick={() => {
+                  setChipActivo('todos');
+                  resetPage();
+                }}
               />
               <ChipFiltro
                 label="Con tracking"
                 count={chipCounts.conTracking}
                 active={chipActivo === 'con_tracking'}
                 tone="success"
-                onClick={() => setChipActivo('con_tracking')}
+                onClick={() => {
+                  setChipActivo('con_tracking');
+                  resetPage();
+                }}
                 hideWhenZero
               />
               <ChipFiltro
@@ -227,7 +235,10 @@ export function DistribuidorListPage() {
                 count={chipCounts.sinTracking}
                 active={chipActivo === 'sin_tracking'}
                 tone="warning"
-                onClick={() => setChipActivo('sin_tracking')}
+                onClick={() => {
+                  setChipActivo('sin_tracking');
+                  resetPage();
+                }}
                 hideWhenZero
               />
               <ChipFiltro
@@ -235,7 +246,10 @@ export function DistribuidorListPage() {
                 count={chipCounts.sinTarifa}
                 active={chipActivo === 'sin_tarifa'}
                 tone="neutral"
-                onClick={() => setChipActivo('sin_tarifa')}
+                onClick={() => {
+                  setChipActivo('sin_tarifa');
+                  resetPage();
+                }}
                 hideWhenZero
               />
               <ChipFiltro
@@ -243,7 +257,10 @@ export function DistribuidorListPage() {
                 count={chipCounts.sinAgencias}
                 active={chipActivo === 'sin_agencias'}
                 tone="warning"
-                onClick={() => setChipActivo('sin_agencias')}
+                onClick={() => {
+                  setChipActivo('sin_agencias');
+                  resetPage();
+                }}
                 hideWhenZero
               />
             </>
@@ -251,36 +268,25 @@ export function DistribuidorListPage() {
         />
       )}
 
-      {list.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {list.length} distribuidor{list.length === 1 ? '' : 'es'}
-          {list.length !== all.length ? ` de ${all.length}` : ''}
-        </p>
-      )}
-
       {list.length === 0 ? (
         <EmptyState
           icon={Truck}
-          title={all.length === 0 ? 'No hay distribuidores' : 'Sin resultados'}
+          title={totalElements === 0 ? 'No hay distribuidores' : 'Sin resultados'}
           description={
-            all.length === 0
+            totalElements === 0
               ? 'Registra un distribuidor para asignarlo a despachos y agencias.'
               : tieneFiltros
                 ? 'No hay distribuidores que coincidan con los filtros aplicados.'
                 : 'No se encontraron distribuidores con ese criterio.'
           }
           action={
-            all.length === 0 ? (
+            totalElements === 0 ? (
               <Button onClick={() => setCreateOpen(true)}>
                 Registrar distribuidor
               </Button>
-            ) : tieneFiltros ? (
+            ) : (
               <Button variant="outline" onClick={limpiarFiltros}>
                 Limpiar filtros
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={() => setSearch('')}>
-                Limpiar búsqueda
               </Button>
             )
           }
@@ -345,6 +351,18 @@ export function DistribuidorListPage() {
             </TableBody>
           </Table>
         </ListTableShell>
+      )}
+
+      {totalElements > 0 && (
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+          loading={isFetching}
+        />
       )}
 
       {createOpen && (

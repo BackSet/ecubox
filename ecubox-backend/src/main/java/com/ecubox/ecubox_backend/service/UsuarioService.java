@@ -12,6 +12,12 @@ import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.RolRepository;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
+import com.ecubox.ecubox_backend.util.SearchSpecifications;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +46,22 @@ public class UsuarioService {
         return usuarioRepository.findAllWithRoles().stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    /**
+     * Lista paginada con búsqueda libre (LIKE multi-token) sobre {@code username}
+     * y {@code email}. La entidad {@code Usuario} no expone un campo {@code nombre}
+     * separado.
+     */
+    @Transactional(readOnly = true)
+    public Page<UsuarioDTO> findAllPaginated(String q, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page),
+                Math.max(1, Math.min(100, size)),
+                Sort.by(Sort.Direction.ASC, "username").and(Sort.by(Sort.Direction.ASC, "id")));
+        Specification<Usuario> spec = SearchSpecifications.tokensLike(q,
+                SearchSpecifications.field("username"),
+                SearchSpecifications.field("email"));
+        return usuarioRepository.findAll(spec, pageable).map(this::toDTO);
     }
 
     @Transactional(readOnly = true)

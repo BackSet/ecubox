@@ -35,10 +35,15 @@ import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.SacaRepository;
 import com.ecubox.ecubox_backend.service.validation.OwnershipValidator;
 import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
+import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
 import com.ecubox.ecubox_backend.util.WeightUtil;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +59,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -119,6 +125,90 @@ public class PaqueteService {
                 Sort.by(Sort.Direction.ASC, "estadoRastreo.orden").and(Sort.by(Sort.Direction.ASC, "id"))).stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    /**
+     * Filtros estructurales y de chips para la variante paginada del listado de paquetes.
+     * Todos los campos son opcionales; si un campo es {@code null} no se aplica el filtro.
+     */
+    public record PaqueteListFilters(
+            String estadoCodigo,
+            Long destinatarioFinalId,
+            String envioCodigo,
+            Long guiaMasterId,
+            /** "sin_peso" | "con_peso" | "sin_guia_master" | "vencidos" | null */
+            String chip
+    ) {
+        public static PaqueteListFilters empty() {
+            return new PaqueteListFilters(null, null, null, null, null);
+        }
+    }
+
+    /**
+     * Variante paginada con búsqueda libre + filtros estructurales. Pensada para
+     * listados de Admin/Operario.
+     * <p>Campos contemplados por {@code q}: {@code numeroGuia} (pieza), {@code ref},
+     * {@code contenido}, {@code guiaMaster.trackingBase} (guía master),
+     * {@code envioConsolidado.codigo}, {@code destinatarioFinal.nombre},
+     * {@code destinatarioFinal.codigo}.</p>
+     */
+    @Transactional(readOnly = true)
+    public Page<PaqueteDTO> findAllPaginated(String q, PaqueteListFilters filters, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
+                Sort.by(Sort.Direction.ASC, "estadoRastreo.orden").and(Sort.by(Sort.Direction.ASC, "id")));
+        Specification<Paquete> spec = buildSpec(q, filters);
+        return paqueteRepository.findAll(spec, pageable).map(this::toDTO);
+    }
+
+    /** Variante paginada filtrada por usuario (rol cliente). */
+    @Transactional(readOnly = true)
+    public Page<PaqueteDTO> findAllByUsuarioIdPaginated(Long usuarioId, String q,
+                                                       PaqueteListFilters filters, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
+                Sort.by(Sort.Direction.ASC, "estadoRastreo.orden").and(Sort.by(Sort.Direction.ASC, "id")));
+        Specification<Paquete> ownership = (root, query, cb) ->
+                cb.equal(root.get("destinatarioFinal").get("usuario").get("id"), usuarioId);
+        Specification<Paquete> textAndFilters = buildSpec(q, filters);
+        return paqueteRepository.findAll(ownership.and(textAndFilters), pageable).map(this::toDTO);
+    }
+
+    /** Construye la {@link Specification} compuesta para el listado paginado. */
+    private Specification<Paquete> buildSpec(String q, PaqueteListFilters filters) {
+        PaqueteListFilters f = filters == null ? PaqueteListFilters.empty() : filters;
+        Specification<Paquete> spec = SearchSpecifications.tokensLike(q,
+                SearchSpecifications.field("numeroGuia"),
+                SearchSpecifications.field("ref"),
+                SearchSpecifications.field("contenido"),
+                SearchSpecifications.path("guiaMaster", "trackingBase"),
+                SearchSpecifications.path("envioConsolidado", "codigo"),
+                SearchSpecifications.path("destinatarioFinal", "nombre"),
+                SearchSpecifications.path("destinatarioFinal", "codigo"));
+        if (f.estadoCodigo() != null && !f.estadoCodigo().isBlank()) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("estadoRastreo").get("codigo"), f.estadoCodigo()));
+        }
+        if (f.destinatarioFinalId() != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("destinatarioFinal").get("id"), f.destinatarioFinalId()));
+        }
+        if (f.envioCodigo() != null && !f.envioCodigo().isBlank()) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("envioConsolidado").get("codigo"), f.envioCodigo()));
+        }
+        if (f.guiaMasterId() != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("guiaMaster").get("id"), f.guiaMasterId()));
+        }
+        if (f.chip() != null && !f.chip().isBlank()) {
+            String chip = f.chip().toLowerCase();
+            spec = switch (chip) {
+                case "sin_peso" -> spec.and((root, query, cb) -> cb.isNull(root.get("pesoLbs")));
+                case "con_peso" -> spec.and((root, query, cb) -> cb.isNotNull(root.get("pesoLbs")));
+                case "sin_guia_master" -> spec.and((root, query, cb) -> cb.isNull(root.get("guiaMaster")));
+                // El chip "vencidos" no se aplica server-side: la lógica de
+                // vencimiento es compleja (depende de tipo de entidad y estados
+                // de inicio de cuenta regresiva). El frontend filtra ese chip
+                // sobre el dataset completo cuando aplica.
+                default -> spec;
+            };
+        }
+        return spec;
     }
 
     @Transactional
@@ -552,7 +642,7 @@ public class PaqueteService {
         String nuevoNumeroGuia = GuiaMasterService.componerNumeroGuia(gm, asignado[0]);
         if (nuevoNumeroGuia != null && !nuevoNumeroGuia.equals(p.getNumeroGuia())) {
             if (paqueteRepository.existsByNumeroGuiaAndIdNot(nuevoNumeroGuia,
-                    p.getId() != null ? p.getId() : -1L)) {
+                    Optional.ofNullable(p.getId()).orElse(-1L))) {
                 throw new ConflictException("Ya existe otro paquete con ese número de guía");
             }
             p.setNumeroGuia(nuevoNumeroGuia);

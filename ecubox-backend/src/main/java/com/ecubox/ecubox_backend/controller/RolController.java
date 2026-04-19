@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.dto.RolDTO;
 import com.ecubox.ecubox_backend.dto.RolPermisosUpdateRequest;
 import com.ecubox.ecubox_backend.service.RolService;
@@ -24,6 +25,15 @@ public class RolController {
     @PreAuthorize("hasAuthority('ROLES_READ')")
     public ResponseEntity<List<RolDTO>> findAll() {
         return ResponseEntity.ok(rolService.findAll());
+    }
+
+    @GetMapping("/page")
+    @PreAuthorize("hasAuthority('ROLES_READ')")
+    public ResponseEntity<PageResponse<RolDTO>> findAllPaginated(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(PageResponse.of(rolService.findAllPaginated(q, page, size)));
     }
 
     @GetMapping("/{id}")

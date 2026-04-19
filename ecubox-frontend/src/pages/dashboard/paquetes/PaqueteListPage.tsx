@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { usePaquetes, useDeletePaquete } from '@/hooks/usePaquetes';
+import { usePaquetes, usePaquetesPaginated, useDeletePaquete } from '@/hooks/usePaquetes';
+import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { useAuthStore } from '@/stores/authStore';
 import { PaqueteForm } from './PaqueteForm';
 import { PaqueteBulkCreateForm } from './PaqueteBulkCreateForm';
@@ -19,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TablePagination } from '@/components/ui/TablePagination';
 import {
   ClipboardList,
   Layers,
@@ -41,23 +43,24 @@ export function PaqueteListPage() {
   const hasGuiasMasterUpdate = useAuthStore((s) =>
     s.hasPermission('GUIAS_MASTER_UPDATE'),
   );
+  // Dataset completo: alimenta KPIs, comboboxes de filtro y conteos de chips
+  // (que requieren el universo total). La tabla principal usa la versión
+  // paginada para soportar búsqueda en todo el dataset desde el server.
   const { data: paquetes, isLoading, error } = usePaquetes();
   const deletePaquete = useDeletePaquete();
   const [createOpen, setCreateOpen] = useState(false);
   const [editingPaquete, setEditingPaquete] = useState<Paquete | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  // Edición de las piezas asociadas a una guía master desde la fila de un
-  // paquete. Reutiliza el formulario bulk en modo "edit" para precargar las
-  // piezas existentes, permitir agregar/eliminar y guardar solo el diff.
   const [editandoPiezasGuiaId, setEditandoPiezasGuiaId] = useState<number | null>(
     null,
   );
-  const [search, setSearch] = useState('');
+  const { q, page, size, setQ, setPage, setSize, resetPage } = useSearchPagination({
+    initialSize: 25,
+  });
   // Chip activo de estado de carga (segun datos persistidos en BD).
   const [chipActivo, setChipActivo] = useState<
     'todos' | 'sin_peso' | 'con_peso' | 'sin_guia_master' | 'vencidos'
   >('todos');
-  // Filtros adicionales: estado de rastreo, destinatario y envio consolidado.
   const [estadoFiltro, setEstadoFiltro] = useState<string | undefined>(undefined);
   const [destinatarioFiltro, setDestinatarioFiltro] = useState<string | undefined>(
     undefined,
@@ -66,6 +69,31 @@ export function PaqueteListPage() {
   const [guiaMasterFiltro, setGuiaMasterFiltro] = useState<number | undefined>(
     undefined,
   );
+
+  // Resolver el id de destinatario a partir del nombre seleccionado (porque el
+  // combobox actual filtra por nombre y el server filtra por id).
+  const destinatarioFinalIdFiltro = useMemo(() => {
+    if (!destinatarioFiltro) return undefined;
+    const match = (paquetes ?? []).find(
+      (p) => (p.destinatarioNombre ?? '') === destinatarioFiltro,
+    );
+    return match?.destinatarioFinalId ?? undefined;
+  }, [destinatarioFiltro, paquetes]);
+
+  // Solo activamos paginación servidor si el chip no es "vencidos" (que se
+  // sigue resolviendo cliente sobre dataset completo).
+  const useServerPage = chipActivo !== 'vencidos';
+
+  const pageQuery = usePaquetesPaginated({
+    q: q.trim() || undefined,
+    estado: estadoFiltro,
+    destinatarioFinalId: destinatarioFinalIdFiltro,
+    envio: envioFiltro,
+    guiaMasterId: guiaMasterFiltro,
+    chip: chipActivo === 'todos' ? undefined : chipActivo,
+    page,
+    size,
+  });
 
   // Listas distintas presentes en los paquetes para poblar los comboboxes.
   const estadosDisponibles = useMemo(() => {
@@ -116,11 +144,12 @@ export function PaqueteListPage() {
       );
   }, [paquetes]);
 
-  // baseList: todos los filtros excepto el chip de estado de carga, para que
-  // los conteos de chips reflejen los demas filtros aplicados.
+  // baseList: aplica los filtros estructurales (sin chip) sobre el dataset
+  // completo. Sirve únicamente para calcular los conteos de los chips, que
+  // necesitan el universo total (no la página).
   const baseList = useMemo(() => {
     const raw = paquetes ?? [];
-    const q = search.trim().toLowerCase();
+    const qLower = q.trim().toLowerCase();
     return raw.filter((p) => {
       if (estadoFiltro) {
         const key = p.estadoRastreoCodigo ?? p.estadoRastreoNombre ?? '';
@@ -138,21 +167,21 @@ export function PaqueteListPage() {
       if (guiaMasterFiltro != null && p.guiaMasterId !== guiaMasterFiltro) {
         return false;
       }
-      if (!q) return true;
+      if (!qLower) return true;
       return (
-        p.numeroGuia?.toLowerCase().includes(q) ||
+        p.numeroGuia?.toLowerCase().includes(qLower) ||
         (hasPesoWrite &&
-          (p.guiaMasterTrackingBase?.toLowerCase().includes(q) ?? false)) ||
+          (p.guiaMasterTrackingBase?.toLowerCase().includes(qLower) ?? false)) ||
         (hasPesoWrite &&
-          (p.envioConsolidadoCodigo?.toLowerCase().includes(q) ?? false)) ||
-        (p.ref?.toLowerCase().includes(q) ?? false) ||
-        (p.destinatarioNombre?.toLowerCase().includes(q) ?? false) ||
-        (p.contenido?.toLowerCase().includes(q) ?? false)
+          (p.envioConsolidadoCodigo?.toLowerCase().includes(qLower) ?? false)) ||
+        (p.ref?.toLowerCase().includes(qLower) ?? false) ||
+        (p.destinatarioNombre?.toLowerCase().includes(qLower) ?? false) ||
+        (p.contenido?.toLowerCase().includes(qLower) ?? false)
       );
     });
   }, [
     paquetes,
-    search,
+    q,
     hasPesoWrite,
     estadoFiltro,
     destinatarioFiltro,
@@ -175,16 +204,23 @@ export function PaqueteListPage() {
     return { todos: baseList.length, sinPeso, conPeso, sinGuiaMaster, vencidos };
   }, [baseList]);
 
+  // Lista visible en la tabla. Si el chip "vencidos" está activo, fallback a
+  // cliente sobre baseList (porque la lógica de vencimiento es compleja y no
+  // está implementada server-side). En el resto de casos, usamos la página
+  // del servidor (búsqueda + filtros + chip se aplican en backend).
   const list = useMemo(() => {
-    if (chipActivo === 'todos') return baseList;
-    return baseList.filter((p) => {
-      if (chipActivo === 'sin_peso') return p.pesoLbs == null && p.pesoKg == null;
-      if (chipActivo === 'con_peso') return p.pesoLbs != null || p.pesoKg != null;
-      if (chipActivo === 'sin_guia_master') return p.guiaMasterId == null;
-      if (chipActivo === 'vencidos') return !!p.paqueteVencido;
-      return true;
-    });
-  }, [baseList, chipActivo]);
+    if (!useServerPage) {
+      return baseList.filter((p) => !!p.paqueteVencido);
+    }
+    return pageQuery.data?.content ?? [];
+  }, [useServerPage, baseList, pageQuery.data]);
+
+  const totalElements = useServerPage
+    ? pageQuery.data?.totalElements ?? 0
+    : list.length;
+  const totalPages = useServerPage
+    ? pageQuery.data?.totalPages ?? 0
+    : Math.ceil(list.length / size);
 
   // KPIs sobre el universo total (no afectados por filtros para ser referencia).
   const stats = useMemo(() => {
@@ -218,7 +254,44 @@ export function PaqueteListPage() {
     setEnvioFiltro(undefined);
     setGuiaMasterFiltro(undefined);
     setChipActivo('todos');
-  }, []);
+    resetPage();
+  }, [resetPage]);
+
+  const handleSetEstado = useCallback(
+    (v?: string) => {
+      setEstadoFiltro(v);
+      resetPage();
+    },
+    [resetPage],
+  );
+  const handleSetDestinatario = useCallback(
+    (v?: string) => {
+      setDestinatarioFiltro(v);
+      resetPage();
+    },
+    [resetPage],
+  );
+  const handleSetEnvio = useCallback(
+    (v?: string) => {
+      setEnvioFiltro(v);
+      resetPage();
+    },
+    [resetPage],
+  );
+  const handleSetGuiaMaster = useCallback(
+    (v?: number) => {
+      setGuiaMasterFiltro(v);
+      resetPage();
+    },
+    [resetPage],
+  );
+  const handleSetChip = useCallback(
+    (chip: typeof chipActivo) => {
+      setChipActivo(chip);
+      resetPage();
+    },
+    [resetPage],
+  );
 
   if (isLoading) {
     return <LoadingState text="Cargando paquetes..." />;
@@ -234,7 +307,7 @@ export function PaqueteListPage() {
       <ListToolbar
         title="Gestión de paquetes"
         searchPlaceholder="Buscar por guía master, pieza, envío, destinatario o contenido..."
-        onSearchChange={setSearch}
+        onSearchChange={setQ}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             {hasPaquetesCreate && (
@@ -286,35 +359,35 @@ export function PaqueteListPage() {
                 label="Todos"
                 count={chipCounts.todos}
                 active={chipActivo === 'todos'}
-                onClick={() => setChipActivo('todos')}
+                onClick={() => handleSetChip('todos')}
               />
               <ChipFiltro
                 label="Sin peso"
                 count={chipCounts.sinPeso}
                 active={chipActivo === 'sin_peso'}
                 tone="warning"
-                onClick={() => setChipActivo('sin_peso')}
+                onClick={() => handleSetChip('sin_peso')}
               />
               <ChipFiltro
                 label="Con peso"
                 count={chipCounts.conPeso}
                 active={chipActivo === 'con_peso'}
                 tone="success"
-                onClick={() => setChipActivo('con_peso')}
+                onClick={() => handleSetChip('con_peso')}
               />
               <ChipFiltro
                 label="Sin guía master"
                 count={chipCounts.sinGuiaMaster}
                 active={chipActivo === 'sin_guia_master'}
                 tone="neutral"
-                onClick={() => setChipActivo('sin_guia_master')}
+                onClick={() => handleSetChip('sin_guia_master')}
               />
               <ChipFiltro
                 label="Vencidos"
                 count={chipCounts.vencidos}
                 active={chipActivo === 'vencidos'}
                 tone="danger"
-                onClick={() => setChipActivo('vencidos')}
+                onClick={() => handleSetChip('vencidos')}
                 hideWhenZero
               />
             </>
@@ -330,7 +403,7 @@ export function PaqueteListPage() {
                     <SearchableCombobox<string>
                       value={estadoFiltro}
                       onChange={(v) =>
-                        setEstadoFiltro(v === undefined ? undefined : String(v))
+                        handleSetEstado(v === undefined ? undefined : String(v))
                       }
                       options={estadosDisponibles.map((e) => e.codigo)}
                       getKey={(c) => c}
@@ -349,7 +422,7 @@ export function PaqueteListPage() {
                     <SearchableCombobox<string>
                       value={destinatarioFiltro}
                       onChange={(v) =>
-                        setDestinatarioFiltro(
+                        handleSetDestinatario(
                           v === undefined ? undefined : String(v),
                         )
                       }
@@ -368,7 +441,7 @@ export function PaqueteListPage() {
                     <SearchableCombobox<number>
                       value={guiaMasterFiltro}
                       onChange={(v) =>
-                        setGuiaMasterFiltro(v === undefined ? undefined : Number(v))
+                        handleSetGuiaMaster(v === undefined ? undefined : Number(v))
                       }
                       options={guiasMasterDisponibles.map((g) => g.id)}
                       getKey={(id) => id}
@@ -400,7 +473,7 @@ export function PaqueteListPage() {
                     <SearchableCombobox<string>
                       value={envioFiltro}
                       onChange={(v) =>
-                        setEnvioFiltro(v === undefined ? undefined : String(v))
+                        handleSetEnvio(v === undefined ? undefined : String(v))
                       }
                       options={codigosEnvio}
                       getKey={(c) => c}
@@ -448,8 +521,9 @@ export function PaqueteListPage() {
       ) : (
         <>
           <p className="text-xs text-muted-foreground">
-            {list.length} paquete{list.length === 1 ? '' : 's'}
-            {list.length !== allPaquetes.length ? ` de ${allPaquetes.length}` : ''}
+            {totalElements} paquete{totalElements === 1 ? '' : 's'}
+            {totalElements !== allPaquetes.length ? ` de ${allPaquetes.length}` : ''}
+            {pageQuery.isFetching && useServerPage ? ' · cargando...' : ''}
           </p>
         <ListTableShell>
             <Table className="table-mobile-cards min-w-[860px] text-left">
@@ -549,6 +623,17 @@ export function PaqueteListPage() {
               </TableBody>
             </Table>
         </ListTableShell>
+        {useServerPage && (
+          <TablePagination
+            page={page}
+            size={size}
+            totalElements={totalElements}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onSizeChange={setSize}
+            loading={pageQuery.isFetching}
+          />
+        )}
         </>
       )}
 

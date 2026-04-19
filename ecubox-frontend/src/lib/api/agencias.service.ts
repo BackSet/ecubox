@@ -1,11 +1,21 @@
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 import type { Agencia, AgenciaRequest } from '@/types/despacho';
+import type { PageQuery, PageResponse } from '@/types/page';
 
 const BASE = API_ENDPOINTS.agencias;
 
 export async function getAgencias(): Promise<Agencia[]> {
   const { data } = await apiClient.get<Agencia[]>(BASE);
+  return data;
+}
+
+export async function listarAgenciasPaginado(
+  params: PageQuery = {},
+): Promise<PageResponse<Agencia>> {
+  const { data } = await apiClient.get<PageResponse<Agencia>>(`${BASE}/page`, {
+    params,
+  });
   return data;
 }
 

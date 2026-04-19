@@ -13,6 +13,7 @@ import type {
 import type { DestinatarioFinal, DestinatarioFinalRequest } from '@/types/destinatario';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import type { Paquete } from '@/types/paquete';
+import type { PageResponse, PageQuery } from '@/types/page';
 
 const DIST = API_ENDPOINTS.operarioDistribuidores;
 const AGENCIAS = API_ENDPOINTS.operarioAgencias;
@@ -119,6 +120,20 @@ export async function asignarPaquetesASaca(
 
 export async function getDespachos(): Promise<Despacho[]> {
   const { data } = await apiClient.get<Despacho[]>(DESPACHOS);
+  return data;
+}
+
+/** Listado paginado con búsqueda libre (numero, código precinto, distribuidor, agencia, destinatario). */
+export async function getDespachosPaginado(
+  params: PageQuery = {}
+): Promise<PageResponse<Despacho>> {
+  const { data } = await apiClient.get<PageResponse<Despacho>>(`${DESPACHOS}/page`, {
+    params: {
+      q: params.q,
+      page: params.page ?? 0,
+      size: params.size ?? 25,
+    },
+  });
   return data;
 }
 

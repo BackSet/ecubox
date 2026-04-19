@@ -33,10 +33,16 @@ export interface EnvioConsolidadoPaquetesRequest {
   paqueteIds: number[];
 }
 
+/**
+ * @deprecated Usa `PageResponse<EnvioConsolidado>` de `@/types/page` en su lugar.
+ *             Se mantiene como alias para no romper consumidores antiguos.
+ */
 export interface EnvioConsolidadoListResponse {
   content: EnvioConsolidado[];
   totalElements: number;
   totalPages: number;
-  number: number;
+  page: number;
   size: number;
+  first: boolean;
+  last: boolean;
 }

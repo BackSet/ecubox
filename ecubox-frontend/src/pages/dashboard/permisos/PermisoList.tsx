@@ -17,12 +17,14 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { usePermisos } from '@/hooks/usePermisos';
+import { usePermisosPaginados } from '@/hooks/usePermisos';
+import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { KpiCard } from '@/components/KpiCard';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -144,16 +146,24 @@ const TIPO_META: Record<
 type Vista = 'tabla' | 'modulos';
 
 export function PermisoList() {
-  const { data: permisos, isLoading, error } = usePermisos();
-  const [search, setSearch] = useState('');
+  const { q, setQ, page, size, setPage, setSize, resetPage } =
+    useSearchPagination({ initialSize: 25 });
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+  } = usePermisosPaginados({ q: q.trim() || undefined, page, size });
   const [moduloFiltro, setModuloFiltro] = useState<string>(MODULO_TODOS);
   const [tipoFiltro, setTipoFiltro] = useState<string>(TIPO_TODOS);
   const [vista, setVista] = useState<Vista>('tabla');
 
-  const allPermisos = useMemo(() => permisos ?? [], [permisos]);
+  const allPermisos = useMemo<PermisoDTO[]>(() => data?.content ?? [], [data]);
+  const totalElements = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 0;
 
   const stats = useMemo(() => {
-    const total = allPermisos.length;
+    const total = totalElements;
     const modulos = new Set<string>();
     let lectura = 0;
     let escritura = 0;
@@ -164,7 +174,7 @@ export function PermisoList() {
       else if (t === 'CREATE' || t === 'UPDATE' || t === 'DELETE' || t === 'WRITE') escritura++;
     }
     return { total, modulos: modulos.size, lectura, escritura };
-  }, [allPermisos]);
+  }, [allPermisos, totalElements]);
 
   const modulosOptions = useMemo(() => {
     const set = new Set<string>();
@@ -181,14 +191,6 @@ export function PermisoList() {
 
   const list = useMemo(() => {
     let raw = allPermisos;
-    const q = search.trim().toLowerCase();
-    if (q) {
-      raw = raw.filter(
-        (p) =>
-          p.codigo?.toLowerCase().includes(q) ||
-          (p.descripcion?.toLowerCase().includes(q) ?? false),
-      );
-    }
     if (moduloFiltro !== MODULO_TODOS) {
       raw = raw.filter((p) => getModulo(p.codigo) === moduloFiltro);
     }
@@ -196,7 +198,7 @@ export function PermisoList() {
       raw = raw.filter((p) => getTipoAccion(p.codigo) === tipoFiltro);
     }
     return raw;
-  }, [allPermisos, search, moduloFiltro, tipoFiltro]);
+  }, [allPermisos, moduloFiltro, tipoFiltro]);
 
   const grupos = useMemo(() => {
     const map = new Map<string, PermisoDTO[]>();
@@ -209,12 +211,13 @@ export function PermisoList() {
   }, [list]);
 
   const filtersActive =
-    Boolean(search.trim()) || moduloFiltro !== MODULO_TODOS || tipoFiltro !== TIPO_TODOS;
+    Boolean(q.trim()) || moduloFiltro !== MODULO_TODOS || tipoFiltro !== TIPO_TODOS;
 
   function clearFilters() {
-    setSearch('');
+    setQ('');
     setModuloFiltro(MODULO_TODOS);
     setTipoFiltro(TIPO_TODOS);
+    resetPage();
   }
 
   if (isLoading) {
@@ -233,7 +236,7 @@ export function PermisoList() {
       <ListToolbar
         title="Permisos"
         searchPlaceholder="Buscar por código o descripción..."
-        onSearchChange={setSearch}
+        onSearchChange={setQ}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -270,7 +273,13 @@ export function PermisoList() {
             <Filter className="h-3.5 w-3.5" />
             Filtros
           </div>
-          <Select value={moduloFiltro} onValueChange={setModuloFiltro}>
+          <Select
+            value={moduloFiltro}
+            onValueChange={(v) => {
+              setModuloFiltro(v);
+              resetPage();
+            }}
+          >
             <SelectTrigger className="h-9 w-full sm:w-[200px]">
               <SelectValue placeholder="Módulo" />
             </SelectTrigger>
@@ -283,7 +292,13 @@ export function PermisoList() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
+          <Select
+            value={tipoFiltro}
+            onValueChange={(v) => {
+              setTipoFiltro(v);
+              resetPage();
+            }}
+          >
             <SelectTrigger className="h-9 w-full sm:w-[180px]">
               <SelectValue placeholder="Tipo de acción" />
             </SelectTrigger>
@@ -330,7 +345,7 @@ export function PermisoList() {
           </div>
           <span className="text-xs text-muted-foreground">
             <span className="font-semibold text-foreground">{list.length}</span> de{' '}
-            {allPermisos.length}
+            {totalElements}
           </span>
           {filtersActive && (
             <Button
@@ -350,9 +365,9 @@ export function PermisoList() {
       {list.length === 0 ? (
         <EmptyState
           icon={Key}
-          title={allPermisos.length === 0 ? 'No hay permisos' : 'Sin resultados'}
+          title={totalElements === 0 ? 'No hay permisos' : 'Sin resultados'}
           description={
-            allPermisos.length === 0
+            totalElements === 0
               ? 'Los permisos se gestionan desde el backend.'
               : 'No se encontraron permisos con esos filtros.'
           }
@@ -479,6 +494,18 @@ export function PermisoList() {
             );
           })}
         </div>
+      )}
+
+      {totalElements > 0 && (
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+          loading={isFetching}
+        />
       )}
     </div>
   );

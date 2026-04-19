@@ -14,7 +14,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useRoles } from '@/hooks/useRoles';
+import { useRolesPaginados } from '@/hooks/useRoles';
+import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { usePermisos } from '@/hooks/usePermisos';
 import { useUsuarios } from '@/hooks/useUsuarios';
 import { useAuthStore } from '@/stores/authStore';
@@ -26,6 +27,7 @@ import { LoadingState } from '@/components/LoadingState';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -66,15 +68,23 @@ const MODULO_LABELS: Record<string, string> = {
 };
 
 export function RolList() {
-  const { data: roles, isLoading, error } = useRoles();
+  const { q, setQ, page, size, setPage, setSize, resetPage } =
+    useSearchPagination({ initialSize: 25 });
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+  } = useRolesPaginados({ q: q.trim() || undefined, page, size });
   const { data: permisosTotal = [] } = usePermisos();
   const { data: usuarios = [] } = useUsuarios();
   const hasWrite = useAuthStore((s) => s.hasPermission('ROLES_WRITE'));
   const [editingRolId, setEditingRolId] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>(ESTADO_TODOS);
 
-  const allRoles = useMemo(() => roles ?? [], [roles]);
+  const allRoles = useMemo<RolDTO[]>(() => data?.content ?? [], [data]);
+  const totalElements = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 0;
 
   const usuariosPorRol = useMemo(() => {
     const map = new Map<string, number>();
@@ -87,43 +97,37 @@ export function RolList() {
   }, [usuarios]);
 
   const stats = useMemo(() => {
-    const total = allRoles.length;
+    const total = totalElements;
     const totalPermisosSistema = permisosTotal.length;
     const conPermisos = allRoles.filter((r) => (r.permisos?.length ?? 0) > 0).length;
     const sumPermisos = allRoles.reduce((acc, r) => acc + (r.permisos?.length ?? 0), 0);
-    const promedio = total > 0 ? Math.round((sumPermisos / total) * 10) / 10 : 0;
+    const promedio =
+      allRoles.length > 0 ? Math.round((sumPermisos / allRoles.length) * 10) / 10 : 0;
     return {
       total,
       totalPermisosSistema,
       conPermisos,
-      sinPermisos: total - conPermisos,
+      sinPermisos: allRoles.length - conPermisos,
       promedio,
     };
-  }, [allRoles, permisosTotal]);
+  }, [allRoles, permisosTotal, totalElements]);
 
   const list = useMemo(() => {
     let raw = allRoles;
-    const q = search.trim().toLowerCase();
-    if (q) {
-      raw = raw.filter(
-        (r) =>
-          r.nombre?.toLowerCase().includes(q) ||
-          (r.permisos ?? []).some((p) => p.codigo?.toLowerCase().includes(q)),
-      );
-    }
     if (estadoFiltro === 'con-permisos') {
       raw = raw.filter((r) => (r.permisos?.length ?? 0) > 0);
     } else if (estadoFiltro === 'sin-permisos') {
       raw = raw.filter((r) => (r.permisos?.length ?? 0) === 0);
     }
     return raw;
-  }, [allRoles, search, estadoFiltro]);
+  }, [allRoles, estadoFiltro]);
 
-  const filtersActive = Boolean(search.trim()) || estadoFiltro !== ESTADO_TODOS;
+  const filtersActive = Boolean(q.trim()) || estadoFiltro !== ESTADO_TODOS;
 
   function clearFilters() {
-    setSearch('');
+    setQ('');
     setEstadoFiltro(ESTADO_TODOS);
+    resetPage();
   }
 
   if (isLoading) {
@@ -142,7 +146,7 @@ export function RolList() {
       <ListToolbar
         title="Roles"
         searchPlaceholder="Buscar por nombre o por código de permiso..."
-        onSearchChange={setSearch}
+        onSearchChange={setQ}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -186,7 +190,10 @@ export function RolList() {
               label="Todos"
               count={stats.total}
               active={estadoFiltro === ESTADO_TODOS}
-              onClick={() => setEstadoFiltro(ESTADO_TODOS)}
+              onClick={() => {
+                setEstadoFiltro(ESTADO_TODOS);
+                resetPage();
+              }}
             />
             <ChipFiltro
               label="Con permisos"
@@ -194,11 +201,12 @@ export function RolList() {
               active={estadoFiltro === 'con-permisos'}
               tone="success"
               icon={<ShieldCheck className="h-3.5 w-3.5" />}
-              onClick={() =>
+              onClick={() => {
                 setEstadoFiltro(
                   estadoFiltro === 'con-permisos' ? ESTADO_TODOS : 'con-permisos',
-                )
-              }
+                );
+                resetPage();
+              }}
             />
             <ChipFiltro
               label="Vacíos"
@@ -206,11 +214,12 @@ export function RolList() {
               active={estadoFiltro === 'sin-permisos'}
               tone="warning"
               icon={<AlertTriangle className="h-3.5 w-3.5" />}
-              onClick={() =>
+              onClick={() => {
                 setEstadoFiltro(
                   estadoFiltro === 'sin-permisos' ? ESTADO_TODOS : 'sin-permisos',
-                )
-              }
+                );
+                resetPage();
+              }}
               hideWhenZero
             />
           </div>
@@ -218,7 +227,7 @@ export function RolList() {
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>
             <span className="font-semibold text-foreground">{list.length}</span> de{' '}
-            {allRoles.length}
+            {totalElements}
           </span>
           {filtersActive && (
             <Button
@@ -238,9 +247,9 @@ export function RolList() {
       {list.length === 0 ? (
         <EmptyState
           icon={Shield}
-          title={allRoles.length === 0 ? 'No hay roles' : 'Sin resultados'}
+          title={totalElements === 0 ? 'No hay roles' : 'Sin resultados'}
           description={
-            allRoles.length === 0
+            totalElements === 0
               ? 'Los roles se gestionan desde el backend.'
               : 'No se encontraron roles con esos filtros.'
           }
@@ -304,6 +313,18 @@ export function RolList() {
             </TableBody>
           </Table>
         </ListTableShell>
+      )}
+
+      {totalElements > 0 && (
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+          loading={isFetching}
+        />
       )}
 
       {editingRolId != null && (

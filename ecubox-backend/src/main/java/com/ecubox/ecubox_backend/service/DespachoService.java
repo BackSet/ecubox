@@ -13,7 +13,12 @@ import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.repository.*;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
+import com.ecubox.ecubox_backend.util.SearchSpecifications;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -102,6 +107,26 @@ public class DespachoService {
         return despachoRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    /**
+     * Variante paginada con búsqueda libre. Campos contemplados por {@code q}:
+     * {@code numeroGuia}, {@code codigoPrecinto}, {@code observaciones},
+     * {@code distribuidor.nombre}, {@code agencia.nombre},
+     * {@code destinatarioFinal.nombre}.
+     */
+    @Transactional(readOnly = true)
+    public Page<DespachoDTO> findAllPaginated(String q, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
+                Sort.by(Sort.Direction.DESC, "id"));
+        Specification<Despacho> spec = SearchSpecifications.tokensLike(q,
+                SearchSpecifications.field("numeroGuia"),
+                SearchSpecifications.field("codigoPrecinto"),
+                SearchSpecifications.field("observaciones"),
+                SearchSpecifications.path("distribuidor", "nombre"),
+                SearchSpecifications.path("agencia", "nombre"),
+                SearchSpecifications.path("destinatarioFinal", "nombre"));
+        return despachoRepository.findAll(spec, pageable).map(this::toDTO);
     }
 
     @Transactional
@@ -604,23 +629,27 @@ public class DespachoService {
         Agencia agencia = null;
         AgenciaDistribuidor agenciaDistribuidor = null;
 
-        if (request.getTipoEntrega() == TipoEntrega.DOMICILIO) {
-            if (request.getDestinatarioFinalId() == null) {
-                throw new BadRequestException("Domicilio requiere destinatario final");
+        switch (request.getTipoEntrega()) {
+            case DOMICILIO -> {
+                if (request.getDestinatarioFinalId() == null) {
+                    throw new BadRequestException("Domicilio requiere destinatario final");
+                }
+                destinatarioFinal = destinatarioFinalRepository.findById(request.getDestinatarioFinalId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Destinatario", request.getDestinatarioFinalId()));
             }
-            destinatarioFinal = destinatarioFinalRepository.findById(request.getDestinatarioFinalId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Destinatario", request.getDestinatarioFinalId()));
-        } else if (request.getTipoEntrega() == TipoEntrega.AGENCIA) {
-            if (request.getAgenciaId() == null) {
-                throw new BadRequestException("Agencia requiere agencia seleccionada");
+            case AGENCIA -> {
+                if (request.getAgenciaId() == null) {
+                    throw new BadRequestException("Agencia requiere agencia seleccionada");
+                }
+                agencia = agenciaRepository.findById(request.getAgenciaId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Agencia", request.getAgenciaId()));
             }
-            agencia = agenciaRepository.findById(request.getAgenciaId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Agencia", request.getAgenciaId()));
-        } else if (request.getTipoEntrega() == TipoEntrega.AGENCIA_DISTRIBUIDOR) {
-            if (request.getAgenciaDistribuidorId() == null) {
-                throw new BadRequestException("Agencia de distribuidor requiere agencia del distribuidor seleccionada");
+            case AGENCIA_DISTRIBUIDOR -> {
+                if (request.getAgenciaDistribuidorId() == null) {
+                    throw new BadRequestException("Agencia de distribuidor requiere agencia del distribuidor seleccionada");
+                }
+                agenciaDistribuidor = agenciaDistribuidorService.findEntityById(request.getAgenciaDistribuidorId());
             }
-            agenciaDistribuidor = agenciaDistribuidorService.findEntityById(request.getAgenciaDistribuidorId());
         }
 
         return new EntregaResuelta(destinatarioFinal, agencia, agenciaDistribuidor);

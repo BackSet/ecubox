@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { usePaquetesSinSaca } from '@/hooks/useOperarioDespachos';
 import { useCambiarEstadoRastreoBulk } from '@/hooks/usePaquetesOperario';
 import { useEstadosRastreoActivos } from '@/hooks/useEstadosRastreo';
@@ -51,12 +52,22 @@ export function GestionarEstadosPaquetesPage() {
   const { data: estadosRastreo = [] } = useEstadosRastreoActivos();
   const cambiarEstadoBulk = useCambiarEstadoRastreoBulk();
 
-  const [search, setSearch] = useState('');
-  const [estadoActualFiltro, setEstadoActualFiltro] = useState<string | undefined>(
+  const [search, setSearchRaw] = useState('');
+  const [estadoActualFiltro, setEstadoActualFiltroRaw] = useState<string | undefined>(
     undefined,
   );
-  const [envioFiltro, setEnvioFiltro] = useState<string | undefined>(undefined);
-  const [soloSeleccionados, setSoloSeleccionados] = useState(false);
+  const [envioFiltro, setEnvioFiltroRaw] = useState<string | undefined>(undefined);
+  const [soloSeleccionados, setSoloSeleccionadosRaw] = useState(false);
+  const [page, setPage] = useState(0);
+  const [size, setSizeRaw] = useState(25);
+  const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
+  const setEstadoActualFiltro = (v: string | undefined) => { setEstadoActualFiltroRaw(v); setPage(0); };
+  const setEnvioFiltro = (v: string | undefined) => { setEnvioFiltroRaw(v); setPage(0); };
+  const setSoloSeleccionados: typeof setSoloSeleccionadosRaw = (v) => {
+    setSoloSeleccionadosRaw(v);
+    setPage(0);
+  };
+  const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [estadoTargetId, setEstadoTargetId] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -184,10 +195,11 @@ export function GestionarEstadosPaquetesPage() {
   }, []);
 
   const limpiarFiltros = useCallback(() => {
-    setSearch('');
-    setEstadoActualFiltro(undefined);
-    setEnvioFiltro(undefined);
-    setSoloSeleccionados(false);
+    setSearchRaw('');
+    setEstadoActualFiltroRaw(undefined);
+    setEnvioFiltroRaw(undefined);
+    setSoloSeleccionadosRaw(false);
+    setPage(0);
   }, []);
 
   useEffect(() => {
@@ -240,6 +252,15 @@ export function GestionarEstadosPaquetesPage() {
       toast.error('Error al aplicar el estado.');
     }
   }, [estadoTarget, selectedIds, cambiarEstadoBulk, all]);
+
+  const pagedList = useMemo(
+    () => list.slice(page * size, page * size + size),
+    [list, page, size],
+  );
+  const totalPages = Math.max(1, Math.ceil(list.length / Math.max(1, size)));
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
+  }, [page, totalPages]);
 
   if (isLoading) {
     return <LoadingState text="Cargando paquetes..." />;
@@ -396,7 +417,7 @@ export function GestionarEstadosPaquetesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.map((p) => {
+              {pagedList.map((p) => {
                 const selected = selectedIds.has(p.id);
                 return (
                   <TableRow
@@ -474,6 +495,17 @@ export function GestionarEstadosPaquetesPage() {
             </TableBody>
           </Table>
         </ListTableShell>
+      )}
+
+      {!isLoading && !error && list.length > 0 && (
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={list.length}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+        />
       )}
 
       {selectedIds.size > 0 && (

@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useQuery,
   useMutation,
   useQueryClient,
@@ -10,8 +11,10 @@ import {
   createAgenciaDistribuidor,
   updateAgenciaDistribuidor,
   deleteAgenciaDistribuidor,
+  listarAgenciasDistribuidorPaginado,
 } from '@/lib/api/agencias-distribuidor.service';
 import type { AgenciaDistribuidorRequest } from '@/types/despacho';
+import type { PageQuery } from '@/types/page';
 
 export const AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY = ['admin', 'agencias-distribuidor'] as const;
 
@@ -19,6 +22,14 @@ export function useAgenciasDistribuidorAdmin() {
   return useQuery({
     queryKey: AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY,
     queryFn: getAgenciasDistribuidorAll,
+  });
+}
+
+export function useAgenciasDistribuidorPaginadas(params: PageQuery = {}) {
+  return useQuery({
+    queryKey: [...AGENCIAS_DISTRIBUIDOR_ADMIN_QUERY_KEY, 'page', params],
+    queryFn: () => listarAgenciasDistribuidorPaginado(params),
+    placeholderData: keepPreviousData,
   });
 }
 

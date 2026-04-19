@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.dto.AgenciaDTO;
 import com.ecubox.ecubox_backend.dto.AgenciaRequest;
+import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.service.AgenciaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,15 @@ public class AgenciaController {
     @PreAuthorize("hasAuthority('AGENCIAS_READ')")
     public ResponseEntity<List<AgenciaDTO>> findAll() {
         return ResponseEntity.ok(agenciaService.findAll());
+    }
+
+    @GetMapping("/page")
+    @PreAuthorize("hasAuthority('AGENCIAS_READ')")
+    public ResponseEntity<PageResponse<AgenciaDTO>> findAllPaginated(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(PageResponse.of(agenciaService.findAllPaginated(q, page, size)));
     }
 
     @GetMapping("/{id}")

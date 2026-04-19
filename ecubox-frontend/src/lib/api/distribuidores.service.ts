@@ -1,11 +1,22 @@
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 import type { Distribuidor, DistribuidorRequest } from '@/types/despacho';
+import type { PageQuery, PageResponse } from '@/types/page';
 
 const BASE = API_ENDPOINTS.distribuidores;
 
 export async function getDistribuidoresAdmin(): Promise<Distribuidor[]> {
   const { data } = await apiClient.get<Distribuidor[]>(BASE);
+  return data;
+}
+
+export async function listarDistribuidoresPaginado(
+  params: PageQuery = {},
+): Promise<PageResponse<Distribuidor>> {
+  const { data } = await apiClient.get<PageResponse<Distribuidor>>(
+    `${BASE}/page`,
+    { params },
+  );
   return data;
 }
 

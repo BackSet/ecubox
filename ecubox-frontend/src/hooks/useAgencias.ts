@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useQuery,
   useMutation,
   useQueryClient,
@@ -9,8 +10,10 @@ import {
   createAgencia,
   updateAgencia,
   deleteAgencia,
+  listarAgenciasPaginado,
 } from '@/lib/api/agencias.service';
 import type { AgenciaRequest } from '@/types/despacho';
+import type { PageQuery } from '@/types/page';
 
 export const AGENCIAS_QUERY_KEY = ['agencias'] as const;
 
@@ -18,6 +21,14 @@ export function useAgencias() {
   return useQuery({
     queryKey: AGENCIAS_QUERY_KEY,
     queryFn: getAgencias,
+  });
+}
+
+export function useAgenciasPaginadas(params: PageQuery = {}) {
+  return useQuery({
+    queryKey: [...AGENCIAS_QUERY_KEY, 'page', params],
+    queryFn: () => listarAgenciasPaginado(params),
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -4,10 +4,12 @@ import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.Optional;
 
-public interface EnvioConsolidadoRepository extends JpaRepository<EnvioConsolidado, Long> {
+public interface EnvioConsolidadoRepository
+        extends JpaRepository<EnvioConsolidado, Long>, JpaSpecificationExecutor<EnvioConsolidado> {
 
     Optional<EnvioConsolidado> findByCodigoIgnoreCase(String codigo);
 

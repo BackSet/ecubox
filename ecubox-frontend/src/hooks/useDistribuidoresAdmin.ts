@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useQuery,
   useMutation,
   useQueryClient,
@@ -9,8 +10,10 @@ import {
   createDistribuidor,
   updateDistribuidor,
   deleteDistribuidor,
+  listarDistribuidoresPaginado,
 } from '@/lib/api/distribuidores.service';
 import type { DistribuidorRequest } from '@/types/despacho';
+import type { PageQuery } from '@/types/page';
 
 export const DISTRIBUIDORES_ADMIN_QUERY_KEY = ['distribuidores'] as const;
 
@@ -18,6 +21,14 @@ export function useDistribuidoresAdmin() {
   return useQuery({
     queryKey: DISTRIBUIDORES_ADMIN_QUERY_KEY,
     queryFn: getDistribuidoresAdmin,
+  });
+}
+
+export function useDistribuidoresPaginados(params: PageQuery = {}) {
+  return useQuery({
+    queryKey: [...DISTRIBUIDORES_ADMIN_QUERY_KEY, 'page', params],
+    queryFn: () => listarDistribuidoresPaginado(params),
+    placeholderData: keepPreviousData,
   });
 }
 

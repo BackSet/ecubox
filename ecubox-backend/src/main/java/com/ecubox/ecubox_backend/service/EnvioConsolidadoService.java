@@ -10,12 +10,14 @@ import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
+import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,20 +63,28 @@ public class EnvioConsolidadoService {
     }
 
     /**
-     * Lista envios paginados.
+     * Lista envios paginados con búsqueda libre opcional sobre el código.
      *
      * @param cerrado {@code null} -> todos; {@code true} -> solo cerrados; {@code false} -> solo abiertos.
+     * @param q       texto libre (LIKE multi-token sobre {@code codigo}); ignorado si vacío.
      */
     @Transactional(readOnly = true)
-    public Page<EnvioConsolidado> findAll(Boolean cerrado, int page, int size) {
+    public Page<EnvioConsolidado> findAll(Boolean cerrado, String q, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)),
                 Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
-        if (cerrado == null) {
-            return envioConsolidadoRepository.findAll(pageable);
+
+        Specification<EnvioConsolidado> spec = (root, query, cb) -> cb.conjunction();
+        if (cerrado != null) {
+            Specification<EnvioConsolidado> estadoSpec = (root, query, cb) ->
+                    cerrado ? cb.isNotNull(root.get("fechaCerrado")) : cb.isNull(root.get("fechaCerrado"));
+            spec = spec.and(estadoSpec);
         }
-        return cerrado
-                ? envioConsolidadoRepository.findByFechaCerradoIsNotNull(pageable)
-                : envioConsolidadoRepository.findByFechaCerradoIsNull(pageable);
+        String trimmed = Strings.trimOrNull(q);
+        if (trimmed != null) {
+            spec = spec.and(SearchSpecifications.tokensLike(trimmed,
+                    SearchSpecifications.field("codigo")));
+        }
+        return envioConsolidadoRepository.findAll(spec, pageable);
     }
 
     @Transactional

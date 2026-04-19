@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   getDespachos,
+  getDespachosPaginado,
   getDespachoById,
   createDespacho,
   updateDespacho,
@@ -29,6 +30,7 @@ import {
 import type { DespachoCreateRequest, SacaCreateRequest, TamanioSaca } from '@/types/despacho';
 import type { CreateAgenciaDistribuidorOperarioBody } from '@/lib/api/operario-despachos.service';
 import type { DestinatarioFinalRequest } from '@/types/destinatario';
+import type { PageQuery } from '@/types/page';
 
 export const DESPACHOS_QUERY_KEY = ['operario', 'despachos'] as const;
 export const DISTRIBUIDORES_QUERY_KEY = ['operario', 'distribuidores'] as const;
@@ -42,6 +44,21 @@ export function useDespachos() {
   return useQuery({
     queryKey: DESPACHOS_QUERY_KEY,
     queryFn: getDespachos,
+  });
+}
+
+/** Versión paginada con búsqueda servidor. */
+export function useDespachosPaginados(params: PageQuery) {
+  return useQuery({
+    queryKey: [
+      ...DESPACHOS_QUERY_KEY,
+      'page',
+      params.q ?? '',
+      params.page ?? 0,
+      params.size ?? 25,
+    ] as const,
+    queryFn: () => getDespachosPaginado(params),
+    placeholderData: keepPreviousData,
   });
 }
 

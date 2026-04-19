@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.dto.DistribuidorDTO;
 import com.ecubox.ecubox_backend.dto.DistribuidorRequest;
+import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.service.DistribuidorService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,15 @@ public class DistribuidorController {
     @PreAuthorize("hasAuthority('DISTRIBUIDORES_READ')")
     public ResponseEntity<List<DistribuidorDTO>> findAll() {
         return ResponseEntity.ok(distribuidorService.findAll());
+    }
+
+    @GetMapping("/page")
+    @PreAuthorize("hasAuthority('DISTRIBUIDORES_READ')")
+    public ResponseEntity<PageResponse<DistribuidorDTO>> findAllPaginated(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(PageResponse.of(distribuidorService.findAllPaginated(q, page, size)));
     }
 
     @GetMapping("/{id}")

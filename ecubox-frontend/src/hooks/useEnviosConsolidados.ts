@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   agregarPaquetesEnvioConsolidado,
   cerrarEnvioConsolidado,
@@ -27,6 +27,7 @@ export function useEnviosConsolidados(
     queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'list', params],
     queryFn: () => listarEnviosConsolidados(params),
     enabled,
+    placeholderData: keepPreviousData,
   });
 }
 

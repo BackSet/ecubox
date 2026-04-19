@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { TablePagination } from '@/components/ui/TablePagination';
 import {
   AlertCircle,
   CheckCircle2,
@@ -90,14 +91,21 @@ export function CargarPesosPage() {
   const { data: paquetes, isLoading, error } = usePaquetesOperario(true);
   const bulkUpdate = useBulkUpdatePesos();
   const [weights, setWeights] = useState<WeightInputs>({});
-  const [search, setSearch] = useState('');
-  const [envioFiltro, setEnvioFiltro] = useState<string | undefined>(undefined);
-  const [guiaMasterFiltro, setGuiaMasterFiltro] = useState<string | undefined>(
+  const [search, setSearchRaw] = useState('');
+  const [envioFiltro, setEnvioFiltroRaw] = useState<string | undefined>(undefined);
+  const [guiaMasterFiltro, setGuiaMasterFiltroRaw] = useState<string | undefined>(
     undefined,
   );
-  const [destinatarioFiltro, setDestinatarioFiltro] = useState<
+  const [destinatarioFiltro, setDestinatarioFiltroRaw] = useState<
     string | undefined
   >(undefined);
+  const [page, setPage] = useState(0);
+  const [size, setSizeRaw] = useState(25);
+  const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
+  const setEnvioFiltro = (v: string | undefined) => { setEnvioFiltroRaw(v); setPage(0); };
+  const setGuiaMasterFiltro = (v: string | undefined) => { setGuiaMasterFiltroRaw(v); setPage(0); };
+  const setDestinatarioFiltro = (v: string | undefined) => { setDestinatarioFiltroRaw(v); setPage(0); };
+  const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
   /**
    * Chip activo. Refleja el estado de la sesion en el formulario:
    * - todos: sin filtrar (default)
@@ -105,9 +113,13 @@ export function CargarPesosPage() {
    * - listos: paquetes con valor parseable (>0) en lbs o kg
    * - invalidos: paquetes con texto pero no parseable a numero positivo
    */
-  const [chipActivo, setChipActivo] = useState<
+  const [chipActivo, setChipActivoRaw] = useState<
     'todos' | 'pendientes' | 'listos' | 'invalidos'
   >('todos');
+  const setChipActivo = (v: 'todos' | 'pendientes' | 'listos' | 'invalidos') => {
+    setChipActivoRaw(v);
+    setPage(0);
+  };
 
   // Estado del dialog "Distribuir total"
   const [distribuirOpen, setDistribuirOpen] = useState(false);
@@ -222,10 +234,11 @@ export function CargarPesosPage() {
     chipActivo !== 'todos';
 
   const limpiarFiltros = useCallback(() => {
-    setEnvioFiltro(undefined);
-    setGuiaMasterFiltro(undefined);
-    setDestinatarioFiltro(undefined);
-    setChipActivo('todos');
+    setEnvioFiltroRaw(undefined);
+    setGuiaMasterFiltroRaw(undefined);
+    setDestinatarioFiltroRaw(undefined);
+    setChipActivoRaw('todos');
+    setPage(0);
   }, []);
 
   const setLbs = useCallback((id: number, value: string) => {
@@ -291,6 +304,15 @@ export function CargarPesosPage() {
     },
     [],
   );
+
+  const pagedList = useMemo(
+    () => list.slice(page * size, page * size + size),
+    [list, page, size],
+  );
+  const totalPages = Math.max(1, Math.ceil(list.length / Math.max(1, size)));
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
+  }, [page, totalPages]);
 
   const stats = useMemo(() => {
     const all = paquetes ?? [];
@@ -617,7 +639,7 @@ export function CargarPesosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((p) => {
+                {pagedList.map((p) => {
                   const w = getWeightState(weights, p.id);
                   const lbsValue = parsePositive(w.lbs);
                   const kgValue = parsePositive(w.kg);
@@ -714,6 +736,14 @@ export function CargarPesosPage() {
               </TableBody>
             </Table>
           </ListTableShell>
+          <TablePagination
+            page={page}
+            size={size}
+            totalElements={list.length}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onSizeChange={setSize}
+          />
         </>
       )}
 

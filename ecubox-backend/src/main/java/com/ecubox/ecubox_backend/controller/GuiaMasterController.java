@@ -10,6 +10,7 @@ import com.ecubox.ecubox_backend.dto.GuiaMasterEstadoHistorialDTO;
 import com.ecubox.ecubox_backend.dto.GuiaMasterReabrirRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterRevisionRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterUpdateRequest;
+import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -97,6 +98,23 @@ public class GuiaMasterController {
         return ResponseEntity.ok(lista.stream()
                 .map(gm -> construirDTO(gm, false))
                 .toList());
+    }
+
+    /**
+     * Variante paginada con búsqueda libre. Sustituye al GET plano cuando el
+     * frontend usa el patrón de listas grandes con paginación servidor.
+     * Soporta el mismo filtro de {@code estado} (uno o varios, separados por comas).
+     */
+    @GetMapping("/page")
+    @PreAuthorize("hasAuthority('GUIAS_MASTER_READ')")
+    public ResponseEntity<PageResponse<GuiaMasterDTO>> findAllPage(
+            @RequestParam(required = false) String q,
+            @RequestParam(name = "estado", required = false) List<String> estados,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        Set<EstadoGuiaMaster> filtro = parseEstados(estados);
+        var pageResult = guiaMasterService.findAllPaginated(q, filtro, page, size);
+        return ResponseEntity.ok(PageResponse.of(pageResult, gm -> construirDTO(gm, false)));
     }
 
     @GetMapping("/{id}")

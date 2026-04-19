@@ -5,8 +5,6 @@ import {
   Boxes,
   Check,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Eraser,
   Eye,
   Lock,
@@ -49,6 +47,7 @@ import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { cn } from '@/lib/utils';
 import {
   useCerrarEnvioConsolidado,
@@ -57,6 +56,7 @@ import {
   useEnviosConsolidados,
   useReabrirEnvioConsolidado,
 } from '@/hooks/useEnviosConsolidados';
+import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { EstadoFiltro } from '@/lib/api/envios-consolidados.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -66,9 +66,10 @@ const LBS_TO_KG = 0.45359237;
 
 export function EnviosConsolidadosListPage() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
+  const { q, page, size, setQ, setPage, setSize, resetPage } = useSearchPagination({
+    initialSize: 20,
+  });
   const [estadoFilter, setEstadoFilter] = useState<EstadoFiltro>('TODOS');
-  const [page, setPage] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [confirmCerrar, setConfirmCerrar] = useState<{ id: number; codigo: string } | null>(null);
   const [confirmReabrir, setConfirmReabrir] = useState<{ id: number; codigo: string } | null>(null);
@@ -85,10 +86,11 @@ export function EnviosConsolidadosListPage() {
     s.hasPermission('ENVIOS_CONSOLIDADOS_DELETE'),
   );
 
-  const { data, isLoading, error } = useEnviosConsolidados({
+  const { data, isLoading, isFetching, error } = useEnviosConsolidados({
     estado: estadoFilter,
+    q: q.trim() || undefined,
     page,
-    size: 20,
+    size,
   });
 
   async function handleCerrar() {
@@ -170,21 +172,17 @@ export function EnviosConsolidadosListPage() {
     };
   }, [dataTodos]);
 
-  const filtered = useMemo(() => {
-    const items = data?.content ?? [];
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((e) => e.codigo.toLowerCase().includes(q));
-  }, [data?.content, search]);
-
+  const items = data?.content ?? [];
   const totalPages = data?.totalPages ?? 0;
+  const totalElements = data?.totalElements ?? 0;
+  const search = q;
 
   return (
     <div className="page-stack">
       <ListToolbar
         title="Envíos consolidados"
         searchPlaceholder="Buscar por código..."
-        onSearchChange={setSearch}
+        onSearchChange={setQ}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -230,7 +228,7 @@ export function EnviosConsolidadosListPage() {
         hayFiltrosActivos={estadoFilter !== 'TODOS'}
         onLimpiar={() => {
           setEstadoFilter('TODOS');
-          setPage(0);
+          resetPage();
         }}
         chips={
           <>
@@ -240,7 +238,7 @@ export function EnviosConsolidadosListPage() {
               active={estadoFilter === 'TODOS'}
               onClick={() => {
                 setEstadoFilter('TODOS');
-                setPage(0);
+                resetPage();
               }}
             />
             <ChipFiltro
@@ -250,7 +248,7 @@ export function EnviosConsolidadosListPage() {
               tone="warning"
               onClick={() => {
                 setEstadoFilter('ABIERTO');
-                setPage(0);
+                resetPage();
               }}
             />
             <ChipFiltro
@@ -260,7 +258,7 @@ export function EnviosConsolidadosListPage() {
               tone="success"
               onClick={() => {
                 setEstadoFilter('CERRADO');
-                setPage(0);
+                resetPage();
               }}
             />
           </>
@@ -273,7 +271,7 @@ export function EnviosConsolidadosListPage() {
         <div className="ui-alert ui-alert-error">
           Error al cargar envíos consolidados.
         </div>
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
           icon={Boxes}
           title={
@@ -315,7 +313,7 @@ export function EnviosConsolidadosListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((e) => (
+                {items.map((e) => (
                   <TableRow
                     key={e.id}
                     className="cursor-pointer"
@@ -402,33 +400,15 @@ export function EnviosConsolidadosListPage() {
             </Table>
           </ListTableShell>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>
-                Página {page + 1} de {totalPages} · {data?.totalElements ?? 0} resultados
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                >
-                  <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                  Anterior
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page + 1 >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Siguiente
-                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <TablePagination
+            page={page}
+            size={size}
+            totalElements={totalElements}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onSizeChange={setSize}
+            loading={isFetching}
+          />
         </>
       )}
 

@@ -2,13 +2,14 @@ package com.ecubox.ecubox_backend.repository;
 
 import com.ecubox.ecubox_backend.entity.Paquete;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface PaqueteRepository extends JpaRepository<Paquete, Long> {
+public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpecificationExecutor<Paquete> {
     Optional<Paquete> findByNumeroGuiaIgnoreCase(String numeroGuia);
 
     /**

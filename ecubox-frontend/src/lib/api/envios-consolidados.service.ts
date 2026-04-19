@@ -4,9 +4,9 @@ import type {
   EnvioConsolidado,
   EnvioConsolidadoCreateRequest,
   EnvioConsolidadoCreateResponse,
-  EnvioConsolidadoListResponse,
   EnvioConsolidadoPaquetesRequest,
 } from '@/types/envio-consolidado';
+import type { PageResponse } from '@/types/page';
 
 const BASE = API_ENDPOINTS.enviosConsolidados;
 
@@ -21,14 +21,16 @@ export type EstadoFiltro = 'TODOS' | 'ABIERTO' | 'CERRADO';
 
 export interface ListarEnviosParams {
   estado?: EstadoFiltro;
+  /** Búsqueda libre (LIKE multi-token) sobre el código del envío. */
+  q?: string;
   page?: number;
   size?: number;
 }
 
 export async function listarEnviosConsolidados(
   params: ListarEnviosParams = {}
-): Promise<EnvioConsolidadoListResponse> {
-  const { data } = await apiClient.get<EnvioConsolidadoListResponse>(BASE, { params });
+): Promise<PageResponse<EnvioConsolidado>> {
+  const { data } = await apiClient.get<PageResponse<EnvioConsolidado>>(BASE, { params });
   return data;
 }
 

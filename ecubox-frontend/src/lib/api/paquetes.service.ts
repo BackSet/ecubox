@@ -2,12 +2,44 @@ import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 import type { Paquete, PaqueteCreateRequest, PaqueteUpdateRequest } from '@/types/paquete';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
+import type { PageResponse, PageQuery } from '@/types/page';
 
 const BASE = API_ENDPOINTS.misPaquetes;
 const OPERARIO_BASE = API_ENDPOINTS.operarioPaquetes;
 
 export async function getPaquetes(): Promise<Paquete[]> {
   const { data } = await apiClient.get<Paquete[]>(BASE);
+  return data;
+}
+
+export interface PaqueteListParams extends PageQuery {
+  /** código de estado de rastreo */
+  estado?: string;
+  destinatarioFinalId?: number;
+  /** código del envío consolidado */
+  envio?: string;
+  guiaMasterId?: number;
+  /** uno de: 'sin_peso' | 'con_peso' | 'sin_guia_master' | 'vencidos' */
+  chip?: string;
+}
+
+/** Paquetes paginados con búsqueda libre (numeroGuia, ref, contenido, guía master, envío, destinatario) y filtros. */
+export async function getPaquetesPaginated(
+  params: PaqueteListParams = {}
+): Promise<PageResponse<Paquete>> {
+  const { data } = await apiClient.get<PageResponse<Paquete>>(`${BASE}/page`, {
+    params: {
+      q: params.q,
+      estado: params.estado,
+      destinatarioFinalId: params.destinatarioFinalId,
+      envio: params.envio,
+      guiaMasterId: params.guiaMasterId,
+      // El chip "vencidos" se sigue resolviendo en cliente; el resto va al server.
+      chip: params.chip && params.chip !== 'vencidos' ? params.chip : undefined,
+      page: params.page ?? 0,
+      size: params.size ?? 25,
+    },
+  });
   return data;
 }
 

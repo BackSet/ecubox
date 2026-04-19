@@ -7,6 +7,7 @@ import com.ecubox.ecubox_backend.dto.DespachoCreateRequest;
 import com.ecubox.ecubox_backend.dto.DespachoDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoGeneradoDTO;
+import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.service.DespachoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,16 @@ public class OperarioDespachoController {
     @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
     public ResponseEntity<List<DespachoDTO>> findAll() {
         return ResponseEntity.ok(despachoService.findAll());
+    }
+
+    /** Variante paginada con búsqueda libre. */
+    @GetMapping("/page")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    public ResponseEntity<PageResponse<DespachoDTO>> findAllPage(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(PageResponse.of(despachoService.findAllPaginated(q, page, size)));
     }
 
     @PostMapping

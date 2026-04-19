@@ -1,9 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   getPaquetes,
+  getPaquetesPaginated,
   createPaquete,
   updatePaquete,
   deletePaquete,
+  type PaqueteListParams,
 } from '@/lib/api/paquetes.service';
 import type { PaqueteCreateRequest, PaqueteUpdateRequest } from '@/types/paquete';
 
@@ -13,6 +15,26 @@ export function usePaquetes() {
   return useQuery({
     queryKey: QUERY_KEY,
     queryFn: getPaquetes,
+  });
+}
+
+/** Versión paginada con búsqueda servidor + filtros. Usar para tablas con muchas filas. */
+export function usePaquetesPaginated(params: PaqueteListParams) {
+  return useQuery({
+    queryKey: [
+      'paquetes',
+      'page',
+      params.q ?? '',
+      params.estado ?? '',
+      params.destinatarioFinalId ?? '',
+      params.envio ?? '',
+      params.guiaMasterId ?? '',
+      params.chip ?? '',
+      params.page ?? 0,
+      params.size ?? 25,
+    ] as const,
+    queryFn: () => getPaquetesPaginated(params),
+    placeholderData: keepPreviousData,
   });
 }
 

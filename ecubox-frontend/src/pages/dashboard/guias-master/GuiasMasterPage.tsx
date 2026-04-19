@@ -2,10 +2,13 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import {
   useGuiasMaster,
+  useGuiasMasterPaginadas,
   useCrearGuiaMaster,
   useActualizarGuiaMaster,
   useEliminarGuiaMaster,
 } from '@/hooks/useGuiasMaster';
+import { useSearchPagination } from '@/hooks/useSearchPagination';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { useDestinatariosOperario } from '@/hooks/useOperarioDespachos';
 import { useAuthStore } from '@/stores/authStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -78,7 +81,9 @@ const STATUS_TO_CHIP_TONE: Record<StatusTone, ChipFiltroTone> = {
 
 export function GuiasMasterPage() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
+  const { q, page, size, setQ, setPage, setSize, resetPage } = useSearchPagination({
+    initialSize: 25,
+  });
   const [createOpen, setCreateOpen] = useState(false);
   const [editingGuia, setEditingGuia] = useState<GuiaMaster | null>(null);
   const [deletingGuia, setDeletingGuia] = useState<GuiaMaster | null>(null);
@@ -90,7 +95,7 @@ export function GuiasMasterPage() {
   const hasDelete = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_DELETE'));
   const eliminar = useEliminarGuiaMaster();
 
-  // Para los chips de filtro siempre necesitamos el conteo total.
+  // Para los chips de filtro y los KPIs siempre necesitamos el conteo total.
   const { data: guiasTodas = [] } = useGuiasMaster();
 
   const estadosArray = useMemo(
@@ -98,11 +103,17 @@ export function GuiasMasterPage() {
     [estadosFiltro]
   );
 
-  const {
-    data: guias = [],
-    isLoading,
-    error,
-  } = useGuiasMaster(undefined, estadosArray.length > 0 ? estadosArray : undefined);
+  const pageQuery = useGuiasMasterPaginadas({
+    q: q.trim() || undefined,
+    estados: estadosArray.length > 0 ? estadosArray : undefined,
+    page,
+    size,
+  });
+  const guias = pageQuery.data?.content ?? [];
+  const isLoading = pageQuery.isLoading;
+  const error = pageQuery.error;
+  const totalElements = pageQuery.data?.totalElements ?? 0;
+  const totalPages = pageQuery.data?.totalPages ?? 0;
 
   const conteosPorEstado = useMemo(() => {
     const conteos = {} as Record<EstadoGuiaMaster, number>;
@@ -133,16 +144,8 @@ export function GuiasMasterPage() {
     };
   }, [conteosPorEstado, guiasTodas.length]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return guias;
-    return guias.filter(
-      (g) =>
-        g.trackingBase.toLowerCase().includes(q) ||
-        (g.destinatarioNombre?.toLowerCase().includes(q) ?? false) ||
-        (g.clienteUsuarioNombre?.toLowerCase().includes(q) ?? false)
-    );
-  }, [guias, search]);
+  // Búsqueda y filtros se aplican en servidor; usamos el resultado tal cual.
+  const filtered = guias;
 
   function toggleEstado(estado: EstadoGuiaMaster) {
     setEstadosFiltro((prev) => {
@@ -151,6 +154,7 @@ export function GuiasMasterPage() {
       else next.add(estado);
       return next;
     });
+    resetPage();
   }
 
   return (
@@ -158,7 +162,7 @@ export function GuiasMasterPage() {
       <ListToolbar
         title="Guías"
         searchPlaceholder="Buscar por número de guía, destinatario o cliente..."
-        onSearchChange={setSearch}
+        onSearchChange={setQ}
         actions={
           <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
         }
@@ -199,14 +203,20 @@ export function GuiasMasterPage() {
       {guiasTodas.length > 0 && (
         <FiltrosBar
           hayFiltrosActivos={estadosFiltro.size > 0}
-          onLimpiar={() => setEstadosFiltro(new Set())}
+          onLimpiar={() => {
+            setEstadosFiltro(new Set());
+            resetPage();
+          }}
           chips={
             <>
               <ChipFiltro
                 label="Todas"
                 count={guiasTodas.length}
                 active={estadosFiltro.size === 0}
-                onClick={() => setEstadosFiltro(new Set())}
+                onClick={() => {
+                  setEstadosFiltro(new Set());
+                  resetPage();
+                }}
               />
               {GUIA_MASTER_ESTADO_ORDEN.map((estado) => {
                 const count = conteosPorEstado[estado] ?? 0;
@@ -252,6 +262,11 @@ export function GuiasMasterPage() {
           }
         />
       ) : (
+        <>
+        <p className="text-xs text-muted-foreground">
+          {totalElements} guía{totalElements === 1 ? '' : 's'}
+          {pageQuery.isFetching ? ' · cargando...' : ''}
+        </p>
         <ListTableShell>
           <Table className="min-w-[960px]">
             <TableHeader>
@@ -350,6 +365,16 @@ export function GuiasMasterPage() {
             </TableBody>
           </Table>
         </ListTableShell>
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+          loading={pageQuery.isFetching}
+        />
+        </>
       )}
 
       {createOpen && (

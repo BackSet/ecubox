@@ -5,11 +5,21 @@ import type {
   UsuarioCreateRequest,
   UsuarioUpdateRequest,
 } from '@/types/usuario';
+import type { PageQuery, PageResponse } from '@/types/page';
 
 const BASE = API_ENDPOINTS.usuarios;
 
 export async function getUsuarios(): Promise<UsuarioDTO[]> {
   const { data } = await apiClient.get<UsuarioDTO[]>(BASE);
+  return data;
+}
+
+export async function listarUsuariosPaginado(
+  params: PageQuery = {},
+): Promise<PageResponse<UsuarioDTO>> {
+  const { data } = await apiClient.get<PageResponse<UsuarioDTO>>(`${BASE}/page`, {
+    params,
+  });
   return data;
 }
 

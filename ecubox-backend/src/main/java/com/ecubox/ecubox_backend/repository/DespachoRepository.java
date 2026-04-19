@@ -2,13 +2,15 @@ package com.ecubox.ecubox_backend.repository;
 
 import com.ecubox.ecubox_backend.entity.Despacho;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-public interface DespachoRepository extends JpaRepository<Despacho, Long> {
+public interface DespachoRepository extends JpaRepository<Despacho, Long>,
+        JpaSpecificationExecutor<Despacho> {
 
     List<Despacho> findByManifiestoId(Long manifiestoId);
 

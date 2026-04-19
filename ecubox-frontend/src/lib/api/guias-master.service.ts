@@ -14,6 +14,7 @@ import type {
   GuiaMasterRevisionRequest,
 } from '@/types/guia-master';
 import type { Paquete } from '@/types/paquete';
+import type { PageResponse, PageQuery } from '@/types/page';
 
 const BASE = API_ENDPOINTS.guiasMaster;
 
@@ -26,6 +27,28 @@ export async function listarGuiasMaster(
   if (estados && estados.length > 0) params.estados = estados.join(',');
   const { data } = await apiClient.get<GuiaMaster[]>(BASE, {
     params: Object.keys(params).length > 0 ? params : undefined,
+  });
+  return data;
+}
+
+export interface ListarGuiasMasterPageParams extends PageQuery {
+  estados?: EstadoGuiaMaster[];
+}
+
+/** Listado paginado con búsqueda libre (trackingBase, destinatario, cliente). */
+export async function listarGuiasMasterPaginado(
+  params: ListarGuiasMasterPageParams = {}
+): Promise<PageResponse<GuiaMaster>> {
+  const queryParams: Record<string, string | number | undefined> = {
+    q: params.q,
+    page: params.page ?? 0,
+    size: params.size ?? 25,
+  };
+  if (params.estados && params.estados.length > 0) {
+    queryParams.estado = params.estados.join(',');
+  }
+  const { data } = await apiClient.get<PageResponse<GuiaMaster>>(`${BASE}/page`, {
+    params: queryParams,
   });
   return data;
 }

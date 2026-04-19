@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -50,7 +51,11 @@ export function DestinatarioListPage() {
   const hasDestinatariosCreate = useAuthStore((s) => s.hasPermission('DESTINATARIOS_CREATE'));
   const hasDestinatariosUpdate = useAuthStore((s) => s.hasPermission('DESTINATARIOS_UPDATE'));
   const hasDestinatariosDelete = useAuthStore((s) => s.hasPermission('DESTINATARIOS_DELETE'));
-  const [search, setSearch] = useState('');
+  const [search, setSearchRaw] = useState('');
+  const [page, setPage] = useState(0);
+  const [size, setSizeRaw] = useState(25);
+  const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
+  const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
   const { data: misData, isLoading: misLoading, error: misError } = useDestinatarios(
     !hasDestinatariosOperario,
   );
@@ -67,13 +72,16 @@ export function DestinatarioListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   // Chip activo de filtro rapido
-  const [chipActivo, setChipActivo] = useState<
+  const [chipActivo, setChipActivoRaw] = useState<
     'todos' | 'con_cliente' | 'sin_cliente' | 'sin_telefono' | 'sin_codigo'
   >('todos');
-  const [provinciaFiltro, setProvinciaFiltro] = useState<string | undefined>(
+  const [provinciaFiltro, setProvinciaFiltroRaw] = useState<string | undefined>(
     undefined,
   );
-  const [clienteFiltro, setClienteFiltro] = useState<string | undefined>(undefined);
+  const [clienteFiltro, setClienteFiltroRaw] = useState<string | undefined>(undefined);
+  const setChipActivo = (v: typeof chipActivo) => { setChipActivoRaw(v); setPage(0); };
+  const setProvinciaFiltro = (v: string | undefined) => { setProvinciaFiltroRaw(v); setPage(0); };
+  const setClienteFiltro = (v: string | undefined) => { setClienteFiltroRaw(v); setPage(0); };
 
   // Provincias y clientes presentes para poblar combos.
   const provincias = useMemo(() => {
@@ -184,10 +192,20 @@ export function DestinatarioListPage() {
     !!provinciaFiltro || !!clienteFiltro || chipActivo !== 'todos';
 
   const limpiarFiltros = useCallback(() => {
-    setProvinciaFiltro(undefined);
-    setClienteFiltro(undefined);
-    setChipActivo('todos');
+    setProvinciaFiltroRaw(undefined);
+    setClienteFiltroRaw(undefined);
+    setChipActivoRaw('todos');
+    setPage(0);
   }, []);
+
+  const pagedList = useMemo(
+    () => list.slice(page * size, page * size + size),
+    [list, page, size],
+  );
+  const totalPages = Math.max(1, Math.ceil(list.length / Math.max(1, size)));
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
+  }, [page, totalPages]);
 
   if (isLoading) {
     return <LoadingState text="Cargando destinatarios..." />;
@@ -393,7 +411,7 @@ export function DestinatarioListPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.map((d) => (
+              {pagedList.map((d) => (
                 <TableRow key={d.id}>
                   <TableCell className="max-w-[18rem] align-top">
                     <NombreCodigoCell destinatario={d} />
@@ -438,6 +456,17 @@ export function DestinatarioListPage() {
             </TableBody>
           </Table>
         </ListTableShell>
+      )}
+
+      {!isLoading && !error && list.length > 0 && (
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={list.length}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+        />
       )}
 
       {createOpen && (

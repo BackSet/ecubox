@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.dto.UsuarioCreateRequest;
 import com.ecubox.ecubox_backend.dto.UsuarioDTO;
 import com.ecubox.ecubox_backend.dto.UsuarioUpdateRequest;
@@ -26,6 +27,15 @@ public class UsuarioController {
     @PreAuthorize("hasAuthority('USUARIOS_READ')")
     public ResponseEntity<List<UsuarioDTO>> findAll() {
         return ResponseEntity.ok(usuarioService.findAll());
+    }
+
+    @GetMapping("/page")
+    @PreAuthorize("hasAuthority('USUARIOS_READ')")
+    public ResponseEntity<PageResponse<UsuarioDTO>> findAllPaginated(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(PageResponse.of(usuarioService.findAllPaginated(q, page, size)));
     }
 
     @GetMapping("/{id}")

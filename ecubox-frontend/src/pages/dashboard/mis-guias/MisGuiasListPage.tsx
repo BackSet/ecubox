@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { TablePagination } from '@/components/ui/TablePagination';
 import { useNavigate } from '@tanstack/react-router';
 import {
   Boxes,
@@ -68,8 +69,13 @@ const TOOLTIP_NO_EDITABLE =
 
 export function MisGuiasListPage() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstado>('TODAS');
+  const [search, setSearchRaw] = useState('');
+  const [estadoFiltro, setEstadoFiltroRaw] = useState<FiltroEstado>('TODAS');
+  const [page, setPage] = useState(0);
+  const [size, setSizeRaw] = useState(25);
+  const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
+  const setEstadoFiltro = (v: FiltroEstado) => { setEstadoFiltroRaw(v); setPage(0); };
+  const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
   const [registrarOpen, setRegistrarOpen] = useState(false);
   const [editingGuia, setEditingGuia] = useState<GuiaMaster | null>(null);
   const [deletingGuia, setDeletingGuia] = useState<GuiaMaster | null>(null);
@@ -122,6 +128,15 @@ export function MisGuiasListPage() {
       );
     });
   }, [guias, search, estadoFiltro]);
+
+  const pagedFiltered = useMemo(
+    () => filtered.slice(page * size, page * size + size),
+    [filtered, page, size],
+  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / Math.max(1, size)));
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
+  }, [page, totalPages]);
 
   return (
     <div className="page-stack">
@@ -254,7 +269,7 @@ export function MisGuiasListPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((g) => {
+              {pagedFiltered.map((g) => {
                 const totalPendiente = g.totalPiezasEsperadas == null;
                 const editable = g.estadoGlobal === ESTADO_EDITABLE;
                 return (
@@ -338,6 +353,17 @@ export function MisGuiasListPage() {
             </TableBody>
           </Table>
         </ListTableShell>
+      )}
+
+      {!isLoading && !error && filtered.length > 0 && (
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={filtered.length}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+        />
       )}
 
       {registrarOpen && (
