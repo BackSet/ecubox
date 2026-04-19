@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { SurfaceCard } from '@/components/ui/surface-card';
 
 type PageHeaderVariant = 'list' | 'detail' | 'public';
 
@@ -17,8 +16,8 @@ interface PageHeaderProps {
 
 /**
  * Encabezado canonico de pagina/seccion.
- * - variant="list":   Tarjeta superior con titulo + acciones (listas y CRUD).
- * - variant="detail": Bloque ligero sin tarjeta para vistas de detalle.
+ * - variant="list":   Bloque plano superior con titulo + acciones (listas y CRUD).
+ * - variant="detail": Bloque ligero sin separador inferior para vistas de detalle.
  * - variant="public": Variante para paginas publicas (landing-card).
  */
 export function PageHeader({
@@ -32,33 +31,41 @@ export function PageHeader({
   children,
 }: PageHeaderProps) {
   const titleNode = (
-    <div className="flex min-w-0 items-start gap-3">
+    <div className="flex min-w-0 items-start gap-2.5">
       {icon && (
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[color-mix(in_oklab,var(--color-primary)_12%,transparent)] text-[var(--color-primary)]">
+        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-[var(--color-muted-foreground)]">
           {icon}
         </div>
       )}
       <div className="min-w-0 flex-1">
-        {breadcrumbs && <div className="mb-1 text-xs text-[var(--color-muted-foreground)]">{breadcrumbs}</div>}
-        <h1 className="truncate text-base font-semibold tracking-tight text-[var(--color-foreground)] sm:text-lg">
+        {breadcrumbs && (
+          <div className="mb-1 text-[12px] text-[var(--color-muted-foreground)]">
+            {breadcrumbs}
+          </div>
+        )}
+        <h1 className="truncate text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
           {title}
         </h1>
         {description && (
-          <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">{description}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-[var(--color-muted-foreground)]">
+            {description}
+          </p>
         )}
       </div>
     </div>
   );
 
   const actionsNode = actions ? (
-    <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">{actions}</div>
+    <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+      {actions}
+    </div>
   ) : null;
 
   if (variant === 'detail') {
     return (
       <div
         className={cn(
-          'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between',
+          'flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between',
           className,
         )}
       >
@@ -85,15 +92,15 @@ export function PageHeader({
   }
 
   return (
-    <SurfaceCard
+    <div
       className={cn(
-        'flex flex-col gap-3 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between',
+        'flex flex-col gap-3 border-b border-[var(--color-border)] pb-4 lg:flex-row lg:items-start lg:justify-between',
         className,
       )}
     >
       {titleNode}
       {actionsNode}
       {children}
-    </SurfaceCard>
+    </div>
   );
 }

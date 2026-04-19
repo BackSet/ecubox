@@ -9,17 +9,13 @@ import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
+import { ChipFiltro } from '@/components/ChipFiltro';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
+import { MonoTrunc } from '@/components/MonoTrunc';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -50,16 +46,16 @@ import { toast } from 'sonner';
 import { GuiaMasterPiezaCell, DestinatarioCell } from '../paquetes/PaqueteCells';
 import type { Paquete } from '@/types/paquete';
 
-const SIN_FILTRO = '__all__';
-
 export function GestionarEstadosPaquetesPage() {
   const { data: paquetes, isLoading, error } = usePaquetesSinSaca();
   const { data: estadosRastreo = [] } = useEstadosRastreoActivos();
   const cambiarEstadoBulk = useCambiarEstadoRastreoBulk();
 
   const [search, setSearch] = useState('');
-  const [estadoActualFiltro, setEstadoActualFiltro] = useState<string>(SIN_FILTRO);
-  const [envioFiltro, setEnvioFiltro] = useState<string>(SIN_FILTRO);
+  const [estadoActualFiltro, setEstadoActualFiltro] = useState<string | undefined>(
+    undefined,
+  );
+  const [envioFiltro, setEnvioFiltro] = useState<string | undefined>(undefined);
   const [soloSeleccionados, setSoloSeleccionados] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [estadoTargetId, setEstadoTargetId] = useState<string>('');
@@ -106,15 +102,12 @@ export function GestionarEstadosPaquetesPage() {
     const q = search.trim().toLowerCase();
     return all.filter((p) => {
       if (
-        estadoActualFiltro !== SIN_FILTRO &&
+        estadoActualFiltro &&
         (p.estadoRastreoCodigo ?? p.estadoRastreoNombre) !== estadoActualFiltro
       ) {
         return false;
       }
-      if (
-        envioFiltro !== SIN_FILTRO &&
-        (p.envioConsolidadoCodigo ?? '') !== envioFiltro
-      ) {
+      if (envioFiltro && (p.envioConsolidadoCodigo ?? '') !== envioFiltro) {
         return false;
       }
       if (soloSeleccionados && !selectedIds.has(p.id)) return false;
@@ -192,8 +185,8 @@ export function GestionarEstadosPaquetesPage() {
 
   const limpiarFiltros = useCallback(() => {
     setSearch('');
-    setEstadoActualFiltro(SIN_FILTRO);
-    setEnvioFiltro(SIN_FILTRO);
+    setEstadoActualFiltro(undefined);
+    setEnvioFiltro(undefined);
     setSoloSeleccionados(false);
   }, []);
 
@@ -261,8 +254,8 @@ export function GestionarEstadosPaquetesPage() {
 
   const tieneFiltros =
     search.trim() !== '' ||
-    estadoActualFiltro !== SIN_FILTRO ||
-    envioFiltro !== SIN_FILTRO ||
+    estadoActualFiltro != null ||
+    envioFiltro != null ||
     soloSeleccionados;
 
   return (
@@ -305,72 +298,63 @@ export function GestionarEstadosPaquetesPage() {
       )}
 
       {all.length > 0 && (
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Estado actual
-            </span>
-            <Select value={estadoActualFiltro} onValueChange={setEstadoActualFiltro}>
-              <SelectTrigger className="h-9 w-[12rem]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SIN_FILTRO}>Todos los estados</SelectItem>
-                {estadosActualesPresentes.map((e) => (
-                  <SelectItem key={e.codigo} value={e.codigo}>
-                    {e.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Envío consolidado
-            </span>
-            <Select value={envioFiltro} onValueChange={setEnvioFiltro}>
-              <SelectTrigger className="h-9 w-[12rem]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SIN_FILTRO}>Todos</SelectItem>
-                {codigosEnvio.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    <span className="font-mono text-xs">{c}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Vista
-            </span>
-            <Button
-              type="button"
-              variant={soloSeleccionados ? 'default' : 'outline'}
+        <FiltrosBar
+          hayFiltrosActivos={tieneFiltros}
+          onLimpiar={limpiarFiltros}
+          chips={
+            <ChipFiltro
+              label={
+                soloSeleccionados ? 'Mostrar todos' : 'Solo seleccionados'
+              }
+              count={selectedIds.size}
+              active={soloSeleccionados}
+              tone="success"
+              icon={<CheckCircle2 className="h-3.5 w-3.5" />}
               onClick={() => setSoloSeleccionados((v) => !v)}
-              disabled={selectedIds.size === 0}
-              className="h-9 gap-2 whitespace-nowrap"
-            >
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <span>
-                {soloSeleccionados ? 'Mostrar todos' : 'Solo seleccionados'}
-              </span>
-            </Button>
-          </div>
-          {tieneFiltros && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={limpiarFiltros}
-              className="ml-auto h-9 gap-1.5 whitespace-nowrap"
-            >
-              <X className="h-3.5 w-3.5 shrink-0" />
-              <span>Limpiar filtros</span>
-            </Button>
-          )}
-        </div>
+              hideWhenZero
+            />
+          }
+          filtros={
+            <>
+              <FiltroCampo label="Estado actual">
+                <SearchableCombobox<{ codigo: string; nombre: string }>
+                  value={estadoActualFiltro}
+                  onChange={(v) =>
+                    setEstadoActualFiltro(v == null ? undefined : String(v))
+                  }
+                  options={estadosActualesPresentes}
+                  getKey={(e) => e.codigo}
+                  getLabel={(e) => e.nombre}
+                  placeholder="Todos los estados"
+                  searchPlaceholder="Buscar estado..."
+                  emptyMessage="Sin estados"
+                  className="h-9 w-full"
+                />
+              </FiltroCampo>
+              <FiltroCampo label="Envío consolidado">
+                <SearchableCombobox<string>
+                  value={envioFiltro}
+                  onChange={(v) =>
+                    setEnvioFiltro(v == null ? undefined : String(v))
+                  }
+                  options={codigosEnvio}
+                  getKey={(c) => c}
+                  getLabel={(c) => c}
+                  placeholder="Todos"
+                  searchPlaceholder="Buscar código..."
+                  emptyMessage="Sin envíos"
+                  className="h-9 w-full"
+                  renderOption={(c) => (
+                    <span className="font-mono text-xs">{c}</span>
+                  )}
+                  renderSelected={(c) => (
+                    <span className="font-mono text-xs">{c}</span>
+                  )}
+                />
+              </FiltroCampo>
+            </>
+          }
+        />
       )}
 
       {all.length === 0 ? (
@@ -451,9 +435,12 @@ export function GestionarEstadosPaquetesPage() {
                     <TableCell className="align-top">
                       {p.envioConsolidadoCodigo ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-xs">
-                            {p.envioConsolidadoCodigo}
-                          </span>
+                          <MonoTrunc
+                            value={p.envioConsolidadoCodigo}
+                            head={6}
+                            tail={6}
+                            className="text-xs"
+                          />
                           <Badge
                             variant="outline"
                             className="text-[10px] font-normal"
@@ -556,7 +543,7 @@ function SelectionActionBar({
 }: SelectionActionBarProps) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-card/80">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 rounded-md border border-border bg-card/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <Badge className="bg-primary text-primary-foreground hover:bg-primary">
             {total} seleccionado{total === 1 ? '' : 's'}
@@ -668,9 +655,18 @@ function ResultadoDialog({ data, onClose, paquetes }: ResultadoDialogProps) {
                   <TableRow key={r.paqueteId}>
                     <TableCell className="align-top">
                       <div className="flex flex-col">
-                        <span className="font-mono text-xs">
-                          {r.numeroGuia ?? `#${r.paqueteId}`}
-                        </span>
+                        {r.numeroGuia ? (
+                          <MonoTrunc
+                            value={r.numeroGuia}
+                            head={6}
+                            tail={6}
+                            className="text-xs"
+                          />
+                        ) : (
+                          <span className="font-mono text-xs">
+                            #{r.paqueteId}
+                          </span>
+                        )}
                         {p?.destinatarioNombre && (
                           <span className="text-xs text-muted-foreground">
                             {p.destinatarioNombre}

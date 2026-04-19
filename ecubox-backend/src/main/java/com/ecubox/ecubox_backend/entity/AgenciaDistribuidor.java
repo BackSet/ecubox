@@ -2,8 +2,11 @@ package com.ecubox.ecubox_backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "agencia_distribuidor")
@@ -12,6 +15,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@SQLDelete(sql = "UPDATE agencia_distribuidor SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 public class AgenciaDistribuidor {
 
     @Id
@@ -43,4 +48,10 @@ public class AgenciaDistribuidor {
     @Column(nullable = false, precision = 19, scale = 4)
     @Builder.Default
     private BigDecimal tarifa = BigDecimal.ZERO;
+
+    /**
+     * Soft-delete (V67): si es NOT NULL la agencia esta dada de baja.
+     */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }

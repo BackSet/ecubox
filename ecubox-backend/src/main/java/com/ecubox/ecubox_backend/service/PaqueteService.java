@@ -447,18 +447,27 @@ public class PaqueteService {
             throw new ResourceNotFoundException("Paquete", faltante);
         }
         List<Paquete> aGuardar = new ArrayList<>(items.size());
+        Set<Long> guiasAfectadas = new HashSet<>();
         for (PaquetePesoItem item : items) {
             Paquete p = porId.get(item.getPaqueteId());
             BigDecimal lbs = item.getPesoLbs();
             BigDecimal kg = item.getPesoKg();
+            BigDecimal pesoPrevio = p.getPesoLbs();
             if (lbs != null && lbs.compareTo(BigDecimal.ZERO) > 0) {
                 p.setPesoLbs(lbs);
             } else if (kg != null && kg.compareTo(BigDecimal.ZERO) > 0) {
                 p.setPesoLbs(WeightUtil.kgToLbs(kg));
             }
+            if (pesoPrevio == null && p.getPesoLbs() != null && p.getGuiaMaster() != null) {
+                guiasAfectadas.add(p.getGuiaMaster().getId());
+            }
             aGuardar.add(p);
         }
-        return paqueteRepository.saveAll(aGuardar).stream().map(this::toDTO).toList();
+        List<PaqueteDTO> result = paqueteRepository.saveAll(aGuardar).stream().map(this::toDTO).toList();
+        for (Long gmId : guiasAfectadas) {
+            guiaMasterService.recomputarEstado(gmId);
+        }
+        return result;
     }
 
     @Transactional
@@ -486,7 +495,9 @@ public class PaqueteService {
                 throw new BadRequestException("El contenido es obligatorio");
             }
         }
+        boolean pesoCambioRecepcion = false;
         if (canEditPeso) {
+            BigDecimal pesoPrevio = p.getPesoLbs();
             if (request.getPesoLbs() != null) {
                 p.setPesoLbs(request.getPesoLbs());
             } else if (request.getPesoKg() != null) {
@@ -494,6 +505,11 @@ public class PaqueteService {
             } else {
                 p.setPesoLbs(null);
             }
+            // Si cambia el "tener peso vs no tener peso", afecta el conteo
+            // de piezas recibidas en la guia master -> hay que recalcular.
+            boolean teniaPeso = pesoPrevio != null;
+            boolean tienePeso = p.getPesoLbs() != null;
+            pesoCambioRecepcion = teniaPeso != tienePeso;
             String newRef = request.getRef() != null ? request.getRef().trim() : null;
             if (newRef != null && !newRef.isEmpty()) {
                 if (paqueteRepository.existsByRefAndIdNot(newRef, paqueteId)) {
@@ -516,9 +532,13 @@ public class PaqueteService {
                     guiaMasterService.recomputarEstado(previaId);
                 }
                 guiaMasterService.recomputarEstado(request.getGuiaMasterId());
+                pesoCambioRecepcion = false;
             }
         }
         p = paqueteRepository.save(p);
+        if (pesoCambioRecepcion && p.getGuiaMaster() != null) {
+            guiaMasterService.recomputarEstado(p.getGuiaMaster().getId());
+        }
         return toDTO(p);
     }
 
@@ -547,6 +567,30 @@ public class PaqueteService {
         paqueteEstadoEventoRepository.deleteByPaqueteId(paqueteId);
         outboxEventRepository.deleteByAggregateTypeAndAggregateId("PAQUETE", String.valueOf(paqueteId));
         paqueteRepository.delete(p);
+    }
+
+    /**
+     * Borra todos los paquetes pertenecientes a un envio consolidado, incluyendo
+     * sus eventos de tracking ({@code paquete_estado_evento}) y los eventos
+     * pendientes en el outbox. Pensado para ser invocado desde el flujo de
+     * eliminacion de un envio consolidado cuando el operario decide
+     * explicitamente borrar las piezas junto con el agrupador.
+     *
+     * @return cantidad de paquetes efectivamente eliminados.
+     */
+    @Transactional
+    public int deleteAllByEnvioConsolidadoId(Long envioConsolidadoId) {
+        List<Paquete> paquetes = paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(envioConsolidadoId);
+        if (paquetes.isEmpty()) {
+            return 0;
+        }
+        for (Paquete p : paquetes) {
+            Long pid = p.getId();
+            paqueteEstadoEventoRepository.deleteByPaqueteId(pid);
+            outboxEventRepository.deleteByAggregateTypeAndAggregateId("PAQUETE", String.valueOf(pid));
+        }
+        paqueteRepository.deleteAll(paquetes);
+        return paquetes.size();
     }
 
     private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");

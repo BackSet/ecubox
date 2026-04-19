@@ -26,6 +26,11 @@ import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
+import { KpiCard } from '@/components/KpiCard';
+import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
+import { FiltrosBar } from '@/components/FiltrosBar';
+import { MonoTrunc } from '@/components/MonoTrunc';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import {
   Table,
   TableBody,
@@ -36,34 +41,97 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import {
-  BarChart3,
   Boxes,
-  Check,
-  Copy,
   Building2,
   Eye,
   Pencil,
   Trash2,
   UserRound,
+  Clock,
+  PackageCheck,
+  Truck,
 } from 'lucide-react';
-import { GuiaMasterEstadoBadge } from './_estado';
-import { GuiasMasterMetricasSheet } from './GuiasMasterMetricasSheet';
-import type { GuiaMaster } from '@/types/guia-master';
+import {
+  GUIA_MASTER_ESTADO_ICONS,
+  GUIA_MASTER_ESTADO_LABELS_CORTOS,
+  GUIA_MASTER_ESTADO_ORDEN,
+  GUIA_MASTER_ESTADO_TONES,
+  GuiaMasterEstadoBadge,
+} from './_estado';
+import type { EstadoGuiaMaster, GuiaMaster } from '@/types/guia-master';
+import type { StatusTone } from '@/components/ui/StatusBadge';
 import { DestinatarioInfo } from '../paquetes/PaqueteCells';
+
+/**
+ * Mapea el tono semantico del estado de la guia (StatusTone, 6 colores) al tono
+ * compatible con ChipFiltro (5 colores). Como el chip no distingue 'info' de
+ * 'primary', ambos se renderizan como primary.
+ */
+const STATUS_TO_CHIP_TONE: Record<StatusTone, ChipFiltroTone> = {
+  primary: 'primary',
+  info: 'primary',
+  success: 'success',
+  warning: 'warning',
+  error: 'danger',
+  neutral: 'neutral',
+};
 
 export function GuiasMasterPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [metricasOpen, setMetricasOpen] = useState(false);
   const [editingGuia, setEditingGuia] = useState<GuiaMaster | null>(null);
   const [deletingGuia, setDeletingGuia] = useState<GuiaMaster | null>(null);
+  const [estadosFiltro, setEstadosFiltro] = useState<Set<EstadoGuiaMaster>>(
+    () => new Set()
+  );
 
   const hasUpdate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_UPDATE'));
   const hasDelete = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_DELETE'));
   const eliminar = useEliminarGuiaMaster();
 
-  const { data: guias = [], isLoading, error } = useGuiasMaster();
+  // Para los chips de filtro siempre necesitamos el conteo total.
+  const { data: guiasTodas = [] } = useGuiasMaster();
+
+  const estadosArray = useMemo(
+    () => Array.from(estadosFiltro),
+    [estadosFiltro]
+  );
+
+  const {
+    data: guias = [],
+    isLoading,
+    error,
+  } = useGuiasMaster(undefined, estadosArray.length > 0 ? estadosArray : undefined);
+
+  const conteosPorEstado = useMemo(() => {
+    const conteos = {} as Record<EstadoGuiaMaster, number>;
+    for (const g of guiasTodas) {
+      conteos[g.estadoGlobal] = (conteos[g.estadoGlobal] ?? 0) + 1;
+    }
+    return conteos;
+  }, [guiasTodas]);
+
+  // KPIs operativos: agrupamos los 8 estados en 4 etapas del ciclo de vida
+  // para que el operario tenga un resumen accionable de un vistazo.
+  const stats = useMemo(() => {
+    const c = conteosPorEstado;
+    const enEspera = c.EN_ESPERA_RECEPCION ?? 0;
+    const enRecepcion =
+      (c.RECEPCION_PARCIAL ?? 0) + (c.RECEPCION_COMPLETA ?? 0);
+    const enDespacho = (c.DESPACHO_PARCIAL ?? 0) + (c.EN_REVISION ?? 0);
+    const cerradas =
+      (c.DESPACHO_COMPLETADO ?? 0) +
+      (c.DESPACHO_INCOMPLETO ?? 0) +
+      (c.CANCELADA ?? 0);
+    return {
+      total: guiasTodas.length,
+      enEspera,
+      enRecepcion,
+      enDespacho,
+      cerradas,
+    };
+  }, [conteosPorEstado, guiasTodas.length]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -76,6 +144,15 @@ export function GuiasMasterPage() {
     );
   }, [guias, search]);
 
+  function toggleEstado(estado: EstadoGuiaMaster) {
+    setEstadosFiltro((prev) => {
+      const next = new Set(prev);
+      if (next.has(estado)) next.delete(estado);
+      else next.add(estado);
+      return next;
+    });
+  }
+
   return (
     <div className="page-stack">
       <ListToolbar
@@ -83,22 +160,75 @@ export function GuiasMasterPage() {
         searchPlaceholder="Buscar por número de guía, destinatario o cliente..."
         onSearchChange={setSearch}
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => setMetricasOpen(true)}
-            >
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Ver más métricas
-            </Button>
-            <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
-              Registrar guía
-            </Button>
-          </div>
+          <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
         }
       />
+
+      {guiasTodas.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <KpiCard
+            icon={<Boxes className="h-5 w-5" />}
+            label="Total guías"
+            value={stats.total}
+            tone="primary"
+          />
+          <KpiCard
+            icon={<Clock className="h-5 w-5" />}
+            label="En espera"
+            value={stats.enEspera}
+            tone={stats.enEspera > 0 ? 'warning' : 'neutral'}
+            hint="Sin recibir aún"
+          />
+          <KpiCard
+            icon={<PackageCheck className="h-5 w-5" />}
+            label="En recepción"
+            value={stats.enRecepcion}
+            tone={stats.enRecepcion > 0 ? 'primary' : 'neutral'}
+            hint="Parciales y completas"
+          />
+          <KpiCard
+            icon={<Truck className="h-5 w-5" />}
+            label="En despacho"
+            value={stats.enDespacho}
+            tone={stats.enDespacho > 0 ? 'primary' : 'neutral'}
+            hint="Parciales o en revisión"
+          />
+        </div>
+      )}
+
+      {guiasTodas.length > 0 && (
+        <FiltrosBar
+          hayFiltrosActivos={estadosFiltro.size > 0}
+          onLimpiar={() => setEstadosFiltro(new Set())}
+          chips={
+            <>
+              <ChipFiltro
+                label="Todas"
+                count={guiasTodas.length}
+                active={estadosFiltro.size === 0}
+                onClick={() => setEstadosFiltro(new Set())}
+              />
+              {GUIA_MASTER_ESTADO_ORDEN.map((estado) => {
+                const count = conteosPorEstado[estado] ?? 0;
+                const active = estadosFiltro.has(estado);
+                if (count === 0 && !active) return null;
+                const Icon = GUIA_MASTER_ESTADO_ICONS[estado];
+                return (
+                  <ChipFiltro
+                    key={estado}
+                    label={GUIA_MASTER_ESTADO_LABELS_CORTOS[estado]}
+                    count={count}
+                    active={active}
+                    tone={STATUS_TO_CHIP_TONE[GUIA_MASTER_ESTADO_TONES[estado]]}
+                    icon={<Icon className="h-3.5 w-3.5" />}
+                    onClick={() => toggleEstado(estado)}
+                  />
+                );
+              })}
+            </>
+          }
+        />
+      )}
 
       {isLoading ? (
         <LoadingState text="Cargando guías master..." />
@@ -126,13 +256,13 @@ export function GuiasMasterPage() {
           <Table className="min-w-[960px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[18rem]">Guía</TableHead>
+                <TableHead className="w-[14rem]">Guía</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Destinatario</TableHead>
                 <TableHead className="min-w-[14rem]">Piezas</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Creada</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -141,7 +271,7 @@ export function GuiasMasterPage() {
                 return (
                   <TableRow
                     key={g.id}
-                    className={`cursor-pointer ${totalPendiente ? 'bg-[var(--color-warning)]/10 dark:bg-[var(--color-warning)]' : ''}`}
+                    className={`cursor-pointer ${totalPendiente ? 'bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] hover:bg-[color-mix(in_oklab,var(--color-warning)_16%,transparent)]' : ''}`}
                     onClick={() =>
                       navigate({
                         to: '/guias-master/$id',
@@ -149,8 +279,11 @@ export function GuiasMasterPage() {
                       })
                     }
                   >
-                    <TableCell className="max-w-[18rem] align-top">
-                      <GuiaCell guia={g} />
+                    <TableCell className="max-w-[14rem] align-top">
+                      <MonoTrunc
+                        value={g.trackingBase}
+                        className="font-medium text-foreground"
+                      />
                     </TableCell>
                     <TableCell className="align-top">
                       <PersonaCell
@@ -183,44 +316,33 @@ export function GuiasMasterPage() {
                       className="text-right align-top"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate({
-                              to: '/guias-master/$id',
-                              params: { id: String(g.id) },
-                            })
-                          }
-                          aria-label="Ver piezas"
-                          title="Ver piezas"
-                          className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-muted)] hover:text-foreground"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                        {hasUpdate && (
-                          <button
-                            type="button"
-                            onClick={() => setEditingGuia(g)}
-                            aria-label="Editar guía"
-                            title="Editar guía"
-                            className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-muted)] hover:text-foreground"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {hasDelete && (
-                          <button
-                            type="button"
-                            onClick={() => setDeletingGuia(g)}
-                            aria-label="Eliminar guía"
-                            title="Eliminar guía"
-                            className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-destructive)]/10 hover:text-[var(--color-destructive)] hover:border-[var(--color-destructive)]/40"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
+                      <RowActionsMenu
+                        items={[
+                          {
+                            label: 'Ver piezas',
+                            icon: Eye,
+                            onSelect: () =>
+                              navigate({
+                                to: '/guias-master/$id',
+                                params: { id: String(g.id) },
+                              }),
+                          },
+                          {
+                            label: 'Editar guía',
+                            icon: Pencil,
+                            onSelect: () => setEditingGuia(g),
+                            hidden: !hasUpdate,
+                          },
+                          { type: 'separator' },
+                          {
+                            label: 'Eliminar',
+                            icon: Trash2,
+                            destructive: true,
+                            onSelect: () => setDeletingGuia(g),
+                            hidden: !hasDelete,
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 );
@@ -273,50 +395,6 @@ export function GuiasMasterPage() {
         }}
       />
 
-      <GuiasMasterMetricasSheet
-        open={metricasOpen}
-        onOpenChange={setMetricasOpen}
-      />
-    </div>
-  );
-}
-
-function GuiaCell({ guia }: { guia: GuiaMaster }) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(guia.trackingBase);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error('No se pudo copiar');
-    }
-  }
-
-  return (
-    <div className="flex min-w-0 items-start gap-1">
-      <span
-        className="min-w-0 break-all font-mono text-sm font-medium text-foreground"
-        title={guia.trackingBase}
-      >
-        {guia.trackingBase}
-      </span>
-      <button
-        type="button"
-        onClick={handleCopy}
-        aria-label="Copiar guía"
-        title="Copiar guía"
-        className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground opacity-60 transition-opacity hover:bg-[var(--color-muted)] hover:text-foreground hover:opacity-100"
-      >
-        {copied ? (
-          <Check className="h-3 w-3 text-[var(--color-success)]" />
-        ) : (
-          <Copy className="h-3 w-3" />
-        )}
-      </button>
     </div>
   );
 }

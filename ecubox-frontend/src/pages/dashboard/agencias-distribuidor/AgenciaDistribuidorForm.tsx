@@ -244,6 +244,17 @@ export function AgenciaDistribuidorForm({
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          {isEdit && (
+            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-[12px] leading-snug text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
+              <span>
+                Los cambios solo aplican a despachos <strong>nuevos</strong>. Los
+                despachos ya creados con esta agencia conservan los datos como estaban
+                en ese momento, para preservar la trazabilidad del envío.
+              </span>
+            </div>
+          )}
+
           {/* Sección: Distribuidor */}
           <FormSection
             icon={<Truck className="h-4 w-4" />}

@@ -10,20 +10,33 @@ import {
   recalcularEstadoGuiaMaster,
   confirmarDespachoParcialGuiaMaster,
   obtenerDashboardGuiasMaster,
+  cancelarGuiaMaster,
+  marcarGuiaMasterEnRevision,
+  salirGuiaMasterDeRevision,
+  reabrirGuiaMaster,
+  listarHistorialGuiaMaster,
 } from '@/lib/api/guias-master.service';
 import type {
+  EstadoGuiaMaster,
+  GuiaMasterCancelarRequest,
   GuiaMasterCreateRequest,
   GuiaMasterUpdateRequest,
   GuiaMasterCerrarConFaltanteRequest,
   GuiaMasterConfirmarDespachoParcialRequest,
+  GuiaMasterReabrirRequest,
+  GuiaMasterRevisionRequest,
 } from '@/types/guia-master';
 
 export const GUIAS_MASTER_QUERY_KEY = ['guias-master'] as const;
 
-export function useGuiasMaster(trackingBase?: string) {
+export function useGuiasMaster(
+  trackingBase?: string,
+  estados?: EstadoGuiaMaster[]
+) {
+  const estadosKey = estados && estados.length > 0 ? [...estados].sort().join(',') : '';
   return useQuery({
-    queryKey: [...GUIAS_MASTER_QUERY_KEY, 'list', trackingBase ?? ''],
-    queryFn: () => listarGuiasMaster(trackingBase),
+    queryKey: [...GUIAS_MASTER_QUERY_KEY, 'list', trackingBase ?? '', estadosKey],
+    queryFn: () => listarGuiasMaster(trackingBase, estados),
   });
 }
 
@@ -61,6 +74,8 @@ export function useActualizarGuiaMaster() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
       qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', vars.id] });
+      qc.invalidateQueries({ queryKey: ['paquetes'] });
+      qc.invalidateQueries({ queryKey: ['operario', 'paquetes'] });
     },
   });
 }
@@ -105,6 +120,66 @@ export function useConfirmarDespachoParcial() {
       qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
       qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', vars.id] });
     },
+  });
+}
+
+export function useCancelarGuiaMaster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: GuiaMasterCancelarRequest }) =>
+      cancelarGuiaMaster(id, body),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', vars.id] });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'historial', vars.id] });
+    },
+  });
+}
+
+export function useMarcarGuiaMasterEnRevision() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: GuiaMasterRevisionRequest }) =>
+      marcarGuiaMasterEnRevision(id, body),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', vars.id] });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'historial', vars.id] });
+    },
+  });
+}
+
+export function useSalirGuiaMasterDeRevision() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: GuiaMasterRevisionRequest }) =>
+      salirGuiaMasterDeRevision(id, body),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', vars.id] });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'historial', vars.id] });
+    },
+  });
+}
+
+export function useReabrirGuiaMaster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: GuiaMasterReabrirRequest }) =>
+      reabrirGuiaMaster(id, body),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', vars.id] });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'historial', vars.id] });
+    },
+  });
+}
+
+export function useGuiaMasterHistorial(id: number | null | undefined) {
+  return useQuery({
+    queryKey: [...GUIAS_MASTER_QUERY_KEY, 'historial', id],
+    queryFn: () => listarHistorialGuiaMaster(id as number),
+    enabled: id != null,
   });
 }
 

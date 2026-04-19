@@ -1,14 +1,13 @@
 import { Link } from '@tanstack/react-router';
 import {
-  ArrowRight,
   Boxes,
   Building2,
+  ChevronRight,
   Key,
   PackageCheck,
   Plane,
   Settings,
   Shield,
-  ShieldCheck,
   Truck,
   UserCheck,
   UserX,
@@ -17,7 +16,6 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { KpiCard } from '@/components/KpiCard';
 import { SurfaceCard } from '@/components/ui/surface-card';
-import { PageHeader } from '@/components/PageHeader';
 import { LoadingState } from '@/components/LoadingState';
 import { useUsuarios } from '@/hooks/useUsuarios';
 import { useRoles } from '@/hooks/useRoles';
@@ -87,10 +85,14 @@ export function InicioAdminSection() {
 
   return (
     <section className="page-stack">
-      <PageHeader
-        title={username ? `Hola, ${username}` : 'Panel administrativo'}
-        description="Resumen general del sistema y accesos rápidos a la administración."
-      />
+      <header className="border-b border-[var(--color-border)] pb-4">
+        <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
+          {username ? `Hola, ${username}` : 'Panel administrativo'}
+        </h1>
+        <p className="mt-1 text-[13px] text-[var(--color-muted-foreground)]">
+          Resumen general del sistema y accesos rápidos a la administración.
+        </p>
+      </header>
 
       {cargando && !usuarios && !roles && !permisos ? (
         <LoadingState text="Cargando información administrativa..." />
@@ -98,7 +100,7 @@ export function InicioAdminSection() {
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard
-              icon={<Users className="h-5 w-5" />}
+              icon={<Users className="h-4 w-4" strokeWidth={1.75} />}
               label="Usuarios totales"
               value={totalUsuarios}
               tone="primary"
@@ -106,7 +108,7 @@ export function InicioAdminSection() {
               to="/usuarios"
             />
             <KpiCard
-              icon={<UserCheck className="h-5 w-5" />}
+              icon={<UserCheck className="h-4 w-4" strokeWidth={1.75} />}
               label="Usuarios activos"
               value={usuariosActivos}
               tone={usuariosActivos > 0 ? 'success' : 'neutral'}
@@ -114,7 +116,7 @@ export function InicioAdminSection() {
               to="/usuarios"
             />
             <KpiCard
-              icon={<UserX className="h-5 w-5" />}
+              icon={<UserX className="h-4 w-4" strokeWidth={1.75} />}
               label="Usuarios deshabilitados"
               value={usuariosInactivos}
               tone={usuariosInactivos > 0 ? 'warning' : 'neutral'}
@@ -122,35 +124,35 @@ export function InicioAdminSection() {
               to="/usuarios"
             />
             <KpiCard
-              icon={<Shield className="h-5 w-5" />}
+              icon={<Shield className="h-4 w-4" strokeWidth={1.75} />}
               label="Roles configurados"
               value={totalRoles}
               tone="neutral"
               to="/roles"
             />
             <KpiCard
-              icon={<Key className="h-5 w-5" />}
+              icon={<Key className="h-4 w-4" strokeWidth={1.75} />}
               label="Permisos disponibles"
               value={totalPermisos}
               tone="neutral"
               to="/permisos"
             />
             <KpiCard
-              icon={<Building2 className="h-5 w-5" />}
+              icon={<Building2 className="h-4 w-4" strokeWidth={1.75} />}
               label="Agencias"
               value={totalAgencias}
               tone="neutral"
               to="/agencias"
             />
             <KpiCard
-              icon={<PackageCheck className="h-5 w-5" />}
+              icon={<PackageCheck className="h-4 w-4" strokeWidth={1.75} />}
               label="Empresas de entrega"
               value={totalDistribuidores}
               tone="neutral"
               to="/distribuidores"
             />
             <KpiCard
-              icon={<Settings className="h-5 w-5" />}
+              icon={<Settings className="h-4 w-4" strokeWidth={1.75} />}
               label="Parámetros"
               value="—"
               tone="neutral"
@@ -162,7 +164,7 @@ export function InicioAdminSection() {
           {dashGM && (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <KpiCard
-                icon={<Boxes className="h-5 w-5" />}
+                icon={<Boxes className="h-4 w-4" strokeWidth={1.75} />}
                 label="Guías activas"
                 value={dashGM.totalActivas ?? 0}
                 hint={`${dashGM.totalCerradas ?? 0} cerradas en total`}
@@ -170,7 +172,7 @@ export function InicioAdminSection() {
                 to="/guias-master"
               />
               <KpiCard
-                icon={<Truck className="h-5 w-5" />}
+                icon={<Truck className="h-4 w-4" strokeWidth={1.75} />}
                 label="Despachos"
                 value="—"
                 hint="Gestión de salidas"
@@ -178,7 +180,7 @@ export function InicioAdminSection() {
                 to="/despachos"
               />
               <KpiCard
-                icon={<Plane className="h-5 w-5" />}
+                icon={<Plane className="h-4 w-4" strokeWidth={1.75} />}
                 label="Envíos consolidados"
                 value="—"
                 hint="Manifiestos aéreos"
@@ -188,38 +190,44 @@ export function InicioAdminSection() {
             </div>
           )}
 
-          <SurfaceCard className="p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[var(--color-muted-foreground)]" />
-              <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
+          <SurfaceCard className="overflow-hidden">
+            <div className="border-b border-[var(--color-border)] px-4 py-3">
+              <h3 className="text-[13px] font-semibold text-[var(--color-foreground)]">
                 Accesos rápidos
               </h3>
             </div>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {ADMIN_QUICK_ACTIONS.map((action) => {
+            <ul>
+              {ADMIN_QUICK_ACTIONS.map((action, idx) => {
                 const Icon = action.icon;
                 return (
-                  <Link
-                    key={action.to}
-                    to={action.to}
-                    className="surface-card group flex items-start gap-3 p-4 transition hover:shadow-md"
-                  >
-                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[var(--color-foreground)]">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)]">
-                        {action.label}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-[var(--color-muted-foreground)]">
-                        {action.description}
-                      </p>
-                    </div>
-                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[var(--color-muted-foreground)] opacity-0 transition group-hover:opacity-100" />
-                  </Link>
+                  <li key={action.to}>
+                    <Link
+                      to={action.to}
+                      className={`group flex items-center gap-3 px-4 py-3 transition hover:bg-[var(--color-muted)]/60 ${
+                        idx > 0 ? 'border-t border-[var(--color-border)]' : ''
+                      }`}
+                    >
+                      <Icon
+                        className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]"
+                        strokeWidth={1.75}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium text-[var(--color-foreground)]">
+                          {action.label}
+                        </p>
+                        <p className="truncate text-[12px] text-[var(--color-muted-foreground)]">
+                          {action.description}
+                        </p>
+                      </div>
+                      <ChevronRight
+                        className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)] opacity-0 transition group-hover:opacity-100"
+                        strokeWidth={1.75}
+                      />
+                    </Link>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </SurfaceCard>
         </>
       )}

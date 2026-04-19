@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.entity;
 
 import com.ecubox.ecubox_backend.enums.EstadoGuiaMaster;
+import com.ecubox.ecubox_backend.enums.TipoCierreGuiaMaster;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -36,7 +37,7 @@ public class GuiaMaster {
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_global", nullable = false, length = 40)
     @Builder.Default
-    private EstadoGuiaMaster estadoGlobal = EstadoGuiaMaster.INCOMPLETA;
+    private EstadoGuiaMaster estadoGlobal = EstadoGuiaMaster.EN_ESPERA_RECEPCION;
 
     @Column(name = "fecha_primera_recepcion")
     private LocalDateTime fechaPrimeraRecepcion;
@@ -46,6 +47,47 @@ public class GuiaMaster {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    // ---------------------------------------------------------------------
+    // Auditoria de cierre (V66)
+    // ---------------------------------------------------------------------
+
+    /** Fecha en que la guia paso a un estado terminal. */
+    @Column(name = "cerrada_en")
+    private LocalDateTime cerradaEn;
+
+    /**
+     * Usuario que cerro la guia. NULL para cierres automaticos por
+     * sistema (timeout, recalculo).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cerrada_por_usuario_id")
+    private Usuario cerradaPorUsuario;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_cierre", length = 40)
+    private TipoCierreGuiaMaster tipoCierre;
+
+    @Column(name = "motivo_cierre", columnDefinition = "TEXT")
+    private String motivoCierre;
+
+    // ---------------------------------------------------------------------
+    // Snapshot del destinatario congelado (V67 - SCD Tipo 2)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Snapshot inmutable del destinatario al momento del primer despacho.
+     * Mientras sea NULL, las lecturas resuelven al destinatario vivo
+     * ({@link #destinatarioFinal}). Una vez congelado, las lecturas usan
+     * esta version, garantizando que la direccion impresa no cambie si
+     * el cliente edita despues.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "destinatario_version_id")
+    private DestinatarioFinalVersion destinatarioVersion;
+
+    @Column(name = "destinatario_congelado_en")
+    private LocalDateTime destinatarioCongeladoEn;
 
     @Version
     @Column(nullable = false)
@@ -57,7 +99,7 @@ public class GuiaMaster {
             createdAt = LocalDateTime.now();
         }
         if (estadoGlobal == null) {
-            estadoGlobal = EstadoGuiaMaster.INCOMPLETA;
+            estadoGlobal = EstadoGuiaMaster.EN_ESPERA_RECEPCION;
         }
     }
 }

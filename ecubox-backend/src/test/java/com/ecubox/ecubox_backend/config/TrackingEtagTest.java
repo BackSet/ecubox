@@ -57,11 +57,11 @@ class TrackingEtagTest {
     void of_master_cambiaSiCambianContadores() {
         LocalDateTime now = LocalDateTime.now();
         TrackingMasterResponse m1 = TrackingMasterResponse.builder()
-                .trackingBase("MX-1").estadoGlobal(EstadoGuiaMaster.PARCIAL_RECIBIDA)
+                .trackingBase("MX-1").estadoGlobal(EstadoGuiaMaster.RECEPCION_PARCIAL)
                 .ultimaActualizacion(now).piezasRegistradas(2).piezasRecibidas(1).piezasDespachadas(0)
                 .build();
         TrackingMasterResponse m2 = TrackingMasterResponse.builder()
-                .trackingBase("MX-1").estadoGlobal(EstadoGuiaMaster.PARCIAL_RECIBIDA)
+                .trackingBase("MX-1").estadoGlobal(EstadoGuiaMaster.RECEPCION_PARCIAL)
                 .ultimaActualizacion(now).piezasRegistradas(2).piezasRecibidas(2).piezasDespachadas(0)
                 .build();
         assertNotEquals(
@@ -73,7 +73,7 @@ class TrackingEtagTest {
     void of_distintoTipo_distintoEtag() {
         TrackingResponse pieza = TrackingResponse.builder().numeroGuia("X").estadoActualId(1L).build();
         TrackingMasterResponse master = TrackingMasterResponse.builder()
-                .trackingBase("X").estadoGlobal(EstadoGuiaMaster.INCOMPLETA).build();
+                .trackingBase("X").estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
         assertNotEquals(
                 TrackingEtag.of(TrackingResolveResponse.ofPieza(pieza)),
                 TrackingEtag.of(TrackingResolveResponse.ofMaster(master)));

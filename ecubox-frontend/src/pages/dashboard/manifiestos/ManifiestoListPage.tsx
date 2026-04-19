@@ -10,8 +10,6 @@ import {
   FileDown,
   FileSpreadsheet,
   FileText,
-  Filter as FilterIcon,
-  Loader2,
   Pencil,
   Plus,
   Printer,
@@ -30,9 +28,13 @@ import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
-import { SurfaceCard } from '@/components/ui/surface-card';
+import { ChipFiltro } from '@/components/ChipFiltro';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
+import { MonoTrunc } from '@/components/MonoTrunc';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import {
   Table,
   TableBody,
@@ -41,13 +43,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import { buildManifiestoPdf } from '@/lib/pdf/builders/manifiestoPdf';
@@ -125,8 +120,12 @@ export function ManifiestoListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [estadoFilter, setEstadoFilter] = useState<string>(SIN_FILTRO);
-  const [filtroTipoFilter, setFiltroTipoFilter] = useState<string>(SIN_FILTRO);
+  const [estadoFilter, setEstadoFilter] = useState<EstadoManifiesto | typeof SIN_FILTRO>(
+    SIN_FILTRO,
+  );
+  const [filtroTipoFilter, setFiltroTipoFilter] = useState<FiltroManifiesto | undefined>(
+    undefined,
+  );
   const [exporting, setExporting] = useState<{
     id: number;
     mode: 'pdf' | 'print' | 'xlsx';
@@ -163,12 +162,10 @@ export function ManifiestoListPage() {
   const list = useMemo(() => {
     let raw = allManifiestos;
     if (estadoFilter !== SIN_FILTRO) {
-      raw = raw.filter((m) => m.estado === (estadoFilter as EstadoManifiesto));
+      raw = raw.filter((m) => m.estado === estadoFilter);
     }
-    if (filtroTipoFilter !== SIN_FILTRO) {
-      raw = raw.filter(
-        (m) => m.filtroTipo === (filtroTipoFilter as FiltroManifiesto),
-      );
+    if (filtroTipoFilter) {
+      raw = raw.filter((m) => m.filtroTipo === filtroTipoFilter);
     }
     const q = search.trim().toLowerCase();
     if (!q) return raw;
@@ -181,7 +178,11 @@ export function ManifiestoListPage() {
     );
   }, [allManifiestos, estadoFilter, filtroTipoFilter, search]);
 
-  const tieneFiltros = estadoFilter !== SIN_FILTRO || filtroTipoFilter !== SIN_FILTRO;
+  const tieneFiltros = estadoFilter !== SIN_FILTRO || filtroTipoFilter != null;
+  const limpiarFiltros = () => {
+    setEstadoFilter(SIN_FILTRO);
+    setFiltroTipoFilter(undefined);
+  };
 
   const handleExport = async (id: number, mode: 'pdf' | 'print' | 'xlsx') => {
     if (exporting) return;
@@ -276,21 +277,17 @@ export function ManifiestoListPage() {
       )}
 
       {allManifiestos.length > 0 && (
-        <SurfaceCard className="flex flex-wrap items-end gap-3 p-3">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Estado
-            </span>
-            <div className="inline-flex rounded-md border border-border bg-card p-0.5">
-              <SegmentButton
+        <FiltrosBar
+          hayFiltrosActivos={tieneFiltros}
+          onLimpiar={limpiarFiltros}
+          chips={
+            <>
+              <ChipFiltro
+                label="Todos"
+                count={stats.total}
                 active={estadoFilter === SIN_FILTRO}
                 onClick={() => setEstadoFilter(SIN_FILTRO)}
-              >
-                Todos
-                <span className="ml-1.5 rounded bg-[var(--color-muted)] px-1.5 py-0.5 text-[10px] font-medium">
-                  {stats.total}
-                </span>
-              </SegmentButton>
+              />
               {ESTADO_ORDER.map((estado) => {
                 const count =
                   estado === 'PENDIENTE'
@@ -298,59 +295,58 @@ export function ManifiestoListPage() {
                     : estado === 'PAGADO'
                       ? stats.pagados
                       : stats.anulados;
-                if (count === 0 && estadoFilter !== estado) return null;
+                const active = estadoFilter === estado;
+                const tone =
+                  estado === 'PENDIENTE'
+                    ? ('warning' as const)
+                    : estado === 'PAGADO'
+                      ? ('success' as const)
+                      : ('danger' as const);
+                const Icon =
+                  estado === 'PENDIENTE'
+                    ? Clock
+                    : estado === 'PAGADO'
+                      ? CheckCircle2
+                      : XCircle;
                 return (
-                  <SegmentButton
+                  <ChipFiltro
                     key={estado}
-                    active={estadoFilter === estado}
-                    onClick={() => setEstadoFilter(estado)}
-                  >
-                    {ESTADO_LABELS[estado]}
-                    <span className="ml-1.5 rounded bg-[var(--color-muted)] px-1.5 py-0.5 text-[10px] font-medium">
-                      {count}
-                    </span>
-                  </SegmentButton>
+                    label={ESTADO_LABELS[estado]}
+                    count={count}
+                    active={active}
+                    tone={tone}
+                    icon={<Icon className="h-3.5 w-3.5" />}
+                    onClick={() =>
+                      setEstadoFilter(active ? SIN_FILTRO : estado)
+                    }
+                    hideWhenZero
+                  />
                 );
               })}
-            </div>
-          </div>
-
-          {tiposPresentes.length > 1 && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Tipo de filtro
-              </span>
-              <Select value={filtroTipoFilter} onValueChange={setFiltroTipoFilter}>
-                <SelectTrigger className="h-9 w-[14rem]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SIN_FILTRO}>Todos los tipos</SelectItem>
-                  {tiposPresentes.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {FILTRO_LABELS[t]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {tieneFiltros && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setEstadoFilter(SIN_FILTRO);
-                setFiltroTipoFilter(SIN_FILTRO);
-              }}
-              className="ml-auto h-9 gap-1.5"
-            >
-              <FilterIcon className="h-3.5 w-3.5" />
-              Limpiar filtros
-            </Button>
-          )}
-        </SurfaceCard>
+            </>
+          }
+          filtros={
+            tiposPresentes.length > 1 && (
+              <FiltroCampo label="Tipo de filtro">
+                <SearchableCombobox<FiltroManifiesto>
+                  value={filtroTipoFilter}
+                  onChange={(v) =>
+                    setFiltroTipoFilter(
+                      v == null ? undefined : (v as FiltroManifiesto),
+                    )
+                  }
+                  options={tiposPresentes}
+                  getKey={(t) => t}
+                  getLabel={(t) => FILTRO_LABELS[t]}
+                  placeholder="Todos los tipos"
+                  searchPlaceholder="Buscar tipo..."
+                  emptyMessage="Sin tipos"
+                  className="h-9 w-full"
+                />
+              </FiltroCampo>
+            )
+          }
+        />
       )}
 
       {allManifiestos.length === 0 ? (
@@ -380,7 +376,7 @@ export function ManifiestoListPage() {
               : ''}
           </p>
           <ListTableShell>
-            <Table className="min-w-[1100px] text-left">
+            <Table className="min-w-[940px] text-left">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[14rem]">Manifiesto</TableHead>
@@ -391,7 +387,7 @@ export function ManifiestoListPage() {
                   <TableHead className="w-[8rem] text-right">Agencia</TableHead>
                   <TableHead className="w-[9rem] text-right">Total a pagar</TableHead>
                   <TableHead className="w-[6rem]">Estado</TableHead>
-                  <TableHead className="w-[18rem] text-right">Acciones</TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -455,91 +451,56 @@ export function ManifiestoListPage() {
                       className="text-right align-top"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Ver detalle"
-                          title="Ver detalle"
-                          onClick={() =>
-                            navigate({
-                              to: '/manifiestos/$id',
-                              params: { id: String(m.id) },
-                            })
-                          }
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Imprimir manifiesto"
-                          title="Imprimir manifiesto"
-                          disabled={exporting?.id === m.id}
-                          onClick={() => handleExport(m.id, 'print')}
-                        >
-                          {exporting?.id === m.id && exporting.mode === 'print' ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Printer className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Descargar PDF"
-                          title="Descargar PDF"
-                          disabled={exporting?.id === m.id}
-                          className="text-[var(--color-primary)] hover:text-[var(--color-primary)]"
-                          onClick={() => handleExport(m.id, 'pdf')}
-                        >
-                          {exporting?.id === m.id && exporting.mode === 'pdf' ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <FileDown className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Descargar Excel"
-                          title="Descargar Excel"
-                          disabled={exporting?.id === m.id}
-                          className="text-[var(--color-success)] hover:text-[var(--color-success)]"
-                          onClick={() => handleExport(m.id, 'xlsx')}
-                        >
-                          {exporting?.id === m.id && exporting.mode === 'xlsx' ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <FileSpreadsheet className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Editar manifiesto"
-                          title="Editar manifiesto"
-                          onClick={() => setEditingId(m.id)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Eliminar manifiesto"
-                          title="Eliminar manifiesto"
-                          className="text-[var(--color-destructive)] hover:text-[var(--color-destructive)]"
-                          onClick={() => setDeleteConfirmId(m.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <RowActionsMenu
+                        items={[
+                          {
+                            label: 'Ver detalle',
+                            icon: Eye,
+                            onSelect: () =>
+                              navigate({
+                                to: '/manifiestos/$id',
+                                params: { id: String(m.id) },
+                              }),
+                          },
+                          {
+                            label: 'Editar manifiesto',
+                            icon: Pencil,
+                            onSelect: () => setEditingId(m.id),
+                          },
+                          { type: 'separator' },
+                          {
+                            label: 'Imprimir',
+                            icon: Printer,
+                            onSelect: () => handleExport(m.id, 'print'),
+                            loading:
+                              exporting?.id === m.id && exporting.mode === 'print',
+                            disabled: exporting?.id === m.id,
+                          },
+                          {
+                            label: 'Descargar PDF',
+                            icon: FileDown,
+                            onSelect: () => handleExport(m.id, 'pdf'),
+                            loading:
+                              exporting?.id === m.id && exporting.mode === 'pdf',
+                            disabled: exporting?.id === m.id,
+                          },
+                          {
+                            label: 'Descargar Excel',
+                            icon: FileSpreadsheet,
+                            onSelect: () => handleExport(m.id, 'xlsx'),
+                            loading:
+                              exporting?.id === m.id && exporting.mode === 'xlsx',
+                            disabled: exporting?.id === m.id,
+                          },
+                          { type: 'separator' },
+                          {
+                            label: 'Eliminar',
+                            icon: Trash2,
+                            destructive: true,
+                            onSelect: () => setDeleteConfirmId(m.id),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -586,40 +547,13 @@ export function ManifiestoListPage() {
   );
 }
 
-function SegmentButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center rounded-[5px] px-2.5 py-1 text-xs font-medium transition',
-        active
-          ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-sm'
-          : 'text-muted-foreground hover:bg-[var(--color-muted)] hover:text-foreground',
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 function ManifiestoCell({ manifiesto: m }: { manifiesto: Manifiesto }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <span
-        className="break-all font-mono text-sm font-medium text-foreground"
-        title={m.codigo}
-      >
-        {m.codigo ?? '—'}
-      </span>
+      <MonoTrunc
+        value={m.codigo ?? ''}
+        className="font-medium text-foreground"
+      />
       <span className="font-mono text-[11px] text-muted-foreground">#{m.id}</span>
     </div>
   );
@@ -705,7 +639,7 @@ function DespachosBadge({ total }: { total: number }) {
       className={cn(
         'gap-1 font-normal',
         total > 0
-          ? 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+          ? 'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]'
           : 'text-muted-foreground',
       )}
     >

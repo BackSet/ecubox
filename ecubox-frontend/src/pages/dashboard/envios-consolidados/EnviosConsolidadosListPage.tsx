@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Copy,
   Eraser,
   Eye,
   Lock,
@@ -15,6 +14,7 @@ import {
   Plus,
   Scale,
   Search,
+  Trash2,
   Unlock,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -45,22 +45,22 @@ import { ListTableShell } from '@/components/ListTableShell';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
 import { KpiCard } from '@/components/KpiCard';
+import { ChipFiltro } from '@/components/ChipFiltro';
+import { FiltrosBar } from '@/components/FiltrosBar';
+import { MonoTrunc } from '@/components/MonoTrunc';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { cn } from '@/lib/utils';
 import {
   useCerrarEnvioConsolidado,
   useCrearEnvioConsolidado,
+  useEliminarEnvioConsolidado,
   useEnviosConsolidados,
   useReabrirEnvioConsolidado,
 } from '@/hooks/useEnviosConsolidados';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { EstadoFiltro } from '@/lib/api/envios-consolidados.service';
+import { useAuthStore } from '@/stores/authStore';
 import { EnvioConsolidadoBadge } from './EnvioConsolidadoBadge';
-
-const ESTADO_FILTER_OPTIONS: { value: EstadoFiltro; label: string }[] = [
-  { value: 'TODOS', label: 'Todos' },
-  { value: 'ABIERTO', label: 'Abiertos' },
-  { value: 'CERRADO', label: 'Cerrados' },
-];
 
 const LBS_TO_KG = 0.45359237;
 
@@ -72,9 +72,18 @@ export function EnviosConsolidadosListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [confirmCerrar, setConfirmCerrar] = useState<{ id: number; codigo: string } | null>(null);
   const [confirmReabrir, setConfirmReabrir] = useState<{ id: number; codigo: string } | null>(null);
+  const [confirmEliminar, setConfirmEliminar] = useState<{
+    id: number;
+    codigo: string;
+    totalPaquetes: number;
+  } | null>(null);
 
   const cerrarMutation = useCerrarEnvioConsolidado();
   const reabrirMutation = useReabrirEnvioConsolidado();
+  const eliminarMutation = useEliminarEnvioConsolidado();
+  const hasEnviosDelete = useAuthStore((s) =>
+    s.hasPermission('ENVIOS_CONSOLIDADOS_DELETE'),
+  );
 
   const { data, isLoading, error } = useEnviosConsolidados({
     estado: estadoFilter,
@@ -103,6 +112,32 @@ export function EnviosConsolidadosListPage() {
     } catch (err: unknown) {
       const r = (err as { response?: { data?: { message?: string } } })?.response;
       toast.error(r?.data?.message ?? 'No se pudo reabrir el envío');
+    }
+  }
+
+  async function handleEliminar(eliminarPaquetes: boolean) {
+    if (!confirmEliminar) return;
+    try {
+      await eliminarMutation.mutateAsync({
+        id: confirmEliminar.id,
+        eliminarPaquetes,
+      });
+      const totales = confirmEliminar.totalPaquetes;
+      if (eliminarPaquetes && totales > 0) {
+        toast.success(
+          `Envío ${confirmEliminar.codigo} y ${totales} paquete${totales === 1 ? '' : 's'} eliminados`,
+        );
+      } else if (totales > 0) {
+        toast.success(
+          `Envío ${confirmEliminar.codigo} eliminado · ${totales} paquete${totales === 1 ? '' : 's'} desasociado${totales === 1 ? '' : 's'}`,
+        );
+      } else {
+        toast.success(`Envío ${confirmEliminar.codigo} eliminado`);
+      }
+      setConfirmEliminar(null);
+    } catch (err: unknown) {
+      const r = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(r?.data?.message ?? 'No se pudo eliminar el envío');
     }
   }
 
@@ -191,32 +226,46 @@ export function EnviosConsolidadosListPage() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground">Estado:</span>
-        <div className="inline-flex rounded-md border border-border bg-[var(--color-card)] p-0.5">
-          {ESTADO_FILTER_OPTIONS.map((opt) => {
-            const active = estadoFilter === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => {
-                  setEstadoFilter(opt.value);
-                  setPage(0);
-                }}
-                className={cn(
-                  'rounded px-3 py-1 text-xs font-medium transition-colors',
-                  active
-                    ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <FiltrosBar
+        hayFiltrosActivos={estadoFilter !== 'TODOS'}
+        onLimpiar={() => {
+          setEstadoFilter('TODOS');
+          setPage(0);
+        }}
+        chips={
+          <>
+            <ChipFiltro
+              label="Todos"
+              count={stats.total}
+              active={estadoFilter === 'TODOS'}
+              onClick={() => {
+                setEstadoFilter('TODOS');
+                setPage(0);
+              }}
+            />
+            <ChipFiltro
+              label="Abiertos"
+              count={stats.abiertos}
+              active={estadoFilter === 'ABIERTO'}
+              tone="warning"
+              onClick={() => {
+                setEstadoFilter('ABIERTO');
+                setPage(0);
+              }}
+            />
+            <ChipFiltro
+              label="Cerrados"
+              count={stats.cerrados}
+              active={estadoFilter === 'CERRADO'}
+              tone="success"
+              onClick={() => {
+                setEstadoFilter('CERRADO');
+                setPage(0);
+              }}
+            />
+          </>
+        }
+      />
 
       {isLoading ? (
         <LoadingState text="Cargando envíos..." />
@@ -262,7 +311,7 @@ export function EnviosConsolidadosListPage() {
                   <TableHead>Peso</TableHead>
                   <TableHead>Creado</TableHead>
                   <TableHead>Cerrado</TableHead>
-                  <TableHead className="w-[140px] text-right">Acciones</TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -278,7 +327,10 @@ export function EnviosConsolidadosListPage() {
                     }
                   >
                     <TableCell>
-                      <CodigoCell codigo={e.codigo} />
+                      <MonoTrunc
+                        value={e.codigo}
+                        className="font-medium text-foreground"
+                      />
                     </TableCell>
                     <TableCell>
                       <EnvioConsolidadoBadge cerrado={e.cerrado} />
@@ -299,45 +351,50 @@ export function EnviosConsolidadosListPage() {
                       className="text-right"
                       onClick={(ev) => ev.stopPropagation()}
                     >
-                      <div className="flex items-center justify-end gap-0.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Ver detalle"
-                          aria-label="Ver detalle"
-                          onClick={() =>
-                            navigate({
-                              to: '/envios-consolidados/$id',
-                              params: { id: String(e.id) },
-                            })
-                          }
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {e.cerrado ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Reabrir envío"
-                            aria-label="Reabrir envío"
-                            disabled={reabrirMutation.isPending}
-                            onClick={() => setConfirmReabrir({ id: e.id, codigo: e.codigo })}
-                          >
-                            <Unlock className="h-4 w-4 text-[var(--color-warning)]" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Cerrar envío"
-                            aria-label="Cerrar envío"
-                            disabled={cerrarMutation.isPending}
-                            onClick={() => setConfirmCerrar({ id: e.id, codigo: e.codigo })}
-                          >
-                            <Lock className="h-4 w-4 text-[var(--color-primary)]" />
-                          </Button>
-                        )}
-                      </div>
+                      <RowActionsMenu
+                        items={[
+                          {
+                            label: 'Ver detalle',
+                            icon: Eye,
+                            onSelect: () =>
+                              navigate({
+                                to: '/envios-consolidados/$id',
+                                params: { id: String(e.id) },
+                              }),
+                          },
+                          { type: 'separator' },
+                          {
+                            label: 'Reabrir envío',
+                            icon: Unlock,
+                            hidden: !e.cerrado,
+                            disabled: reabrirMutation.isPending,
+                            onSelect: () =>
+                              setConfirmReabrir({ id: e.id, codigo: e.codigo }),
+                          },
+                          {
+                            label: 'Cerrar envío',
+                            icon: Lock,
+                            hidden: e.cerrado,
+                            disabled: cerrarMutation.isPending,
+                            onSelect: () =>
+                              setConfirmCerrar({ id: e.id, codigo: e.codigo }),
+                          },
+                          { type: 'separator', hidden: !hasEnviosDelete },
+                          {
+                            label: 'Eliminar envío',
+                            icon: Trash2,
+                            destructive: true,
+                            hidden: !hasEnviosDelete,
+                            disabled: e.cerrado || eliminarMutation.isPending,
+                            onSelect: () =>
+                              setConfirmEliminar({
+                                id: e.id,
+                                codigo: e.codigo,
+                                totalPaquetes: e.totalPaquetes ?? 0,
+                              }),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -404,40 +461,136 @@ export function EnviosConsolidadosListPage() {
         loading={reabrirMutation.isPending}
         onConfirm={handleReabrir}
       />
+
+      <EliminarEnvioDialog
+        target={confirmEliminar}
+        loading={eliminarMutation.isPending}
+        onClose={() => setConfirmEliminar(null)}
+        onConfirm={handleEliminar}
+      />
     </div>
   );
 }
 
-function CodigoCell({ codigo }: { codigo: string }) {
-  const [copied, setCopied] = useState(false);
-  async function handleCopy(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(codigo);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error('No se pudo copiar');
-    }
-  }
+interface EliminarEnvioDialogProps {
+  target: { id: number; codigo: string; totalPaquetes: number } | null;
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: (eliminarPaquetes: boolean) => void;
+}
+
+function EliminarEnvioDialog({ target, loading, onClose, onConfirm }: EliminarEnvioDialogProps) {
+  if (!target) return null;
+  const tienePaquetes = target.totalPaquetes > 0;
+  const plural = target.totalPaquetes === 1 ? '' : 's';
+
   return (
-    <div className="inline-flex items-center gap-1.5">
-      <span className="font-mono text-sm font-medium text-foreground">{codigo}</span>
-      <button
-        type="button"
-        onClick={handleCopy}
-        aria-label="Copiar código"
-        title={`Copiar: ${codigo}`}
-        className="rounded p-0.5 text-muted-foreground opacity-60 transition-opacity hover:bg-[var(--color-muted)] hover:text-foreground hover:opacity-100"
-      >
-        {copied ? (
-          <Check className="h-3 w-3 text-[var(--color-success)]" />
+    <Dialog open onOpenChange={(o) => !o && !loading && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]">
+              <Trash2 className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <DialogTitle>Eliminar envío consolidado</DialogTitle>
+              <DialogDescription className="mt-1">
+                Vas a eliminar el envío{' '}
+                <span className="font-mono font-medium text-foreground">{target.codigo}</span>.
+                Esta acción no se puede deshacer.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        {tienePaquetes ? (
+          <div className="space-y-3">
+            <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-3 text-sm text-foreground">
+              <p className="inline-flex items-center gap-1.5">
+                <PackageIcon className="h-4 w-4 text-muted-foreground" />
+                <span>
+                  Tiene{' '}
+                  <span className="font-semibold">
+                    {target.totalPaquetes} paquete{plural}
+                  </span>{' '}
+                  asociado{plural}.
+                </span>
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Elige qué hacer con esos paquetes antes de eliminar el envío.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => onConfirm(false)}
+                className={cn(
+                  'group flex w-full items-start gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-colors hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-muted)]/30 disabled:cursor-not-allowed disabled:opacity-60',
+                )}
+              >
+                <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-muted)] text-[var(--color-primary)]">
+                  <Unlock className="h-3.5 w-3.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-foreground">
+                    Conservar paquetes
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Los {target.totalPaquetes} paquete{plural} se desasocian del envío y siguen
+                    existiendo en el sistema. Podrás asignarlos a otro envío después.
+                  </span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => onConfirm(true)}
+                className={cn(
+                  'group flex w-full items-start gap-3 rounded-md border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 p-3 text-left transition-colors hover:border-[var(--color-destructive)]/50 hover:bg-[var(--color-destructive)]/10 disabled:cursor-not-allowed disabled:opacity-60',
+                )}
+              >
+                <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-[var(--color-destructive)]">
+                    Eliminar también los paquetes
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Borra los {target.totalPaquetes} paquete{plural} junto con el envío,
+                    incluyendo su historial de tracking. Acción irreversible.
+                  </span>
+                </span>
+              </button>
+            </div>
+          </div>
         ) : (
-          <Copy className="h-3 w-3" />
+          <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3 text-sm text-muted-foreground">
+            El envío no tiene paquetes asociados. Se eliminará directamente.
+          </div>
         )}
-      </button>
-    </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          {!tienePaquetes && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => onConfirm(false)}
+              disabled={loading}
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" />
+              {loading ? 'Eliminando...' : 'Eliminar envío'}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -637,7 +790,7 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
       <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden p-0">
         <DialogHeader className="border-b border-[var(--color-border)] px-6 pb-4 pt-6">
           <div className="flex items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--color-muted)] text-[var(--color-primary)]">
               <Boxes className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
@@ -773,9 +926,11 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
                             key={p.id}
                             className="flex flex-wrap items-center gap-2 rounded border border-border bg-[var(--color-background)] px-2 py-1 text-xs"
                           >
-                            <span className="font-mono font-medium text-foreground">
-                              {p.numeroGuia}
-                            </span>
+                            <MonoTrunc
+                              value={p.numeroGuia}
+                              className="font-medium text-foreground"
+                              copy={false}
+                            />
                             {p.destinatarioNombre && (
                               <span className="text-muted-foreground">
                                 · {p.destinatarioNombre}

@@ -10,14 +10,16 @@ import {
   Boxes,
   CalendarClock,
   CheckCircle2,
+  ClipboardList,
   FileText,
   Info,
-  ListPlus,
   PackageCheck,
   Plus,
+  Search,
   Trash2,
   Truck,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { EnvioConsolidado } from '@/types/envio-consolidado';
 
@@ -35,6 +37,7 @@ export function LoteRecepcionNuevoPage() {
   const [seleccionados, setSeleccionados] = useState<EnvioConsolidado[]>([]);
   const [comboValue, setComboValue] = useState<number | undefined>(undefined);
   const [bulkText, setBulkText] = useState('');
+  const [modo, setModo] = useState<'buscar' | 'lista'>('buscar');
 
   const { data: enviosResp, isLoading: loadingEnvios } = useEnviosConsolidados({
     estado: 'ABIERTO',
@@ -42,10 +45,21 @@ export function LoteRecepcionNuevoPage() {
   });
   const envios = enviosResp?.content ?? [];
 
-  const opcionesDisponibles = useMemo(
-    () => envios.filter((e) => !seleccionados.some((s) => s.id === e.id)),
-    [envios, seleccionados],
+  // Solo mostramos envios que tienen al menos un paquete asociado: un envio
+  // sin paquetes no aporta nada al lote y antes generaba ruido (badge
+  // "Sin paquetes" tras seleccionarlo). Mejor filtrar de raiz.
+  const enviosConPaquetes = useMemo(
+    () => envios.filter((e) => (e.totalPaquetes ?? 0) > 0),
+    [envios],
   );
+
+  const opcionesDisponibles = useMemo(
+    () =>
+      enviosConPaquetes.filter((e) => !seleccionados.some((s) => s.id === e.id)),
+    [enviosConPaquetes, seleccionados],
+  );
+
+  const enviosSinPaquetes = envios.length - enviosConPaquetes.length;
 
   const stats = useMemo(() => {
     const totalPaquetes = seleccionados.reduce(
@@ -92,6 +106,10 @@ export function LoteRecepcionNuevoPage() {
     const yaSeleccionadosSet = new Set(
       seleccionados.map((s) => s.codigo.toUpperCase()),
     );
+    // Indexamos contra TODOS los envios cargados (incluyendo los sin paquetes)
+    // para poder distinguir entre "no existe" y "existe pero esta vacio" en
+    // los toasts de feedback. La seleccion final solo agrega los que tienen
+    // paquetes, igual que el combobox.
     const enviosPorCodigo = new Map(
       envios.map((e) => [e.codigo.toUpperCase(), e]),
     );
@@ -113,6 +131,7 @@ export function LoteRecepcionNuevoPage() {
       }
       if ((env.totalPaquetes ?? 0) === 0) {
         sinPaquetes.push(env.codigo);
+        continue;
       }
       nuevos.push(env);
       yaSeleccionadosSet.add(codigoUpper);
@@ -132,8 +151,13 @@ export function LoteRecepcionNuevoPage() {
     }
     if (sinPaquetes.length > 0) {
       toast.warning(
-        `${sinPaquetes.length} envío${sinPaquetes.length === 1 ? '' : 's'} sin paquetes`,
-        { description: sinPaquetes.slice(0, 5).join(', ') + (sinPaquetes.length > 5 ? '...' : '') },
+        `${sinPaquetes.length} envío${sinPaquetes.length === 1 ? '' : 's'} sin paquetes (omitido${sinPaquetes.length === 1 ? '' : 's'})`,
+        {
+          description:
+            sinPaquetes.slice(0, 5).join(', ') +
+            (sinPaquetes.length > 5 ? '...' : '') +
+            ' · Solo se reciben envíos con al menos un paquete registrado.',
+        },
       );
     }
     if (desconocidos.length > 0) {
@@ -168,16 +192,9 @@ export function LoteRecepcionNuevoPage() {
       {
         onSuccess: (data) => {
           const codigosRegistrados = data.numeroGuiasEnvio?.length ?? 0;
-          const omitidos = seleccionados.length - codigosRegistrados;
-          if (omitidos > 0) {
-            toast.success(
-              `Lote registrado con ${codigosRegistrados} envío(s). ${omitidos} no tenían paquetes y se omitieron.`,
-            );
-          } else {
-            toast.success(
-              `Lote registrado con ${codigosRegistrados} envío(s) (${data.totalPaquetes ?? 0} paquetes).`,
-            );
-          }
+          toast.success(
+            `Lote registrado con ${codigosRegistrados} envío${codigosRegistrados === 1 ? '' : 's'} (${data.totalPaquetes ?? 0} paquete${(data.totalPaquetes ?? 0) === 1 ? '' : 's'}).`,
+          );
           navigate({ to: '/lotes-recepcion/$id', params: { id: String(data.id) } });
         },
         onError: () => {
@@ -229,153 +246,249 @@ export function LoteRecepcionNuevoPage() {
         <div className="space-y-6">
           <section className="rounded-lg border border-border bg-card p-5">
             <header className="mb-4 flex items-center gap-2">
-              <Truck className="h-4 w-4 text-primary" />
+              <FileText className="h-4 w-4 text-primary" />
               <h2 className="text-sm font-semibold text-foreground">
-                Envíos consolidados a recibir
+                Datos del lote
               </h2>
             </header>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">
-                Buscar y agregar por código de envío
-              </label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="flex-1">
-                  <SearchableCombobox<EnvioConsolidado>
-                    value={comboValue}
-                    onChange={(v) => setComboValue(typeof v === 'number' ? v : undefined)}
-                    options={opcionesDisponibles}
-                    getKey={(o) => o.id}
-                    getLabel={(o) => o.codigo}
-                    getSearchText={(o) =>
-                      `${o.codigo} ${o.totalPaquetes ?? 0} ${o.pesoTotalLbs ?? ''}`
-                    }
-                    placeholder={
-                      loadingEnvios
-                        ? 'Cargando envíos...'
-                        : opcionesDisponibles.length === 0
-                          ? 'No hay envíos abiertos disponibles'
-                          : 'Buscar por código de envío consolidado'
-                    }
-                    searchPlaceholder="Escribe el código..."
-                    emptyMessage="Sin envíos coincidentes"
-                    disabled={loadingEnvios || opcionesDisponibles.length === 0}
-                    renderOption={(o) => (
-                      <div className="flex w-full items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate font-mono text-sm font-medium">
-                            {o.codigo}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {o.totalPaquetes ?? 0} paquete
-                            {o.totalPaquetes === 1 ? '' : 's'}
-                            {o.pesoTotalLbs != null
-                              ? ` · ${o.pesoTotalLbs.toFixed(2)} lbs`
-                              : ''}
-                          </p>
-                        </div>
-                        {o.cerrado ? (
-                          <Badge variant="secondary" className="font-normal">
-                            Cerrado
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20 dark:text-[var(--color-success)]">
-                            Abierto
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    renderSelected={(o) => (
-                      <span className="font-mono text-sm">{o.codigo}</span>
-                    )}
-                    clearable={false}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => agregarPorId(comboValue)}
-                  disabled={comboValue == null}
-                  className="sm:w-auto"
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label
+                  htmlFor="fecha-recepcion"
+                  className="text-xs font-medium text-muted-foreground"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Agregar
-                </Button>
+                  Fecha de recepción
+                </label>
+                <input
+                  id="fecha-recepcion"
+                  type="datetime-local"
+                  value={fechaRecepcion}
+                  onChange={(e) => setFechaRecepcion(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                />
+                {fechaLabel && (
+                  <p className="text-xs text-muted-foreground">{fechaLabel}</p>
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Tip: solo se listan envíos abiertos (sin cerrar). Si no aparece
-                el código que buscas, créalo o ciérralo en{' '}
-                <Link
-                  to="/envios-consolidados"
-                  className="text-primary underline-offset-2 hover:underline"
+              <div className="space-y-2 md:col-span-2">
+                <label
+                  htmlFor="observaciones"
+                  className="text-xs font-medium text-muted-foreground"
                 >
-                  Envíos consolidados
-                </Link>{' '}
-                primero.
-              </p>
+                  Observaciones (opcional)
+                </label>
+                <textarea
+                  id="observaciones"
+                  value={observaciones}
+                  onChange={(e) => setObservaciones(e.target.value)}
+                  rows={3}
+                  placeholder="Notas internas sobre el lote..."
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                />
+              </div>
             </div>
+          </section>
 
-            <div className="mt-4 rounded-md border border-dashed border-border bg-[var(--color-muted)]/20 p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <ListPlus className="h-4 w-4 text-primary" />
-                <h3 className="text-xs font-semibold text-foreground">
-                  Agregar varios códigos a la vez
-                </h3>
+          <section className="rounded-lg border border-border bg-card p-5">
+            <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-foreground">
+                  Envíos consolidados a recibir
+                </h2>
               </div>
-              <p className="mb-2 text-xs text-muted-foreground">
-                Pega o escribe los códigos de envío consolidado separados por
-                líneas, espacios o comas. Se validarán contra los envíos
-                disponibles.
-              </p>
-              <textarea
-                value={bulkText}
-                onChange={(e) => setBulkText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    agregarLista();
-                  }
-                }}
-                rows={3}
-                placeholder={'EC-2025-001\nEC-2025-002\nEC-2025-003'}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
-                disabled={loadingEnvios}
-              />
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[11px] text-muted-foreground">
-                  <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">
-                    Ctrl
-                  </kbd>{' '}
-                  +{' '}
-                  <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">
-                    Enter
-                  </kbd>{' '}
-                  para agregar.
-                </span>
-                <div className="flex gap-2">
-                  {bulkText.trim().length > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setBulkText('')}
-                      disabled={loadingEnvios}
-                    >
-                      Limpiar
-                    </Button>
+              {/* Selector de modo: el operario puede ir y volver entre buscar
+                  o pegar lista en cualquier momento, incluso despues de
+                  haber agregado algunos. La seleccion se preserva. */}
+              <div
+                role="tablist"
+                aria-label="Forma de agregar envíos"
+                className="inline-flex items-center rounded-md border border-border bg-[var(--color-muted)]/40 p-0.5 text-xs"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={modo === 'buscar'}
+                  onClick={() => setModo('buscar')}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-[5px] px-3 py-1.5 font-medium transition-colors',
+                    modo === 'buscar'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
                   )}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Buscar
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={modo === 'lista'}
+                  onClick={() => setModo('lista')}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-[5px] px-3 py-1.5 font-medium transition-colors',
+                    modo === 'lista'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Pegar lista
+                </button>
+              </div>
+            </header>
+
+            {modo === 'buscar' ? (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Buscar y agregar por código de envío
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="flex-1">
+                    <SearchableCombobox<EnvioConsolidado>
+                      value={comboValue}
+                      onChange={(v) =>
+                        setComboValue(typeof v === 'number' ? v : undefined)
+                      }
+                      options={opcionesDisponibles}
+                      getKey={(o) => o.id}
+                      getLabel={(o) => o.codigo}
+                      getSearchText={(o) =>
+                        `${o.codigo} ${o.totalPaquetes ?? 0} ${o.pesoTotalLbs ?? ''}`
+                      }
+                      placeholder={
+                        loadingEnvios
+                          ? 'Cargando envíos...'
+                          : opcionesDisponibles.length === 0
+                            ? 'No hay envíos disponibles con paquetes'
+                            : 'Buscar por código de envío consolidado'
+                      }
+                      searchPlaceholder="Escribe el código..."
+                      emptyMessage="Sin envíos coincidentes"
+                      disabled={loadingEnvios || opcionesDisponibles.length === 0}
+                      renderOption={(o) => (
+                        <div className="flex w-full items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-mono text-sm font-medium">
+                              {o.codigo}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {o.totalPaquetes ?? 0} paquete
+                              {o.totalPaquetes === 1 ? '' : 's'}
+                              {o.pesoTotalLbs != null
+                                ? ` · ${o.pesoTotalLbs.toFixed(2)} lbs`
+                                : ''}
+                            </p>
+                          </div>
+                          {o.cerrado ? (
+                            <Badge variant="secondary" className="font-normal">
+                              Cerrado
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20 dark:text-[var(--color-success)]">
+                              Abierto
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      renderSelected={(o) => (
+                        <span className="font-mono text-sm">{o.codigo}</span>
+                      )}
+                      clearable={false}
+                    />
+                  </div>
                   <Button
                     type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={agregarLista}
-                    disabled={loadingEnvios || bulkText.trim().length === 0}
+                    onClick={() => agregarPorId(comboValue)}
+                    disabled={comboValue == null}
+                    className="sm:w-auto"
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Agregar lista
+                    Agregar
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Solo se listan envíos abiertos con al menos un paquete
+                  registrado.
+                  {enviosSinPaquetes > 0 && (
+                    <>
+                      {' '}
+                      <span className="text-[var(--color-warning)]">
+                        {enviosSinPaquetes} envío
+                        {enviosSinPaquetes === 1 ? '' : 's'} sin paquetes oculto
+                        {enviosSinPaquetes === 1 ? '' : 's'}.
+                      </span>
+                    </>
+                  )}{' '}
+                  Si no aparece el código que buscas, créalo o agrégale paquetes
+                  en{' '}
+                  <Link
+                    to="/envios-consolidados"
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
+                    Envíos consolidados
+                  </Link>
+                  .
+                </p>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Pegar varios códigos
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Separa los códigos por líneas, espacios o comas. Solo se
+                  agregarán los envíos con al menos un paquete registrado.
+                </p>
+                <textarea
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault();
+                      agregarLista();
+                    }
+                  }}
+                  rows={5}
+                  placeholder={'EC-2025-001\nEC-2025-002\nEC-2025-003'}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
+                  disabled={loadingEnvios}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">
+                      Ctrl
+                    </kbd>{' '}
+                    +{' '}
+                    <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">
+                      Enter
+                    </kbd>{' '}
+                    para agregar.
+                  </span>
+                  <div className="flex gap-2">
+                    {bulkText.trim().length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setBulkText('')}
+                        disabled={loadingEnvios}
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      onClick={agregarLista}
+                      disabled={loadingEnvios || bulkText.trim().length === 0}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Agregar lista
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 space-y-3">
               <div className="flex items-center justify-between">
@@ -423,14 +536,6 @@ export function LoteRecepcionNuevoPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {(env.totalPaquetes ?? 0) === 0 && (
-                          <Badge
-                            variant="secondary"
-                            className="bg-[var(--color-warning)]/15 text-[var(--color-warning)] dark:text-[var(--color-warning)]"
-                          >
-                            Sin paquetes
-                          </Badge>
-                        )}
                         <button
                           type="button"
                           onClick={() => quitar(env.id)}
@@ -448,50 +553,6 @@ export function LoteRecepcionNuevoPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-card p-5">
-            <header className="mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">
-                Datos del lote
-              </h2>
-            </header>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label
-                  htmlFor="fecha-recepcion"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Fecha de recepción
-                </label>
-                <input
-                  id="fecha-recepcion"
-                  type="datetime-local"
-                  value={fechaRecepcion}
-                  onChange={(e) => setFechaRecepcion(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                />
-                {fechaLabel && (
-                  <p className="text-xs text-muted-foreground">{fechaLabel}</p>
-                )}
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <label
-                  htmlFor="observaciones"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Observaciones (opcional)
-                </label>
-                <textarea
-                  id="observaciones"
-                  value={observaciones}
-                  onChange={(e) => setObservaciones(e.target.value)}
-                  rows={3}
-                  placeholder="Notas internas sobre el lote..."
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
-          </section>
         </div>
 
         <aside className="space-y-4">

@@ -3,12 +3,18 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import {
   AlertTriangle,
   ArrowLeft,
+  Ban,
   Check,
   CheckCircle2,
   Copy,
+  Eye,
+  EyeOff,
+  History,
   Pencil,
   RefreshCw,
+  RotateCcw,
   Truck,
+  UserRound,
   X,
   Building2,
   Package as PackageIcon,
@@ -39,15 +45,28 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  useCancelarGuiaMaster,
   useCerrarGuiaMasterConFaltante,
   useConfirmarDespachoParcial,
   useGuiaMaster,
+  useGuiaMasterHistorial,
   useGuiaMasterPiezas,
+  useMarcarGuiaMasterEnRevision,
+  useReabrirGuiaMaster,
   useRecalcularGuiaMaster,
+  useSalirGuiaMasterDeRevision,
 } from '@/hooks/useGuiasMaster';
-import type { GuiaMaster } from '@/types/guia-master';
+import type {
+  GuiaMaster,
+  GuiaMasterEstadoHistorial,
+  TipoCambioEstadoGuiaMaster,
+  TipoCierreGuiaMaster,
+} from '@/types/guia-master';
 import type { Paquete } from '@/types/paquete';
-import { GuiaMasterEstadoBadge } from './_estado';
+import {
+  GUIA_MASTER_ESTADOS_TERMINALES,
+  GuiaMasterEstadoBadge,
+} from './_estado';
 import { DestinatarioInfo } from '../paquetes/PaqueteCells';
 import { EditarDestinatarioDialog } from './EditarDestinatarioDialog';
 
@@ -69,6 +88,10 @@ export function GuiaMasterDetailPage() {
 
   const [cerrarOpen, setCerrarOpen] = useState(false);
   const [despachoPiezaId, setDespachoPiezaId] = useState<number | null>(null);
+  const [cancelarOpen, setCancelarOpen] = useState(false);
+  const [revisionOpen, setRevisionOpen] = useState(false);
+  const [salirRevisionOpen, setSalirRevisionOpen] = useState(false);
+  const [reabrirOpen, setReabrirOpen] = useState(false);
 
   if (isLoading) return <LoadingState text="Cargando guía master..." />;
   if (error || !guia) {
@@ -85,8 +108,18 @@ export function GuiaMasterDetailPage() {
     );
   }
 
-  const cerrada =
-    guia.estadoGlobal === 'CERRADA' || guia.estadoGlobal === 'CERRADA_CON_FALTANTE';
+  const enRevision = guia.estadoGlobal === 'EN_REVISION';
+  const cancelada = guia.estadoGlobal === 'CANCELADA';
+  const cerradaTerminal = GUIA_MASTER_ESTADOS_TERMINALES.has(guia.estadoGlobal);
+  const cerrada = cerradaTerminal || enRevision;
+  const puedeCancelar =
+    !cerradaTerminal &&
+    (guia.piezasDespachadas ?? 0) === 0 &&
+    !enRevision; // mientras no esté en revisión activa
+  const puedeMarcarRevision = !cerradaTerminal && !enRevision;
+  const puedeSalirRevision = enRevision;
+  const puedeReabrir = cerradaTerminal;
+  const puedeCerrarConFaltante = !cerradaTerminal && !enRevision;
 
   return (
     <div className="page-stack">
@@ -118,24 +151,63 @@ export function GuiaMasterDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                try {
-                  await recalcular.mutateAsync(id);
-                  toast.success('Estado recalculado');
-                } catch {
-                  toast.error('Error al recalcular el estado');
-                }
-              }}
-              disabled={recalcular.isPending}
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Recalcular
-            </Button>
             {!cerrada && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await recalcular.mutateAsync(id);
+                    toast.success('Estado recalculado');
+                  } catch {
+                    toast.error('Error al recalcular el estado');
+                  }
+                }}
+                disabled={recalcular.isPending}
+                title="Vuelve a calcular el estado a partir de las piezas registradas"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Recalcular
+              </Button>
+            )}
+            {puedeMarcarRevision && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRevisionOpen(true)}
+                title="Pausa el flujo automático para validar datos"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Marcar en revisión
+              </Button>
+            )}
+            {puedeSalirRevision && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSalirRevisionOpen(true)}
+                title="Reanuda el flujo automático y recalcula el estado"
+              >
+                <EyeOff className="mr-2 h-4 w-4" />
+                Salir de revisión
+              </Button>
+            )}
+            {puedeReabrir && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setReabrirOpen(true)}
+                title="Reabre la guía para continuar el flujo"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Reabrir
+              </Button>
+            )}
+            {puedeCerrarConFaltante && (
               <Button
                 type="button"
                 variant="destructive"
@@ -146,8 +218,46 @@ export function GuiaMasterDetailPage() {
                 Cerrar con faltante
               </Button>
             )}
+            {puedeCancelar && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => setCancelarOpen(true)}
+                title="Anular la guía antes de despachar"
+              >
+                <Ban className="mr-2 h-4 w-4" />
+                Cancelar guía
+              </Button>
+            )}
           </div>
         </div>
+
+        {cancelada && (
+          <div className="flex items-start gap-2 rounded-md border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 p-3 text-sm text-[var(--color-destructive)]">
+            <Ban className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">Guía cancelada</p>
+              <p className="text-xs opacity-80">
+                Esta guía fue anulada. Si necesitas continuar el flujo, pulsa{' '}
+                <strong>Reabrir</strong>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {enRevision && (
+          <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
+            <Eye className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">Guía en revisión</p>
+              <p className="text-xs opacity-80">
+                El recálculo automático está pausado mientras se valida la información.
+                Pulsa <strong>Salir de revisión</strong> para reanudar.
+              </p>
+            </div>
+          </div>
+        )}
 
         <PiezasProgress guia={guia} />
 
@@ -162,7 +272,7 @@ export function GuiaMasterDetailPage() {
         )}
 
         {guia.despachoParcialEnCurso && (
-          <div className="flex items-start gap-2 rounded-md border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 p-3 text-sm text-[var(--color-primary)]">
+          <div className="flex items-start gap-2 rounded-md border border-[var(--color-primary)]/30 bg-[var(--color-muted)] p-3 text-sm text-[var(--color-primary)]">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">Despacho parcial en curso</p>
@@ -274,6 +384,10 @@ export function GuiaMasterDetailPage() {
         )}
       </SurfaceCard>
 
+      <CierreAuditCard guia={guia} />
+
+      <HistorialEstadosCard guiaMasterId={id} />
+
       {cerrarOpen && (
         <CerrarConFaltanteAlert
           guiaMasterId={id}
@@ -286,6 +400,24 @@ export function GuiaMasterDetailPage() {
           piezaId={despachoPiezaId}
           onClose={() => setDespachoPiezaId(null)}
         />
+      )}
+      {cancelarOpen && (
+        <CancelarGuiaAlert guiaMasterId={id} onClose={() => setCancelarOpen(false)} />
+      )}
+      {revisionOpen && (
+        <MarcarRevisionAlert
+          guiaMasterId={id}
+          onClose={() => setRevisionOpen(false)}
+        />
+      )}
+      {salirRevisionOpen && (
+        <SalirRevisionAlert
+          guiaMasterId={id}
+          onClose={() => setSalirRevisionOpen(false)}
+        />
+      )}
+      {reabrirOpen && (
+        <ReabrirGuiaAlert guiaMasterId={id} onClose={() => setReabrirOpen(false)} />
       )}
     </div>
   );
@@ -315,6 +447,18 @@ function MetadataInline({ guia }: { guia: GuiaMaster }) {
             emptyLabel="Sin asignar"
             emptyItalic
           />
+          {guia.destinatarioVersionId != null && (
+            <p
+              className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+              title={
+                guia.destinatarioCongeladoEn
+                  ? `Datos del destinatario congelados al primer despacho (${new Date(guia.destinatarioCongeladoEn).toLocaleString()}). Cambios en el maestro ya no afectan a esta guia.`
+                  : 'Datos del destinatario congelados al primer despacho.'
+              }
+            >
+              Datos congelados
+            </p>
+          )}
         </InfoBlock>
 
         <InfoBlock label="Total esperado" icon={<PackageIcon className="h-3.5 w-3.5" />}>
@@ -681,6 +825,405 @@ function DespacharParcialAlert({
           <AlertDialogAction asChild>
             <Button onClick={handleConfirm} disabled={confirmar.isPending}>
               {confirmar.isPending ? 'Confirmando...' : 'Confirmar'}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+const TIPO_CIERRE_LABELS: Record<TipoCierreGuiaMaster, string> = {
+  DESPACHO_COMPLETADO: 'Despacho completado',
+  DESPACHO_INCOMPLETO_MANUAL: 'Cerrada manualmente con faltante',
+  DESPACHO_INCOMPLETO_TIMEOUT: 'Cerrada automáticamente por timeout',
+  CANCELACION: 'Cancelación',
+};
+
+function formatFechaHora(iso?: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('es-EC', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function CierreAuditCard({ guia }: { guia: GuiaMaster }) {
+  if (!guia.cerradaEn && !guia.tipoCierre) return null;
+  const tipoLabel = guia.tipoCierre
+    ? TIPO_CIERRE_LABELS[guia.tipoCierre] ?? guia.tipoCierre
+    : '—';
+
+  return (
+    <SurfaceCard className="space-y-3 p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">Auditoría de cierre</h2>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <InfoBlock label="Tipo de cierre">
+          <p className="text-sm font-medium">{tipoLabel}</p>
+        </InfoBlock>
+        <InfoBlock label="Fecha de cierre">
+          <p className="text-sm font-medium">{formatFechaHora(guia.cerradaEn)}</p>
+        </InfoBlock>
+        <InfoBlock label="Cerrada por" icon={<UserRound className="h-3.5 w-3.5" />}>
+          <p className="text-sm font-medium">
+            {guia.cerradaPorUsuarioNombre ?? (
+              <span className="italic text-muted-foreground">Sistema</span>
+            )}
+          </p>
+        </InfoBlock>
+      </div>
+      {guia.motivoCierre && (
+        <div className="rounded-md border border-border bg-muted/30 p-3">
+          <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+            Motivo
+          </p>
+          <p className="whitespace-pre-wrap text-sm">{guia.motivoCierre}</p>
+        </div>
+      )}
+    </SurfaceCard>
+  );
+}
+
+const TIPO_CAMBIO_LABELS: Record<TipoCambioEstadoGuiaMaster, string> = {
+  CREACION: 'Creación',
+  RECALCULO_AUTOMATICO: 'Recálculo automático',
+  CIERRE_MANUAL_FALTANTE: 'Cierre manual con faltante',
+  AUTO_CIERRE_TIMEOUT: 'Auto cierre por timeout',
+  CANCELACION: 'Cancelación',
+  MARCAR_REVISION: 'Marcada en revisión',
+  SALIR_REVISION: 'Salida de revisión',
+  REAPERTURA: 'Reapertura',
+};
+
+function HistorialEstadosCard({ guiaMasterId }: { guiaMasterId: number }) {
+  const { data, isLoading, error } = useGuiaMasterHistorial(guiaMasterId);
+
+  return (
+    <SurfaceCard className="space-y-3 p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <History className="h-4 w-4 text-muted-foreground" /> Historial de estados
+        </h2>
+        {data && data.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {data.length} cambio{data.length === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+      {isLoading ? (
+        <LoadingState text="Cargando historial..." />
+      ) : error ? (
+        <p className="rounded-md border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 p-3 text-sm text-[var(--color-destructive)]">
+          No se pudo cargar el historial.
+        </p>
+      ) : !data || data.length === 0 ? (
+        <p className="rounded-md border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+          Sin cambios registrados.
+        </p>
+      ) : (
+        <ol className="space-y-3">
+          {[...data]
+            .sort(
+              (a, b) =>
+                new Date(b.cambiadoEn).getTime() - new Date(a.cambiadoEn).getTime()
+            )
+            .map((h) => (
+              <HistorialItem key={h.id} item={h} />
+            ))}
+        </ol>
+      )}
+    </SurfaceCard>
+  );
+}
+
+function HistorialItem({ item }: { item: GuiaMasterEstadoHistorial }) {
+  return (
+    <li className="rounded-md border border-border bg-muted/20 p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        {item.estadoAnterior ? (
+          <>
+            <GuiaMasterEstadoBadge estado={item.estadoAnterior} withTitle={false} />
+            <span className="text-muted-foreground">→</span>
+          </>
+        ) : null}
+        <GuiaMasterEstadoBadge estado={item.estadoNuevo} withTitle={false} />
+        <Badge variant="outline" className="font-normal">
+          {TIPO_CAMBIO_LABELS[item.tipoCambio] ?? item.tipoCambio}
+        </Badge>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span>{formatFechaHora(item.cambiadoEn)}</span>
+        <span className="flex items-center gap-1">
+          <UserRound className="h-3 w-3" />
+          {item.cambiadoPorUsuarioNombre ?? 'Sistema'}
+        </span>
+      </div>
+      {item.motivo && (
+        <p className="mt-2 whitespace-pre-wrap text-xs text-foreground/80">
+          {item.motivo}
+        </p>
+      )}
+    </li>
+  );
+}
+
+function CancelarGuiaAlert({
+  guiaMasterId,
+  onClose,
+}: {
+  guiaMasterId: number;
+  onClose: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const cancelar = useCancelarGuiaMaster();
+
+  async function handleConfirm() {
+    if (!motivo.trim()) {
+      toast.error('Debes indicar un motivo para cancelar la guía');
+      return;
+    }
+    try {
+      await cancelar.mutateAsync({
+        id: guiaMasterId,
+        body: { motivo: motivo.trim() },
+      });
+      toast.success('Guía cancelada');
+      onClose();
+    } catch (err: unknown) {
+      const res = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(res?.data?.message ?? 'No se pudo cancelar la guía');
+    }
+  }
+
+  return (
+    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Cancelar guía master</AlertDialogTitle>
+          <AlertDialogDescription>
+            Anula la guía antes de despachar piezas. Solo aplica si aún no se ha
+            despachado ninguna pieza. Quedará registrada en el historial.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div>
+          <Label htmlFor="motivo-cancelar" className="mb-1 block">
+            Motivo (obligatorio)
+          </Label>
+          <Textarea
+            id="motivo-cancelar"
+            rows={3}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej: cliente solicitó anulación / error de registro"
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button variant="secondary" disabled={cancelar.isPending}>
+              Volver
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button
+              variant="destructive"
+              onClick={handleConfirm}
+              disabled={cancelar.isPending}
+            >
+              {cancelar.isPending ? 'Cancelando...' : 'Cancelar guía'}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function MarcarRevisionAlert({
+  guiaMasterId,
+  onClose,
+}: {
+  guiaMasterId: number;
+  onClose: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const marcar = useMarcarGuiaMasterEnRevision();
+
+  async function handleConfirm() {
+    try {
+      await marcar.mutateAsync({
+        id: guiaMasterId,
+        body: { motivo: motivo.trim() || undefined },
+      });
+      toast.success('Guía marcada en revisión');
+      onClose();
+    } catch (err: unknown) {
+      const res = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(res?.data?.message ?? 'No se pudo marcar en revisión');
+    }
+  }
+
+  return (
+    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Marcar guía en revisión</AlertDialogTitle>
+          <AlertDialogDescription>
+            Pausa el recálculo automático del estado mientras se valida algún dato.
+            Podrás reanudarla con <strong>Salir de revisión</strong>.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div>
+          <Label htmlFor="motivo-revision" className="mb-1 block">
+            Motivo (opcional)
+          </Label>
+          <Textarea
+            id="motivo-revision"
+            rows={3}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej: validar peso reportado / contactar al cliente"
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button variant="secondary" disabled={marcar.isPending}>
+              Volver
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button onClick={handleConfirm} disabled={marcar.isPending}>
+              {marcar.isPending ? 'Marcando...' : 'Marcar en revisión'}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function SalirRevisionAlert({
+  guiaMasterId,
+  onClose,
+}: {
+  guiaMasterId: number;
+  onClose: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const salir = useSalirGuiaMasterDeRevision();
+
+  async function handleConfirm() {
+    try {
+      await salir.mutateAsync({
+        id: guiaMasterId,
+        body: { motivo: motivo.trim() || undefined },
+      });
+      toast.success('Revisión finalizada y estado recalculado');
+      onClose();
+    } catch (err: unknown) {
+      const res = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(res?.data?.message ?? 'No se pudo salir de revisión');
+    }
+  }
+
+  return (
+    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Salir de revisión</AlertDialogTitle>
+          <AlertDialogDescription>
+            Reanuda el flujo automático y recalcula el estado de la guía a partir de
+            las piezas registradas.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div>
+          <Label htmlFor="motivo-salir-revision" className="mb-1 block">
+            Comentario (opcional)
+          </Label>
+          <Textarea
+            id="motivo-salir-revision"
+            rows={3}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej: información validada con el cliente"
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button variant="secondary" disabled={salir.isPending}>
+              Volver
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button onClick={handleConfirm} disabled={salir.isPending}>
+              {salir.isPending ? 'Saliendo...' : 'Salir de revisión'}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function ReabrirGuiaAlert({
+  guiaMasterId,
+  onClose,
+}: {
+  guiaMasterId: number;
+  onClose: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const reabrir = useReabrirGuiaMaster();
+
+  async function handleConfirm() {
+    if (!motivo.trim()) {
+      toast.error('Debes indicar un motivo para reabrir la guía');
+      return;
+    }
+    try {
+      await reabrir.mutateAsync({
+        id: guiaMasterId,
+        body: { motivo: motivo.trim() },
+      });
+      toast.success('Guía reabierta');
+      onClose();
+    } catch (err: unknown) {
+      const res = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(res?.data?.message ?? 'No se pudo reabrir la guía');
+    }
+  }
+
+  return (
+    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Reabrir guía master</AlertDialogTitle>
+          <AlertDialogDescription>
+            Sale del estado terminal y reanuda el flujo. El nuevo estado se calcula a
+            partir de las piezas registradas. Quedará auditado.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div>
+          <Label htmlFor="motivo-reabrir" className="mb-1 block">
+            Motivo (obligatorio)
+          </Label>
+          <Textarea
+            id="motivo-reabrir"
+            rows={3}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej: pieza faltante apareció / cierre por error"
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button variant="secondary" disabled={reabrir.isPending}>
+              Volver
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button onClick={handleConfirm} disabled={reabrir.isPending}>
+              {reabrir.isPending ? 'Reabriendo...' : 'Reabrir'}
             </Button>
           </AlertDialogAction>
         </AlertDialogFooter>

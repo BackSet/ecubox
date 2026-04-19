@@ -5,6 +5,7 @@ import {
   crearEnvioConsolidado,
   descargarManifiestoPdf,
   descargarManifiestoXlsx,
+  eliminarEnvioConsolidado,
   listarEnviosConsolidados,
   obtenerEnvioConsolidado,
   reabrirEnvioConsolidado,
@@ -69,6 +70,24 @@ export function useReabrirEnvioConsolidado() {
       qc.invalidateQueries({
         queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'detail', id],
       });
+    },
+  });
+}
+
+export function useEliminarEnvioConsolidado() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, eliminarPaquetes = false }: { id: number; eliminarPaquetes?: boolean }) =>
+      eliminarEnvioConsolidado(id, eliminarPaquetes),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ENVIOS_CONSOLIDADOS_QUERY_KEY });
+      qc.removeQueries({
+        queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'detail', vars.id],
+      });
+      if (vars.eliminarPaquetes) {
+        qc.invalidateQueries({ queryKey: ['paquetes'] });
+        qc.invalidateQueries({ queryKey: ['operario', 'paquetes'] });
+      }
     },
   });
 }

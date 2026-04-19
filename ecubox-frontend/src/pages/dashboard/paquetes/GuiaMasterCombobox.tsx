@@ -159,7 +159,7 @@ export function GuiaMasterCombobox({
           align="start"
           sideOffset={4}
           collisionPadding={8}
-          className="z-[60] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg"
+          className="z-[60] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-popover)]"
           style={{
             // Al menos el ancho del trigger, pero nunca menos de 320px,
             // para que el input de búsqueda no quede recortado cuando el

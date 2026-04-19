@@ -28,11 +28,13 @@ import {
 import { useEliminarMiGuia, useMiGuia, useMiGuiaPiezas } from '@/hooks/useMisGuias';
 import type { GuiaMaster } from '@/types/guia-master';
 import type { Paquete } from '@/types/paquete';
-import { GuiaMasterEstadoBadge } from '@/pages/dashboard/guias-master/_estado';
 import { DestinatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
 import { EditarMiGuiaDialog } from './EditarMiGuiaDialog';
+import { MI_GUIA_ESTADO_DESCRIPCIONES, MiGuiaEstadoBadge } from './_estado-cliente';
 
-const ESTADO_EDITABLE = 'INCOMPLETA' as const;
+const ESTADO_EDITABLE = 'EN_ESPERA_RECEPCION' as const;
+const TOOLTIP_NO_EDITABLE =
+  'Ya no es posible editar esta guía porque sus piezas están en proceso. Si necesitas un cambio, contáctanos.';
 
 function piezaRecibida(p: Paquete): boolean {
   return p.pesoLbs != null || p.pesoKg != null;
@@ -70,7 +72,7 @@ export function MiGuiaDetailPage() {
 
   const editable = guia.estadoGlobal === ESTADO_EDITABLE;
   const totalPendiente = guia.totalPiezasEsperadas == null;
-  const tooltipBloqueada = `No editable: la guía está en estado ${guia.estadoGlobal}`;
+  const estadoDescripcion = MI_GUIA_ESTADO_DESCRIPCIONES[guia.estadoGlobal];
 
   return (
     <div className="page-stack">
@@ -88,7 +90,7 @@ export function MiGuiaDetailPage() {
               <span className="text-xs uppercase tracking-wide text-muted-foreground">
                 Mi guía
               </span>
-              <GuiaMasterEstadoBadge estado={guia.estadoGlobal} />
+              <MiGuiaEstadoBadge estado={guia.estadoGlobal} />
             </div>
             <div className="flex items-start gap-2">
               <h1 className="break-all font-mono text-xl font-semibold leading-tight">
@@ -96,6 +98,9 @@ export function MiGuiaDetailPage() {
               </h1>
               <CopyButton text={guia.trackingBase} />
             </div>
+            {estadoDescripcion && (
+              <p className="text-xs text-muted-foreground">{estadoDescripcion}</p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -104,7 +109,7 @@ export function MiGuiaDetailPage() {
               size="sm"
               onClick={() => editable && setEditing(true)}
               disabled={!editable}
-              title={editable ? 'Editar guía' : tooltipBloqueada}
+              title={editable ? 'Editar guía' : TOOLTIP_NO_EDITABLE}
             >
               <Pencil className="mr-2 h-4 w-4" />
               Editar
@@ -115,7 +120,7 @@ export function MiGuiaDetailPage() {
               size="sm"
               onClick={() => editable && setDeleting(true)}
               disabled={!editable || eliminar.isPending}
-              title={editable ? 'Eliminar guía' : tooltipBloqueada}
+              title={editable ? 'Eliminar guía' : TOOLTIP_NO_EDITABLE}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Eliminar
@@ -129,8 +134,9 @@ export function MiGuiaDetailPage() {
           <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              Estamos esperando que el operario indique cuántas piezas componen esta guía.
-              Apenas se confirme, podrás ver el avance pieza por pieza.
+              Aún no sabemos cuántas piezas en total tendrá esta guía. Lo confirmaremos
+              cuando recibamos el primer paquete en la bodega de EE.UU. Mientras tanto,
+              puedes seguir viendo el detalle de las piezas que vayan llegando.
             </p>
           </div>
         )}
@@ -140,7 +146,8 @@ export function MiGuiaDetailPage() {
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-warning)]" />
             <p>
               Esta guía ya tiene piezas en proceso, por lo que el número y el destinatario
-              no pueden modificarse. Si necesitas un cambio, contacta al operario.
+              no pueden modificarse. Si necesitas hacer un cambio, contáctanos y con gusto
+              te ayudamos.
             </p>
           </div>
         )}
@@ -158,20 +165,20 @@ export function MiGuiaDetailPage() {
             />
           </InfoBlock>
 
-          <InfoBlock label="Total esperado" icon={<PackageIcon className="h-3.5 w-3.5" />}>
+          <InfoBlock label="Total de piezas" icon={<PackageIcon className="h-3.5 w-3.5" />}>
             <p className="text-sm font-medium">
               {guia.totalPiezasEsperadas != null
                 ? `${guia.totalPiezasEsperadas} pieza${guia.totalPiezasEsperadas === 1 ? '' : 's'}`
-                : 'Pendiente'}
+                : 'Por confirmar'}
             </p>
             {guia.totalPiezasEsperadas == null && (
               <p className="mt-0.5 text-[11px] italic text-muted-foreground">
-                Lo definirá el operario al recibir.
+                Se confirmará al llegar el primer paquete a la bodega.
               </p>
             )}
           </InfoBlock>
 
-          <InfoBlock label="Registrada" icon={<Calendar className="h-3.5 w-3.5" />}>
+          <InfoBlock label="Fecha de registro" icon={<Calendar className="h-3.5 w-3.5" />}>
             <FechaRegistrada createdAt={guia.createdAt} />
           </InfoBlock>
         </div>
@@ -179,10 +186,11 @@ export function MiGuiaDetailPage() {
 
       <SurfaceCard className="space-y-3 p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold">Piezas</h2>
+          <h2 className="text-lg font-semibold">Detalle de piezas</h2>
           {piezas && piezas.length > 0 && (
             <span className="text-xs text-muted-foreground">
-              {piezas.length} pieza{piezas.length === 1 ? '' : 's'}
+              {piezas.length} pieza{piezas.length === 1 ? '' : 's'} registrada
+              {piezas.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
@@ -190,7 +198,8 @@ export function MiGuiaDetailPage() {
           <LoadingState text="Cargando piezas..." />
         ) : !piezas || piezas.length === 0 ? (
           <p className="rounded-md border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-            Aún no hay piezas registradas para esta guía.
+            Todavía no hay piezas registradas para esta guía. Te avisaremos en cuanto la
+            bodega de EE.UU. reciba la primera.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -198,7 +207,7 @@ export function MiGuiaDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[5rem]">Pieza</TableHead>
-                  <TableHead className="min-w-[14rem]">Guía ECUBOX</TableHead>
+                  <TableHead className="min-w-[14rem]">Tracking ECUBOX</TableHead>
                   <TableHead className="w-[7rem]">Peso</TableHead>
                   <TableHead className="min-w-[10rem]">Estado</TableHead>
                 </TableRow>
@@ -318,11 +327,7 @@ function PiezasProgress({ guia }: { guia: GuiaMaster }) {
   const despachadas = guia.piezasDespachadas ?? 0;
 
   if (total <= 0) {
-    return (
-      <div className="rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-xs text-[var(--color-warning)]">
-        Total de piezas pendiente. Se definirá cuando el operario reciba el primer paquete.
-      </div>
-    );
+    return null;
   }
 
   const pct = (n: number) => Math.min(100, Math.round((n / total) * 100));
@@ -330,38 +335,50 @@ function PiezasProgress({ guia }: { guia: GuiaMaster }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-        <span className="font-medium text-muted-foreground">Progreso de piezas</span>
+        <span className="font-medium text-muted-foreground">Avance de tu envío</span>
         <span className="text-muted-foreground">
           <span className="font-semibold text-foreground">{despachadas}</span> de {total}{' '}
-          despachadas
+          en camino a Ecuador
         </span>
       </div>
       <div className="relative h-2 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
         <div
           className="absolute inset-y-0 left-0 bg-[var(--color-info)] dark:bg-[var(--color-info)]/30"
           style={{ width: `${pct(registradas)}%` }}
+          title={`Anunciadas: ${registradas} de ${total}`}
         />
         <div
           className="absolute inset-y-0 left-0 bg-[var(--color-warning)] dark:bg-[var(--color-warning)]/50"
           style={{ width: `${pct(recibidas)}%` }}
+          title={`En bodega EE.UU.: ${recibidas} de ${total}`}
         />
         <div
           className="absolute inset-y-0 left-0 bg-[var(--color-success)]"
           style={{ width: `${pct(despachadas)}%` }}
+          title={`En camino a Ecuador: ${despachadas} de ${total}`}
         />
       </div>
       <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
+        <span
+          className="inline-flex items-center gap-1"
+          title="Piezas que registraste y aún no llegan a la bodega de EE.UU."
+        >
           <span className="h-2 w-2 rounded-full bg-[var(--color-info)] dark:bg-[var(--color-info)]/60" />
-          Registradas {registradas}/{total}
+          {registradas} de {total} anunciadas
         </span>
-        <span className="inline-flex items-center gap-1">
+        <span
+          className="inline-flex items-center gap-1"
+          title="Piezas ya recibidas en la bodega de EE.UU."
+        >
           <span className="h-2 w-2 rounded-full bg-[var(--color-warning)] dark:bg-[var(--color-warning)]" />
-          Recibidas {recibidas}
+          {recibidas} en bodega EE.UU.
         </span>
-        <span className="inline-flex items-center gap-1">
+        <span
+          className="inline-flex items-center gap-1"
+          title="Piezas que ya están en camino a Ecuador."
+        >
           <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
-          Despachadas {despachadas}
+          {despachadas} en camino a Ecuador
         </span>
       </div>
     </div>
@@ -436,20 +453,22 @@ function PiezaEstadoBadges({ paquete: p }: { paquete: Paquete }) {
       <Badge variant="secondary" className="font-normal">
         {estado}
       </Badge>
-      {recibida && (
+      {recibida && !despachada && (
         <Badge
           variant="outline"
           className="border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 font-normal text-[var(--color-warning)]"
+          title="Esta pieza llegó a la bodega de EE.UU."
         >
-          Recibida
+          En bodega EE.UU.
         </Badge>
       )}
       {despachada && (
         <Badge
           variant="outline"
           className="border-[var(--color-success)]/30 bg-[var(--color-success)]/10 font-normal text-[var(--color-success)]"
+          title="Esta pieza ya está en camino a Ecuador."
         >
-          Despachada
+          En camino a Ecuador
         </Badge>
       )}
     </div>

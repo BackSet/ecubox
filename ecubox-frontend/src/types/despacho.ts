@@ -111,6 +111,20 @@ export interface Despacho {
   sacaIds?: number[];
   /** Sacas con paquetes (solo en respuesta de detalle por id). */
   sacas?: Saca[];
+
+  /**
+   * SCD2 (V67): id de la version inmutable del destinatario que viaja en
+   * el despacho. Si tiene valor, los datos del destinatario son los del
+   * snapshot historico, independientemente de cambios posteriores en el
+   * maestro.
+   */
+  destinatarioVersionId?: number | null;
+  /** SCD2: id de la version inmutable de la agencia destino. */
+  agenciaVersionId?: number | null;
+  /** SCD2: id de la version inmutable de la agencia de distribuidor destino. */
+  agenciaDistribuidorVersionId?: number | null;
+  /** SCD2: cuando se congelo el snapshot de destino del despacho. */
+  destinoCongeladoEn?: string | null;
 }
 
 export interface DespachoCreateRequest {

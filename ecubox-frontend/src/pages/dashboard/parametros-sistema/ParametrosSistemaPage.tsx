@@ -23,7 +23,6 @@ import {
   DollarSign,
   Eye,
   EyeOff,
-  Filter,
   Hash,
   Hourglass,
   Info,
@@ -82,6 +81,7 @@ import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
 import { EmptyState } from '@/components/EmptyState';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import {
   useMensajeAgenciaEeuu,
   useUpdateMensajeAgenciaEeuu,
@@ -382,24 +382,14 @@ export function ParametrosSistemaPage() {
 
   return (
     <div className="page-stack">
-      {/* Hero */}
-      <header className="relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-gradient-to-br from-[var(--color-card)] via-[var(--color-card)] to-[var(--color-primary)]/[0.07] px-5 py-5 sm:px-6">
-        <div
-          className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-[var(--color-primary)]/[0.09] blur-3xl"
-          aria-hidden
-        />
-        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-            <Settings className="h-6 w-6" />
-          </div>
+      <header className="border-b border-[var(--color-border)] pb-4">
+        <div className="flex items-start gap-2.5">
+          <Settings className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted-foreground)]">
-              Configuración global
-            </p>
-            <h1 className="mt-0.5 text-xl font-bold tracking-tight text-[var(--color-foreground)] sm:text-2xl">
+            <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
               Parámetros del sistema
             </h1>
-            <p className="mt-1 max-w-3xl text-sm leading-snug text-[var(--color-muted-foreground)]">
+            <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-[var(--color-muted-foreground)]">
               Configura mensajes automáticos, tarifas públicas y estados de rastreo. Los cambios
               aplican a todo el sistema.
             </p>
@@ -422,7 +412,7 @@ export function ParametrosSistemaPage() {
                 className={cn(
                   'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors',
                   active
-                    ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                    ? 'bg-[var(--color-muted)] text-[var(--color-foreground)]'
                     : 'text-muted-foreground hover:bg-[var(--color-muted)]/40 hover:text-foreground',
                 )}
               >
@@ -464,7 +454,7 @@ export function ParametrosSistemaPage() {
                     className={cn(
                       'mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors',
                       active
-                        ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]'
+                        ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
                         : 'bg-[var(--color-muted)]/40 text-muted-foreground group-hover:bg-[var(--color-muted)] group-hover:text-foreground',
                     )}
                   >
@@ -627,7 +617,7 @@ function PanelHeader({ icon, title, description, status, saving }: PanelHeaderPr
           className={cn(
             'inline-flex items-center gap-1 self-center rounded-md border px-2 py-1 text-[11px] font-medium',
             saving
-              ? 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+              ? 'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]'
               : status === 'pending'
                 ? 'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
                 : 'border-[var(--color-success)]/30 bg-[var(--color-success)]/10 text-[var(--color-success)]',
@@ -1041,10 +1031,10 @@ function AgenciaEeuuPanel({
               Tal como lo verá
             </Badge>
           </div>
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-4">
-            <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm">
-              <header className="flex items-center gap-2 border-b border-[var(--color-border)] bg-gradient-to-r from-[var(--color-primary)]/10 to-transparent px-4 py-2.5">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-primary)]/15 text-[var(--color-primary)]">
+          <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-4">
+            <div className="overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-card)]">
+              <header className="flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-muted)] px-4 py-2.5">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-background)] text-[var(--color-muted-foreground)]">
                   <MapPin className="h-3.5 w-3.5" />
                 </span>
                 <div>
@@ -1154,8 +1144,6 @@ function EstadosRastreoView() {
   >({});
 
   const [search, setSearch] = useState('');
-  const [filtroFlujo, setFiltroFlujo] = useState<'todos' | 'NORMAL' | 'ALTERNO'>('todos');
-  const [filtroEstado, setFiltroEstado] = useState<'todos' | 'activos' | 'inactivos'>('todos');
 
   const { hasPermission, hasRole } = useAuthStore();
   const canWrite =
@@ -1375,11 +1363,7 @@ function EstadosRastreoView() {
     }
   };
 
-  // Filtros aplicados a la tabla
   const filteredEstados = estados.filter((e) => {
-    if (filtroEstado === 'activos' && !e.activo) return false;
-    if (filtroEstado === 'inactivos' && e.activo) return false;
-    if (filtroFlujo !== 'todos' && (e.tipoFlujo ?? 'NORMAL') !== filtroFlujo) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       if (
@@ -1399,8 +1383,7 @@ function EstadosRastreoView() {
   const totalAlternos = estadosActivos.filter((e) => e.tipoFlujo === 'ALTERNO').length;
   const totalSinTracking = estadosActivos.filter((e) => !(e.publicoTracking ?? true)).length;
 
-  const filtersActive =
-    Boolean(search.trim()) || filtroFlujo !== 'todos' || filtroEstado !== 'todos';
+  const filtersActive = Boolean(search.trim());
 
   return (
     <div className="page-stack">
@@ -1485,7 +1468,7 @@ function EstadosRastreoView() {
                     key={estado.id}
                     className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-2.5 py-1.5"
                   >
-                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-[10px] font-semibold text-[var(--color-primary)]">
+                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-muted)] text-[10px] font-semibold text-[var(--color-primary)]">
                       {index + 1}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -1603,7 +1586,7 @@ function EstadosRastreoView() {
                         'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
                         isAlt
                           ? 'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
-                          : 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+                          : 'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]',
                       )}
                     >
                       <span className="text-[10px] font-mono opacity-70">{i + 1}</span>
@@ -1621,75 +1604,25 @@ function EstadosRastreoView() {
         )}
       </section>
 
-      {/* Toolbar y acciones */}
       <div className="flex flex-col gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <div className="relative">
-            <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por código, nombre o leyenda..."
-              className="h-9 w-full pl-9 sm:w-[260px]"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute top-1/2 right-2 inline-flex -translate-y-1/2 items-center justify-center rounded p-1 text-muted-foreground hover:bg-[var(--color-muted)] hover:text-foreground"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-              <Filter className="h-3 w-3" />
-              Filtros
-            </span>
-            <Select
-              value={filtroEstado}
-              onValueChange={(v) => setFiltroEstado(v as typeof filtroEstado)}
+        <div className="relative w-full sm:max-w-sm">
+          <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por código, nombre o leyenda..."
+            className="h-9 w-full pl-9"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute top-1/2 right-2 inline-flex -translate-y-1/2 items-center justify-center rounded p-1 text-muted-foreground hover:bg-[var(--color-muted)] hover:text-foreground"
+              aria-label="Limpiar búsqueda"
             >
-              <SelectTrigger className="h-8 w-[140px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="activos">Activos</SelectItem>
-                <SelectItem value="inactivos">Inactivos</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={filtroFlujo}
-              onValueChange={(v) => setFiltroFlujo(v as typeof filtroFlujo)}
-            >
-              <SelectTrigger className="h-8 w-[140px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los flujos</SelectItem>
-                <SelectItem value="NORMAL">Normal</SelectItem>
-                <SelectItem value="ALTERNO">Alterno</SelectItem>
-              </SelectContent>
-            </Select>
-            {filtersActive && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => {
-                  setSearch('');
-                  setFiltroEstado('todos');
-                  setFiltroFlujo('todos');
-                }}
-              >
-                <X className="mr-1 h-3 w-3" />
-                Limpiar
-              </Button>
-            )}
-          </div>
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
         {canWrite && (
           <Button onClick={() => setCreating(true)}>
@@ -1707,7 +1640,7 @@ function EstadosRastreoView() {
           description={
             estados.length === 0
               ? 'Crea el primer estado de rastreo para configurar el flujo de paquetes.'
-              : 'Ajusta los filtros para ver más estados.'
+              : 'No hay estados que coincidan con la búsqueda.'
           }
           action={
             estados.length === 0 && canWrite ? (
@@ -1716,16 +1649,9 @@ function EstadosRastreoView() {
                 Crear estado
               </Button>
             ) : filtersActive ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearch('');
-                  setFiltroEstado('todos');
-                  setFiltroFlujo('todos');
-                }}
-              >
+              <Button variant="outline" onClick={() => setSearch('')}>
                 <X className="mr-2 h-4 w-4" />
-                Limpiar filtros
+                Limpiar búsqueda
               </Button>
             ) : undefined
           }
@@ -1742,7 +1668,9 @@ function EstadosRastreoView() {
                   <th className="px-3 py-2 font-medium">Visibilidad</th>
                   <th className="px-3 py-2 font-medium">Estado</th>
                   <th className="px-3 py-2 font-medium">Leyenda</th>
-                  {canWrite && <th className="px-3 py-2 text-right font-medium">Acciones</th>}
+                  {canWrite && (
+                    <th className="w-12 px-3 py-2 text-right font-medium" aria-label="Acciones" />
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -1765,7 +1693,7 @@ function EstadosRastreoView() {
                               'mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
                               isAlt
                                 ? 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]'
-                                : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+                                : 'bg-[var(--color-muted)] text-[var(--color-primary)]',
                             )}
                           >
                             {isAlt ? (
@@ -1787,7 +1715,7 @@ function EstadosRastreoView() {
                             'h-5 rounded text-[10px] font-medium',
                             isAlt
                               ? 'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
-                              : 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+                              : 'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]',
                           )}
                         >
                           {isAlt ? 'Alterno' : 'Normal'}
@@ -1842,63 +1770,47 @@ function EstadosRastreoView() {
                       </td>
                       {canWrite && (
                         <td className="px-3 py-2 text-right align-top">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              title="Editar"
-                              onClick={() => {
-                                setEditing(e);
-                                setForm({
-                                  codigo: e.codigo,
-                                  nombre: e.nombre,
-                                  ordenTracking: e.ordenTracking,
-                                  afterEstadoId: e.afterEstadoId ?? null,
-                                  activo: e.activo,
-                                  leyenda: e.leyenda ?? '',
-                                  tipoFlujo: e.tipoFlujo === 'ALTERNO' ? 'ALTERNO' : 'NORMAL',
-                                  publicoTracking: e.publicoTracking ?? true,
-                                });
-                              }}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            {e.activo ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-[var(--color-warning)] hover:text-[var(--color-warning)]"
-                                title="Desactivar"
-                                onClick={() => setDesactivarId(e.id)}
-                              >
-                                <PowerOff className="h-3.5 w-3.5" />
-                              </Button>
-                            ) : (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-[var(--color-success)] hover:text-[var(--color-success)]"
-                                title="Activar"
-                                onClick={() => handleActivar(e)}
-                              >
-                                <Power className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-[var(--color-destructive)] hover:text-[var(--color-destructive)]"
-                              title="Eliminar"
-                              onClick={() => setDeleteId(e.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
+                          <RowActionsMenu
+                            items={[
+                              {
+                                label: 'Editar',
+                                icon: Pencil,
+                                onSelect: () => {
+                                  setEditing(e);
+                                  setForm({
+                                    codigo: e.codigo,
+                                    nombre: e.nombre,
+                                    ordenTracking: e.ordenTracking,
+                                    afterEstadoId: e.afterEstadoId ?? null,
+                                    activo: e.activo,
+                                    leyenda: e.leyenda ?? '',
+                                    tipoFlujo:
+                                      e.tipoFlujo === 'ALTERNO' ? 'ALTERNO' : 'NORMAL',
+                                    publicoTracking: e.publicoTracking ?? true,
+                                  });
+                                },
+                              },
+                              { type: 'separator' },
+                              e.activo
+                                ? {
+                                    label: 'Desactivar',
+                                    icon: PowerOff,
+                                    onSelect: () => setDesactivarId(e.id),
+                                  }
+                                : {
+                                    label: 'Activar',
+                                    icon: Power,
+                                    onSelect: () => handleActivar(e),
+                                  },
+                              { type: 'separator' },
+                              {
+                                label: 'Eliminar',
+                                icon: Trash2,
+                                destructive: true,
+                                onSelect: () => setDeleteId(e.id),
+                              },
+                            ]}
+                          />
                         </td>
                       )}
                     </tr>
@@ -2359,46 +2271,91 @@ function EstadosRastreoPorPuntoView() {
 
       {/* Vista del flujo */}
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
-        <h3 className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Eye className="h-4 w-4 text-muted-foreground" />
-          Vista del flujo configurado
-        </h3>
-        <ol className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+        <header className="mb-4 flex items-center justify-between gap-2">
+          <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Eye className="h-4 w-4 text-muted-foreground" />
+            Vista del flujo configurado
+          </h3>
+          <span className="text-[11px] text-muted-foreground">
+            {(Object.keys(valuesByKey) as PuntoConfig['key'][]).filter(
+              (k) => valuesByKey[k] !== '',
+            ).length}
+            {' / '}
+            {PUNTOS_FLUJO.length} pasos
+          </span>
+        </header>
+        <ol className="relative">
           {PUNTOS_FLUJO.map((punto, idx) => {
             const Icon = punto.icon;
             const value = valuesByKey[punto.key];
             const estadoSel = value !== '' ? estadoById.get(Number(value)) : null;
-            const tone =
-              value === ''
-                ? 'border-dashed border-[var(--color-muted-foreground)]/30 bg-[var(--color-muted)]/15 text-muted-foreground'
-                : 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 text-foreground';
+            const isLast = idx === PUNTOS_FLUJO.length - 1;
+            const configured = value !== '';
+            const isMissingRequired = punto.required && !configured;
             return (
-              <li key={punto.key} className="flex items-start gap-2">
-                <div
+              <li key={punto.key} className="relative pl-10 pb-3 last:pb-0">
+                {!isLast && (
+                  <span
+                    aria-hidden
+                    className="absolute top-7 left-[14px] h-[calc(100%-1.25rem)] w-px bg-[var(--color-border)]"
+                  />
+                )}
+                <span
                   className={cn(
-                    'flex flex-1 flex-col items-start rounded-lg border px-2.5 py-2',
-                    tone,
+                    'absolute left-0 top-0 inline-flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold',
+                    configured
+                      ? 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                      : isMissingRequired
+                        ? 'border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
+                        : 'border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground',
                   )}
                 >
-                  <div className="flex w-full items-center justify-between gap-1">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      <Icon className="h-3 w-3" />
-                      {idx + 1}. {punto.label}
-                    </span>
-                  </div>
-                  {estadoSel ? (
-                    <p className="mt-1 truncate text-xs font-semibold text-foreground">
-                      {estadoSel.nombre}
-                    </p>
-                  ) : (
-                    <p className="mt-1 truncate text-[11px] italic">
-                      {punto.required ? 'Pendiente' : 'No configurado'}
-                    </p>
+                  {idx + 1}
+                </span>
+                <div
+                  className={cn(
+                    'flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2 transition-colors',
+                    configured
+                      ? 'border-[var(--color-border)] bg-[var(--color-card)]'
+                      : 'border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/15',
                   )}
+                >
+                  <Icon
+                    className={cn(
+                      'h-4 w-4 shrink-0',
+                      configured ? 'text-[var(--color-primary)]' : 'text-muted-foreground',
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-foreground">
+                      {punto.label}
+                    </p>
+                    {estadoSel ? (
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {estadoSel.nombre}
+                      </p>
+                    ) : (
+                      <p className="truncate text-[11px] italic text-muted-foreground">
+                        {punto.required ? 'Pendiente' : 'No configurado'}
+                      </p>
+                    )}
+                  </div>
+                  {isMissingRequired ? (
+                    <Badge
+                      variant="outline"
+                      className="h-5 shrink-0 rounded border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-1.5 text-[10px] font-medium text-[var(--color-warning)]"
+                    >
+                      Requerido
+                    </Badge>
+                  ) : !configured ? (
+                    <Badge
+                      variant="outline"
+                      className="h-5 shrink-0 rounded px-1.5 text-[10px] font-medium text-muted-foreground"
+                    >
+                      Opcional
+                    </Badge>
+                  ) : null}
                 </div>
-                {idx < PUNTOS_FLUJO.length - 1 && (
-                  <ChevronRight className="mt-3 hidden h-3.5 w-3.5 shrink-0 text-muted-foreground lg:block" />
-                )}
               </li>
             );
           })}
@@ -2445,7 +2402,7 @@ interface PuntoCardProps {
 function PuntoCard({ punto, value, onChange, estados, estadoSeleccionado }: PuntoCardProps) {
   const Icon = punto.icon;
   const toneIcon: Record<PuntoConfig['tone'], string> = {
-    primary: 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+    primary: 'bg-[var(--color-muted)] text-[var(--color-primary)]',
     success: 'bg-[var(--color-success)]/10 text-[var(--color-success)]',
     warning: 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]',
     neutral: 'bg-[var(--color-muted)] text-muted-foreground',
@@ -2551,7 +2508,7 @@ function PuntoCard({ punto, value, onChange, estados, estadoSeleccionado }: Punt
             ) : (
               <Badge
                 variant="outline"
-                className="h-5 rounded border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 px-1.5 text-[10px] font-medium text-[var(--color-primary)]"
+                className="h-5 rounded border-[var(--color-primary)]/30 bg-[var(--color-muted)] px-1.5 text-[10px] font-medium text-[var(--color-primary)]"
               >
                 <Truck className="mr-1 h-2.5 w-2.5" />
                 Normal

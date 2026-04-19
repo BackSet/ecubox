@@ -1,14 +1,20 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.dto.GuiaMasterCancelarRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterCerrarConFaltanteRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterConfirmarDespachoParcialRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterCreateRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterDTO;
 import com.ecubox.ecubox_backend.dto.GuiaMasterDashboardDTO;
+import com.ecubox.ecubox_backend.dto.GuiaMasterEstadoHistorialDTO;
+import com.ecubox.ecubox_backend.dto.GuiaMasterReabrirRequest;
+import com.ecubox.ecubox_backend.dto.GuiaMasterRevisionRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterUpdateRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.enums.EstadoGuiaMaster;
+import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.GuiaMasterService;
@@ -19,7 +25,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/guias-master")
@@ -62,14 +71,30 @@ public class GuiaMasterController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Listado de guias master. Soporta:
+     * <ul>
+     *   <li>{@code trackingBase}: busqueda exacta (devuelve 0 o 1 elemento).</li>
+     *   <li>{@code estado}: uno o varios estados (separados por comas o repetido).</li>
+     * </ul>
+     * Si no se pasa filtro, devuelve todas (compatibilidad).
+     */
     @GetMapping
     @PreAuthorize("hasAuthority('GUIAS_MASTER_READ')")
-    public ResponseEntity<List<GuiaMasterDTO>> findAll(@RequestParam(required = false) String trackingBase) {
+    public ResponseEntity<List<GuiaMasterDTO>> findAll(@RequestParam(required = false) String trackingBase,
+                                                       @RequestParam(name = "estado", required = false) List<String> estados) {
         if (trackingBase != null && !trackingBase.isBlank()) {
             GuiaMaster gm = guiaMasterService.findByTrackingBase(trackingBase);
             return ResponseEntity.ok(List.of(construirDTO(gm, true)));
         }
-        return ResponseEntity.ok(guiaMasterService.findAll().stream()
+        Set<EstadoGuiaMaster> filtro = parseEstados(estados);
+        List<GuiaMaster> lista;
+        if (filtro != null && !filtro.isEmpty()) {
+            lista = guiaMasterService.findByEstados(filtro);
+        } else {
+            lista = guiaMasterService.findAll();
+        }
+        return ResponseEntity.ok(lista.stream()
                 .map(gm -> construirDTO(gm, false))
                 .toList());
     }
@@ -93,12 +118,62 @@ public class GuiaMasterController {
     public ResponseEntity<GuiaMasterDTO> cerrarConFaltante(@PathVariable Long id,
                                                            @RequestBody(required = false) GuiaMasterCerrarConFaltanteRequest request) {
         String motivo = request != null ? request.getMotivo() : null;
-        GuiaMaster gm = guiaMasterService.cerrarConFaltante(id, motivo);
+        Long actorId = actorIdSafe();
+        GuiaMaster gm = guiaMasterService.cerrarConFaltante(id, motivo, actorId, null);
         return ResponseEntity.ok(construirDTO(gm, true));
     }
 
-    @PostMapping("/{id}/recalcular")
+    @PostMapping("/{id}/cancelar")
+    @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    public ResponseEntity<GuiaMasterDTO> cancelar(@PathVariable Long id,
+                                                  @Valid @RequestBody GuiaMasterCancelarRequest request) {
+        Long actorId = actorIdSafe();
+        GuiaMaster gm = guiaMasterService.cancelar(id, request.getMotivo(), actorId);
+        return ResponseEntity.ok(construirDTO(gm, true));
+    }
+
+    @PostMapping("/{id}/marcar-en-revision")
+    @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    public ResponseEntity<GuiaMasterDTO> marcarEnRevision(@PathVariable Long id,
+                                                          @RequestBody(required = false) GuiaMasterRevisionRequest request) {
+        String motivo = request != null ? request.getMotivo() : null;
+        Long actorId = actorIdSafe();
+        GuiaMaster gm = guiaMasterService.marcarEnRevision(id, motivo, actorId);
+        return ResponseEntity.ok(construirDTO(gm, true));
+    }
+
+    @PostMapping("/{id}/salir-de-revision")
+    @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    public ResponseEntity<GuiaMasterDTO> salirDeRevision(@PathVariable Long id,
+                                                         @RequestBody(required = false) GuiaMasterRevisionRequest request) {
+        String motivo = request != null ? request.getMotivo() : null;
+        Long actorId = actorIdSafe();
+        GuiaMaster gm = guiaMasterService.salirDeRevision(id, motivo, actorId);
+        return ResponseEntity.ok(construirDTO(gm, true));
+    }
+
+    @PostMapping("/{id}/reabrir")
+    @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    public ResponseEntity<GuiaMasterDTO> reabrir(@PathVariable Long id,
+                                                 @Valid @RequestBody GuiaMasterReabrirRequest request) {
+        Long actorId = actorIdSafe();
+        GuiaMaster gm = guiaMasterService.reabrir(id, request.getMotivo(), actorId);
+        return ResponseEntity.ok(construirDTO(gm, true));
+    }
+
+    @GetMapping("/{id}/historial")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_READ')")
+    public ResponseEntity<List<GuiaMasterEstadoHistorialDTO>> historial(@PathVariable Long id) {
+        return ResponseEntity.ok(guiaMasterService.listarHistorialDTO(id));
+    }
+
+    /**
+     * Recalcula el estado derivado de la guia. Antes este endpoint se
+     * exponia con permiso de lectura aunque escribia en BD; a partir de
+     * V66 requiere el permiso de actualizacion.
+     */
+    @PostMapping("/{id}/recalcular")
+    @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
     public ResponseEntity<GuiaMasterDTO> recalcular(@PathVariable Long id) {
         guiaMasterService.recomputarEstado(id);
         GuiaMaster gm = guiaMasterService.findById(id);
@@ -124,6 +199,10 @@ public class GuiaMasterController {
         return ResponseEntity.ok(guiaMasterService.buildDashboard(topAntiguas));
     }
 
+    // -----------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------
+
     private GuiaMasterDTO construirDTO(GuiaMaster gm, boolean incluirPiezas) {
         if (gm == null) {
             throw new ResourceNotFoundException("Guía master", "?");
@@ -135,5 +214,42 @@ public class GuiaMasterController {
                     .toList();
         }
         return guiaMasterService.toDTO(gm, piezasDTO);
+    }
+
+    private Long actorIdSafe() {
+        try {
+            return currentUserService.getCurrentUsuario().getId();
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Acepta varios formatos de query string:
+     * <ul>
+     *   <li>{@code ?estado=DESPACHO_PARCIAL&estado=EN_REVISION}</li>
+     *   <li>{@code ?estado=DESPACHO_PARCIAL,EN_REVISION}</li>
+     * </ul>
+     */
+    private Set<EstadoGuiaMaster> parseEstados(List<String> raw) {
+        if (raw == null || raw.isEmpty()) return null;
+        List<String> tokens = new ArrayList<>();
+        for (String r : raw) {
+            if (r == null) continue;
+            for (String t : r.split(",")) {
+                String trimmed = t.trim();
+                if (!trimmed.isEmpty()) tokens.add(trimmed);
+            }
+        }
+        if (tokens.isEmpty()) return null;
+        Set<EstadoGuiaMaster> out = EnumSet.noneOf(EstadoGuiaMaster.class);
+        for (String t : tokens) {
+            try {
+                out.add(EstadoGuiaMaster.valueOf(t.toUpperCase()));
+            } catch (IllegalArgumentException ex) {
+                throw new BadRequestException("Estado de guia desconocido: " + t);
+            }
+        }
+        return out;
     }
 }

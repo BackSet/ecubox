@@ -9,6 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class GuiaMasterCerrarConFaltanteRequest {
 
-    /** Motivo del cierre con faltante. Se registra en logs para auditoría pero no se persiste en la entidad. */
+    /**
+     * Motivo del cierre con faltante. Se persiste en
+     * {@code guia_master.motivo_cierre} y queda como evidencia auditable
+     * para reclamos posteriores del cliente.
+     */
     private String motivo;
 }

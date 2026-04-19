@@ -189,7 +189,7 @@ export function EnvioConsolidadoDetailPage() {
       <SurfaceCard className="p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[var(--color-muted)] text-[var(--color-primary)]">
               <Boxes className="h-6 w-6" />
             </span>
             <div className="min-w-0">
@@ -663,7 +663,7 @@ function AgregarPaquetesDialog({
       <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden p-0">
         <DialogHeader className="border-b border-[var(--color-border)] px-6 pb-4 pt-6">
           <div className="flex items-start gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--color-muted)] text-[var(--color-primary)]">
               <Plus className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">

@@ -18,6 +18,30 @@ public class CurrentUserService {
     }
 
     /**
+     * Devuelve el id del usuario actual o {@code null} si no hay contexto
+     * autenticado (por ejemplo cuando la operacion la dispara un job
+     * interno o un test). Util para anotar auditoria sin obligar a tener
+     * sesion.
+     */
+    public Long getCurrentUsuarioIdOrNull() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() == null) {
+                return null;
+            }
+            String username = auth.getName();
+            if (username == null || username.isBlank() || "anonymousUser".equals(username)) {
+                return null;
+            }
+            return usuarioRepository.findByUsernameWithRolesAndPermisos(username)
+                    .map(Usuario::getId)
+                    .orElse(null);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    /**
      * Obtiene el usuario actual desde el contexto de seguridad (JWT).
      */
     public Usuario getCurrentUsuario() {

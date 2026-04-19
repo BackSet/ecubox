@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   Boxes,
@@ -9,6 +9,7 @@ import {
   Plus,
   Trash2,
   UserCircle2,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeleteLoteRecepcion, useLotesRecepcion } from '@/hooks/useLotesRecepcion';
@@ -18,8 +19,18 @@ import { LoadingState } from '@/components/LoadingState';
 import { ListTableShell } from '@/components/ListTableShell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import {
   Table,
   TableBody,
@@ -31,25 +42,129 @@ import {
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { LoteRecepcion } from '@/types/lote-recepcion';
 
+const SIN_FILTRO = '__todos__';
+type Periodo = typeof SIN_FILTRO | 'hoy' | '7d' | '30d' | 'mes' | 'custom';
+
+/**
+ * Devuelve el rango [inicio, fin) en milisegundos para un periodo dado, o
+ * null si el periodo no implica un rango fijo (todos / personalizado).
+ * El "fin" es exclusivo (00:00 del dia siguiente).
+ */
+function rangoDePeriodo(p: Periodo): { from: number; to: number } | null {
+  if (p === SIN_FILTRO || p === 'custom') return null;
+  const ahora = new Date();
+  const inicioHoy = new Date(
+    ahora.getFullYear(),
+    ahora.getMonth(),
+    ahora.getDate(),
+  );
+  const dia = 24 * 60 * 60 * 1000;
+  if (p === 'hoy') {
+    return { from: inicioHoy.getTime(), to: inicioHoy.getTime() + dia };
+  }
+  if (p === '7d') {
+    return {
+      from: inicioHoy.getTime() - 6 * dia,
+      to: inicioHoy.getTime() + dia,
+    };
+  }
+  if (p === '30d') {
+    return {
+      from: inicioHoy.getTime() - 29 * dia,
+      to: inicioHoy.getTime() + dia,
+    };
+  }
+  // mes en curso
+  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  const inicioMesSig = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1);
+  return { from: inicioMes.getTime(), to: inicioMesSig.getTime() };
+}
+
+/**
+ * Convierte un input type="date" (yyyy-mm-dd) a timestamp en hora local.
+ * Si el input esta vacio o invalido, retorna null.
+ */
+function dateInputAMs(s: string, finDelDia: boolean): number | null {
+  if (!s) return null;
+  const [y, m, d] = s.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const date = new Date(y, m - 1, d, finDelDia ? 23 : 0, finDelDia ? 59 : 0, finDelDia ? 59 : 0, finDelDia ? 999 : 0);
+  return date.getTime();
+}
+
 export function LoteRecepcionListPage() {
   const navigate = useNavigate();
   const { data: lotes, isLoading, error } = useLotesRecepcion();
   const deleteLote = useDeleteLoteRecepcion();
   const [search, setSearch] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [operarioFiltro, setOperarioFiltro] = useState<string | undefined>(
+    undefined,
+  );
+  const [periodo, setPeriodo] = useState<Periodo>(SIN_FILTRO);
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+
+  // Operarios distintos presentes en los lotes, para poblar el dropdown.
+  const operarios = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of lotes ?? []) {
+      const n = l.operarioNombre?.trim();
+      if (n) set.add(n);
+    }
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' }),
+    );
+  }, [lotes]);
 
   const list = useMemo(() => {
     const raw = lotes ?? [];
-    if (!search.trim()) return raw;
     const q = search.trim().toLowerCase();
-    return raw.filter(
-      (l) =>
+
+    // Resolver el rango de fecha activo. Si periodo === 'custom' usamos
+    // los inputs desde/hasta; si no, derivamos del periodo seleccionado.
+    let rango: { from: number; to: number } | null = null;
+    if (periodo === 'custom') {
+      const from = dateInputAMs(desde, false);
+      const to = dateInputAMs(hasta, true);
+      if (from != null || to != null) {
+        rango = {
+          from: from ?? Number.NEGATIVE_INFINITY,
+          to: to ?? Number.POSITIVE_INFINITY,
+        };
+      }
+    } else {
+      rango = rangoDePeriodo(periodo);
+    }
+
+    return raw.filter((l) => {
+      if (operarioFiltro && (l.operarioNombre ?? '') !== operarioFiltro) {
+        return false;
+      }
+      if (rango) {
+        const t = l.fechaRecepcion ? new Date(l.fechaRecepcion).getTime() : NaN;
+        if (Number.isNaN(t)) return false;
+        if (t < rango.from || t > rango.to) return false;
+      }
+      if (!q) return true;
+      return (
         String(l.id).includes(q) ||
-        l.observaciones?.toLowerCase().includes(q) ||
-        l.operarioNombre?.toLowerCase().includes(q) ||
-        l.numeroGuiasEnvio?.some((g) => g.toLowerCase().includes(q)),
-    );
-  }, [lotes, search]);
+        (l.observaciones?.toLowerCase().includes(q) ?? false) ||
+        (l.operarioNombre?.toLowerCase().includes(q) ?? false) ||
+        (l.numeroGuiasEnvio?.some((g) => g.toLowerCase().includes(q)) ?? false)
+      );
+    });
+  }, [lotes, search, operarioFiltro, periodo, desde, hasta]);
+
+  const tieneFiltros =
+    !!operarioFiltro || periodo !== SIN_FILTRO || desde !== '' || hasta !== '';
+
+  const limpiarFiltros = useCallback(() => {
+    setOperarioFiltro(undefined);
+    setPeriodo(SIN_FILTRO);
+    setDesde('');
+    setHasta('');
+  }, []);
 
   const stats = useMemo(() => {
     const all = lotes ?? [];
@@ -133,6 +248,97 @@ export function LoteRecepcionListPage() {
         </div>
       )}
 
+      {allLotes.length > 0 && (
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Operario
+            </span>
+            <SearchableCombobox<string>
+              value={operarioFiltro}
+              onChange={(v) =>
+                setOperarioFiltro(v === undefined ? undefined : String(v))
+              }
+              options={operarios}
+              getKey={(n) => n}
+              getLabel={(n) => n}
+              placeholder="Todos"
+              searchPlaceholder="Buscar operario..."
+              emptyMessage="Sin operarios"
+              className="h-9 w-[14rem]"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Período
+            </span>
+            <Select
+              value={periodo}
+              onValueChange={(v) => setPeriodo(v as Periodo)}
+            >
+              <SelectTrigger className="h-9 w-[12rem]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_FILTRO}>Cualquier fecha</SelectItem>
+                <SelectItem value="hoy">Hoy</SelectItem>
+                <SelectItem value="7d">Últimos 7 días</SelectItem>
+                <SelectItem value="30d">Últimos 30 días</SelectItem>
+                <SelectItem value="mes">Este mes</SelectItem>
+                <SelectItem value="custom">Personalizado…</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {periodo === 'custom' && (
+            <>
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor="filtro-desde"
+                  className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+                >
+                  Desde
+                </label>
+                <Input
+                  id="filtro-desde"
+                  type="date"
+                  value={desde}
+                  onChange={(e) => setDesde(e.target.value)}
+                  max={hasta || undefined}
+                  className="h-9 w-[10rem]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor="filtro-hasta"
+                  className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+                >
+                  Hasta
+                </label>
+                <Input
+                  id="filtro-hasta"
+                  type="date"
+                  value={hasta}
+                  onChange={(e) => setHasta(e.target.value)}
+                  min={desde || undefined}
+                  className="h-9 w-[10rem]"
+                />
+              </div>
+            </>
+          )}
+          {tieneFiltros && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={limpiarFiltros}
+              className="ml-auto h-9 gap-1.5 whitespace-nowrap"
+            >
+              <X className="h-3.5 w-3.5 shrink-0" />
+              <span>Limpiar filtros</span>
+            </Button>
+          )}
+        </div>
+      )}
+
       {allLotes.length === 0 ? (
         <EmptyState
           icon={PackageCheck}
@@ -151,7 +357,19 @@ export function LoteRecepcionListPage() {
         <EmptyState
           icon={PackageCheck}
           title="Sin resultados"
-          description="No hay lotes que coincidan con la búsqueda."
+          description={
+            tieneFiltros || search.trim() !== ''
+              ? 'No hay lotes que coincidan con los filtros aplicados.'
+              : 'No hay lotes que coincidan con la búsqueda.'
+          }
+          action={
+            tieneFiltros ? (
+              <Button variant="outline" onClick={limpiarFiltros}>
+                <X className="mr-2 h-4 w-4" />
+                Limpiar filtros
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <>
@@ -168,7 +386,7 @@ export function LoteRecepcionListPage() {
                   <TableHead>Guías</TableHead>
                   <TableHead>Paquetes</TableHead>
                   <TableHead className="min-w-[14rem]">Observaciones</TableHead>
-                  <TableHead className="w-24 text-right">Acciones</TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -202,26 +420,26 @@ export function LoteRecepcionListPage() {
                       className="text-right align-top"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-end gap-1">
-                        <Link
-                          to="/lotes-recepcion/$id"
-                          params={{ id: String(l.id) }}
-                          aria-label="Ver detalle"
-                          title="Ver detalle"
-                          className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-muted)] hover:text-foreground"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteConfirmId(l.id)}
-                          aria-label="Eliminar lote"
-                          title="Eliminar lote"
-                          className="rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:bg-[var(--color-destructive)]/10 hover:text-[var(--color-destructive)] hover:border-[var(--color-destructive)]/40"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                      <RowActionsMenu
+                        items={[
+                          {
+                            label: 'Ver detalle',
+                            icon: Eye,
+                            onSelect: () =>
+                              navigate({
+                                to: '/lotes-recepcion/$id',
+                                params: { id: String(l.id) },
+                              }),
+                          },
+                          { type: 'separator' },
+                          {
+                            label: 'Eliminar lote',
+                            icon: Trash2,
+                            destructive: true,
+                            onSelect: () => setDeleteConfirmId(l.id),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

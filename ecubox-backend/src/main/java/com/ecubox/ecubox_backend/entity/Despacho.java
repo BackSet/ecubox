@@ -65,6 +65,31 @@ public class Despacho {
     @Builder.Default
     private List<Saca> sacas = new ArrayList<>();
 
+    // ---------------------------------------------------------------------
+    // Snapshot del destino congelado (V67 - SCD Tipo 2)
+    //
+    // Solo una de las tres referencias *_version es NOT NULL al mismo
+    // tiempo, segun {@link #tipoEntrega}. Mientras todas sean NULL las
+    // lecturas resuelven al maestro vivo (caso muy temprano: durante la
+    // misma transaccion de creacion del despacho); en cuanto se completa
+    // create() el snapshot esta poblado y es la fuente de verdad.
+    // ---------------------------------------------------------------------
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "destinatario_version_id")
+    private DestinatarioFinalVersion destinatarioVersion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agencia_version_id")
+    private AgenciaVersion agenciaVersion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agencia_distribuidor_version_id")
+    private AgenciaDistribuidorVersion agenciaDistribuidorVersion;
+
+    @Column(name = "destino_congelado_en")
+    private LocalDateTime destinoCongeladoEn;
+
     @Version
     @Column(nullable = false)
     private Long version;

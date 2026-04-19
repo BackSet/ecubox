@@ -211,6 +211,43 @@ public class EnvioConsolidadoService {
         return envioConsolidadoRepository.save(envio);
     }
 
+    /**
+     * Elimina definitivamente un envio consolidado. Solo permitido si el envio
+     * esta <em>abierto</em>: un envio cerrado se considera historico y debe
+     * reabrirse antes de poder borrarse.
+     *
+     * <p>El parametro {@code eliminarPaquetes} controla que pasa con las
+     * piezas asociadas:
+     * <ul>
+     *   <li>{@code false} (default seguro): se desasocian (set FK = null) y
+     *       siguen existiendo en el sistema, listas para reasignarse a otro
+     *       envio.</li>
+     *   <li>{@code true}: se eliminan tambien los paquetes (incluyendo sus
+     *       eventos de tracking y outbox). Operacion irreversible.</li>
+     * </ul>
+     */
+    @Transactional
+    public void eliminar(Long envioId, boolean eliminarPaquetes) {
+        EnvioConsolidado envio = findById(envioId);
+        if (envio.isCerrado()) {
+            throw new ConflictException(
+                    "No se puede eliminar un envío consolidado cerrado. Reábrelo primero si necesitas borrarlo.");
+        }
+        long totalPaquetes = paqueteRepository.countByEnvioConsolidadoId(envio.getId());
+        if (totalPaquetes > 0) {
+            if (eliminarPaquetes) {
+                paqueteService.deleteAllByEnvioConsolidadoId(envio.getId());
+            } else {
+                List<Paquete> paquetes = paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(envio.getId());
+                for (Paquete p : paquetes) {
+                    p.setEnvioConsolidado(null);
+                }
+                paqueteRepository.saveAll(paquetes);
+            }
+        }
+        envioConsolidadoRepository.delete(envio);
+    }
+
     private void recalcularTotales(EnvioConsolidado envio) {
         long total = paqueteRepository.countByEnvioConsolidadoId(envio.getId());
         BigDecimal pesoTotal = paqueteRepository.sumPesoLbsByEnvioConsolidadoId(envio.getId());

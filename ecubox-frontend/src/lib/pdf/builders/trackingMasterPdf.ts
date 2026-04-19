@@ -11,12 +11,14 @@ const PAGE_W = 210;
 const PAGE_H = 297;
 
 const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
-  INCOMPLETA: 'Incompleta',
-  PARCIAL_RECIBIDA: 'Parcialmente recibida',
-  COMPLETA_RECIBIDA: 'Completa en bodega',
-  PARCIAL_DESPACHADA: 'Despacho parcial',
-  CERRADA: 'Cerrada',
-  CERRADA_CON_FALTANTE: 'Cerrada con faltante',
+  EN_ESPERA_RECEPCION: 'En espera de recepción',
+  RECEPCION_PARCIAL: 'Recepción parcial',
+  RECEPCION_COMPLETA: 'Recepción completa',
+  DESPACHO_PARCIAL: 'Despacho parcial',
+  DESPACHO_COMPLETADO: 'Despacho completado',
+  DESPACHO_INCOMPLETO: 'Despacho incompleto',
+  CANCELADA: 'Cancelada',
+  EN_REVISION: 'En revisión',
 };
 
 function safe(value?: string | null): string {
@@ -47,16 +49,19 @@ type BadgeVariant =
 
 function variantFromEstado(estado?: EstadoGuiaMaster): BadgeVariant {
   switch (estado) {
-    case 'COMPLETA_RECIBIDA':
-    case 'CERRADA':
+    case 'RECEPCION_COMPLETA':
+    case 'DESPACHO_COMPLETADO':
       return 'success';
-    case 'PARCIAL_RECIBIDA':
-    case 'PARCIAL_DESPACHADA':
+    case 'RECEPCION_PARCIAL':
+    case 'DESPACHO_PARCIAL':
       return 'info';
-    case 'CERRADA_CON_FALTANTE':
+    case 'DESPACHO_INCOMPLETO':
+    case 'EN_REVISION':
       return 'warning';
-    case 'INCOMPLETA':
+    case 'CANCELADA':
       return 'destructive';
+    case 'EN_ESPERA_RECEPCION':
+      return 'neutral';
     default:
       return 'neutral';
   }

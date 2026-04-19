@@ -275,7 +275,7 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
                 placeholder="Buscar por nombre, cantón o código..."
               />
               {destOpen && (
-                <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-md border border-[var(--color-border)] bg-[var(--color-background)] py-1 shadow-lg">
+                <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-md border border-[var(--color-border)] bg-[var(--color-background)] py-1">
                   {filteredDest.length === 0 ? (
                     <li className="px-3 py-2 text-sm text-[var(--color-muted-foreground)]">
                       Sin resultados

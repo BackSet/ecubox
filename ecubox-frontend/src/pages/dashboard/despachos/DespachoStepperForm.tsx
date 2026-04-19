@@ -979,9 +979,9 @@ export function DespachoStepperForm({
               }}
               className={`w-full rounded-xl border p-2.5 sm:p-3 text-left transition-colors ${
                 step === pasoActual
-                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
+                  ? 'border-[var(--color-primary)] bg-[var(--color-muted)]'
                   : step < pasoActual
-                    ? 'border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 hover:bg-[var(--color-primary)]/10'
+                    ? 'border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 hover:bg-[var(--color-muted)]'
                     : 'border-[var(--color-border)] bg-[var(--color-card)] hover:bg-[var(--color-muted)]/40'
               }`}
               aria-current={step === pasoActual ? 'step' : undefined}
@@ -992,7 +992,7 @@ export function DespachoStepperForm({
                   step === pasoActual
                     ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
                     : step < pasoActual
-                      ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                      ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
                       : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
                 }`}
               >
@@ -1017,7 +1017,7 @@ export function DespachoStepperForm({
             {i < 2 && (
               <div
                 className={`mx-1 hidden h-1 w-8 rounded-full sm:mx-2 sm:block sm:w-12 ${
-                  step < pasoActual ? 'bg-[var(--color-primary)]/20' : 'bg-[var(--color-muted)]'
+                  step < pasoActual ? 'bg-[var(--color-muted)]' : 'bg-[var(--color-muted)]'
                 }`}
               />
             )}
@@ -1260,7 +1260,7 @@ export function DespachoStepperForm({
                                       disabled={actualizarTamanioSacaMutation.isPending}
                                       className={`flex flex-col items-start rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${
                                         isSelected
-                                          ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-medium'
+                                          ? 'border-[var(--color-primary)] bg-[var(--color-muted)] text-[var(--color-primary)] font-medium'
                                           : 'border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/50'
                                       }`}
                                     >
@@ -1497,7 +1497,7 @@ export function DespachoStepperForm({
                                         onClick={() => form.setValue(`sacasNuevas.${index}.tamanio`, o.value)}
                                         className={`flex flex-col items-start rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${
                                           isSelected
-                                            ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-medium'
+                                            ? 'border-[var(--color-primary)] bg-[var(--color-muted)] text-[var(--color-primary)] font-medium'
                                             : 'border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/50'
                                         }`}
                                       >
@@ -2223,7 +2223,7 @@ function ResumenChip({ icon: Icon, label, value, tone = 'muted' }: ResumenChipPr
       <span
         className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
           accent
-            ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]'
+            ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
             : 'bg-[var(--color-muted)] text-muted-foreground'
         }`}
       >

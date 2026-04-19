@@ -8,7 +8,6 @@ import {
   Check,
   CheckSquare,
   Copy,
-  ExternalLink,
   Eye,
   FileDown,
   FileSpreadsheet,
@@ -18,7 +17,6 @@ import {
   MessageCircle,
   Package as PackageIcon,
   Pencil,
-  Phone,
   Plus,
   Printer,
   RotateCcw,
@@ -32,6 +30,8 @@ import {
   UserCircle2,
   Users,
 } from 'lucide-react';
+import { MonoTrunc } from '@/components/MonoTrunc';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { toast } from 'sonner';
 import {
   useDespachos,
@@ -53,9 +53,12 @@ import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { KpiCard } from '@/components/KpiCard';
+import { ChipFiltro } from '@/components/ChipFiltro';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import {
   Select,
   SelectContent,
@@ -113,8 +116,10 @@ export function DespachoListPage() {
   const { data: estadosPorPunto } = useEstadosRastreoPorPunto();
 
   const [search, setSearch] = useState('');
-  const [tipoFiltro, setTipoFiltro] = useState<string>(SIN_FILTRO);
-  const [distribuidorFiltro, setDistribuidorFiltro] = useState<string>(SIN_FILTRO);
+  const [tipoFiltro, setTipoFiltro] = useState<TipoEntrega | typeof SIN_FILTRO>(SIN_FILTRO);
+  const [distribuidorFiltro, setDistribuidorFiltro] = useState<string | undefined>(undefined);
+  // Chip rapido sobre el conjunto: hoy, ultimos 7 dias.
+  const [chipPeriodo, setChipPeriodo] = useState<'todos' | 'hoy' | '7d'>('todos');
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [whatsappDespachoId, setWhatsappDespachoId] = useState<number | null>(null);
   const [aplicarModo, setAplicarModo] = useState<'periodo' | 'despachos'>('periodo');
@@ -237,13 +242,36 @@ export function DespachoListPage() {
     return Array.from(set);
   }, [allDespachos]);
 
+  // Devuelve el rango (ms) acotado por el chip de periodo activo.
+  const rangoChip = useMemo<{ from: number; to: number } | null>(() => {
+    if (chipPeriodo === 'todos') return null;
+    const ahora = new Date();
+    const inicioHoy = new Date(
+      ahora.getFullYear(),
+      ahora.getMonth(),
+      ahora.getDate(),
+    );
+    const dia = 24 * 60 * 60 * 1000;
+    if (chipPeriodo === 'hoy') {
+      return { from: inicioHoy.getTime(), to: inicioHoy.getTime() + dia };
+    }
+    return { from: inicioHoy.getTime() - 6 * dia, to: inicioHoy.getTime() + dia };
+  }, [chipPeriodo]);
+
   const list = useMemo(() => {
     let raw = allDespachos;
     if (tipoFiltro !== SIN_FILTRO) {
-      raw = raw.filter((d) => d.tipoEntrega === (tipoFiltro as TipoEntrega));
+      raw = raw.filter((d) => d.tipoEntrega === tipoFiltro);
     }
-    if (distribuidorFiltro !== SIN_FILTRO) {
+    if (distribuidorFiltro) {
       raw = raw.filter((d) => d.distribuidorNombre === distribuidorFiltro);
+    }
+    if (rangoChip) {
+      raw = raw.filter((d) => {
+        if (!d.fechaHora) return false;
+        const t = new Date(d.fechaHora).getTime();
+        return Number.isFinite(t) && t >= rangoChip.from && t < rangoChip.to;
+      });
     }
     const q = search.trim().toLowerCase();
     if (!q) return raw;
@@ -261,7 +289,25 @@ export function DespachoListPage() {
         d.operarioNombre?.toLowerCase().includes(q) ||
         String(d.id).includes(q),
     );
-  }, [allDespachos, search, tipoFiltro, distribuidorFiltro]);
+  }, [allDespachos, search, tipoFiltro, distribuidorFiltro, rangoChip]);
+
+  // Conteo por tipo para los chips rapidos, considerando los demas filtros activos.
+  const tipoCounts = useMemo(() => {
+    const counts: Record<string, number> = { TODOS: 0 };
+    for (const d of allDespachos) {
+      // Los chips de tipo deben reflejar el universo actualmente filtrado por
+      // los OTROS filtros (distribuidor + periodo + busqueda).
+      if (distribuidorFiltro && d.distribuidorNombre !== distribuidorFiltro) continue;
+      if (rangoChip) {
+        if (!d.fechaHora) continue;
+        const t = new Date(d.fechaHora).getTime();
+        if (!Number.isFinite(t) || t < rangoChip.from || t >= rangoChip.to) continue;
+      }
+      counts.TODOS += 1;
+      counts[d.tipoEntrega] = (counts[d.tipoEntrega] ?? 0) + 1;
+    }
+    return counts;
+  }, [allDespachos, distribuidorFiltro, rangoChip]);
 
   const stats = useMemo(() => {
     const all = allDespachos;
@@ -320,7 +366,15 @@ export function DespachoListPage() {
   }
 
   const plantilla = mensajeWhatsApp?.plantilla ?? '';
-  const tieneFiltros = tipoFiltro !== SIN_FILTRO || distribuidorFiltro !== SIN_FILTRO;
+  const tieneFiltros =
+    tipoFiltro !== SIN_FILTRO ||
+    !!distribuidorFiltro ||
+    chipPeriodo !== 'todos';
+  const limpiarFiltros = () => {
+    setTipoFiltro(SIN_FILTRO);
+    setDistribuidorFiltro(undefined);
+    setChipPeriodo('todos');
+  };
 
   return (
     <div className="page-stack">
@@ -379,62 +433,100 @@ export function DespachoListPage() {
         </div>
       )}
 
-      {allDespachos.length > 0 && (tiposPresentes.length > 1 || distribuidoresPresentes.length > 1) && (
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
-          {tiposPresentes.length > 1 && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Tipo de entrega
-              </span>
-              <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
-                <SelectTrigger className="h-9 w-[12rem]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SIN_FILTRO}>Todos los tipos</SelectItem>
-                  {tiposPresentes.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {TIPO_LABELS[t]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {distribuidoresPresentes.length > 1 && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Distribuidor
-              </span>
-              <Select value={distribuidorFiltro} onValueChange={setDistribuidorFiltro}>
-                <SelectTrigger className="h-9 w-[14rem]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SIN_FILTRO}>Todos los distribuidores</SelectItem>
-                  {distribuidoresPresentes.map((n) => (
-                    <SelectItem key={n} value={n}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {tieneFiltros && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setTipoFiltro(SIN_FILTRO);
-                setDistribuidorFiltro(SIN_FILTRO);
-              }}
-              className="ml-auto h-9"
-            >
-              Limpiar filtros
-            </Button>
-          )}
-        </div>
+      {allDespachos.length > 0 && (
+        <FiltrosBar
+          hayFiltrosActivos={tieneFiltros}
+          onLimpiar={limpiarFiltros}
+          chips={
+            <>
+              <ChipFiltro
+                label="Todos"
+                count={tipoCounts.TODOS ?? 0}
+                active={tipoFiltro === SIN_FILTRO && chipPeriodo === 'todos'}
+                onClick={() => {
+                  setTipoFiltro(SIN_FILTRO);
+                  setChipPeriodo('todos');
+                }}
+              />
+              {tiposPresentes.map((t) => (
+                <ChipFiltro
+                  key={t}
+                  label={TIPO_LABELS[t]}
+                  count={tipoCounts[t] ?? 0}
+                  active={tipoFiltro === t}
+                  tone={
+                    t === 'DOMICILIO'
+                      ? 'success'
+                      : t === 'AGENCIA'
+                        ? 'primary'
+                        : 'neutral'
+                  }
+                  onClick={() =>
+                    setTipoFiltro(tipoFiltro === t ? SIN_FILTRO : t)
+                  }
+                  hideWhenZero
+                />
+              ))}
+              <span className="mx-1 h-4 w-px bg-border" />
+              <ChipFiltro
+                label="Hoy"
+                count={stats.hoy}
+                active={chipPeriodo === 'hoy'}
+                tone="warning"
+                onClick={() =>
+                  setChipPeriodo(chipPeriodo === 'hoy' ? 'todos' : 'hoy')
+                }
+                hideWhenZero
+              />
+              <ChipFiltro
+                label="Últimos 7d"
+                count={(() => {
+                  const ahora = new Date();
+                  const inicioHoy = new Date(
+                    ahora.getFullYear(),
+                    ahora.getMonth(),
+                    ahora.getDate(),
+                  );
+                  const dia = 24 * 60 * 60 * 1000;
+                  const from = inicioHoy.getTime() - 6 * dia;
+                  const to = inicioHoy.getTime() + dia;
+                  let n = 0;
+                  for (const d of allDespachos) {
+                    if (!d.fechaHora) continue;
+                    const t = new Date(d.fechaHora).getTime();
+                    if (Number.isFinite(t) && t >= from && t < to) n += 1;
+                  }
+                  return n;
+                })()}
+                active={chipPeriodo === '7d'}
+                tone="warning"
+                onClick={() =>
+                  setChipPeriodo(chipPeriodo === '7d' ? 'todos' : '7d')
+                }
+                hideWhenZero
+              />
+            </>
+          }
+          filtros={
+            distribuidoresPresentes.length > 1 && (
+              <FiltroCampo label="Distribuidor" width="w-[16rem]">
+                <SearchableCombobox<string>
+                  value={distribuidorFiltro}
+                  onChange={(v) =>
+                    setDistribuidorFiltro(v === undefined ? undefined : String(v))
+                  }
+                  options={distribuidoresPresentes}
+                  getKey={(n) => n}
+                  getLabel={(n) => n}
+                  placeholder="Todos"
+                  searchPlaceholder="Buscar distribuidor..."
+                  emptyMessage="Sin distribuidores"
+                  className="h-9 w-full"
+                />
+              </FiltroCampo>
+            )
+          }
+        />
       )}
 
       {allDespachos.length === 0 ? (
@@ -454,6 +546,13 @@ export function DespachoListPage() {
           icon={Truck}
           title="Sin resultados"
           description="No hay despachos que coincidan con la búsqueda o los filtros."
+          action={
+            tieneFiltros ? (
+              <Button variant="outline" onClick={limpiarFiltros}>
+                Limpiar filtros
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <>
@@ -462,15 +561,15 @@ export function DespachoListPage() {
             {list.length !== allDespachos.length ? ` de ${allDespachos.length}` : ''}
           </p>
           <ListTableShell>
-            <Table className="min-w-[1100px] text-left">
+            <Table className="min-w-[820px] text-left">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[12rem]">Despacho</TableHead>
+                  <TableHead className="w-[14rem]">Despacho</TableHead>
                   <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
                   <TableHead className="w-[10rem]">Tipo</TableHead>
                   <TableHead className="min-w-[14rem]">Destino</TableHead>
                   <TableHead className="w-[8rem]">Sacas</TableHead>
-                  <TableHead className="w-[20rem] text-right">Acciones</TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -509,120 +608,72 @@ export function DespachoListPage() {
                       className="text-right align-top"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Ver detalle"
-                          title="Ver detalle"
-                          onClick={() =>
-                            navigate({
-                              to: '/despachos/$id',
-                              params: { id: String(d.id) },
-                            })
-                          }
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Editar despacho"
-                          title="Editar despacho"
-                          onClick={() =>
-                            navigate({
-                              to: '/despachos/$id/editar',
-                              params: { id: String(d.id) },
-                            })
-                          }
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Imprimir despacho"
-                          title="Imprimir despacho"
-                          disabled={exportingId?.id === d.id}
-                          onClick={() => handleExportar(d.id, 'print')}
-                        >
-                          {exportingId?.id === d.id && exportingId.mode === 'print' ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Printer className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Descargar PDF"
-                          title="Descargar PDF"
-                          disabled={exportingId?.id === d.id}
-                          className="text-[var(--color-primary)] hover:text-[var(--color-primary)]"
-                          onClick={() => handleExportar(d.id, 'pdf')}
-                        >
-                          {exportingId?.id === d.id && exportingId.mode === 'pdf' ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <FileDown className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Descargar Excel"
-                          title="Descargar Excel"
-                          disabled={exportingId?.id === d.id}
-                          className="text-[var(--color-success)] hover:text-[var(--color-success)] dark:text-[var(--color-success)] dark:hover:text-[var(--color-success)]"
-                          onClick={() => handleExportar(d.id, 'xlsx')}
-                        >
-                          {exportingId?.id === d.id && exportingId.mode === 'xlsx' ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <FileSpreadsheet className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Aplicar estado a este despacho"
-                          title="Aplicar estado a este despacho"
-                          className="text-[var(--color-warning)] hover:text-[var(--color-warning)]"
-                          onClick={() => abrirAplicarEstado('despachos', d.id)}
-                        >
-                          <Tag className="h-4 w-4" />
-                        </Button>
-                        {plantilla && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Generar mensaje WhatsApp"
-                            title="Generar mensaje WhatsApp"
-                            className="text-[var(--color-success)] hover:text-[var(--color-success)]"
-                            onClick={() => setWhatsappDespachoId(d.id)}
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Eliminar despacho"
-                          title="Eliminar despacho"
-                          className="text-[var(--color-destructive)] hover:text-[var(--color-destructive)]"
-                          onClick={() => setDeleteConfirmId(d.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <RowActionsMenu
+                        items={[
+                          {
+                            label: 'Ver detalle',
+                            icon: Eye,
+                            onSelect: () =>
+                              navigate({
+                                to: '/despachos/$id',
+                                params: { id: String(d.id) },
+                              }),
+                          },
+                          {
+                            label: 'Editar despacho',
+                            icon: Pencil,
+                            onSelect: () =>
+                              navigate({
+                                to: '/despachos/$id/editar',
+                                params: { id: String(d.id) },
+                              }),
+                          },
+                          { type: 'separator' },
+                          {
+                            label: 'Imprimir',
+                            icon: Printer,
+                            onSelect: () => handleExportar(d.id, 'print'),
+                            loading:
+                              exportingId?.id === d.id && exportingId.mode === 'print',
+                            disabled: exportingId?.id === d.id,
+                          },
+                          {
+                            label: 'Descargar PDF',
+                            icon: FileDown,
+                            onSelect: () => handleExportar(d.id, 'pdf'),
+                            loading:
+                              exportingId?.id === d.id && exportingId.mode === 'pdf',
+                            disabled: exportingId?.id === d.id,
+                          },
+                          {
+                            label: 'Descargar Excel',
+                            icon: FileSpreadsheet,
+                            onSelect: () => handleExportar(d.id, 'xlsx'),
+                            loading:
+                              exportingId?.id === d.id && exportingId.mode === 'xlsx',
+                            disabled: exportingId?.id === d.id,
+                          },
+                          { type: 'separator' },
+                          {
+                            label: 'Aplicar estado',
+                            icon: Tag,
+                            onSelect: () => abrirAplicarEstado('despachos', d.id),
+                          },
+                          {
+                            label: 'Mensaje WhatsApp',
+                            icon: MessageCircle,
+                            onSelect: () => setWhatsappDespachoId(d.id),
+                            hidden: !plantilla,
+                          },
+                          { type: 'separator' },
+                          {
+                            label: 'Eliminar',
+                            icon: Trash2,
+                            destructive: true,
+                            onSelect: () => setDeleteConfirmId(d.id),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -693,12 +744,10 @@ function DespachoCell({ despacho }: { despacho: Despacho }) {
   const valido = f && !Number.isNaN(f.getTime());
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <span
-        className="break-all font-mono text-sm font-medium text-foreground"
-        title={despacho.numeroGuia}
-      >
-        {despacho.numeroGuia}
-      </span>
+      <MonoTrunc
+        value={despacho.numeroGuia}
+        className="font-medium text-foreground"
+      />
       <span className="font-mono text-[11px] text-muted-foreground">
         #{despacho.id}
       </span>
@@ -1208,9 +1257,11 @@ function AplicarEstadoDialog({
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-baseline gap-x-2">
-                                <span className="font-mono text-sm font-medium text-foreground">
-                                  {d.numeroGuia}
-                                </span>
+                                <MonoTrunc
+                                  value={d.numeroGuia}
+                                  className="font-medium text-foreground"
+                                  copy={false}
+                                />
                                 <span className="font-mono text-[11px] text-muted-foreground">
                                   #{d.id}
                                 </span>
@@ -1383,13 +1434,6 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
 
   if (!despacho) return null;
 
-  const lugar =
-    despacho.tipoEntrega === 'DOMICILIO'
-      ? despacho.destinatarioDireccion
-      : despacho.tipoEntrega === 'AGENCIA_DISTRIBUIDOR'
-        ? despacho.agenciaDistribuidorNombre
-        : despacho.agenciaNombre;
-  const persona = despacho.destinatarioNombre;
   const telefono = despacho.destinatarioTelefono;
   const wa = normalizarTelefonoWA(telefono);
 
@@ -1463,55 +1507,6 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="rounded-lg border border-border bg-[var(--color-muted)]/40 p-3">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
-              <span className="font-mono text-xs font-medium text-foreground">
-                {despacho.numeroGuia}
-              </span>
-              <Badge
-                variant="outline"
-                className={`${TIPO_COLORS[despacho.tipoEntrega]} font-normal`}
-              >
-                {TIPO_LABELS[despacho.tipoEntrega] ?? despacho.tipoEntrega}
-              </Badge>
-              {persona && (
-                <span className="inline-flex items-center gap-1 text-xs text-foreground">
-                  <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="truncate">{persona}</span>
-                </span>
-              )}
-              {lugar && (
-                <span className="inline-flex max-w-[20rem] items-center gap-1 text-xs text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate" title={lugar}>
-                    {lugar}
-                  </span>
-                </span>
-              )}
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-              {telefono ? (
-                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5" />
-                  Para:{' '}
-                  <span className="font-medium text-foreground" title={telefono}>
-                    {wa.ok ? wa.display : telefono}
-                  </span>
-                  {wa.ok && telefono.replace(/\D+/g, '') !== wa.digits && (
-                    <span className="rounded bg-[var(--color-success)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-success)]">
-                      normalizado
-                    </span>
-                  )}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[var(--color-warning)] dark:text-[var(--color-warning)]">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  Sin teléfono registrado
-                </span>
-              )}
-            </div>
-          </div>
-
           {cargando ? (
             <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1570,8 +1565,8 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
                   placeholder="Escribe el mensaje..."
                 />
               ) : (
-                <div className="rounded-2xl bg-[var(--color-success)]/10 p-3 dark:bg-[var(--color-success)]">
-                  <div className="relative max-h-[280px] overflow-auto whitespace-pre-wrap rounded-xl rounded-tl-sm bg-white p-3 text-sm leading-relaxed text-foreground shadow-sm ">
+                <div className="rounded-2xl border border-[var(--color-success)]/20 bg-[color-mix(in_oklab,var(--color-success)_8%,transparent)] p-3">
+                  <div className="relative max-h-[280px] overflow-auto whitespace-pre-wrap rounded-xl rounded-tl-sm border border-border bg-[var(--color-card)] p-3 text-sm leading-relaxed text-foreground shadow-sm">
                     {mensaje || (
                       <span className="italic text-muted-foreground">
                         Mensaje vacío
@@ -1640,31 +1635,35 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
               {copiado ? 'Copiado' : 'Copiar'}
             </Button>
             {waUrl ? (
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <Button
+                asChild
+                size="sm"
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-md bg-[var(--color-success)] px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[var(--color-success)]',
+                  'gap-2 bg-[var(--color-success)] text-white shadow-sm transition-colors hover:bg-[var(--color-success)] hover:brightness-110',
                   !mensaje && 'pointer-events-none opacity-50',
                 )}
               >
-                <MessageCircle className="h-4 w-4" />
-                Abrir en WhatsApp
-                <ExternalLink className="h-3.5 w-3.5 opacity-80" />
-              </a>
+                <a href={waUrl} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="h-4 w-4" />
+                  Abrir en WhatsApp
+                </a>
+              </Button>
             ) : (
-              <span
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled
                 title={
                   telefono
                     ? 'Teléfono no válido para WhatsApp'
                     : 'Sin teléfono registrado'
                 }
-                className="inline-flex cursor-not-allowed items-center gap-2 rounded-md border border-border bg-[var(--color-muted)]/40 px-3 py-1.5 text-sm text-muted-foreground"
+                className="gap-2"
               >
                 <MessageCircle className="h-4 w-4" />
                 Abrir en WhatsApp
-              </span>
+              </Button>
             )}
           </div>
         </div>

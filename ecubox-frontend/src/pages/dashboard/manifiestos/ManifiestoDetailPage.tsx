@@ -129,7 +129,7 @@ const TIPO_BADGE: Record<string, string> = {
   DOMICILIO:
     'border-[var(--color-info)]/30 bg-[var(--color-info)]/10 text-[var(--color-info)]',
   AGENCIA:
-    'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+    'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]',
   AGENCIA_DISTRIBUIDOR:
     'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
 };
@@ -343,14 +343,14 @@ export function ManifiestoDetailPage() {
             <div
               className={cn(
                 'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg',
-                'bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+                'bg-[var(--color-muted)] text-[var(--color-primary)]',
               )}
             >
               <FileText className="h-6 w-6" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="break-all font-mono text-2xl font-semibold tracking-tight text-foreground">
+                <h1 className="break-all font-mono text-[18px] font-semibold tracking-tight text-foreground">
                   {m.codigo ?? `#${m.id}`}
                 </h1>
                 <CopyButton value={m.codigo ?? String(m.id)} title="Copiar código" />
@@ -578,7 +578,7 @@ export function ManifiestoDetailPage() {
             value={fmtMoneda(m.totalAgencia)}
             valueClassName="font-mono text-sm font-semibold tabular-nums"
           />
-          <div className="mt-2 flex items-center justify-between rounded-md border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 px-3 py-2">
+          <div className="mt-2 flex items-center justify-between rounded-md border border-[var(--color-primary)]/30 bg-[var(--color-muted)] px-3 py-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">
               Total a pagar
             </span>
@@ -605,7 +605,7 @@ export function ManifiestoDetailPage() {
             <FilterIcon className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Filtros de exportación</span>
             {hayFiltrosExport ? (
-              <Badge variant="outline" className="border-[var(--color-primary)]/40 bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+              <Badge variant="outline" className="border-[var(--color-primary)]/40 bg-[var(--color-muted)] text-[var(--color-primary)]">
                 {despachosFiltradosExport.length} de {despachos.length}
               </Badge>
             ) : (
@@ -999,7 +999,7 @@ function AsignarDespachosDialog({
       <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-[720px]">
         <DialogHeader>
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[var(--color-primary)]">
               <PlusCircle className="h-5 w-5" />
             </div>
             <div className="flex-1">

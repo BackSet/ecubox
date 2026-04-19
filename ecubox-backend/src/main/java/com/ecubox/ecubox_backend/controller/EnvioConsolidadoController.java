@@ -89,6 +89,15 @@ public class EnvioConsolidadoController {
         return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, false));
     }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_DELETE')")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id,
+                                         @RequestParam(name = "eliminarPaquetes",
+                                                       defaultValue = "false") boolean eliminarPaquetes) {
+        envioConsolidadoService.eliminar(id, eliminarPaquetes);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/paquetes")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
     public ResponseEntity<EnvioConsolidadoDTO> agregarPaquetes(@PathVariable Long id,

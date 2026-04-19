@@ -177,7 +177,7 @@ export function SearchableCombobox<T>({
           align="start"
           sideOffset={4}
           collisionPadding={8}
-          className="z-[60] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg"
+          className="z-[60] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-popover)]"
           style={{
             minWidth: 'max(var(--radix-popover-trigger-width), 320px)',
             maxWidth: 'min(480px, calc(100vw - 16px))',

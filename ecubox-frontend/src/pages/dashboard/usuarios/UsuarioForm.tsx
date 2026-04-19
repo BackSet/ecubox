@@ -682,7 +682,7 @@ function PreviewCard({ username, email, enabled, roles }: PreviewCardProps) {
           className={cn(
             'mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
             enabled
-              ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+              ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
               : 'bg-[var(--color-muted)] text-muted-foreground',
           )}
         >

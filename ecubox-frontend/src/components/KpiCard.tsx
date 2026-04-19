@@ -22,22 +22,13 @@ interface KpiCardProps {
   className?: string;
 }
 
-const TONE_ICON_BG: Record<KpiTone, string> = {
-  neutral: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
-  primary: 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
-  success: 'bg-[var(--color-success)]/10 text-[var(--color-success)]',
-  warning: 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]',
-  danger: 'bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]',
-  info: 'bg-[var(--color-info)]/10 text-[var(--color-info)]',
-};
-
-const TONE_VALUE_TEXT: Record<KpiTone, string> = {
-  neutral: 'text-[var(--color-foreground)]',
-  primary: 'text-[var(--color-primary)]',
-  success: 'text-[var(--color-success)]',
-  warning: 'text-[var(--color-warning)]',
-  danger: 'text-[var(--color-destructive)]',
-  info: 'text-[var(--color-info)]',
+const TONE_DOT: Record<KpiTone, string> = {
+  neutral: 'bg-[var(--color-muted-foreground)]',
+  primary: 'bg-[var(--color-primary)]',
+  success: 'bg-[var(--color-success)]',
+  warning: 'bg-[var(--color-warning)]',
+  danger: 'bg-[var(--color-destructive)]',
+  info: 'bg-[var(--color-info)]',
 };
 
 export function KpiCard({
@@ -49,32 +40,37 @@ export function KpiCard({
   to,
   className,
 }: KpiCardProps) {
+  const showDot = tone !== 'neutral';
   const inner = (
-    <div className="flex items-start gap-3">
-      <span
-        className={cn(
-          'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-          TONE_ICON_BG[tone]
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2 text-[var(--color-muted-foreground)]">
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden>
+          {icon}
+        </span>
+        <p className="flex-1 truncate text-[12px] font-medium">{label}</p>
+        {showDot && (
+          <span
+            aria-hidden
+            className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone])}
+          />
         )}
-      >
-        {icon}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium text-[var(--color-muted-foreground)]">
-          {label}
-        </p>
-        <p className={cn('text-2xl font-semibold leading-tight', TONE_VALUE_TEXT[tone])}>
+        {to && (
+          <ArrowRight
+            className="h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-100"
+            strokeWidth={1.75}
+          />
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[26px] font-semibold leading-none tracking-tight text-[var(--color-foreground)]">
           {value}
         </p>
         {hint && (
-          <p className="mt-0.5 truncate text-[11px] text-[var(--color-muted-foreground)]">
+          <p className="mt-2 truncate text-[12px] text-[var(--color-muted-foreground)]">
             {hint}
           </p>
         )}
       </div>
-      {to && (
-        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[var(--color-muted-foreground)] opacity-0 transition group-hover:opacity-100" />
-      )}
     </div>
   );
 
@@ -83,10 +79,10 @@ export function KpiCard({
       <Link
         to={to}
         className={cn(
-          'group block rounded-lg outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]'
+          'group block rounded-md outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]/40'
         )}
       >
-        <SurfaceCard className={cn('p-4 transition hover:shadow-md', className)}>
+        <SurfaceCard className={cn('p-4 transition hover:border-[var(--color-foreground)]/20', className)}>
           {inner}
         </SurfaceCard>
       </Link>

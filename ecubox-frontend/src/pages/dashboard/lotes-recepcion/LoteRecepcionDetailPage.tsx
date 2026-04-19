@@ -265,7 +265,7 @@ export function LoteRecepcionDetailPage() {
           </Link>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              <h1 className="text-[18px] font-semibold tracking-tight text-foreground">
                 Lote de recepción
               </h1>
               <Badge variant="outline" className="font-mono">

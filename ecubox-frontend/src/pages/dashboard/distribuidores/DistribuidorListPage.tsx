@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -15,6 +15,9 @@ import {
   Trash2,
   Truck,
 } from 'lucide-react';
+import { ChipFiltro } from '@/components/ChipFiltro';
+import { FiltrosBar } from '@/components/FiltrosBar';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import {
   useDistribuidoresAdmin,
   useDeleteDistribuidor,
@@ -58,6 +61,9 @@ export function DistribuidorListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [chipActivo, setChipActivo] = useState<
+    'todos' | 'con_tracking' | 'sin_tracking' | 'sin_tarifa' | 'sin_agencias'
+  >('todos');
 
   const all = useMemo(() => distribuidores ?? [], [distribuidores]);
 
@@ -71,7 +77,7 @@ export function DistribuidorListPage() {
     return map;
   }, [agenciasDist]);
 
-  const list = useMemo(() => {
+  const baseList = useMemo(() => {
     const contains = createContainsMatcher(search);
     if (!contains) return all;
     return all.filter(
@@ -83,6 +89,46 @@ export function DistribuidorListPage() {
         contains(d.paginaTracking),
     );
   }, [all, search]);
+
+  const tieneTrackingValido = useCallback(
+    (d: Distribuidor) =>
+      !!(d.paginaTracking && /^https?:\/\//i.test(d.paginaTracking)),
+    [],
+  );
+
+  const chipCounts = useMemo(() => {
+    let conTracking = 0;
+    let sinTracking = 0;
+    let sinTarifa = 0;
+    let sinAgencias = 0;
+    for (const d of baseList) {
+      if (tieneTrackingValido(d)) conTracking += 1;
+      else sinTracking += 1;
+      const t = Number(d.tarifaEnvio ?? 0);
+      if (!Number.isFinite(t) || t <= 0) sinTarifa += 1;
+      const ag = agenciasPorDistribuidor.get(d.id) ?? 0;
+      if (ag === 0) sinAgencias += 1;
+    }
+    return { todos: baseList.length, conTracking, sinTracking, sinTarifa, sinAgencias };
+  }, [baseList, agenciasPorDistribuidor, tieneTrackingValido]);
+
+  const list = useMemo(() => {
+    if (chipActivo === 'todos') return baseList;
+    return baseList.filter((d) => {
+      if (chipActivo === 'con_tracking') return tieneTrackingValido(d);
+      if (chipActivo === 'sin_tracking') return !tieneTrackingValido(d);
+      if (chipActivo === 'sin_tarifa') {
+        const t = Number(d.tarifaEnvio ?? 0);
+        return !Number.isFinite(t) || t <= 0;
+      }
+      if (chipActivo === 'sin_agencias')
+        return (agenciasPorDistribuidor.get(d.id) ?? 0) === 0;
+      return true;
+    });
+  }, [baseList, chipActivo, agenciasPorDistribuidor, tieneTrackingValido]);
+
+  const tieneFiltros = chipActivo !== 'todos';
+  const limpiarFiltros = useCallback(() => setChipActivo('todos'), []);
 
   const stats = useMemo(() => {
     const total = all.length;
@@ -156,6 +202,55 @@ export function DistribuidorListPage() {
         </div>
       )}
 
+      {all.length > 0 && (
+        <FiltrosBar
+          hayFiltrosActivos={tieneFiltros}
+          onLimpiar={limpiarFiltros}
+          chips={
+            <>
+              <ChipFiltro
+                label="Todos"
+                count={chipCounts.todos}
+                active={chipActivo === 'todos'}
+                onClick={() => setChipActivo('todos')}
+              />
+              <ChipFiltro
+                label="Con tracking"
+                count={chipCounts.conTracking}
+                active={chipActivo === 'con_tracking'}
+                tone="success"
+                onClick={() => setChipActivo('con_tracking')}
+                hideWhenZero
+              />
+              <ChipFiltro
+                label="Sin tracking"
+                count={chipCounts.sinTracking}
+                active={chipActivo === 'sin_tracking'}
+                tone="warning"
+                onClick={() => setChipActivo('sin_tracking')}
+                hideWhenZero
+              />
+              <ChipFiltro
+                label="Sin tarifa"
+                count={chipCounts.sinTarifa}
+                active={chipActivo === 'sin_tarifa'}
+                tone="neutral"
+                onClick={() => setChipActivo('sin_tarifa')}
+                hideWhenZero
+              />
+              <ChipFiltro
+                label="Sin agencias"
+                count={chipCounts.sinAgencias}
+                active={chipActivo === 'sin_agencias'}
+                tone="warning"
+                onClick={() => setChipActivo('sin_agencias')}
+                hideWhenZero
+              />
+            </>
+          }
+        />
+      )}
+
       {list.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {list.length} distribuidor{list.length === 1 ? '' : 'es'}
@@ -170,12 +265,18 @@ export function DistribuidorListPage() {
           description={
             all.length === 0
               ? 'Registra un distribuidor para asignarlo a despachos y agencias.'
-              : 'No se encontraron distribuidores con ese criterio.'
+              : tieneFiltros
+                ? 'No hay distribuidores que coincidan con los filtros aplicados.'
+                : 'No se encontraron distribuidores con ese criterio.'
           }
           action={
             all.length === 0 ? (
               <Button onClick={() => setCreateOpen(true)}>
                 Registrar distribuidor
+              </Button>
+            ) : tieneFiltros ? (
+              <Button variant="outline" onClick={limpiarFiltros}>
+                Limpiar filtros
               </Button>
             ) : (
               <Button variant="secondary" onClick={() => setSearch('')}>
@@ -194,7 +295,7 @@ export function DistribuidorListPage() {
                 <TableHead className="min-w-[14rem]">Operación</TableHead>
                 <TableHead className="min-w-[16rem]">Tracking</TableHead>
                 <TableHead className="text-right">Tarifa</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -222,29 +323,22 @@ export function DistribuidorListPage() {
                     <TarifaCell tarifa={d.tarifaEnvio} />
                   </TableCell>
                   <TableCell className="align-top text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Editar distribuidor"
-                        title="Editar distribuidor"
-                        onClick={() => setEditingId(d.id)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Eliminar distribuidor"
-                        title="Eliminar distribuidor"
-                        className="text-[var(--color-destructive)] hover:text-[var(--color-destructive)]"
-                        onClick={() => setDeleteConfirmId(d.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <RowActionsMenu
+                      items={[
+                        {
+                          label: 'Editar distribuidor',
+                          icon: Pencil,
+                          onSelect: () => setEditingId(d.id),
+                        },
+                        { type: 'separator' },
+                        {
+                          label: 'Eliminar',
+                          icon: Trash2,
+                          destructive: true,
+                          onSelect: () => setDeleteConfirmId(d.id),
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

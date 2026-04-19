@@ -117,7 +117,7 @@ function CuentaSection() {
   return (
     <SurfaceCard className="p-5 sm:p-6">
       <header className="mb-5 flex items-start gap-3 border-b border-[var(--color-border)] pb-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[var(--color-foreground)]">
           <UserIcon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -330,7 +330,7 @@ function SeguridadSection() {
   return (
     <SurfaceCard className="p-5 sm:p-6">
       <header className="mb-5 flex items-start gap-3 border-b border-[var(--color-border)] pb-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[var(--color-foreground)]">
           <KeyRound className="h-5 w-5" />
         </div>
         <div className="min-w-0">

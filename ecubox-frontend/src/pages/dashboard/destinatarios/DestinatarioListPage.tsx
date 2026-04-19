@@ -1,15 +1,17 @@
-import { useState, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Building2,
   Check,
   Copy,
+  Map,
   MapPin,
   Pencil,
   Phone,
   Plus,
   Trash2,
   UserRound,
+  Users,
 } from 'lucide-react';
 import { useDestinatarios, useDeleteDestinatario } from '@/hooks/useDestinatarios';
 import {
@@ -23,8 +25,13 @@ import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
+import { KpiCard } from '@/components/KpiCard';
+import { ChipFiltro } from '@/components/ChipFiltro';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import {
   Table,
   TableBody,
@@ -59,22 +66,128 @@ export function DestinatarioListPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  // Chip activo de filtro rapido
+  const [chipActivo, setChipActivo] = useState<
+    'todos' | 'con_cliente' | 'sin_cliente' | 'sin_telefono' | 'sin_codigo'
+  >('todos');
+  const [provinciaFiltro, setProvinciaFiltro] = useState<string | undefined>(
+    undefined,
+  );
+  const [clienteFiltro, setClienteFiltro] = useState<string | undefined>(undefined);
 
-  const list = useMemo(() => {
+  // Provincias y clientes presentes para poblar combos.
+  const provincias = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of destinatarios ?? []) {
+      const p = d.provincia?.trim();
+      if (p) set.add(p);
+    }
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' }),
+    );
+  }, [destinatarios]);
+
+  const clientes = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of destinatarios ?? []) {
+      const n = d.clienteUsuarioNombre?.trim();
+      if (n) set.add(n);
+    }
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' }),
+    );
+  }, [destinatarios]);
+
+  // baseList aplica todos los filtros menos el chip activo (para conteos).
+  // Cuando el rol es operario, la busqueda viaja al backend, por lo que aqui
+  // ignoramos `search` (los datos ya llegan filtrados); para el rol cliente,
+  // aplicamos la busqueda local como antes.
+  const baseList = useMemo(() => {
     const raw = destinatarios ?? [];
-    if (hasDestinatariosOperario) return raw;
-    if (!search.trim()) return raw;
-    const q = search.trim().toLowerCase();
-    return raw.filter(
-      (d) =>
+    const q = hasDestinatariosOperario ? '' : search.trim().toLowerCase();
+    return raw.filter((d) => {
+      if (provinciaFiltro && (d.provincia ?? '') !== provinciaFiltro) return false;
+      if (clienteFiltro && (d.clienteUsuarioNombre ?? '') !== clienteFiltro)
+        return false;
+      if (!q) return true;
+      return (
         d.nombre?.toLowerCase().includes(q) ||
         (d.codigo?.toLowerCase().includes(q) ?? false) ||
         (d.telefono?.toLowerCase().includes(q) ?? false) ||
         (d.direccion?.toLowerCase().includes(q) ?? false) ||
         (d.provincia?.toLowerCase().includes(q) ?? false) ||
-        (d.canton?.toLowerCase().includes(q) ?? false),
-    );
-  }, [destinatarios, search, hasDestinatariosOperario]);
+        (d.canton?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [
+    destinatarios,
+    search,
+    hasDestinatariosOperario,
+    provinciaFiltro,
+    clienteFiltro,
+  ]);
+
+  const chipCounts = useMemo(() => {
+    let conCliente = 0;
+    let sinCliente = 0;
+    let sinTelefono = 0;
+    let sinCodigo = 0;
+    for (const d of baseList) {
+      if (d.clienteUsuarioId != null) conCliente += 1;
+      else sinCliente += 1;
+      if (!d.telefono?.trim()) sinTelefono += 1;
+      if (!d.codigo?.trim()) sinCodigo += 1;
+    }
+    return {
+      todos: baseList.length,
+      conCliente,
+      sinCliente,
+      sinTelefono,
+      sinCodigo,
+    };
+  }, [baseList]);
+
+  const list = useMemo(() => {
+    if (chipActivo === 'todos') return baseList;
+    return baseList.filter((d) => {
+      if (chipActivo === 'con_cliente') return d.clienteUsuarioId != null;
+      if (chipActivo === 'sin_cliente') return d.clienteUsuarioId == null;
+      if (chipActivo === 'sin_telefono') return !d.telefono?.trim();
+      if (chipActivo === 'sin_codigo') return !d.codigo?.trim();
+      return true;
+    });
+  }, [baseList, chipActivo]);
+
+  // KPIs sobre el universo total cargado.
+  const stats = useMemo(() => {
+    const all = destinatarios ?? [];
+    let conCliente = 0;
+    const provinciasSet = new Set<string>();
+    const clientesSet = new Set<number>();
+    for (const d of all) {
+      if (d.clienteUsuarioId != null) {
+        conCliente += 1;
+        clientesSet.add(d.clienteUsuarioId);
+      }
+      const p = d.provincia?.trim();
+      if (p) provinciasSet.add(p);
+    }
+    return {
+      total: all.length,
+      conCliente,
+      provincias: provinciasSet.size,
+      clientes: clientesSet.size,
+    };
+  }, [destinatarios]);
+
+  const tieneFiltros =
+    !!provinciaFiltro || !!clienteFiltro || chipActivo !== 'todos';
+
+  const limpiarFiltros = useCallback(() => {
+    setProvinciaFiltro(undefined);
+    setClienteFiltro(undefined);
+    setChipActivo('todos');
+  }, []);
 
   if (isLoading) {
     return <LoadingState text="Cargando destinatarios..." />;
@@ -107,6 +220,136 @@ export function DestinatarioListPage() {
         }
       />
 
+      {allDestinatarios.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <KpiCard
+            icon={<UserRound className="h-5 w-5" />}
+            label="Destinatarios"
+            value={stats.total}
+            tone="primary"
+          />
+          {hasDestinatariosOperario && (
+            <KpiCard
+              icon={<Building2 className="h-5 w-5" />}
+              label="Con cliente"
+              value={stats.conCliente}
+              tone={stats.conCliente > 0 ? 'success' : 'neutral'}
+            />
+          )}
+          <KpiCard
+            icon={<Map className="h-5 w-5" />}
+            label="Provincias"
+            value={stats.provincias}
+            tone="neutral"
+          />
+          {hasDestinatariosOperario && (
+            <KpiCard
+              icon={<Users className="h-5 w-5" />}
+              label="Clientes únicos"
+              value={stats.clientes}
+              tone="neutral"
+            />
+          )}
+        </div>
+      )}
+
+      {allDestinatarios.length > 0 && (
+        <FiltrosBar
+          hayFiltrosActivos={tieneFiltros}
+          onLimpiar={limpiarFiltros}
+          chips={
+            <>
+              <ChipFiltro
+                label="Todos"
+                count={chipCounts.todos}
+                active={chipActivo === 'todos'}
+                onClick={() => setChipActivo('todos')}
+              />
+              {hasDestinatariosOperario && (
+                <ChipFiltro
+                  label="Con cliente"
+                  count={chipCounts.conCliente}
+                  active={chipActivo === 'con_cliente'}
+                  tone="success"
+                  onClick={() => setChipActivo('con_cliente')}
+                  hideWhenZero
+                />
+              )}
+              {hasDestinatariosOperario && (
+                <ChipFiltro
+                  label="Sin cliente"
+                  count={chipCounts.sinCliente}
+                  active={chipActivo === 'sin_cliente'}
+                  tone="neutral"
+                  onClick={() => setChipActivo('sin_cliente')}
+                  hideWhenZero
+                />
+              )}
+              <ChipFiltro
+                label="Sin teléfono"
+                count={chipCounts.sinTelefono}
+                active={chipActivo === 'sin_telefono'}
+                tone="warning"
+                onClick={() => setChipActivo('sin_telefono')}
+                hideWhenZero
+              />
+              <ChipFiltro
+                label="Sin código"
+                count={chipCounts.sinCodigo}
+                active={chipActivo === 'sin_codigo'}
+                tone="warning"
+                onClick={() => setChipActivo('sin_codigo')}
+                hideWhenZero
+              />
+            </>
+          }
+          filtros={
+            (provincias.length > 0 || clientes.length > 0) && (
+              <>
+                {provincias.length > 0 && (
+                  <FiltroCampo label="Provincia" width="w-[14rem]">
+                    <SearchableCombobox<string>
+                      value={provinciaFiltro}
+                      onChange={(v) =>
+                        setProvinciaFiltro(
+                          v === undefined ? undefined : String(v),
+                        )
+                      }
+                      options={provincias}
+                      getKey={(p) => p}
+                      getLabel={(p) => p}
+                      placeholder="Todas"
+                      searchPlaceholder="Buscar provincia..."
+                      emptyMessage="Sin provincias"
+                      className="h-9 w-full"
+                    />
+                  </FiltroCampo>
+                )}
+                {hasDestinatariosOperario && clientes.length > 0 && (
+                  <FiltroCampo label="Cliente" width="w-[16rem]">
+                    <SearchableCombobox<string>
+                      value={clienteFiltro}
+                      onChange={(v) =>
+                        setClienteFiltro(
+                          v === undefined ? undefined : String(v),
+                        )
+                      }
+                      options={clientes}
+                      getKey={(c) => c}
+                      getLabel={(c) => c}
+                      placeholder="Todos"
+                      searchPlaceholder="Buscar cliente..."
+                      emptyMessage="Sin clientes"
+                      className="h-9 w-full"
+                    />
+                  </FiltroCampo>
+                )}
+              </>
+            )
+          }
+        />
+      )}
+
       {list.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {list.length} destinatario{list.length === 1 ? '' : 's'}
@@ -123,11 +366,17 @@ export function DestinatarioListPage() {
           description={
             allDestinatarios.length === 0
               ? 'Registra un destinatario para poder enviar paquetes a esa dirección.'
-              : 'No se encontraron destinatarios con ese criterio.'
+              : tieneFiltros
+                ? 'No hay destinatarios que coincidan con los filtros aplicados.'
+                : 'No se encontraron destinatarios con ese criterio.'
           }
           action={
             allDestinatarios.length === 0 && hasDestinatariosCreate ? (
               <Button onClick={() => setCreateOpen(true)}>Registrar destinatario</Button>
+            ) : tieneFiltros ? (
+              <Button variant="outline" onClick={limpiarFiltros}>
+                Limpiar filtros
+              </Button>
             ) : undefined
           }
         />
@@ -140,7 +389,7 @@ export function DestinatarioListPage() {
                 <TableHead>Contacto</TableHead>
                 <TableHead className="min-w-[16rem]">Ubicación</TableHead>
                 {showClienteColumn && <TableHead>Cliente</TableHead>}
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -165,33 +414,24 @@ export function DestinatarioListPage() {
                     </TableCell>
                   )}
                   <TableCell className="text-right align-top">
-                    <div className="flex items-center justify-end gap-1">
-                      {canEdit && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Editar destinatario"
-                          title="Editar destinatario"
-                          onClick={() => setEditingId(d.id)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {hasDestinatariosDelete && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Eliminar destinatario"
-                          title="Eliminar destinatario"
-                          className="text-[var(--color-destructive)] hover:text-[var(--color-destructive)]"
-                          onClick={() => setDeleteConfirmId(d.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                    <RowActionsMenu
+                      items={[
+                        {
+                          label: 'Editar destinatario',
+                          icon: Pencil,
+                          onSelect: () => setEditingId(d.id),
+                          hidden: !canEdit,
+                        },
+                        { type: 'separator' },
+                        {
+                          label: 'Eliminar',
+                          icon: Trash2,
+                          destructive: true,
+                          onSelect: () => setDeleteConfirmId(d.id),
+                          hidden: !hasDestinatariosDelete,
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

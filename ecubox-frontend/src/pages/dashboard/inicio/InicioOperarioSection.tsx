@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Boxes,
+  ChevronRight,
   ClipboardList,
   Clock,
   Package,
@@ -14,7 +15,6 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { KpiCard } from '@/components/KpiCard';
 import { SurfaceCard } from '@/components/ui/surface-card';
-import { PageHeader } from '@/components/PageHeader';
 import { useDashboardGuiasMaster } from '@/hooks/useGuiasMaster';
 import {
   usePaquetesOperario,
@@ -99,29 +99,33 @@ export function InicioOperarioSection() {
 
   return (
     <section className="page-stack">
-      <PageHeader
-        title="Panel operativo"
-        description="Estado actual de la operación y accesos rápidos."
-      />
+      <header className="border-b border-[var(--color-border)] pb-4">
+        <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
+          Panel operativo
+        </h1>
+        <p className="mt-1 text-[13px] text-[var(--color-muted-foreground)]">
+          Estado actual de la operación y accesos rápidos.
+        </p>
+      </header>
 
       {canPesoWrite && totalVencidos > 0 && (
         <div className="ui-alert ui-alert-warning">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           <div className="flex flex-wrap items-center justify-between gap-3 flex-1 min-w-0">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-[var(--color-foreground)]">
+              <p className="text-[13px] font-medium text-[var(--color-foreground)]">
                 Hay {totalVencidos} paquete(s) que superaron el plazo de retiro
               </p>
-              <p className="text-sm text-[var(--color-muted-foreground)]">
+              <p className="text-[13px] text-[var(--color-muted-foreground)]">
                 Revísalos para gestionar el siguiente paso operativo.
               </p>
             </div>
             <Link
               to="/paquetes-vencidos"
-              className="inline-flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition"
             >
               Ver paquetes vencidos
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
             </Link>
           </div>
         </div>
@@ -130,7 +134,7 @@ export function InicioOperarioSection() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {canGuiasMaster && (
           <KpiCard
-            icon={<Boxes className="h-5 w-5" />}
+            icon={<Boxes className="h-4 w-4" strokeWidth={1.75} />}
             label="Guías activas"
             value={dashGM?.totalActivas ?? 0}
             hint={`${dashGM?.totalCerradas ?? 0} cerradas en total`}
@@ -140,7 +144,7 @@ export function InicioOperarioSection() {
         )}
         {canGuiasMaster && (
           <KpiCard
-            icon={<AlertTriangle className="h-5 w-5" />}
+            icon={<AlertTriangle className="h-4 w-4" strokeWidth={1.75} />}
             label="Cerradas con faltante"
             value={dashGM?.totalCerradasConFaltante ?? 0}
             tone={(dashGM?.totalCerradasConFaltante ?? 0) > 0 ? 'warning' : 'neutral'}
@@ -149,7 +153,7 @@ export function InicioOperarioSection() {
         )}
         {canPesoWrite && (
           <KpiCard
-            icon={<Weight className="h-5 w-5" />}
+            icon={<Weight className="h-4 w-4" strokeWidth={1.75} />}
             label="Paquetes sin peso"
             value={totalSinPeso}
             tone={totalSinPeso > 0 ? 'warning' : 'success'}
@@ -158,7 +162,7 @@ export function InicioOperarioSection() {
         )}
         {canPesoWrite && (
           <KpiCard
-            icon={<PackageX className="h-5 w-5" />}
+            icon={<PackageX className="h-4 w-4" strokeWidth={1.75} />}
             label="Paquetes sin saca"
             value={totalSinSaca}
             tone={totalSinSaca > 0 ? 'warning' : 'neutral'}
@@ -167,7 +171,7 @@ export function InicioOperarioSection() {
         )}
         {canPesoWrite && (
           <KpiCard
-            icon={<Clock className="h-5 w-5" />}
+            icon={<Clock className="h-4 w-4" strokeWidth={1.75} />}
             label="Paquetes vencidos"
             value={totalVencidos}
             tone={totalVencidos > 0 ? 'danger' : 'success'}
@@ -176,7 +180,7 @@ export function InicioOperarioSection() {
         )}
         {canDespachos && (
           <KpiCard
-            icon={<Truck className="h-5 w-5" />}
+            icon={<Truck className="h-4 w-4" strokeWidth={1.75} />}
             label="Sacas pendientes"
             value={totalSacasPend}
             hint="Sin asignar a despacho"
@@ -186,7 +190,7 @@ export function InicioOperarioSection() {
         )}
         {canEnvios && (
           <KpiCard
-            icon={<Plane className="h-5 w-5" />}
+            icon={<Plane className="h-4 w-4" strokeWidth={1.75} />}
             label="Envíos consolidados abiertos"
             value={totalEnviosAbiertos}
             tone="primary"
@@ -199,17 +203,17 @@ export function InicioOperarioSection() {
         <SurfaceCard className="p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-[var(--color-muted-foreground)]" />
-              <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
+              <Clock className="h-4 w-4 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
+              <h3 className="text-[13px] font-semibold text-[var(--color-foreground)]">
                 Guías más antiguas sin completar
               </h3>
             </div>
             <Link
               to="/guias-master"
-              className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-primary)] hover:underline"
+              className="inline-flex items-center gap-1 text-[12px] font-medium text-[var(--color-foreground)] hover:underline"
             >
               Ver todas
-              <ArrowRight className="h-3 w-3" />
+              <ArrowRight className="h-3 w-3" strokeWidth={1.75} />
             </Link>
           </div>
           <ul className="divide-y divide-[var(--color-border)]">
@@ -218,13 +222,13 @@ export function InicioOperarioSection() {
                 <Link
                   to="/guias-master/$id"
                   params={{ id: String(g.id) }}
-                  className="-mx-2 flex items-center justify-between gap-3 rounded px-2 py-2.5 transition hover:bg-[var(--color-muted)]/40"
+                  className="-mx-2 flex items-center justify-between gap-3 rounded px-2 py-2.5 transition hover:bg-[var(--color-muted)]/50"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-mono text-sm text-[var(--color-foreground)]">
+                    <p className="truncate font-mono text-[13px] text-[var(--color-foreground)]">
                       {g.trackingBase}
                     </p>
-                    <p className="truncate text-xs text-[var(--color-muted-foreground)]">
+                    <p className="truncate text-[12px] text-[var(--color-muted-foreground)]">
                       {g.clienteUsuarioNombre ?? 'Sin cliente'}
                       {' · '}
                       {g.destinatarioNombre ?? 'Sin destinatario'}
@@ -243,31 +247,45 @@ export function InicioOperarioSection() {
       )}
 
       {visibleActions.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          {visibleActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Link
-                key={action.to}
-                to={action.to}
-                className="surface-card group flex items-start gap-3 p-4 transition hover:shadow-md"
-              >
-                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[var(--color-foreground)]">
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)]">
-                    {action.label}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-[var(--color-muted-foreground)]">
-                    {action.description}
-                  </p>
-                </div>
-                <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[var(--color-muted-foreground)] opacity-0 transition group-hover:opacity-100" />
-              </Link>
-            );
-          })}
-        </div>
+        <SurfaceCard className="overflow-hidden">
+          <div className="border-b border-[var(--color-border)] px-4 py-3">
+            <h3 className="text-[13px] font-semibold text-[var(--color-foreground)]">
+              Accesos rápidos
+            </h3>
+          </div>
+          <ul>
+            {visibleActions.map((action, idx) => {
+              const Icon = action.icon;
+              return (
+                <li key={action.to}>
+                  <Link
+                    to={action.to}
+                    className={`group flex items-center gap-3 px-4 py-3 transition hover:bg-[var(--color-muted)]/60 ${
+                      idx > 0 ? 'border-t border-[var(--color-border)]' : ''
+                    }`}
+                  >
+                    <Icon
+                      className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]"
+                      strokeWidth={1.75}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-[var(--color-foreground)]">
+                        {action.label}
+                      </p>
+                      <p className="truncate text-[12px] text-[var(--color-muted-foreground)]">
+                        {action.description}
+                      </p>
+                    </div>
+                    <ChevronRight
+                      className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)] opacity-0 transition group-hover:opacity-100"
+                      strokeWidth={1.75}
+                    />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </SurfaceCard>
       )}
     </section>
   );

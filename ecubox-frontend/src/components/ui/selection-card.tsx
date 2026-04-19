@@ -19,7 +19,7 @@ const SelectionCard = React.forwardRef<HTMLButtonElement, SelectionCardProps>(
         onClick={onClick}
         aria-pressed={selected}
         className={cn(
-          "group relative flex w-full cursor-pointer flex-col gap-3 rounded-xl border p-4 text-left transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]",
+          "group relative flex w-full cursor-pointer flex-col gap-3 rounded-md border p-4 text-left transition-colors hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]/30",
           selected
             ? "border-primary bg-primary/5 ring-1 ring-primary"
             : "border-border bg-card text-card-foreground shadow-sm hover:border-primary/50",

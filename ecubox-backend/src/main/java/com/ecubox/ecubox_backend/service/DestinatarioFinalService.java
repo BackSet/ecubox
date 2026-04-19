@@ -8,6 +8,7 @@ import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
+import com.ecubox.ecubox_backend.security.CurrentUserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +23,21 @@ public class DestinatarioFinalService {
     private final UsuarioRepository usuarioRepository;
     private final PaqueteRepository paqueteRepository;
     private final PaqueteService paqueteService;
+    private final DestinatarioVersionService destinatarioVersionService;
+    private final CurrentUserService currentUserService;
 
     public DestinatarioFinalService(DestinatarioFinalRepository destinatarioFinalRepository,
                                     UsuarioRepository usuarioRepository,
                                     PaqueteRepository paqueteRepository,
-                                    PaqueteService paqueteService) {
+                                    PaqueteService paqueteService,
+                                    DestinatarioVersionService destinatarioVersionService,
+                                    CurrentUserService currentUserService) {
         this.destinatarioFinalRepository = destinatarioFinalRepository;
         this.usuarioRepository = usuarioRepository;
         this.paqueteRepository = paqueteRepository;
         this.paqueteService = paqueteService;
+        this.destinatarioVersionService = destinatarioVersionService;
+        this.currentUserService = currentUserService;
     }
 
     @Transactional(readOnly = true)
@@ -74,6 +81,7 @@ public class DestinatarioFinalService {
                 .codigo(codigo)
                 .build();
         d = destinatarioFinalRepository.save(d);
+        destinatarioVersionService.crearNuevaVersion(d, currentUserService.getCurrentUsuarioIdOrNull());
         return toDTO(d);
     }
 
@@ -101,6 +109,7 @@ public class DestinatarioFinalService {
             d.setCodigo(codigo);
         }
         d = destinatarioFinalRepository.save(d);
+        destinatarioVersionService.crearNuevaVersion(d, currentUserService.getCurrentUsuarioIdOrNull());
         return toDTO(d);
     }
 
@@ -117,6 +126,7 @@ public class DestinatarioFinalService {
         d.setCanton(request.getCanton());
         d.setCodigo(codigo);
         d = destinatarioFinalRepository.save(d);
+        destinatarioVersionService.crearNuevaVersion(d, currentUserService.getCurrentUsuarioIdOrNull());
         return toDTO(d);
     }
 

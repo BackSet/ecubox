@@ -261,7 +261,7 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[640px]">
         <DialogHeader>
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[var(--color-primary)]">
               <FileText className="h-5 w-5" />
             </div>
             <div className="flex-1">
@@ -306,7 +306,7 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
                   className={cn(
                     'rounded-md border px-2.5 py-1 text-xs font-medium transition',
                     activePresetId === p.id
-                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-muted)] text-[var(--color-primary)]'
                       : 'border-[var(--color-border)] bg-card text-muted-foreground hover:bg-[var(--color-muted)] hover:text-foreground',
                   )}
                 >
@@ -374,7 +374,7 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
                     Vista previa del período
                   </span>
                 </div>
-                <span className="rounded-full bg-[var(--color-primary)]/10 px-2 py-0.5 text-[11px] font-semibold text-[var(--color-primary)]">
+                <span className="rounded-full bg-[var(--color-muted)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-primary)]">
                   {dias} {dias === 1 ? 'día' : 'días'}
                 </span>
               </div>

@@ -678,7 +678,7 @@ function InfoCard({
   icon,
   children,
 }: {
-  title: string;
+  title: React.ReactNode;
   icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -718,9 +718,37 @@ function InfoRow({
 }
 
 function DestinoCard({ despacho: d }: { despacho: Despacho }) {
+  // SCD2: el despacho congela el snapshot del destino al crearse. Mostramos
+  // un indicador discreto para que el operario sepa que estos datos son los
+  // historicos del momento del despacho, no los del maestro vivo.
+  const congelado = d.destinoCongeladoEn != null
+    || d.destinatarioVersionId != null
+    || d.agenciaVersionId != null
+    || d.agenciaDistribuidorVersionId != null;
+  const congeladoBadge = congelado ? (
+    <span
+      className="ml-2 inline-flex items-center rounded-full border border-border/60 bg-muted/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+      title={
+        d.destinoCongeladoEn
+          ? `Snapshot del destino congelado el ${new Date(d.destinoCongeladoEn).toLocaleString()}. Cambios posteriores en el maestro no afectan a este despacho.`
+          : 'Snapshot del destino congelado al crear el despacho.'
+      }
+    >
+      Datos congelados
+    </span>
+  ) : null;
+
   if (d.tipoEntrega === 'DOMICILIO') {
     return (
-      <InfoCard title="Destino · Domicilio" icon={<MapPin className="h-4 w-4" />}>
+      <InfoCard
+        title={
+          <span className="inline-flex items-center">
+            Destino · Domicilio
+            {congeladoBadge}
+          </span>
+        }
+        icon={<MapPin className="h-4 w-4" />}
+      >
         <InfoRow label="Destinatario">
           <span className="text-sm font-medium">{d.destinatarioNombre ?? '—'}</span>
         </InfoRow>
@@ -758,7 +786,15 @@ function DestinoCard({ despacho: d }: { despacho: Despacho }) {
       : 'Destino · Agencia';
 
   return (
-    <InfoCard title={titulo} icon={<Building2 className="h-4 w-4" />}>
+    <InfoCard
+      title={
+        <span className="inline-flex items-center">
+          {titulo}
+          {congeladoBadge}
+        </span>
+      }
+      icon={<Building2 className="h-4 w-4" />}
+    >
       <InfoRow label="Agencia">
         <span className="text-sm font-medium">{lugar ?? '—'}</span>
       </InfoRow>
@@ -813,7 +849,7 @@ function SacaCard({
         aria-expanded={!collapsed}
       >
         <div className="flex min-w-0 items-center gap-2">
-          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-muted)] text-[var(--color-primary)]">
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
             ) : (
@@ -1023,46 +1059,60 @@ function WhatsAppPanel({
 
   if (loading) {
     return (
-      <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
+      <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Generando mensaje...
-      </p>
+      </div>
     );
   }
   if (!text) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <div className="rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
         Configure la plantilla en Parámetros del sistema para generar el mensaje.
-      </p>
+      </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      {telefono && (
-        <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Phone className="h-3.5 w-3.5" />
-          Para: <span className="font-medium text-foreground">{telefono}</span>
-        </p>
-      )}
-      <div className="max-h-[300px] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-[var(--color-muted)]/30 p-3 text-sm">
-        {text}
+      <div className="rounded-2xl border border-[var(--color-success)]/20 bg-[color-mix(in_oklab,var(--color-success)_8%,transparent)] p-3">
+        <div className="relative max-h-[280px] overflow-auto whitespace-pre-wrap rounded-xl rounded-tl-sm border border-border bg-[var(--color-card)] p-3 text-sm leading-relaxed text-foreground shadow-sm">
+          {text}
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>
+          {text.length} carácter{text.length === 1 ? '' : 'es'}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
         <Button type="button" variant="outline" size="sm" onClick={handleCopy} className="gap-2">
           <Copy className="h-4 w-4" />
           Copiar
         </Button>
-        {waUrl && (
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-[var(--color-success)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-success)]"
+        {waUrl ? (
+          <Button
+            asChild
+            size="sm"
+            className="gap-2 bg-[var(--color-success)] text-white shadow-sm transition-colors hover:bg-[var(--color-success)] hover:brightness-110"
+          >
+            <a href={waUrl} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="h-4 w-4" />
+              Abrir en WhatsApp
+            </a>
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled
+            title="Sin teléfono válido para WhatsApp"
+            className="gap-2"
           >
             <MessageCircle className="h-4 w-4" />
             Abrir en WhatsApp
-          </a>
+          </Button>
         )}
       </div>
     </div>

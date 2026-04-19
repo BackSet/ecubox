@@ -114,12 +114,14 @@ export interface TrackingResponse {
 export type TrackingTipo = 'PIEZA' | 'GUIA_MASTER';
 
 export type EstadoGuiaMaster =
-  | 'INCOMPLETA'
-  | 'PARCIAL_RECIBIDA'
-  | 'COMPLETA_RECIBIDA'
-  | 'PARCIAL_DESPACHADA'
-  | 'CERRADA'
-  | 'CERRADA_CON_FALTANTE';
+  | 'EN_ESPERA_RECEPCION'
+  | 'RECEPCION_PARCIAL'
+  | 'RECEPCION_COMPLETA'
+  | 'DESPACHO_PARCIAL'
+  | 'DESPACHO_COMPLETADO'
+  | 'DESPACHO_INCOMPLETO'
+  | 'CANCELADA'
+  | 'EN_REVISION';
 
 export interface TrackingPiezaItem {
   numeroGuia: string;

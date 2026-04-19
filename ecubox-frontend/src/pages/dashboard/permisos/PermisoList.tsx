@@ -106,7 +106,7 @@ const TIPO_META: Record<
   READ: {
     label: 'Lectura',
     tone:
-      'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+      'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]',
     icon: Eye,
   },
   CREATE: {
@@ -305,7 +305,7 @@ export function PermisoList() {
               className={cn(
                 'inline-flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors',
                 vista === 'tabla'
-                  ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                  ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
                   : 'text-muted-foreground hover:bg-[var(--color-muted)]/40',
               )}
               title="Vista en tabla"
@@ -319,7 +319,7 @@ export function PermisoList() {
               className={cn(
                 'inline-flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors',
                 vista === 'modulos'
-                  ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                  ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
                   : 'text-muted-foreground hover:bg-[var(--color-muted)]/40',
               )}
               title="Vista por módulos"

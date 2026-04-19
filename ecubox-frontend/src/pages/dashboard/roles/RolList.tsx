@@ -24,6 +24,8 @@ import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { KpiCard } from '@/components/KpiCard';
+import { ChipFiltro } from '@/components/ChipFiltro';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -180,28 +182,37 @@ export function RolList() {
             Filtros
           </div>
           <div className="flex flex-wrap gap-2">
-            <SegBtn
+            <ChipFiltro
+              label="Todos"
+              count={stats.total}
               active={estadoFiltro === ESTADO_TODOS}
               onClick={() => setEstadoFiltro(ESTADO_TODOS)}
-            >
-              Todos
-            </SegBtn>
-            <SegBtn
+            />
+            <ChipFiltro
+              label="Con permisos"
+              count={stats.conPermisos}
               active={estadoFiltro === 'con-permisos'}
-              onClick={() => setEstadoFiltro('con-permisos')}
               tone="success"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Con permisos
-            </SegBtn>
-            <SegBtn
+              icon={<ShieldCheck className="h-3.5 w-3.5" />}
+              onClick={() =>
+                setEstadoFiltro(
+                  estadoFiltro === 'con-permisos' ? ESTADO_TODOS : 'con-permisos',
+                )
+              }
+            />
+            <ChipFiltro
+              label="Vacíos"
+              count={stats.sinPermisos}
               active={estadoFiltro === 'sin-permisos'}
-              onClick={() => setEstadoFiltro('sin-permisos')}
               tone="warning"
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Vacíos
-            </SegBtn>
+              icon={<AlertTriangle className="h-3.5 w-3.5" />}
+              onClick={() =>
+                setEstadoFiltro(
+                  estadoFiltro === 'sin-permisos' ? ESTADO_TODOS : 'sin-permisos',
+                )
+              }
+              hideWhenZero
+            />
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -251,7 +262,7 @@ export function RolList() {
                 <TableHead className="w-[8rem]">Usuarios</TableHead>
                 <TableHead className="w-[10rem]">Permisos</TableHead>
                 <TableHead>Módulos cubiertos</TableHead>
-                {hasWrite && <TableHead className="w-[8rem] text-right">Acciones</TableHead>}
+                {hasWrite && <TableHead className="w-12 text-right" aria-label="Acciones" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -276,16 +287,15 @@ export function RolList() {
                     </TableCell>
                     {hasWrite && (
                       <TableCell className="align-top text-right">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          title="Editar permisos"
-                          aria-label="Editar permisos"
-                          onClick={() => setEditingRolId(r.id)}
-                        >
-                          <Settings2 className="h-4 w-4" />
-                        </Button>
+                        <RowActionsMenu
+                          items={[
+                            {
+                              label: 'Editar permisos',
+                              icon: Settings2,
+                              onSelect: () => setEditingRolId(r.id),
+                            },
+                          ]}
+                        />
                       </TableCell>
                     )}
                   </TableRow>
@@ -311,35 +321,6 @@ export function RolList() {
 // Componentes auxiliares
 // ============================================================================
 
-interface SegBtnProps {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  tone?: 'neutral' | 'success' | 'warning';
-}
-
-function SegBtn({ active, onClick, children, tone = 'neutral' }: SegBtnProps) {
-  const toneCls =
-    tone === 'success'
-      ? 'data-[active=true]:bg-[var(--color-success)]/15 data-[active=true]:text-[var(--color-success)] data-[active=true]:border-[var(--color-success)]/30'
-      : tone === 'warning'
-        ? 'data-[active=true]:bg-[var(--color-warning)]/15 data-[active=true]:text-[var(--color-warning)] data-[active=true]:border-[var(--color-warning)]/30'
-        : 'data-[active=true]:bg-[var(--color-primary)]/10 data-[active=true]:text-[var(--color-primary)] data-[active=true]:border-[var(--color-primary)]/30';
-  return (
-    <button
-      type="button"
-      data-active={active}
-      onClick={onClick}
-      className={cn(
-        'inline-flex h-8 items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-[var(--color-muted)]/40',
-        toneCls,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 function RolCell({ rol }: { rol: RolDTO }) {
   const upperName = rol.nombre?.toUpperCase() ?? '';
   const esAdmin = upperName.includes('ADMIN');
@@ -351,7 +332,7 @@ function RolCell({ rol }: { rol: RolDTO }) {
           'mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
           esAdmin
             ? 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]'
-            : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+            : 'bg-[var(--color-muted)] text-[var(--color-primary)]',
         )}
       >
         <Icon className="h-4 w-4" />
@@ -389,7 +370,7 @@ function PermisosCountCell({ asignados, total }: { asignados: number; total: num
     asignados === 0
       ? 'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
       : pct >= 75
-        ? 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+        ? 'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]'
         : 'border-[var(--color-success)]/30 bg-[var(--color-success)]/10 text-[var(--color-success)]';
   return (
     <div className="space-y-1">

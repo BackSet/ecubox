@@ -42,11 +42,23 @@ type FormValues = z.input<typeof formSchema>;
 
 interface PaqueteFormProps {
   paquete?: Paquete | null;
+  /**
+   * Permite preseleccionar la guía master al abrir el formulario en modo
+   * "crear". Útil para flujos donde el operario decide registrar una pieza
+   * faltante desde otro contexto (por ejemplo, tras editar el total de
+   * piezas esperadas de una guía).
+   */
+  guiaMasterIdInicial?: number;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
+export function PaqueteForm({
+  paquete,
+  guiaMasterIdInicial,
+  onClose,
+  onSuccess,
+}: PaqueteFormProps) {
   const hasPesoWrite = useAuthStore((s) => s.hasPermission('PAQUETES_PESO_WRITE'));
   const isEdit = paquete != null;
 
@@ -61,7 +73,7 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      guiaMasterId: paquete?.guiaMasterId,
+      guiaMasterId: paquete?.guiaMasterId ?? guiaMasterIdInicial,
       contenido: paquete?.contenido ?? '',
       pesoLbs: paquete?.pesoLbs != null ? Number(paquete.pesoLbs) : undefined,
       pesoKg: paquete?.pesoKg != null ? Number(paquete.pesoKg) : undefined,
@@ -231,7 +243,7 @@ export function PaqueteForm({ paquete, onClose, onSuccess }: PaqueteFormProps) {
                     { shouldDirty: true, shouldValidate: true }
                   );
                 }}
-                disabled={sinGuiasDisponibles}
+                disabled={sinGuiasDisponibles || guiaMasterIdInicial != null}
               >
                 <option value="">— Selecciona una guía —</option>
                 {guiasSeleccionables.map((gm) => (

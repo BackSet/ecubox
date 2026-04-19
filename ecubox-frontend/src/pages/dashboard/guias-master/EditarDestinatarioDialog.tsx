@@ -114,6 +114,11 @@ export function EditarDestinatarioDialog({
   }
 
   const sinClientes = !loadingDest && clientes.length === 0;
+  // SCD2: una vez que la guia despacho su primera pieza, el destinatario
+  // queda congelado (snapshot inmutable) para preservar la trazabilidad
+  // del envio. No permitimos cambiarlo desde la UI; el backend tambien lo
+  // rechaza con un mensaje claro.
+  const destinatarioCongelado = guia.destinatarioVersionId != null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !actualizar.isPending && onClose()}>
@@ -127,6 +132,15 @@ export function EditarDestinatarioDialog({
             <p className="text-muted-foreground">Guía master</p>
             <p className="break-all font-mono font-medium">{guia.trackingBase}</p>
           </div>
+
+          {destinatarioCongelado && (
+            <div className="rounded-md border border-amber-300/60 bg-amber-50 p-2.5 text-[12px] leading-snug text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+              Esta guía ya tiene piezas despachadas, por lo que el destinatario quedó
+              <strong> congelado </strong>
+              para preservar la trazabilidad del envío. Si necesitas reenrutarlo, anula los
+              despachos asociados o crea una guía nueva con el destinatario correcto.
+            </div>
+          )}
 
           <div>
             <Label
@@ -152,7 +166,7 @@ export function EditarDestinatarioDialog({
               }
               searchPlaceholder="Buscar cliente..."
               emptyMessage="Sin clientes"
-              disabled={loadingDest || sinClientes}
+              disabled={loadingDest || sinClientes || destinatarioCongelado}
               renderOption={(c) => (
                 <div className="flex items-center gap-2">
                   <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -202,7 +216,9 @@ export function EditarDestinatarioDialog({
               }
               searchPlaceholder="Buscar por nombre, código, cantón..."
               emptyMessage="Sin coincidencias"
-              disabled={loadingDest || destinatariosFiltrados.length === 0}
+              disabled={
+                loadingDest || destinatariosFiltrados.length === 0 || destinatarioCongelado
+              }
               clearable={false}
               renderOption={(d) => (
                 <div className="min-w-0">
@@ -246,7 +262,11 @@ export function EditarDestinatarioDialog({
           >
             Cancelar
           </Button>
-          <Button type="button" onClick={handleSave} disabled={actualizar.isPending}>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={actualizar.isPending || destinatarioCongelado}
+          >
             {actualizar.isPending ? 'Guardando...' : 'Guardar cambios'}
           </Button>
         </DialogFooter>

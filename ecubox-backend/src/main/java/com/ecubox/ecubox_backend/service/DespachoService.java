@@ -41,6 +41,10 @@ public class DespachoService {
     private final AgenciaDistribuidorService agenciaDistribuidorService;
     private final SacaEnDespachoValidator sacaEnDespachoValidator;
     private final EstadoRastreoService estadoRastreoService;
+    private final GuiaMasterService guiaMasterService;
+    private final DestinatarioVersionService destinatarioVersionService;
+    private final AgenciaVersionService agenciaVersionService;
+    private final AgenciaDistribuidorVersionService agenciaDistribuidorVersionService;
 
     public DespachoService(DespachoRepository despachoRepository,
                           DistribuidorRepository distribuidorRepository,
@@ -54,7 +58,11 @@ public class DespachoService {
                           ParametroSistemaService parametroSistemaService,
                           AgenciaDistribuidorService agenciaDistribuidorService,
                           SacaEnDespachoValidator sacaEnDespachoValidator,
-                          EstadoRastreoService estadoRastreoService) {
+                          EstadoRastreoService estadoRastreoService,
+                          GuiaMasterService guiaMasterService,
+                          DestinatarioVersionService destinatarioVersionService,
+                          AgenciaVersionService agenciaVersionService,
+                          AgenciaDistribuidorVersionService agenciaDistribuidorVersionService) {
         this.despachoRepository = despachoRepository;
         this.distribuidorRepository = distribuidorRepository;
         this.destinatarioFinalRepository = destinatarioFinalRepository;
@@ -68,6 +76,25 @@ public class DespachoService {
         this.parametroSistemaService = parametroSistemaService;
         this.agenciaDistribuidorService = agenciaDistribuidorService;
         this.estadoRastreoService = estadoRastreoService;
+        this.guiaMasterService = guiaMasterService;
+        this.destinatarioVersionService = destinatarioVersionService;
+        this.agenciaVersionService = agenciaVersionService;
+        this.agenciaDistribuidorVersionService = agenciaDistribuidorVersionService;
+    }
+
+    /**
+     * Recalcula el estado agregado de las guias master a las que pertenecen
+     * los paquetes indicados. Util cuando se cambia la asignacion saca-despacho
+     * (que afecta {@code piezaDespachada} en {@link GuiaMasterService}).
+     */
+    private void recomputarGuiasMasterDePaquetes(List<Long> paqueteIds) {
+        if (paqueteIds == null || paqueteIds.isEmpty()) return;
+        List<Long> gmIds = paqueteRepository.findGuiaMasterIdsByPaqueteIds(paqueteIds);
+        for (Long gmId : gmIds) {
+            if (gmId != null) {
+                guiaMasterService.recomputarEstado(gmId);
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -101,6 +128,10 @@ public class DespachoService {
                 .agencia(entrega.agencia())
                 .agenciaDistribuidor(entrega.agenciaDistribuidor())
                 .build();
+        // SCD2: el despacho congela su destino inmediatamente al crearse.
+        // A partir de aqui los datos impresos en el despacho son inmutables
+        // independientemente de ediciones posteriores en los maestros.
+        congelarDestinoVersion(d);
         d = despachoRepository.save(d);
 
         if (!sacaIds.isEmpty()) {
@@ -146,6 +177,13 @@ public class DespachoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Distribuidor", request.getDistribuidorId()));
         EntregaResuelta entrega = resolveEntrega(request);
 
+        // SCD2: el destino del despacho es inmutable una vez creado. Si el
+        // operario quiere cambiarlo debe anular este despacho y crear uno nuevo,
+        // para que la trazabilidad refleje claramente el reenrutado.
+        if (d.getDestinoCongeladoEn() != null) {
+            validarDestinoNoCambia(d, request);
+        }
+
         List<Long> requestedSacaIdsForValidation = request.getSacaIds() != null ? request.getSacaIds() : new ArrayList<>();
         validarSacasParaTipoEntrega(request.getTipoEntrega(), requestedSacaIdsForValidation);
 
@@ -166,11 +204,20 @@ public class DespachoService {
         Set<Long> requestedSet = Set.copyOf(requestedSacaIds);
 
         List<Saca> currentSacas = d.getSacas() != null ? d.getSacas() : new ArrayList<>();
+        List<Long> sacasDesasignadas = new ArrayList<>();
         for (Saca saca : currentSacas) {
             if (!requestedSet.contains(saca.getId())) {
+                sacasDesasignadas.add(saca.getId());
                 saca.setDespacho(null);
                 sacaRepository.save(saca);
             }
+        }
+        if (!sacasDesasignadas.isEmpty()) {
+            // Las piezas de estas sacas dejaron de estar asignadas a un despacho;
+            // recalculamos el estado de sus guias master por si dejan de estar
+            // en DESPACHO_PARCIAL.
+            List<Long> paqueteIdsDesasignados = paqueteRepository.findIdsBySacaIdIn(sacasDesasignadas);
+            recomputarGuiasMasterDePaquetes(paqueteIdsDesasignados);
         }
 
         List<Long> currentSacaIds = currentSacas.stream().map(Saca::getId).toList();
@@ -208,11 +255,12 @@ public class DespachoService {
         Despacho d = despachoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Despacho", id));
         List<Saca> sacas = d.getSacas() != null ? d.getSacas() : new ArrayList<>();
+        List<Long> paqueteIdsAfectados = new ArrayList<>();
         if (!sacas.isEmpty()) {
             List<Long> sacaIds = sacas.stream().map(Saca::getId).toList();
-            List<Long> paqueteIds = paqueteRepository.findIdsBySacaIdIn(sacaIds);
-            if (!paqueteIds.isEmpty()) {
-                paqueteService.revertirEstadoSiUltimoEventoCoincide(paqueteIds, "DESPACHO_AUTO");
+            paqueteIdsAfectados = paqueteRepository.findIdsBySacaIdIn(sacaIds);
+            if (!paqueteIdsAfectados.isEmpty()) {
+                paqueteService.revertirEstadoSiUltimoEventoCoincide(paqueteIdsAfectados, "DESPACHO_AUTO");
             }
             for (Saca saca : sacas) {
                 saca.setDespacho(null);
@@ -220,6 +268,9 @@ public class DespachoService {
             sacaRepository.saveAll(sacas);
         }
         despachoRepository.delete(d);
+        // Las piezas dejaron de estar despachadas: hay que recalcular el estado
+        // agregado de sus guias master (las que no esten congeladas/terminales).
+        recomputarGuiasMasterDePaquetes(paqueteIdsAfectados);
     }
 
     @Transactional(readOnly = true)
@@ -391,6 +442,43 @@ public class DespachoService {
         List<Long> sacaIds = d.getSacas() != null
                 ? d.getSacas().stream().map(Saca::getId).collect(Collectors.toList())
                 : new ArrayList<>();
+
+        // SCD2: si el despacho tiene snapshot de destino, ese es la fuente
+        // de verdad para nombre/direccion/etc. Si no, leemos del maestro vivo.
+        DestinatarioFinalVersion destSnap = d.getDestinatarioVersion();
+        AgenciaVersion agSnap = d.getAgenciaVersion();
+        AgenciaDistribuidorVersion adSnap = d.getAgenciaDistribuidorVersion();
+
+        String destinatarioNombre;
+        String destinatarioDireccion;
+        String destinatarioTelefono;
+        if (destSnap != null) {
+            destinatarioNombre = destSnap.getNombre();
+            destinatarioDireccion = destSnap.getDireccion();
+            destinatarioTelefono = destSnap.getTelefono();
+        } else {
+            DestinatarioFinal df = d.getDestinatarioFinal();
+            destinatarioNombre = df != null ? df.getNombre() : null;
+            destinatarioDireccion = df != null ? df.getDireccion() : null;
+            destinatarioTelefono = df != null ? df.getTelefono() : null;
+        }
+
+        String agenciaNombre;
+        if (agSnap != null) {
+            agenciaNombre = agSnap.getNombre();
+        } else {
+            agenciaNombre = d.getAgencia() != null ? d.getAgencia().getNombre() : null;
+        }
+
+        String agenciaDistribuidorNombre;
+        if (adSnap != null) {
+            agenciaDistribuidorNombre = etiquetaDeVersion(adSnap);
+        } else if (d.getAgenciaDistribuidor() != null) {
+            agenciaDistribuidorNombre = com.ecubox.ecubox_backend.service.AgenciaDistribuidorService.etiquetaDe(d.getAgenciaDistribuidor());
+        } else {
+            agenciaDistribuidorNombre = null;
+        }
+
         return DespachoDTO.builder()
                 .id(d.getId())
                 .numeroGuia(d.getNumeroGuia())
@@ -403,15 +491,103 @@ public class DespachoService {
                 .distribuidorNombre(d.getDistribuidor() != null ? d.getDistribuidor().getNombre() : null)
                 .tipoEntrega(d.getTipoEntrega())
                 .destinatarioFinalId(d.getDestinatarioFinal() != null ? d.getDestinatarioFinal().getId() : null)
-                .destinatarioNombre(d.getDestinatarioFinal() != null ? d.getDestinatarioFinal().getNombre() : null)
-                .destinatarioDireccion(d.getDestinatarioFinal() != null ? d.getDestinatarioFinal().getDireccion() : null)
-                .destinatarioTelefono(d.getDestinatarioFinal() != null ? d.getDestinatarioFinal().getTelefono() : null)
+                .destinatarioNombre(destinatarioNombre)
+                .destinatarioDireccion(destinatarioDireccion)
+                .destinatarioTelefono(destinatarioTelefono)
                 .agenciaId(d.getAgencia() != null ? d.getAgencia().getId() : null)
-                .agenciaNombre(d.getAgencia() != null ? d.getAgencia().getNombre() : null)
+                .agenciaNombre(agenciaNombre)
                 .agenciaDistribuidorId(d.getAgenciaDistribuidor() != null ? d.getAgenciaDistribuidor().getId() : null)
-                .agenciaDistribuidorNombre(d.getAgenciaDistribuidor() != null ? com.ecubox.ecubox_backend.service.AgenciaDistribuidorService.etiquetaDe(d.getAgenciaDistribuidor()) : null)
+                .agenciaDistribuidorNombre(agenciaDistribuidorNombre)
+                .destinatarioVersionId(destSnap != null ? destSnap.getId() : null)
+                .agenciaVersionId(agSnap != null ? agSnap.getId() : null)
+                .agenciaDistribuidorVersionId(adSnap != null ? adSnap.getId() : null)
+                .destinoCongeladoEn(d.getDestinoCongeladoEn())
                 .sacaIds(sacaIds)
                 .build();
+    }
+
+    /**
+     * Reconstruye la etiqueta "Provincia, Canton (CODIGO)" desde un snapshot
+     * inmutable de agencia de distribuidor. Mantiene la misma forma que
+     * {@link AgenciaDistribuidorService#etiquetaDe} para consistencia visual.
+     */
+    private static String etiquetaDeVersion(AgenciaDistribuidorVersion a) {
+        if (a == null) return "";
+        String prov = a.getProvincia() != null ? a.getProvincia().trim() : "";
+        String cant = a.getCanton() != null ? a.getCanton().trim() : "";
+        String cod = a.getCodigo() != null ? a.getCodigo().trim() : "";
+        List<String> parts = new ArrayList<>();
+        if (!prov.isEmpty()) parts.add(prov);
+        if (!cant.isEmpty()) parts.add(cant);
+        String loc = String.join(", ", parts);
+        if (!loc.isEmpty()) {
+            return cod.isEmpty() ? loc : loc + " (" + cod + ")";
+        }
+        return cod.isEmpty() ? "—" : cod;
+    }
+
+    /**
+     * Resuelve y setea las versiones vigentes del destino segun
+     * {@link Despacho#getTipoEntrega()}. Idempotente: si el despacho ya
+     * tiene {@code destinoCongeladoEn}, no hace nada.
+     */
+    private void congelarDestinoVersion(Despacho d) {
+        if (d == null) return;
+        if (d.getDestinoCongeladoEn() != null) return;
+        boolean alguno = false;
+        if (d.getDestinatarioFinal() != null) {
+            DestinatarioFinal df = d.getDestinatarioFinal();
+            DestinatarioFinalVersion v = destinatarioVersionService.getVersionVigente(df.getId())
+                    .orElseGet(() -> destinatarioVersionService.crearNuevaVersion(df, null));
+            d.setDestinatarioVersion(v);
+            alguno = true;
+        }
+        if (d.getAgencia() != null) {
+            Agencia ag = d.getAgencia();
+            AgenciaVersion v = agenciaVersionService.getVersionVigente(ag.getId())
+                    .orElseGet(() -> agenciaVersionService.crearNuevaVersion(ag, null));
+            d.setAgenciaVersion(v);
+            alguno = true;
+        }
+        if (d.getAgenciaDistribuidor() != null) {
+            AgenciaDistribuidor ad = d.getAgenciaDistribuidor();
+            AgenciaDistribuidorVersion v = agenciaDistribuidorVersionService.getVersionVigente(ad.getId())
+                    .orElseGet(() -> agenciaDistribuidorVersionService.crearNuevaVersion(ad, null));
+            d.setAgenciaDistribuidorVersion(v);
+            alguno = true;
+        }
+        if (alguno) {
+            d.setDestinoCongeladoEn(LocalDateTime.now());
+        }
+    }
+
+    /**
+     * Verifica que el request no intente cambiar el destino congelado.
+     * Permite editar otros campos (numero, observaciones, fechaHora, sacas)
+     * pero no el destinatario, agencia, agencia de distribuidor ni el
+     * tipo de entrega.
+     */
+    private void validarDestinoNoCambia(Despacho d, DespachoCreateRequest request) {
+        if (request.getTipoEntrega() != null && d.getTipoEntrega() != request.getTipoEntrega()) {
+            throw new BadRequestException(
+                    "El tipo de entrega de un despacho ya creado no se puede cambiar (esta congelado para trazabilidad).");
+        }
+        Long destActual = d.getDestinatarioFinal() != null ? d.getDestinatarioFinal().getId() : null;
+        if (!java.util.Objects.equals(destActual, request.getDestinatarioFinalId())) {
+            throw new BadRequestException(
+                    "El destinatario del despacho esta congelado y no se puede cambiar. "
+                            + "Anula este despacho y crea uno nuevo si necesitas reenrutar el envio.");
+        }
+        Long agActual = d.getAgencia() != null ? d.getAgencia().getId() : null;
+        if (!java.util.Objects.equals(agActual, request.getAgenciaId())) {
+            throw new BadRequestException(
+                    "La agencia destino del despacho esta congelada y no se puede cambiar.");
+        }
+        Long adActual = d.getAgenciaDistribuidor() != null ? d.getAgenciaDistribuidor().getId() : null;
+        if (!java.util.Objects.equals(adActual, request.getAgenciaDistribuidorId())) {
+            throw new BadRequestException(
+                    "La agencia de distribuidor destino del despacho esta congelada y no se puede cambiar.");
+        }
     }
 
     /**

@@ -68,7 +68,7 @@ function RoleSwitcher({
     <div
       role="tablist"
       aria-label="Vista de inicio por rol"
-      className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-1"
+      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-1"
     >
       {roles.map((role) => {
         const isActive = role === active;
@@ -81,8 +81,8 @@ function RoleSwitcher({
             onClick={() => onChange(role)}
             className={
               isActive
-                ? 'inline-flex items-center gap-2 rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-[var(--color-primary-foreground)] shadow-sm transition'
-                : 'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-[var(--color-muted-foreground)] transition hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                ? 'inline-flex items-center gap-2 rounded-md bg-[var(--color-foreground)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-background)] transition'
+                : 'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] font-medium text-[var(--color-muted-foreground)] transition hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
             }
           >
             {ROLE_LABEL[role]}

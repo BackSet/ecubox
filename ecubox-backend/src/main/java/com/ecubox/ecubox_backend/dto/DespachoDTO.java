@@ -36,4 +36,13 @@ public class DespachoDTO {
     private List<Long> sacaIds;
     /** Sacas con paquetes (solo poblado en GET por id). */
     private List<SacaDTO> sacas;
+
+    /** SCD2: id de la version inmutable del destinatario congelada en el despacho. */
+    private Long destinatarioVersionId;
+    /** SCD2: id de la version inmutable de la agencia congelada en el despacho. */
+    private Long agenciaVersionId;
+    /** SCD2: id de la version inmutable de la agencia de distribuidor congelada en el despacho. */
+    private Long agenciaDistribuidorVersionId;
+    /** Cuando el despacho fijo el snapshot del destino. */
+    private LocalDateTime destinoCongeladoEn;
 }

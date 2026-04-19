@@ -28,6 +28,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
+import { ChipFiltro } from '@/components/ChipFiltro';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -192,28 +194,39 @@ export function UsuarioList() {
             Filtros
           </div>
           <div className="flex flex-wrap gap-2">
-            <SegBtn
+            <ChipFiltro
+              label="Todos"
+              count={stats.total}
               active={estadoFiltro === 'todos'}
               onClick={() => setEstadoFiltro('todos')}
-            >
-              Todos
-            </SegBtn>
-            <SegBtn
+            />
+            <ChipFiltro
+              label="Activos"
+              count={stats.activos}
               active={estadoFiltro === 'activos'}
-              onClick={() => setEstadoFiltro('activos')}
               tone="success"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Activos
-            </SegBtn>
-            <SegBtn
+              icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+              onClick={() => setEstadoFiltro('activos')}
+            />
+            <ChipFiltro
+              label="Inactivos"
+              count={stats.inactivos}
               active={estadoFiltro === 'inactivos'}
-              onClick={() => setEstadoFiltro('inactivos')}
               tone="warning"
-            >
-              <PowerOff className="h-3.5 w-3.5" />
-              Inactivos
-            </SegBtn>
+              icon={<PowerOff className="h-3.5 w-3.5" />}
+              onClick={() => setEstadoFiltro('inactivos')}
+            />
+            <ChipFiltro
+              label="Sin rol"
+              count={stats.sinRol}
+              active={rolFiltro === ROL_SIN_ROL}
+              tone="danger"
+              icon={<UserMinus className="h-3.5 w-3.5" />}
+              onClick={() =>
+                setRolFiltro(rolFiltro === ROL_SIN_ROL ? ROL_TODOS : ROL_SIN_ROL)
+              }
+              hideWhenZero
+            />
           </div>
           <Select value={rolFiltro} onValueChange={setRolFiltro}>
             <SelectTrigger className="h-9 w-full sm:w-[200px]">
@@ -282,7 +295,7 @@ export function UsuarioList() {
                 <TableHead>Contacto</TableHead>
                 <TableHead className="w-[8rem]">Estado</TableHead>
                 <TableHead>Roles</TableHead>
-                {hasWrite && <TableHead className="w-[12rem] text-right">Acciones</TableHead>}
+                {hasWrite && <TableHead className="w-12 text-right" aria-label="Acciones" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -306,54 +319,30 @@ export function UsuarioList() {
                     </TableCell>
                     {hasWrite && (
                       <TableCell className="align-top text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            title={u.enabled ? 'Desactivar usuario' : 'Activar usuario'}
-                            aria-label={u.enabled ? 'Desactivar usuario' : 'Activar usuario'}
-                            disabled={esActual || updateUsuario.isPending}
-                            onClick={() => handleToggleEnabled(u)}
-                            className={
-                              u.enabled
-                                ? 'text-[var(--color-warning)] hover:text-[var(--color-warning)]'
-                                : 'text-[var(--color-success)] hover:text-[var(--color-success)]'
-                            }
-                          >
-                            {u.enabled ? (
-                              <PowerOff className="h-4 w-4" />
-                            ) : (
-                              <Power className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            title="Editar usuario"
-                            aria-label="Editar usuario"
-                            onClick={() => setEditingId(u.id)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            title={
-                              esActual
-                                ? 'No puedes eliminar tu propio usuario'
-                                : 'Eliminar usuario'
-                            }
-                            aria-label="Eliminar usuario"
-                            disabled={esActual}
-                            className="text-[var(--color-destructive)] hover:text-[var(--color-destructive)]"
-                            onClick={() => setDeleteConfirmId(u.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <RowActionsMenu
+                          items={[
+                            {
+                              label: u.enabled ? 'Desactivar usuario' : 'Activar usuario',
+                              icon: u.enabled ? PowerOff : Power,
+                              onSelect: () => handleToggleEnabled(u),
+                              disabled: esActual,
+                              loading: updateUsuario.isPending,
+                            },
+                            {
+                              label: 'Editar usuario',
+                              icon: Pencil,
+                              onSelect: () => setEditingId(u.id),
+                            },
+                            { type: 'separator' },
+                            {
+                              label: esActual ? 'No puedes eliminar tu propio usuario' : 'Eliminar',
+                              icon: Trash2,
+                              destructive: true,
+                              disabled: esActual,
+                              onSelect: () => setDeleteConfirmId(u.id),
+                            },
+                          ]}
+                        />
                       </TableCell>
                     )}
                   </TableRow>
@@ -405,35 +394,6 @@ export function UsuarioList() {
 // Componentes auxiliares
 // ============================================================================
 
-interface SegBtnProps {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  tone?: 'neutral' | 'success' | 'warning';
-}
-
-function SegBtn({ active, onClick, children, tone = 'neutral' }: SegBtnProps) {
-  const toneCls =
-    tone === 'success'
-      ? 'data-[active=true]:bg-[var(--color-success)]/15 data-[active=true]:text-[var(--color-success)] data-[active=true]:border-[var(--color-success)]/30'
-      : tone === 'warning'
-        ? 'data-[active=true]:bg-[var(--color-warning)]/15 data-[active=true]:text-[var(--color-warning)] data-[active=true]:border-[var(--color-warning)]/30'
-        : 'data-[active=true]:bg-[var(--color-primary)]/10 data-[active=true]:text-[var(--color-primary)] data-[active=true]:border-[var(--color-primary)]/30';
-  return (
-    <button
-      type="button"
-      data-active={active}
-      onClick={onClick}
-      className={cn(
-        'inline-flex h-8 items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-[var(--color-muted)]/40',
-        toneCls,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 function getInitials(name?: string | null): string {
   if (!name) return '?';
   const parts = name
@@ -453,7 +413,7 @@ function UsuarioCell({ usuario, esActual }: { usuario: UsuarioDTO; esActual: boo
         className={cn(
           'mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
           usuario.enabled
-            ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+            ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
             : 'bg-[var(--color-muted)] text-muted-foreground',
         )}
       >

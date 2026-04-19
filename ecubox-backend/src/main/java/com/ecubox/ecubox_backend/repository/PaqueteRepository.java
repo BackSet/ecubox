@@ -64,6 +64,14 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long> {
     @Query("SELECT p.id FROM Paquete p WHERE p.saca.id IN :sacaIds")
     List<Long> findIdsBySacaIdIn(@Param("sacaIds") List<Long> sacaIds);
 
+    /**
+     * IDs distintos de guia_master a los que pertenecen los paquetes indicados.
+     * Util para recalcular el estado agregado de las guias afectadas por una
+     * operacion en lote.
+     */
+    @Query("SELECT DISTINCT p.guiaMaster.id FROM Paquete p WHERE p.id IN :paqueteIds AND p.guiaMaster.id IS NOT NULL")
+    List<Long> findGuiaMasterIdsByPaqueteIds(@Param("paqueteIds") List<Long> paqueteIds);
+
     /** Paquetes de una saca en orden de creación. */
     List<Paquete> findBySacaIdOrderByIdAsc(Long sacaId);
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -12,7 +12,6 @@ import {
   Plus,
   Trash2,
   UserRound,
-  X,
 } from 'lucide-react';
 import { useAgencias, useDeleteAgencia } from '@/hooks/useAgencias';
 import { AgenciaForm } from './AgenciaForm';
@@ -22,15 +21,12 @@ import { LoadingState } from '@/components/LoadingState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
+import { ChipFiltro } from '@/components/ChipFiltro';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import {
   Table,
   TableBody,
@@ -51,8 +47,6 @@ function fmtMoneda(n: number | undefined | null): string {
   })}`;
 }
 
-const ALL_PROVINCIAS = '__ALL__';
-
 export function AgenciaListPage() {
   const { data: agencias, isLoading, error } = useAgencias();
   const deleteAgencia = useDeleteAgencia();
@@ -60,7 +54,13 @@ export function AgenciaListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [provinciaFilter, setProvinciaFilter] = useState<string>(ALL_PROVINCIAS);
+  const [provinciaFiltro, setProvinciaFiltro] = useState<string | undefined>(
+    undefined,
+  );
+  // Chip rapido segun caracteristicas operativas mas consultadas.
+  const [chipActivo, setChipActivo] = useState<
+    'todos' | 'sin_tarifa' | 'con_tarifa' | 'sin_horario' | 'sin_encargado'
+  >('todos');
 
   const allAgencias = useMemo(() => agencias ?? [], [agencias]);
 
@@ -73,12 +73,10 @@ export function AgenciaListPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [allAgencias]);
 
-  const list = useMemo(() => {
+  const baseList = useMemo(() => {
     const contains = createContainsMatcher(search);
     return allAgencias.filter((a) => {
-      if (provinciaFilter !== ALL_PROVINCIAS && (a.provincia ?? '') !== provinciaFilter) {
-        return false;
-      }
+      if (provinciaFiltro && (a.provincia ?? '') !== provinciaFiltro) return false;
       if (!contains) return true;
       return (
         contains(a.nombre) ||
@@ -89,7 +87,42 @@ export function AgenciaListPage() {
         contains(a.canton)
       );
     });
-  }, [allAgencias, search, provinciaFilter]);
+  }, [allAgencias, search, provinciaFiltro]);
+
+  const chipCounts = useMemo(() => {
+    let conTarifa = 0;
+    let sinTarifa = 0;
+    let sinHorario = 0;
+    let sinEncargado = 0;
+    for (const a of baseList) {
+      const t = Number(a.tarifaServicio ?? 0);
+      if (Number.isFinite(t) && t > 0) conTarifa += 1;
+      else sinTarifa += 1;
+      if (!a.horarioAtencion?.trim()) sinHorario += 1;
+      if (!a.encargado?.trim()) sinEncargado += 1;
+    }
+    return { todos: baseList.length, conTarifa, sinTarifa, sinHorario, sinEncargado };
+  }, [baseList]);
+
+  const list = useMemo(() => {
+    if (chipActivo === 'todos') return baseList;
+    return baseList.filter((a) => {
+      const t = Number(a.tarifaServicio ?? 0);
+      if (chipActivo === 'con_tarifa') return Number.isFinite(t) && t > 0;
+      if (chipActivo === 'sin_tarifa') return !Number.isFinite(t) || t <= 0;
+      if (chipActivo === 'sin_horario') return !a.horarioAtencion?.trim();
+      if (chipActivo === 'sin_encargado') return !a.encargado?.trim();
+      return true;
+    });
+  }, [baseList, chipActivo]);
+
+  const tieneFiltros =
+    !!provinciaFiltro || chipActivo !== 'todos' || search.trim().length > 0;
+  const limpiarFiltros = useCallback(() => {
+    setProvinciaFiltro(undefined);
+    setChipActivo('todos');
+    setSearch('');
+  }, []);
 
   const stats = useMemo(() => {
     const total = allAgencias.length;
@@ -116,8 +149,6 @@ export function AgenciaListPage() {
       </div>
     );
   }
-
-  const filterActive = provinciaFilter !== ALL_PROVINCIAS || search.trim().length > 0;
 
   return (
     <div className="page-stack">
@@ -165,46 +196,79 @@ export function AgenciaListPage() {
         </div>
       )}
 
-      {provincias.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Filtrar por provincia:</span>
-          <Select value={provinciaFilter} onValueChange={setProvinciaFilter}>
-            <SelectTrigger
-              variant="clean"
-              size="sm"
-              className="h-8 w-auto min-w-[12rem]"
-            >
-              <SelectValue placeholder="Todas las provincias" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_PROVINCIAS}>Todas las provincias</SelectItem>
-              {provincias.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {filterActive && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8"
-              onClick={() => {
-                setSearch('');
-                setProvinciaFilter(ALL_PROVINCIAS);
-              }}
-            >
-              <X className="mr-1 h-3.5 w-3.5" />
-              Limpiar
-            </Button>
-          )}
-          <span className="ml-auto text-xs text-muted-foreground">
-            {list.length} agencia{list.length === 1 ? '' : 's'}
-            {list.length !== allAgencias.length ? ` de ${allAgencias.length}` : ''}
-          </span>
-        </div>
+      {allAgencias.length > 0 && (
+        <FiltrosBar
+          hayFiltrosActivos={tieneFiltros}
+          onLimpiar={limpiarFiltros}
+          chips={
+            <>
+              <ChipFiltro
+                label="Todas"
+                count={chipCounts.todos}
+                active={chipActivo === 'todos'}
+                onClick={() => setChipActivo('todos')}
+              />
+              <ChipFiltro
+                label="Con tarifa"
+                count={chipCounts.conTarifa}
+                active={chipActivo === 'con_tarifa'}
+                tone="success"
+                onClick={() => setChipActivo('con_tarifa')}
+                hideWhenZero
+              />
+              <ChipFiltro
+                label="Sin tarifa"
+                count={chipCounts.sinTarifa}
+                active={chipActivo === 'sin_tarifa'}
+                tone="neutral"
+                onClick={() => setChipActivo('sin_tarifa')}
+                hideWhenZero
+              />
+              <ChipFiltro
+                label="Sin horario"
+                count={chipCounts.sinHorario}
+                active={chipActivo === 'sin_horario'}
+                tone="warning"
+                onClick={() => setChipActivo('sin_horario')}
+                hideWhenZero
+              />
+              <ChipFiltro
+                label="Sin encargado"
+                count={chipCounts.sinEncargado}
+                active={chipActivo === 'sin_encargado'}
+                tone="warning"
+                onClick={() => setChipActivo('sin_encargado')}
+                hideWhenZero
+              />
+            </>
+          }
+          filtros={
+            provincias.length > 0 && (
+              <FiltroCampo label="Provincia" width="w-[14rem]">
+                <SearchableCombobox<string>
+                  value={provinciaFiltro}
+                  onChange={(v) =>
+                    setProvinciaFiltro(v === undefined ? undefined : String(v))
+                  }
+                  options={provincias}
+                  getKey={(p) => p}
+                  getLabel={(p) => p}
+                  placeholder="Todas"
+                  searchPlaceholder="Buscar provincia..."
+                  emptyMessage="Sin provincias"
+                  className="h-9 w-full"
+                />
+              </FiltroCampo>
+            )
+          }
+        />
+      )}
+
+      {list.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {list.length} agencia{list.length === 1 ? '' : 's'}
+          {list.length !== allAgencias.length ? ` de ${allAgencias.length}` : ''}
+        </p>
       )}
 
       {list.length === 0 ? (
@@ -214,19 +278,15 @@ export function AgenciaListPage() {
           description={
             allAgencias.length === 0
               ? 'Registra una agencia para usarla como punto de retiro en despachos.'
-              : 'No se encontraron agencias con ese criterio.'
+              : tieneFiltros
+                ? 'No hay agencias que coincidan con los filtros aplicados.'
+                : 'No se encontraron agencias con ese criterio.'
           }
           action={
             allAgencias.length === 0 ? (
               <Button onClick={() => setCreateOpen(true)}>Registrar agencia</Button>
             ) : (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setSearch('');
-                  setProvinciaFilter(ALL_PROVINCIAS);
-                }}
-              >
+              <Button variant="outline" onClick={limpiarFiltros}>
                 Limpiar filtros
               </Button>
             )
@@ -242,7 +302,7 @@ export function AgenciaListPage() {
                 <TableHead className="min-w-[18rem]">Ubicación</TableHead>
                 <TableHead className="min-w-[14rem]">Operación</TableHead>
                 <TableHead className="text-right">Tarifa</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -271,29 +331,22 @@ export function AgenciaListPage() {
                     <TarifaCell tarifa={a.tarifaServicio} />
                   </TableCell>
                   <TableCell className="align-top text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Editar agencia"
-                        title="Editar agencia"
-                        onClick={() => setEditingId(a.id)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Eliminar agencia"
-                        title="Eliminar agencia"
-                        className="text-[var(--color-destructive)] hover:text-[var(--color-destructive)]"
-                        onClick={() => setDeleteConfirmId(a.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <RowActionsMenu
+                      items={[
+                        {
+                          label: 'Editar agencia',
+                          icon: Pencil,
+                          onSelect: () => setEditingId(a.id),
+                        },
+                        { type: 'separator' },
+                        {
+                          label: 'Eliminar',
+                          icon: Trash2,
+                          destructive: true,
+                          onSelect: () => setDeleteConfirmId(a.id),
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

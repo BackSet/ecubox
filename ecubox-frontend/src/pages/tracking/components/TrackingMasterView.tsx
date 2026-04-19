@@ -22,12 +22,14 @@ interface TrackingMasterViewProps {
 }
 
 const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
-  INCOMPLETA: 'Incompleta',
-  PARCIAL_RECIBIDA: 'Parcialmente recibida',
-  COMPLETA_RECIBIDA: 'Completa en bodega',
-  PARCIAL_DESPACHADA: 'Despacho parcial',
-  CERRADA: 'Cerrada',
-  CERRADA_CON_FALTANTE: 'Cerrada con faltante',
+  EN_ESPERA_RECEPCION: 'En espera de recepción',
+  RECEPCION_PARCIAL: 'Recepción parcial',
+  RECEPCION_COMPLETA: 'Recepción completa',
+  DESPACHO_PARCIAL: 'En despacho parcial',
+  DESPACHO_COMPLETADO: 'Despacho completado',
+  DESPACHO_INCOMPLETO: 'Despacho incompleto',
+  CANCELADA: 'Cancelada',
+  EN_REVISION: 'En revisión',
 };
 
 function formatDate(iso?: string): string | null {

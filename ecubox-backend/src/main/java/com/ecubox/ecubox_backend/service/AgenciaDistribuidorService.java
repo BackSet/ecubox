@@ -8,6 +8,7 @@ import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.AgenciaDistribuidorRepository;
 import com.ecubox.ecubox_backend.repository.DistribuidorRepository;
+import com.ecubox.ecubox_backend.security.CurrentUserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,11 +20,17 @@ public class AgenciaDistribuidorService {
 
     private final AgenciaDistribuidorRepository agenciaDistribuidorRepository;
     private final DistribuidorRepository distribuidorRepository;
+    private final AgenciaDistribuidorVersionService versionService;
+    private final CurrentUserService currentUserService;
 
     public AgenciaDistribuidorService(AgenciaDistribuidorRepository agenciaDistribuidorRepository,
-                                      DistribuidorRepository distribuidorRepository) {
+                                      DistribuidorRepository distribuidorRepository,
+                                      AgenciaDistribuidorVersionService versionService,
+                                      CurrentUserService currentUserService) {
         this.agenciaDistribuidorRepository = agenciaDistribuidorRepository;
         this.distribuidorRepository = distribuidorRepository;
+        this.versionService = versionService;
+        this.currentUserService = currentUserService;
     }
 
     @Transactional(readOnly = true)
@@ -65,6 +72,7 @@ public class AgenciaDistribuidorService {
         }
         AgenciaDistribuidor ent = toEntity(request, distribuidor, codigo);
         ent = agenciaDistribuidorRepository.save(ent);
+        versionService.crearNuevaVersion(ent, currentUserService.getCurrentUsuarioIdOrNull());
         return toDTO(ent);
     }
 
@@ -82,6 +90,7 @@ public class AgenciaDistribuidorService {
                 .orElseThrow(() -> new ResourceNotFoundException("Distribuidor", request.getDistribuidorId()));
         updateEntityFromRequest(ent, request, distribuidor);
         ent = agenciaDistribuidorRepository.save(ent);
+        versionService.crearNuevaVersion(ent, currentUserService.getCurrentUsuarioIdOrNull());
         return toDTO(ent);
     }
 

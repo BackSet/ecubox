@@ -7,6 +7,7 @@ import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.mapper.AgenciaMapper;
 import com.ecubox.ecubox_backend.repository.AgenciaRepository;
+import com.ecubox.ecubox_backend.security.CurrentUserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,10 +18,17 @@ public class AgenciaService {
 
     private final AgenciaRepository agenciaRepository;
     private final AgenciaMapper agenciaMapper;
+    private final AgenciaVersionService agenciaVersionService;
+    private final CurrentUserService currentUserService;
 
-    public AgenciaService(AgenciaRepository agenciaRepository, AgenciaMapper agenciaMapper) {
+    public AgenciaService(AgenciaRepository agenciaRepository,
+                          AgenciaMapper agenciaMapper,
+                          AgenciaVersionService agenciaVersionService,
+                          CurrentUserService currentUserService) {
         this.agenciaRepository = agenciaRepository;
         this.agenciaMapper = agenciaMapper;
+        this.agenciaVersionService = agenciaVersionService;
+        this.currentUserService = currentUserService;
     }
 
     @Transactional(readOnly = true)
@@ -45,6 +53,7 @@ public class AgenciaService {
         }
         Agencia entity = toEntity(request);
         entity = agenciaRepository.save(entity);
+        agenciaVersionService.crearNuevaVersion(entity, currentUserService.getCurrentUsuarioIdOrNull());
         return toDTO(entity);
     }
 
@@ -58,6 +67,7 @@ public class AgenciaService {
         }
         updateEntityFromRequest(entity, request);
         entity = agenciaRepository.save(entity);
+        agenciaVersionService.crearNuevaVersion(entity, currentUserService.getCurrentUsuarioIdOrNull());
         return toDTO(entity);
     }
 

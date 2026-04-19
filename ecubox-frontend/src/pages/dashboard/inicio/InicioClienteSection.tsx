@@ -16,7 +16,6 @@ import { KpiCard } from '@/components/KpiCard';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/LoadingState';
-import { PageHeader } from '@/components/PageHeader';
 import {
   GuiaMasterEstadoBadge,
   GUIA_MASTER_ESTADO_LABELS,
@@ -62,29 +61,33 @@ export function InicioClienteSection() {
 
   return (
     <section className="page-stack">
-      <PageHeader
-        title={username ? `Hola, ${username}` : 'Bienvenido'}
-        description="Resumen de tus guías y envíos."
-        actions={
-          hasMisGuiasCreate ? (
-            <Button onClick={() => setRegistrarOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Registrar guía
-            </Button>
-          ) : null
-        }
-      />
+      <header className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
+            {username ? `Hola, ${username}` : 'Bienvenido'}
+          </h1>
+          <p className="mt-1 text-[13px] text-[var(--color-muted-foreground)]">
+            Resumen de tus guías y envíos.
+          </p>
+        </div>
+        {hasMisGuiasCreate && (
+          <Button onClick={() => setRegistrarOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" strokeWidth={1.75} />
+            Registrar guía
+          </Button>
+        )}
+      </header>
 
       {data.totalGuiasSinTotalDefinido > 0 && (
         <div className="ui-alert ui-alert-warning">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-[var(--color-foreground)]">
+            <p className="text-[13px] font-medium text-[var(--color-foreground)]">
               {data.totalGuiasSinTotalDefinido === 1
                 ? '1 guía pendiente de revisar'
                 : `${data.totalGuiasSinTotalDefinido} guías pendientes de revisar`}
             </p>
-            <p className="text-sm text-[var(--color-muted-foreground)]">
+            <p className="text-[13px] text-[var(--color-muted-foreground)]">
               El operario aún debe confirmar el total de piezas. Te avisaremos cuando esté listo.
             </p>
           </div>
@@ -93,7 +96,7 @@ export function InicioClienteSection() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
-          icon={<Boxes className="h-5 w-5" />}
+          icon={<Boxes className="h-4 w-4" strokeWidth={1.75} />}
           label="Total de guías"
           value={data.totalGuias}
           tone="primary"
@@ -101,21 +104,21 @@ export function InicioClienteSection() {
           hint="Toca para ver el detalle"
         />
         <KpiCard
-          icon={<Truck className="h-5 w-5" />}
+          icon={<Truck className="h-4 w-4" strokeWidth={1.75} />}
           label="Activas"
           value={data.totalGuiasActivas}
           tone="neutral"
           hint={`${data.piezasEnTransito} pieza(s) en tránsito`}
         />
         <KpiCard
-          icon={<AlertCircle className="h-5 w-5" />}
+          icon={<AlertCircle className="h-4 w-4" strokeWidth={1.75} />}
           label="Pendientes de revisar"
           value={data.totalGuiasSinTotalDefinido}
           tone={data.totalGuiasSinTotalDefinido > 0 ? 'warning' : 'neutral'}
           hint="A la espera del operario"
         />
         <KpiCard
-          icon={<Users className="h-5 w-5" />}
+          icon={<Users className="h-4 w-4" strokeWidth={1.75} />}
           label="Destinatarios"
           value={data.totalDestinatarios}
           tone="neutral"
@@ -126,14 +129,14 @@ export function InicioClienteSection() {
       <div className="grid gap-4 lg:grid-cols-2">
         <ListaGuiasCard
           title="Tus guías recientes"
-          icon={<Boxes className="h-4 w-4" />}
+          icon={<Boxes className="h-4 w-4" strokeWidth={1.75} />}
           emptyText="Aún no hay guías recientes."
           guias={data.guiasRecientes}
           showFecha="created"
         />
         <ListaGuiasCard
           title="Próximas a despacharse"
-          icon={<Plane className="h-4 w-4" />}
+          icon={<Plane className="h-4 w-4" strokeWidth={1.75} />}
           emptyText="Cuando una guía empiece a recibirse aparecerá aquí."
           guias={data.guiasProximasACerrar}
           showFecha="recepcion"
@@ -143,17 +146,17 @@ export function InicioClienteSection() {
       <SurfaceCard className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <PackageSearch className="h-4 w-4 text-[var(--color-muted-foreground)]" />
-            <p className="text-sm text-[var(--color-foreground)]">
+            <PackageSearch className="h-4 w-4 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
+            <p className="text-[13px] text-[var(--color-foreground)]">
               ¿Quieres rastrear una pieza específica?
             </p>
           </div>
           <Link
             to="/tracking"
-            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition"
           >
             Tracking público
-            <ArrowRight className="h-3.5 w-3.5" />
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
           </Link>
         </div>
       </SurfaceCard>
@@ -183,18 +186,18 @@ function ListaGuiasCard({
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-[var(--color-muted-foreground)]">{icon}</span>
-          <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h3>
+          <h3 className="text-[13px] font-semibold text-[var(--color-foreground)]">{title}</h3>
         </div>
         <Link
           to="/mis-guias"
-          className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-primary)] hover:underline"
+          className="inline-flex items-center gap-1 text-[12px] font-medium text-[var(--color-foreground)] hover:underline"
         >
           Ver todas
-          <ArrowRight className="h-3 w-3" />
+          <ArrowRight className="h-3 w-3" strokeWidth={1.75} />
         </Link>
       </div>
       {guias.length === 0 ? (
-        <p className="text-sm text-[var(--color-muted-foreground)]">{emptyText}</p>
+        <p className="text-[13px] text-[var(--color-muted-foreground)]">{emptyText}</p>
       ) : (
         <ul className="divide-y divide-[var(--color-border)]">
           {guias.map((g) => (
@@ -202,13 +205,13 @@ function ListaGuiasCard({
               <Link
                 to="/mis-guias/$id"
                 params={{ id: String(g.id) }}
-                className="flex items-center justify-between gap-3 py-2.5 transition hover:bg-[var(--color-muted)]/40 -mx-2 px-2 rounded"
+                className="flex items-center justify-between gap-3 py-2.5 transition hover:bg-[var(--color-muted)]/50 -mx-2 px-2 rounded"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-mono text-sm text-[var(--color-foreground)]">
+                  <p className="truncate font-mono text-[13px] text-[var(--color-foreground)]">
                     {g.trackingBase}
                   </p>
-                  <p className="truncate text-xs text-[var(--color-muted-foreground)]">
+                  <p className="truncate text-[12px] text-[var(--color-muted-foreground)]">
                     {g.destinatarioNombre ?? 'Sin destinatario'}
                     {' · '}
                     {formatDateShort(

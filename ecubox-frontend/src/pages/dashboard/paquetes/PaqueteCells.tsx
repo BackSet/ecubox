@@ -1,58 +1,11 @@
-import { useState } from 'react';
-import { Copy, Check, Phone, MapPin } from 'lucide-react';
-import { toast } from 'sonner';
+import { Phone, MapPin } from 'lucide-react';
 import type { Paquete } from '@/types/paquete';
-
-/**
- * Botón inline para copiar texto al portapapeles, con feedback visual de
- * éxito durante 1.5s. Se evita la propagación del click para que no dispare
- * acciones en filas o links contenedores.
- */
-function CopyInlineButton({
-  value,
-  ariaLabel,
-  title,
-}: {
-  value: string;
-  ariaLabel: string;
-  title: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error('No se pudo copiar');
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      aria-label={ariaLabel}
-      title={`${title}: ${value}`}
-      className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground opacity-60 transition-opacity hover:bg-[var(--color-muted)] hover:text-foreground hover:opacity-100"
-    >
-      {copied ? (
-        <Check className="h-3 w-3 text-[var(--color-success)]" />
-      ) : (
-        <Copy className="h-3 w-3" />
-      )}
-    </button>
-  );
-}
+import { MonoTrunc } from '@/components/MonoTrunc';
 
 /**
  * Celda compartida para mostrar la guía master + pieza.
  * - Línea 1: `trackingBase` (enlace a la guía master o al tracking si no hay
- *   guía master) con botón para copiar el `trackingBase`.
+ *   guía master) con botón para copiar inline.
  * - Línea 2 (si hay pieza): "Pieza N de M" con botón para copiar el
  *   `numeroGuia` individual del paquete.
  */
@@ -61,34 +14,20 @@ export function GuiaMasterPiezaCell({ paquete: p }: { paquete: Paquete }) {
   const guiaHref = p.guiaMasterId != null ? `/guias-master/${p.guiaMasterId}` : null;
   const trackingHref = `/tracking?numeroGuia=${encodeURIComponent(p.numeroGuia)}`;
   const tienePieza = p.piezaNumero != null && p.piezaTotal != null;
-  const hayMaster = p.guiaMasterTrackingBase != null;
 
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <div className="flex min-w-0 items-start gap-1">
-        {guiaHref ? (
-          <a
-            href={guiaHref}
-            className="min-w-0 break-all font-mono text-sm font-medium text-primary hover:underline"
-            title={`Ver guía master: ${trackingBase}`}
-          >
-            {trackingBase}
-          </a>
-        ) : (
-          <a
-            href={trackingHref}
-            className="min-w-0 break-all font-mono text-sm font-medium text-primary hover:underline"
-            title={`Ver tracking: ${trackingBase}`}
-          >
-            {trackingBase}
-          </a>
-        )}
-        <CopyInlineButton
-          value={trackingBase ?? ''}
-          ariaLabel="Copiar guía master"
-          title={hayMaster ? 'Copiar guía master' : 'Copiar guía'}
-        />
-      </div>
+      <MonoTrunc
+        value={trackingBase}
+        as="a"
+        href={guiaHref ?? trackingHref}
+        title={
+          guiaHref
+            ? `Ver guía master: ${trackingBase}`
+            : `Ver tracking: ${trackingBase}`
+        }
+        className="font-medium text-primary"
+      />
       {tienePieza && (
         <div className="flex min-w-0 items-center gap-1">
           <a
@@ -98,9 +37,9 @@ export function GuiaMasterPiezaCell({ paquete: p }: { paquete: Paquete }) {
           >
             Pieza {p.piezaNumero} de {p.piezaTotal}
           </a>
-          <CopyInlineButton
+          <MonoTrunc
             value={p.numeroGuia}
-            ariaLabel="Copiar guía del paquete"
+            iconOnly
             title="Copiar guía del paquete"
           />
         </div>

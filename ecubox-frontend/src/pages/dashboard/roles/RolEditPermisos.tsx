@@ -106,7 +106,7 @@ const TIPO_META: Record<
   READ: {
     label: 'Lectura',
     tone:
-      'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
+      'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]',
     icon: Eye,
   },
   CREATE: {

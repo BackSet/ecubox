@@ -1,24 +1,18 @@
-import { type HTMLAttributes } from 'react';
+import { type HTMLAttributes, type ReactNode } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const statusBadgeVariants = cva(
-  'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium leading-none',
+  'inline-flex items-center gap-1.5 rounded-md border border-transparent bg-[var(--color-muted)] px-2 py-0.5 text-[11px] font-medium leading-none text-[var(--color-foreground)]',
   {
     variants: {
       tone: {
-        success:
-          'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
-        info:
-          'border-[color-mix(in_oklab,var(--color-info)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-info)_15%,transparent)] text-[color-mix(in_oklab,var(--color-info)_75%,var(--color-foreground))]',
-        warning:
-          'border-[color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-warning)_15%,transparent)] text-[color-mix(in_oklab,var(--color-warning)_75%,var(--color-foreground))]',
-        error:
-          'border-[color-mix(in_oklab,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-destructive)_15%,transparent)] text-[color-mix(in_oklab,var(--color-destructive)_80%,var(--color-foreground))]',
-        primary:
-          'border-[color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
-        neutral:
-          'border-[var(--color-border)] bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
+        success: '',
+        info: '',
+        warning: '',
+        error: '',
+        primary: '',
+        neutral: '',
       },
       solid: {
         true: '',
@@ -61,16 +55,55 @@ const statusBadgeVariants = cva(
 
 export type StatusTone = 'success' | 'info' | 'warning' | 'error' | 'primary' | 'neutral';
 
+const TONE_DOT_COLOR: Record<StatusTone, string> = {
+  success: 'bg-[var(--color-success)]',
+  info: 'bg-[var(--color-info)]',
+  warning: 'bg-[var(--color-warning)]',
+  error: 'bg-[var(--color-destructive)]',
+  primary: 'bg-[var(--color-primary)]',
+  neutral: 'bg-[var(--color-muted-foreground)]',
+};
+
 export interface StatusBadgeProps
   extends HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof statusBadgeVariants> {}
+    VariantProps<typeof statusBadgeVariants> {
+  /**
+   * Si se provee, reemplaza al dot semantico por el icono dado.
+   * El componente padre es responsable de aplicar el tamano (ej: h-3 w-3).
+   */
+  icon?: ReactNode;
+  /**
+   * Oculta tanto el dot como el icono.
+   */
+  hideIndicator?: boolean;
+}
 
-function StatusBadge({ className, tone, solid, ...props }: StatusBadgeProps) {
+function StatusBadge({
+  className,
+  tone,
+  solid,
+  icon,
+  hideIndicator,
+  children,
+  ...props
+}: StatusBadgeProps) {
+  const resolvedTone: StatusTone = (tone ?? 'neutral') as StatusTone;
+  const showDot = !solid && !icon && !hideIndicator;
+  const showIcon = !!icon && !hideIndicator;
   return (
     <span
       className={cn(statusBadgeVariants({ tone, solid }), className)}
       {...props}
-    />
+    >
+      {showIcon && <span aria-hidden className="inline-flex shrink-0">{icon}</span>}
+      {showDot && (
+        <span
+          aria-hidden
+          className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT_COLOR[resolvedTone])}
+        />
+      )}
+      {children}
+    </span>
   );
 }
 
@@ -117,6 +150,14 @@ const DOMAIN_TONE_MAP: Record<string, StatusTone> = {
   CERRADA_CON_FALTANTE: 'warning',
   EN_DESPACHO: 'info',
   PARCIAL: 'warning',
+  // Guia master v2 (CANCELADA ya está mapeada arriba como 'error')
+  EN_ESPERA_RECEPCION: 'neutral',
+  RECEPCION_PARCIAL: 'warning',
+  RECEPCION_COMPLETA: 'info',
+  DESPACHO_PARCIAL: 'primary',
+  DESPACHO_COMPLETADO: 'success',
+  DESPACHO_INCOMPLETO: 'warning',
+  EN_REVISION: 'warning',
   // Despacho
   PREPARADO: 'info',
   EN_RUTA: 'info',

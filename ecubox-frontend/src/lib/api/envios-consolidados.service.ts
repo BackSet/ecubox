@@ -56,6 +56,25 @@ export async function reabrirEnvioConsolidado(id: number): Promise<EnvioConsolid
   return data;
 }
 
+/**
+ * Elimina definitivamente un envio consolidado.
+ *
+ * - {@code eliminarPaquetes=false} (default): los paquetes asociados se
+ *   desasocian (FK a null) y siguen existiendo en el sistema.
+ * - {@code eliminarPaquetes=true}: los paquetes se eliminan junto con el envio
+ *   (irreversible, borra su tracking).
+ *
+ * Backend valida que el envio este abierto.
+ */
+export async function eliminarEnvioConsolidado(
+  id: number,
+  eliminarPaquetes: boolean = false,
+): Promise<void> {
+  await apiClient.delete(`${BASE}/${id}`, {
+    params: { eliminarPaquetes },
+  });
+}
+
 export async function agregarPaquetesEnvioConsolidado(
   id: number,
   body: EnvioConsolidadoPaquetesRequest
