@@ -301,10 +301,10 @@ export function PaquetesVencidosPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[16rem]">Guía master / Pieza</TableHead>
-                  <TableHead className="min-w-[16rem]">Destinatario</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="min-w-[12rem]">Plazo</TableHead>
                   <TableHead>Atraso</TableHead>
+                  <TableHead className="min-w-[12rem]">Plazo</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="min-w-[16rem]">Destinatario</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
@@ -319,19 +319,19 @@ export function PaquetesVencidosPage() {
                         </p>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-[20rem] align-top">
-                      <DestinatarioCell paquete={p} />
+                    <TableCell className="align-top">
+                      <AtrasoBadge dias={p.diasAtrasoRetiro ?? 0} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <PlazoCell paquete={p} />
                     </TableCell>
                     <TableCell className="align-top">
                       <StatusBadge tone="neutral">
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                       </StatusBadge>
                     </TableCell>
-                    <TableCell className="align-top">
-                      <PlazoCell paquete={p} />
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <AtrasoBadge dias={p.diasAtrasoRetiro ?? 0} />
+                    <TableCell className="max-w-[20rem] align-top">
+                      <DestinatarioCell paquete={p} />
                     </TableCell>
                     <TableCell className="text-right align-top">
                       <RowActionsMenu

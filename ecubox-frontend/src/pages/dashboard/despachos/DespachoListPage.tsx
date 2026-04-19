@@ -565,9 +565,9 @@ export function DespachoListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[14rem]">Despacho</TableHead>
-                  <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
                   <TableHead className="w-[10rem]">Tipo</TableHead>
                   <TableHead className="min-w-[14rem]">Destino</TableHead>
+                  <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
                   <TableHead className="w-[8rem]">Sacas</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
@@ -588,9 +588,6 @@ export function DespachoListPage() {
                       <DespachoCell despacho={d} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <DistribuidorCell nombre={d.distribuidorNombre} />
-                    </TableCell>
-                    <TableCell className="align-top">
                       <Badge
                         variant="outline"
                         className={`${TIPO_COLORS[d.tipoEntrega]} font-normal`}
@@ -600,6 +597,9 @@ export function DespachoListPage() {
                     </TableCell>
                     <TableCell className="max-w-[18rem] align-top">
                       <DestinoCell despacho={d} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <DistribuidorCell nombre={d.distribuidorNombre} />
                     </TableCell>
                     <TableCell className="align-top">
                       <SacasBadge total={d.sacaIds?.length ?? 0} />

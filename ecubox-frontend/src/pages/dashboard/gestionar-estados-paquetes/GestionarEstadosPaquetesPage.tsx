@@ -388,8 +388,8 @@ export function GestionarEstadosPaquetesPage() {
                   />
                 </TableHead>
                 <TableHead className="w-[16rem]">Guía / Pieza</TableHead>
-                <TableHead className="min-w-[16rem]">Destinatario</TableHead>
                 <TableHead>Estado actual</TableHead>
+                <TableHead className="min-w-[16rem]">Destinatario</TableHead>
                 <TableHead>Envío</TableHead>
                 <TableHead>Contenido</TableHead>
                 <TableHead className="text-right">Peso</TableHead>
@@ -424,13 +424,13 @@ export function GestionarEstadosPaquetesPage() {
                         </p>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-[20rem] align-top">
-                      <DestinatarioCell paquete={p} />
-                    </TableCell>
                     <TableCell className="align-top">
                       <Badge variant="secondary" className="font-normal">
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[20rem] align-top">
+                      <DestinatarioCell paquete={p} />
                     </TableCell>
                     <TableCell className="align-top">
                       {p.envioConsolidadoCodigo ? (

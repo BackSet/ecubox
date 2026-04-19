@@ -455,11 +455,11 @@ export function PaqueteListPage() {
             <Table className="table-mobile-cards min-w-[860px] text-left">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ref</TableHead>
                   <TableHead>Guía master / Pieza</TableHead>
-                  {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
-                  <TableHead>Destinatario</TableHead>
+                  <TableHead>Ref</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Destinatario</TableHead>
+                  {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
                   <TableHead>Contenido</TableHead>
                   <TableHead>Peso</TableHead>
                   {(hasPaquetesUpdate ||
@@ -472,9 +472,17 @@ export function PaqueteListPage() {
               <TableBody>
                 {list.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell data-label="Ref" className="font-mono text-xs text-muted-foreground">{p.ref ?? '—'}</TableCell>
                     <TableCell data-label="Guía master / Pieza" className="max-w-[14rem] align-top">
                       <GuiaMasterPiezaCell paquete={p} />
+                    </TableCell>
+                    <TableCell data-label="Ref" className="font-mono text-xs text-muted-foreground">{p.ref ?? '—'}</TableCell>
+                    <TableCell data-label="Estado">
+                      <StatusBadge tone="neutral">
+                        {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
+                      </StatusBadge>
+                    </TableCell>
+                    <TableCell data-label="Destinatario" className="align-top">
+                      <DestinatarioCell paquete={p} />
                     </TableCell>
                     {hasPesoWrite && (
                       <TableCell data-label="Guía de envío">
@@ -493,14 +501,6 @@ export function PaqueteListPage() {
                         )}
                       </TableCell>
                     )}
-                    <TableCell data-label="Destinatario" className="align-top">
-                      <DestinatarioCell paquete={p} />
-                    </TableCell>
-                    <TableCell data-label="Estado">
-                      <StatusBadge tone="neutral">
-                        {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
-                      </StatusBadge>
-                    </TableCell>
                     <TableCell data-label="Contenido" className="text-muted-foreground">{p.contenido ?? '—'}</TableCell>
                     <TableCell data-label="Peso">
                       {p.pesoLbs != null || p.pesoKg != null

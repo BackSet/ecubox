@@ -291,10 +291,10 @@ export function DistribuidorListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[20rem]">Distribuidor</TableHead>
-                <TableHead className="min-w-[14rem]">Contacto</TableHead>
                 <TableHead className="min-w-[14rem]">Operación</TableHead>
-                <TableHead className="min-w-[16rem]">Tracking</TableHead>
                 <TableHead className="text-right">Tarifa</TableHead>
+                <TableHead className="min-w-[14rem]">Contacto</TableHead>
+                <TableHead className="min-w-[16rem]">Tracking</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -307,20 +307,20 @@ export function DistribuidorListPage() {
                       agenciasCount={agenciasPorDistribuidor.get(d.id) ?? 0}
                     />
                   </TableCell>
-                  <TableCell className="align-top">
-                    <ContactoCell email={d.email} />
-                  </TableCell>
                   <TableCell className="max-w-[16rem] align-top">
                     <OperacionCell
                       horario={d.horarioReparto}
                       diasMaxRetiroDomicilio={d.diasMaxRetiroDomicilio}
                     />
                   </TableCell>
-                  <TableCell className="max-w-[18rem] align-top">
-                    <TrackingCell url={d.paginaTracking} />
-                  </TableCell>
                   <TableCell className="align-top text-right">
                     <TarifaCell tarifa={d.tarifaEnvio} />
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <ContactoCell email={d.email} />
+                  </TableCell>
+                  <TableCell className="max-w-[18rem] align-top">
+                    <TrackingCell url={d.paginaTracking} />
                   </TableCell>
                   <TableCell className="align-top text-right">
                     <RowActionsMenu

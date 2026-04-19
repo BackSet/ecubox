@@ -479,8 +479,8 @@ function PaquetesTable({
           <TableRow>
             <TableHead className="w-[40px] text-center">#</TableHead>
             <TableHead>Guía master / Pieza</TableHead>
-            <TableHead>Destinatario</TableHead>
             <TableHead>Estado</TableHead>
+            <TableHead>Destinatario</TableHead>
             <TableHead>Peso</TableHead>
             <TableHead className="w-[100px] text-right">Acciones</TableHead>
           </TableRow>
@@ -495,13 +495,13 @@ function PaquetesTable({
                 <GuiaMasterPiezaCell paquete={p} />
               </TableCell>
               <TableCell>
-                <DestinatarioCell paquete={p} />
-              </TableCell>
-              <TableCell>
                 <EstadoBadge
                   nombre={p.estadoRastreoNombre}
                   codigo={p.estadoRastreoCodigo}
                 />
+              </TableCell>
+              <TableCell>
+                <DestinatarioCell paquete={p} />
               </TableCell>
               <TableCell>
                 <PesoMini lbs={p.pesoLbs} />

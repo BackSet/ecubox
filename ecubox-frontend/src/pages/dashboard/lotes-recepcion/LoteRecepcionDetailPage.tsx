@@ -582,8 +582,8 @@ function PaquetesTabla({ paquetes }: { paquetes: Paquete[] }) {
         <TableHeader>
           <TableRow>
             <TableHead className="w-[16rem]">Guía / Pieza</TableHead>
-            <TableHead className="min-w-[16rem]">Destinatario</TableHead>
             <TableHead>Estado</TableHead>
+            <TableHead className="min-w-[16rem]">Destinatario</TableHead>
             <TableHead>Envío</TableHead>
             <TableHead className="text-right">Peso</TableHead>
           </TableRow>
@@ -599,13 +599,13 @@ function PaquetesTabla({ paquetes }: { paquetes: Paquete[] }) {
                   </p>
                 )}
               </TableCell>
-              <TableCell className="max-w-[20rem] align-top">
-                <DestinatarioCell paquete={p} />
-              </TableCell>
               <TableCell className="align-top">
                 <Badge variant="secondary" className="font-normal">
                   {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                 </Badge>
+              </TableCell>
+              <TableCell className="max-w-[20rem] align-top">
+                <DestinatarioCell paquete={p} />
               </TableCell>
               <TableCell className="align-top">
                 {p.envioConsolidadoCodigo ? (

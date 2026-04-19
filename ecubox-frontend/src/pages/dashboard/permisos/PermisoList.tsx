@@ -370,8 +370,8 @@ export function PermisoList() {
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[12rem]">Módulo</TableHead>
                 <TableHead className="w-[18rem]">Código</TableHead>
+                <TableHead className="w-[12rem]">Módulo</TableHead>
                 <TableHead className="w-[8rem]">Tipo</TableHead>
                 <TableHead>Descripción</TableHead>
               </TableRow>
@@ -385,15 +385,15 @@ export function PermisoList() {
                 return (
                   <TableRow key={p.id}>
                     <TableCell>
+                      <code className="rounded bg-[var(--color-muted)]/40 px-1.5 py-0.5 font-mono text-xs text-foreground">
+                        {p.codigo}
+                      </code>
+                    </TableCell>
+                    <TableCell>
                       <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
                         <ModuloIcon className="h-3.5 w-3.5 text-muted-foreground" />
                         {MODULO_LABELS[modulo] ?? modulo}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <code className="rounded bg-[var(--color-muted)]/40 px-1.5 py-0.5 font-mono text-xs text-foreground">
-                        {p.codigo}
-                      </code>
                     </TableCell>
                     <TableCell>
                       <span

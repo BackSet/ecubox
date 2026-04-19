@@ -292,9 +292,9 @@ export function UsuarioList() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[18rem]">Usuario</TableHead>
-                <TableHead>Contacto</TableHead>
                 <TableHead className="w-[8rem]">Estado</TableHead>
                 <TableHead>Roles</TableHead>
+                <TableHead>Contacto</TableHead>
                 {hasWrite && <TableHead className="w-12 text-right" aria-label="Acciones" />}
               </TableRow>
             </TableHeader>
@@ -309,13 +309,13 @@ export function UsuarioList() {
                       <UsuarioCell usuario={u} esActual={esActual} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <ContactoCell email={u.email} />
-                    </TableCell>
-                    <TableCell className="align-top">
                       <EstadoCell enabled={u.enabled} />
                     </TableCell>
                     <TableCell className="align-top">
                       <RolesCell roles={u.roles ?? []} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <ContactoCell email={u.email} />
                     </TableCell>
                     {hasWrite && (
                       <TableCell className="align-top text-right">

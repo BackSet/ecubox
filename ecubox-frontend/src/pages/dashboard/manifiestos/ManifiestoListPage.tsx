@@ -380,13 +380,13 @@ export function ManifiestoListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[14rem]">Manifiesto</TableHead>
+                  <TableHead className="w-[6rem]">Estado</TableHead>
+                  <TableHead className="w-[9rem] text-right">Total a pagar</TableHead>
                   <TableHead className="w-[12rem]">Periodo</TableHead>
                   <TableHead className="min-w-[12rem]">Filtro</TableHead>
                   <TableHead className="w-[7rem] text-center">Despachos</TableHead>
                   <TableHead className="w-[8rem] text-right">Distribuidor</TableHead>
                   <TableHead className="w-[8rem] text-right">Agencia</TableHead>
-                  <TableHead className="w-[9rem] text-right">Total a pagar</TableHead>
-                  <TableHead className="w-[6rem]">Estado</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
@@ -406,31 +406,6 @@ export function ManifiestoListPage() {
                       <ManifiestoCell manifiesto={m} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <PeriodoCell inicio={m.fechaInicio} fin={m.fechaFin} />
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <FiltroCell manifiesto={m} />
-                    </TableCell>
-                    <TableCell className="text-center align-top">
-                      <DespachosBadge total={m.cantidadDespachos ?? 0} />
-                    </TableCell>
-                    <TableCell className="text-right align-top">
-                      <MoneyCell value={m.totalDistribuidor} />
-                    </TableCell>
-                    <TableCell className="text-right align-top">
-                      <MoneyCell value={m.totalAgencia} />
-                    </TableCell>
-                    <TableCell className="text-right align-top">
-                      <span
-                        className={cn(
-                          'font-mono text-sm font-semibold tabular-nums',
-                          m.estado === 'ANULADO' && 'text-muted-foreground line-through',
-                        )}
-                      >
-                        {fmtMoneda(m.totalPagar)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="align-top">
                       <Badge
                         variant="outline"
                         className={cn(ESTADO_BADGE[m.estado], 'font-normal')}
@@ -446,6 +421,31 @@ export function ManifiestoListPage() {
                         )}
                         {ESTADO_LABELS[m.estado]}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right align-top">
+                      <span
+                        className={cn(
+                          'font-mono text-sm font-semibold tabular-nums',
+                          m.estado === 'ANULADO' && 'text-muted-foreground line-through',
+                        )}
+                      >
+                        {fmtMoneda(m.totalPagar)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <PeriodoCell inicio={m.fechaInicio} fin={m.fechaFin} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <FiltroCell manifiesto={m} />
+                    </TableCell>
+                    <TableCell className="text-center align-top">
+                      <DespachosBadge total={m.cantidadDespachos ?? 0} />
+                    </TableCell>
+                    <TableCell className="text-right align-top">
+                      <MoneyCell value={m.totalDistribuidor} />
+                    </TableCell>
+                    <TableCell className="text-right align-top">
+                      <MoneyCell value={m.totalAgencia} />
                     </TableCell>
                     <TableCell
                       className="text-right align-top"

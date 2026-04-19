@@ -23,6 +23,7 @@ export interface RowActionItem {
   loading?: boolean;
   hidden?: boolean;
   shortcut?: string;
+  title?: string;
 }
 
 export interface RowActionSeparator {
@@ -93,6 +94,7 @@ export function RowActionsMenu({
             <DropdownMenuItem
               key={`${entry.label}-${idx}`}
               disabled={disabled}
+              title={entry.title}
               onSelect={(e) => {
                 e.preventDefault();
                 if (disabled) return;

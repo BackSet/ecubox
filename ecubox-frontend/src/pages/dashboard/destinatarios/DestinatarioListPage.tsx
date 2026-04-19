@@ -386,9 +386,9 @@ export function DestinatarioListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[18rem]">Destinatario</TableHead>
-                <TableHead>Contacto</TableHead>
-                <TableHead className="min-w-[16rem]">Ubicación</TableHead>
                 {showClienteColumn && <TableHead>Cliente</TableHead>}
+                <TableHead className="min-w-[16rem]">Ubicación</TableHead>
+                <TableHead>Contacto</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -398,9 +398,11 @@ export function DestinatarioListPage() {
                   <TableCell className="max-w-[18rem] align-top">
                     <NombreCodigoCell destinatario={d} />
                   </TableCell>
-                  <TableCell className="align-top">
-                    <ContactoCell telefono={d.telefono} />
-                  </TableCell>
+                  {showClienteColumn && (
+                    <TableCell className="align-top">
+                      <ClienteCell nombre={d.clienteUsuarioNombre} />
+                    </TableCell>
+                  )}
                   <TableCell className="max-w-[20rem] align-top">
                     <UbicacionCell
                       direccion={d.direccion}
@@ -408,11 +410,9 @@ export function DestinatarioListPage() {
                       canton={d.canton}
                     />
                   </TableCell>
-                  {showClienteColumn && (
-                    <TableCell className="align-top">
-                      <ClienteCell nombre={d.clienteUsuarioNombre} />
-                    </TableCell>
-                  )}
+                  <TableCell className="align-top">
+                    <ContactoCell telefono={d.telefono} />
+                  </TableCell>
                   <TableCell className="text-right align-top">
                     <RowActionsMenu
                       items={[

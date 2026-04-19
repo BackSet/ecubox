@@ -257,10 +257,10 @@ export function GuiasMasterPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[14rem]">Guía</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Destinatario</TableHead>
-                <TableHead className="min-w-[14rem]">Piezas</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead className="min-w-[14rem]">Piezas</TableHead>
+                <TableHead>Destinatario</TableHead>
+                <TableHead>Cliente</TableHead>
                 <TableHead>Creada</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
@@ -286,11 +286,10 @@ export function GuiasMasterPage() {
                       />
                     </TableCell>
                     <TableCell className="align-top">
-                      <PersonaCell
-                        nombre={g.clienteUsuarioNombre}
-                        icon={<Building2 className="h-3.5 w-3.5" />}
-                        emptyLabel="—"
-                      />
+                      <GuiaMasterEstadoBadge estado={g.estadoGlobal} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <PiezasProgressCell guia={g} />
                     </TableCell>
                     <TableCell className="max-w-[18rem] align-top">
                       <DestinatarioInfo
@@ -304,10 +303,11 @@ export function GuiasMasterPage() {
                       />
                     </TableCell>
                     <TableCell className="align-top">
-                      <PiezasProgressCell guia={g} />
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <GuiaMasterEstadoBadge estado={g.estadoGlobal} />
+                      <PersonaCell
+                        nombre={g.clienteUsuarioNombre}
+                        icon={<Building2 className="h-3.5 w-3.5" />}
+                        emptyLabel="—"
+                      />
                     </TableCell>
                     <TableCell className="align-top text-xs text-muted-foreground">
                       <FechaCreada createdAt={g.createdAt} />

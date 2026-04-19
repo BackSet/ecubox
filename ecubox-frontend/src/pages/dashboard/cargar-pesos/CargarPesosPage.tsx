@@ -607,8 +607,8 @@ export function CargarPesosPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[14rem]">Ref / Guía</TableHead>
-                  <TableHead className="min-w-[14rem]">Destinatario</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead className="min-w-[14rem]">Destinatario</TableHead>
                   <TableHead>Envío consolidado</TableHead>
                   <TableHead>Contenido</TableHead>
                   <TableHead className="w-[10rem]">Peso (lbs)</TableHead>
@@ -644,13 +644,13 @@ export function CargarPesosPage() {
                           </p>
                         )}
                       </TableCell>
-                      <TableCell className="max-w-[18rem] align-top">
-                        <DestinatarioCell paquete={p} />
-                      </TableCell>
                       <TableCell className="align-top">
                         <Badge variant="secondary" className="font-normal">
                           {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[18rem] align-top">
+                        <DestinatarioCell paquete={p} />
                       </TableCell>
                       <TableCell className="align-top">
                         {p.envioConsolidadoCodigo ? (

@@ -894,9 +894,9 @@ function SacaCard({
                 <TableRow>
                   <TableHead className="w-[40px] text-center">#</TableHead>
                   <TableHead>Guía master / Pieza</TableHead>
+                  <TableHead>Estado</TableHead>
                   <TableHead>Destinatario</TableHead>
                   <TableHead className="max-w-[220px]">Contenido</TableHead>
-                  <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Peso</TableHead>
                   <TableHead className="w-[60px] text-right">Acción</TableHead>
                 </TableRow>
@@ -909,6 +909,12 @@ function SacaCard({
                     </TableCell>
                     <TableCell>
                       <GuiaMasterPiezaCell paquete={p} />
+                    </TableCell>
+                    <TableCell>
+                      <EstadoBadge
+                        nombre={p.estadoRastreoNombre}
+                        codigo={p.estadoRastreoCodigo}
+                      />
                     </TableCell>
                     <TableCell>
                       <DestinatarioCell paquete={p} />
@@ -924,12 +930,6 @@ function SacaCard({
                       ) : (
                         <span className="text-xs italic text-muted-foreground">—</span>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <EstadoBadge
-                        nombre={p.estadoRastreoNombre}
-                        codigo={p.estadoRastreoCodigo}
-                      />
                     </TableCell>
                     <TableCell className="text-right">
                       <PesoMini lbs={p.pesoLbs} />

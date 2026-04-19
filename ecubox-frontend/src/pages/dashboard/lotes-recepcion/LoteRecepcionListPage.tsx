@@ -382,9 +382,9 @@ export function LoteRecepcionListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[14rem]">Recepción</TableHead>
-                  <TableHead className="min-w-[14rem]">Operario</TableHead>
-                  <TableHead>Guías</TableHead>
                   <TableHead>Paquetes</TableHead>
+                  <TableHead>Guías</TableHead>
+                  <TableHead className="min-w-[14rem]">Operario</TableHead>
                   <TableHead className="min-w-[14rem]">Observaciones</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
@@ -405,13 +405,13 @@ export function LoteRecepcionListPage() {
                       <RecepcionCell lote={l} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <OperarioCell nombre={l.operarioNombre} />
+                      <PaquetesBadge total={l.totalPaquetes ?? 0} />
                     </TableCell>
                     <TableCell className="align-top">
                       <GuiasCount total={l.numeroGuiasEnvio?.length ?? 0} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <PaquetesBadge total={l.totalPaquetes ?? 0} />
+                      <OperarioCell nombre={l.operarioNombre} />
                     </TableCell>
                     <TableCell className="max-w-[18rem] align-top">
                       <ObservacionesCell texto={l.observaciones} />

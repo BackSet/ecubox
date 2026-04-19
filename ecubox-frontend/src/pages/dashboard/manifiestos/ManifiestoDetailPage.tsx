@@ -786,9 +786,9 @@ export function ManifiestoDetailPage() {
                   <TableHead className="w-[3.5rem] text-center">#</TableHead>
                   <TableHead className="w-[12rem]">Guía</TableHead>
                   <TableHead className="w-[8rem]">Tipo</TableHead>
+                  <TableHead className="min-w-[12rem]">Destinatario</TableHead>
                   <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
                   <TableHead className="min-w-[10rem]">Agencia</TableHead>
-                  <TableHead className="min-w-[12rem]">Destinatario</TableHead>
                   <TableHead className="w-[5rem] text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -818,13 +818,13 @@ export function ManifiestoDetailPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="align-top text-sm">
+                      {d.destinatarioNombre ?? <span className="italic text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="align-top text-sm">
                       {d.distribuidorNombre ?? <span className="italic text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="align-top text-sm">
                       {d.agenciaNombre ?? <span className="italic text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="align-top text-sm">
-                      {d.destinatarioNombre ?? <span className="italic text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-right align-top">
                       <Button

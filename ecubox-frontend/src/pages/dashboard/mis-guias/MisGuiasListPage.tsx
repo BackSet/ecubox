@@ -246,9 +246,9 @@ export function MisGuiasListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[14rem]">Guía</TableHead>
-                <TableHead className="w-[20rem]">Destinatario</TableHead>
-                <TableHead className="min-w-[12rem]">Piezas</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead className="min-w-[12rem]">Piezas</TableHead>
+                <TableHead className="w-[20rem]">Destinatario</TableHead>
                 <TableHead>Registrada</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
@@ -278,6 +278,12 @@ export function MisGuiasListPage() {
                         className="font-medium text-foreground"
                       />
                     </TableCell>
+                    <TableCell className="align-top">
+                      <MiGuiaEstadoBadge estado={g.estadoGlobal} />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <PiezasMiniProgress guia={g} />
+                    </TableCell>
                     <TableCell className="max-w-[20rem] align-top">
                       <DestinatarioInfo
                         nombre={g.destinatarioNombre}
@@ -288,12 +294,6 @@ export function MisGuiasListPage() {
                         emptyLabel="Sin asignar"
                         emptyItalic
                       />
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <PiezasMiniProgress guia={g} />
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <MiGuiaEstadoBadge estado={g.estadoGlobal} />
                     </TableCell>
                     <TableCell className="align-top text-xs text-muted-foreground">
                       <FechaCreada createdAt={g.createdAt} />
@@ -314,17 +314,19 @@ export function MisGuiasListPage() {
                               }),
                           },
                           {
-                            label: editable ? 'Editar guía' : TOOLTIP_NO_EDITABLE,
+                            label: 'Editar guía',
                             icon: Pencil,
                             disabled: !editable,
+                            title: editable ? undefined : TOOLTIP_NO_EDITABLE,
                             onSelect: () => editable && setEditingGuia(g),
                           },
                           { type: 'separator' },
                           {
-                            label: editable ? 'Eliminar guía' : TOOLTIP_NO_EDITABLE,
+                            label: 'Eliminar guía',
                             icon: Trash2,
                             destructive: true,
                             disabled: !editable,
+                            title: editable ? undefined : TOOLTIP_NO_EDITABLE,
                             onSelect: () => editable && setDeletingGuia(g),
                           },
                         ]}

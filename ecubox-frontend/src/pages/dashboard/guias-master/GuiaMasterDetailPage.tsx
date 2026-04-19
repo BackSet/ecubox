@@ -320,9 +320,9 @@ export function GuiaMasterDetailPage() {
                 <TableRow>
                   <TableHead className="w-[5rem]">Pieza</TableHead>
                   <TableHead className="min-w-[14rem]">Guía ECUBOX</TableHead>
-                  <TableHead className="w-[6rem]">Peso</TableHead>
                   <TableHead className="min-w-[10rem]">Estado</TableHead>
                   <TableHead className="min-w-[10rem]">Despacho</TableHead>
+                  <TableHead className="w-[6rem]">Peso</TableHead>
                   <TableHead className="w-[10rem] text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -345,9 +345,6 @@ export function GuiaMasterDetailPage() {
                       <TableCell className="max-w-[18rem] align-top font-medium">
                         <PiezaGuiaCell numeroGuia={p.numeroGuia} />
                       </TableCell>
-                      <TableCell className="align-top text-xs">
-                        <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
-                      </TableCell>
                       <TableCell className="align-top">
                         <PiezaEstadoBadges paquete={p} />
                       </TableCell>
@@ -362,6 +359,9 @@ export function GuiaMasterDetailPage() {
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
+                      </TableCell>
+                      <TableCell className="align-top text-xs">
+                        <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
                       </TableCell>
                       <TableCell className="align-top text-right">
                         {puedeDespacharParcial && (

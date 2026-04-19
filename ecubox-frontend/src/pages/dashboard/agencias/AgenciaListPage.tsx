@@ -298,10 +298,10 @@ export function AgenciaListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[20rem]">Agencia</TableHead>
-                <TableHead className="min-w-[12rem]">Encargado</TableHead>
                 <TableHead className="min-w-[18rem]">Ubicación</TableHead>
                 <TableHead className="min-w-[14rem]">Operación</TableHead>
                 <TableHead className="text-right">Tarifa</TableHead>
+                <TableHead className="min-w-[12rem]">Encargado</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -310,9 +310,6 @@ export function AgenciaListPage() {
                 <TableRow key={a.id}>
                   <TableCell className="max-w-[20rem] align-top">
                     <AgenciaCell agencia={a} />
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <EncargadoCell encargado={a.encargado} />
                   </TableCell>
                   <TableCell className="max-w-[20rem] align-top">
                     <UbicacionCell
@@ -329,6 +326,9 @@ export function AgenciaListPage() {
                   </TableCell>
                   <TableCell className="align-top text-right">
                     <TarifaCell tarifa={a.tarifaServicio} />
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <EncargadoCell encargado={a.encargado} />
                   </TableCell>
                   <TableCell className="align-top text-right">
                     <RowActionsMenu

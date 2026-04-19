@@ -208,8 +208,8 @@ export function MiGuiaDetailPage() {
                 <TableRow>
                   <TableHead className="w-[5rem]">Pieza</TableHead>
                   <TableHead className="min-w-[14rem]">Tracking ECUBOX</TableHead>
-                  <TableHead className="w-[7rem]">Peso</TableHead>
                   <TableHead className="min-w-[10rem]">Estado</TableHead>
+                  <TableHead className="w-[7rem]">Peso</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -223,11 +223,11 @@ export function MiGuiaDetailPage() {
                     <TableCell className="max-w-[18rem] align-top font-medium">
                       <PiezaGuiaCell numeroGuia={p.numeroGuia} />
                     </TableCell>
-                    <TableCell className="align-top text-xs">
-                      <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
-                    </TableCell>
                     <TableCell className="align-top">
                       <PiezaEstadoBadges paquete={p} />
+                    </TableCell>
+                    <TableCell className="align-top text-xs">
+                      <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
                     </TableCell>
                   </TableRow>
                 ))}
