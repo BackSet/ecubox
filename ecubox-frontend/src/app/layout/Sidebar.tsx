@@ -1,33 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
-import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Sun,
-  Moon,
-  Monitor,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { useThemeStore } from '@/stores/themeStore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EcuboxLogo } from '@/components/brand';
 import { getVisibleNavGroups } from '@/app/navigation/dashboardNav';
 
 interface SidebarProps {
-  onOpenSearch?: () => void;
   onNavigate?: () => void;
-  shortcutLabel?: string;
   mobile?: boolean;
 }
 
 const SIDEBAR_COLLAPSED_KEY = 'ecubox_sidebar_collapsed';
 
-export function Sidebar({ onOpenSearch, onNavigate, shortcutLabel = 'Ctrl+K', mobile = false }: SidebarProps) {
+export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { hasPermission } = useAuthStore();
-  const { theme, toggleTheme } = useThemeStore();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
@@ -84,36 +73,10 @@ export function Sidebar({ onOpenSearch, onNavigate, shortcutLabel = 'Ctrl+K', mo
         </Link>
       </div>
 
-      {onOpenSearch && (
-        <div className="p-2">
-          <Button
-            variant="ghost"
-            size={effectiveCollapsed ? 'icon' : 'default'}
-            className={cn(
-              'w-full justify-start gap-2 text-[var(--color-sidebar-foreground)]',
-              effectiveCollapsed && 'px-0'
-            )}
-            onClick={() => {
-              onOpenSearch();
-              if (mobile) onNavigate?.();
-            }}
-            aria-label="Buscar"
-            title={effectiveCollapsed ? `Buscar (${shortcutLabel})` : undefined}
-          >
-            <Search className="h-5 w-5 shrink-0" />
-            {!effectiveCollapsed && (
-              <>
-                <span>Buscar</span>
-                <kbd className="ml-auto hidden rounded bg-[var(--color-muted)] px-1.5 text-[10px] font-medium sm:inline-block">
-                  {shortcutLabel}
-                </kbd>
-              </>
-            )}
-          </Button>
-        </div>
-      )}
-
-      <nav className="flex-1 overflow-y-auto p-1.5" aria-label="Navegación principal">
+      <nav
+        className="flex-1 overflow-y-auto overscroll-contain p-1.5"
+        aria-label="Navegación principal"
+      >
         {visibleGroups.map((group, groupIndex) => (
           <div key={group.label}>
             {groupIndex > 0 && (
@@ -136,57 +99,39 @@ export function Sidebar({ onOpenSearch, onNavigate, shortcutLabel = 'Ctrl+K', mo
               </div>
             )}
             <div className="space-y-0.5">
-              {group.items.map(({ to, label, icon: Icon, exact }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  onClick={handleNavigate}
-                  activeOptions={{ exact: !!exact }}
-                  title={label}
-                  aria-current={isActive(to, exact) ? 'page' : undefined}
-                  className={cn(
-                    'flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors',
-                    isActive(to, exact)
-                      ? 'bg-[var(--color-sidebar-active)]/10 text-[var(--color-primary)] font-semibold'
-                      : 'text-[var(--color-sidebar-foreground)] hover:bg-[var(--color-sidebar-hover)]',
-                    effectiveCollapsed && 'justify-center px-0'
-                  )}
-                >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  {!effectiveCollapsed && <span className="min-w-0 truncate">{label}</span>}
-                </Link>
-              ))}
+              {group.items.map(({ to, label, icon: Icon, exact }) => {
+                const active = isActive(to, exact);
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={handleNavigate}
+                    activeOptions={{ exact: !!exact }}
+                    title={label}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'group/item relative flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors',
+                      active
+                        ? 'bg-[var(--color-sidebar-active)]/10 text-[var(--color-primary)] font-semibold'
+                        : 'text-[var(--color-sidebar-foreground)] hover:bg-[var(--color-sidebar-hover)]',
+                      effectiveCollapsed && 'justify-center px-0'
+                    )}
+                  >
+                    {active && !effectiveCollapsed && (
+                      <span
+                        className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-[var(--color-primary)]"
+                        aria-hidden
+                      />
+                    )}
+                    <Icon className="h-5 w-5 shrink-0" />
+                    {!effectiveCollapsed && <span className="min-w-0 truncate">{label}</span>}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         ))}
       </nav>
-
-      <div className="border-t border-[var(--color-sidebar-border)] p-2">
-        <Button
-          variant="ghost"
-          size={effectiveCollapsed ? 'icon' : 'default'}
-          className={cn(
-            'w-full justify-start gap-2 text-[var(--color-sidebar-foreground)]',
-            effectiveCollapsed && 'px-0'
-          )}
-          onClick={toggleTheme}
-          aria-label="Cambiar tema"
-          title={effectiveCollapsed ? (theme === 'dark' ? 'Tema oscuro' : theme === 'light' ? 'Tema claro' : 'Tema del sistema') : undefined}
-        >
-          {theme === 'dark' ? (
-            <Moon className="h-5 w-5 shrink-0" />
-          ) : theme === 'system' ? (
-            <Monitor className="h-5 w-5 shrink-0" />
-          ) : (
-            <Sun className="h-5 w-5 shrink-0" />
-          )}
-          {!effectiveCollapsed && (
-            <span>
-              {theme === 'dark' ? 'Tema oscuro' : theme === 'light' ? 'Tema claro' : 'Tema del sistema'}
-            </span>
-          )}
-        </Button>
-      </div>
 
       {!mobile && (
         <Button

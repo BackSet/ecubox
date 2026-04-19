@@ -11,6 +11,7 @@ import type {
   TamanioSaca,
 } from '@/types/despacho';
 import type { DestinatarioFinal, DestinatarioFinalRequest } from '@/types/destinatario';
+import type { EstadoRastreo } from '@/types/estado-rastreo';
 import type { Paquete } from '@/types/paquete';
 
 const DIST = API_ENDPOINTS.operarioDistribuidores;
@@ -195,6 +196,12 @@ export async function aplicarEstadoRastreoEnDespachos(
       estadoRastreoId: params.estadoRastreoId ?? null,
     }
   );
+  return data;
+}
+
+/** Estados activos posteriores al "estado del punto de despacho", aplicables masivamente. */
+export async function getEstadosAplicablesDespacho(): Promise<EstadoRastreo[]> {
+  const { data } = await apiClient.get<EstadoRastreo[]>(`${DESPACHOS}/estados-aplicables`);
   return data;
 }
 

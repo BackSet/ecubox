@@ -3,6 +3,7 @@ package com.ecubox.ecubox_backend.service;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoPorPeriodoResponse;
 import com.ecubox.ecubox_backend.dto.DespachoCreateRequest;
 import com.ecubox.ecubox_backend.dto.DespachoDTO;
+import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoGeneradoDTO;
 import com.ecubox.ecubox_backend.dto.SacaDTO;
 import com.ecubox.ecubox_backend.entity.*;
@@ -39,6 +40,7 @@ public class DespachoService {
     private final ParametroSistemaService parametroSistemaService;
     private final AgenciaDistribuidorService agenciaDistribuidorService;
     private final SacaEnDespachoValidator sacaEnDespachoValidator;
+    private final EstadoRastreoService estadoRastreoService;
 
     public DespachoService(DespachoRepository despachoRepository,
                           DistribuidorRepository distribuidorRepository,
@@ -51,7 +53,8 @@ public class DespachoService {
                           PaqueteRepository paqueteRepository,
                           ParametroSistemaService parametroSistemaService,
                           AgenciaDistribuidorService agenciaDistribuidorService,
-                          SacaEnDespachoValidator sacaEnDespachoValidator) {
+                          SacaEnDespachoValidator sacaEnDespachoValidator,
+                          EstadoRastreoService estadoRastreoService) {
         this.despachoRepository = despachoRepository;
         this.distribuidorRepository = distribuidorRepository;
         this.destinatarioFinalRepository = destinatarioFinalRepository;
@@ -64,6 +67,7 @@ public class DespachoService {
         this.sacaEnDespachoValidator = sacaEnDespachoValidator;
         this.parametroSistemaService = parametroSistemaService;
         this.agenciaDistribuidorService = agenciaDistribuidorService;
+        this.estadoRastreoService = estadoRastreoService;
     }
 
     @Transactional(readOnly = true)
@@ -275,7 +279,7 @@ public class DespachoService {
 
     @Transactional
     public AplicarEstadoPorPeriodoResponse aplicarEstadoRastreoPorPeriodo(LocalDate fechaInicio, LocalDate fechaFin, Long estadoRastreoIdOpcional) {
-        Long estadoId = resolverEstadoIdParaTransito(estadoRastreoIdOpcional);
+        Long estadoId = resolverEstadoIdPosteriorADespacho(estadoRastreoIdOpcional);
         LocalDateTime desde = fechaInicio.atStartOfDay();
         LocalDateTime hasta = fechaFin.atTime(LocalTime.MAX);
         List<Despacho> despachos = despachoRepository.findByFechaHoraBetweenOrderByFechaHoraAscIdAsc(desde, hasta);
@@ -285,6 +289,7 @@ public class DespachoService {
     /**
      * Aplica el estado a todos los paquetes de los despachos indicados (uno o varios).
      * Si {@code estadoRastreoIdOpcional} es null se usa el estado "en tránsito" configurado.
+     * El estado debe ser estrictamente posterior al "estado del punto de despacho".
      */
     @Transactional
     public AplicarEstadoPorPeriodoResponse aplicarEstadoRastreoEnDespachos(List<Long> despachoIds,
@@ -292,7 +297,7 @@ public class DespachoService {
         if (despachoIds == null || despachoIds.isEmpty()) {
             throw new BadRequestException("Debe indicar al menos un despacho");
         }
-        Long estadoId = resolverEstadoIdParaTransito(estadoRastreoIdOpcional);
+        Long estadoId = resolverEstadoIdPosteriorADespacho(estadoRastreoIdOpcional);
         List<Long> idsUnicos = despachoIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
         List<Despacho> despachos = despachoRepository.findAllById(idsUnicos);
         if (despachos.size() != idsUnicos.size()) {
@@ -305,14 +310,66 @@ public class DespachoService {
         return aplicarEstadoEnDespachos(despachos, estadoId);
     }
 
-    private Long resolverEstadoIdParaTransito(Long estadoRastreoIdOpcional) {
+    /**
+     * Lista los estados de rastreo activos que el operario puede aplicar a los paquetes
+     * de un despacho. Solo se incluyen estados estrictamente posteriores al "estado del
+     * punto de despacho" configurado, ordenados por orden de tracking.
+     */
+    @Transactional(readOnly = true)
+    public List<EstadoRastreoDTO> listarEstadosPosterioresADespacho() {
+        Integer ordenDespacho = ordenEstadoEnDespachoOrThrow();
+        return estadoRastreoService.findActivos().stream()
+                .filter(e -> {
+                    Integer orden = e.getOrden() != null ? e.getOrden() : e.getOrdenTracking();
+                    return orden != null && orden > ordenDespacho;
+                })
+                .toList();
+    }
+
+    /**
+     * Resuelve el estado a aplicar y valida que sea estrictamente posterior al
+     * estado del punto de despacho (los paquetes ya están "en despacho" cuando se
+     * abre este flujo, así que solo tiene sentido avanzarlos).
+     */
+    private Long resolverEstadoIdPosteriorADespacho(Long estadoRastreoIdOpcional) {
         Long estadoId = estadoRastreoIdOpcional != null
                 ? estadoRastreoIdOpcional
                 : parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnTransitoId();
         if (estadoId == null) {
-            throw new BadRequestException("No hay estado de rastreo configurado para en tránsito");
+            throw new BadRequestException(
+                    "No hay un estado por defecto configurado para aplicar después del despacho. Configure 'En tránsito' en parámetros.");
+        }
+        Integer ordenDespacho = ordenEstadoEnDespachoOrThrow();
+        Integer ordenObjetivo = estadoRastreoService.getOrdenById(estadoId);
+        if (ordenObjetivo == null) {
+            EstadoRastreo entidad = estadoRastreoService.findEntityById(estadoId);
+            ordenObjetivo = entidad.getOrden() != null ? entidad.getOrden() : entidad.getOrdenTracking();
+        }
+        if (ordenObjetivo == null) {
+            throw new BadRequestException("El estado seleccionado no tiene un orden de tracking definido");
+        }
+        if (ordenObjetivo <= ordenDespacho) {
+            throw new BadRequestException(
+                    "Solo se pueden aplicar estados posteriores al 'estado del punto de despacho'.");
         }
         return estadoId;
+    }
+
+    private Integer ordenEstadoEnDespachoOrThrow() {
+        Long enDespachoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnDespachoId();
+        if (enDespachoId == null) {
+            throw new BadRequestException(
+                    "No hay un 'estado del punto de despacho' configurado en parámetros del sistema.");
+        }
+        Integer orden = estadoRastreoService.getOrdenById(enDespachoId);
+        if (orden == null) {
+            EstadoRastreo entidad = estadoRastreoService.findEntityById(enDespachoId);
+            orden = entidad.getOrden() != null ? entidad.getOrden() : entidad.getOrdenTracking();
+        }
+        if (orden == null) {
+            throw new BadRequestException("El 'estado del punto de despacho' no tiene un orden de tracking definido");
+        }
+        return orden;
     }
 
     private AplicarEstadoPorPeriodoResponse aplicarEstadoEnDespachos(List<Despacho> despachos, Long estadoId) {

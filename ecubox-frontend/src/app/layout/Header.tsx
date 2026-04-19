@@ -1,6 +1,17 @@
-import { useNavigate } from '@tanstack/react-router';
-import { Search, Bell, LogOut, PanelLeftOpen } from 'lucide-react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import {
+  Search,
+  Bell,
+  LogOut,
+  PanelLeftOpen,
+  UserCircle,
+  ChevronDown,
+  Sun,
+  Moon,
+  Monitor,
+} from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -29,12 +40,23 @@ function getInitials(name: string | null): string {
 
 export function Header({ onOpenSearch, onOpenSidebar, shortcutLabel = 'Ctrl+K' }: HeaderProps) {
   const navigate = useNavigate();
-  const { username, roles, logout } = useAuthStore();
+  const { username, email, roles, logout } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
 
   const handleLogout = () => {
     logout();
     navigate({ to: '/' });
   };
+
+  const handleToggleTheme = (event: Event) => {
+    event.preventDefault();
+    toggleTheme();
+  };
+
+  const initials = getInitials(username);
+  const ThemeIcon = theme === 'dark' ? Moon : theme === 'system' ? Monitor : Sun;
+  const themeLabel =
+    theme === 'dark' ? 'Tema oscuro' : theme === 'light' ? 'Tema claro' : 'Tema del sistema';
 
   return (
     <header className="dashboard-topbar sticky top-0 z-40 flex h-12 shrink-0 items-center gap-3 px-3">
@@ -67,6 +89,7 @@ export function Header({ onOpenSearch, onOpenSidebar, shortcutLabel = 'Ctrl+K' }
         size="icon"
         className="dashboard-topbar-action shrink-0 rounded-lg"
         aria-label="Notificaciones"
+        title="Notificaciones (próximamente)"
       >
         <Bell className="h-5 w-5" />
       </Button>
@@ -75,46 +98,79 @@ export function Header({ onOpenSearch, onOpenSidebar, shortcutLabel = 'Ctrl+K' }
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="dashboard-topbar-user flex shrink-0 items-center gap-2 rounded-full px-2 py-1"
+            className="dashboard-topbar-user group flex shrink-0 items-center gap-2 rounded-full pl-1 pr-2 py-1 transition-all hover:bg-[var(--color-muted)]"
             aria-label="Menú de usuario"
           >
             <span
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-sm font-semibold text-[var(--color-primary-foreground)]"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[#7B3FE4] text-sm font-semibold text-white shadow-sm ring-2 ring-[var(--color-background)]"
               aria-hidden
             >
-              {getInitials(username)}
+              {initials}
             </span>
-            <span className="hidden max-w-[120px] truncate text-left text-sm font-semibold sm:block">
+            <span className="hidden max-w-[140px] truncate text-left text-sm font-semibold sm:block">
               {username ?? 'Usuario'}
             </span>
+            <ChevronDown className="hidden h-3.5 w-3.5 text-[var(--color-muted-foreground)] transition-transform group-data-[state=open]:rotate-180 sm:block" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuPortal>
           <DropdownMenuContent
-            className="min-w-[220px] rounded-lg border border-[var(--color-border)] bg-[var(--color-popover)] p-2 shadow-lg"
-            sideOffset={6}
+            className="min-w-[260px] rounded-xl border border-[var(--color-border)] bg-[var(--color-popover)] p-2 shadow-lg"
+            sideOffset={8}
             align="end"
           >
-            <div className="px-2 py-2">
-              <p className="text-sm font-semibold text-[var(--color-popover-foreground)]">
-                {username ?? 'Usuario'}
-              </p>
-              <p className="text-xs text-[var(--color-muted-foreground)]">
-                Sesión activa
-              </p>
-              {roles.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {roles.map((role) => (
-                    <Badge key={role} variant="secondary" className="text-[10px]">
-                      {role}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+            <div className="flex items-start gap-3 px-2 py-2.5">
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[#7B3FE4] text-sm font-semibold text-white shadow"
+                aria-hidden
+              >
+                {initials}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-[var(--color-popover-foreground)]">
+                  {username ?? 'Usuario'}
+                </p>
+                <p className="truncate text-xs text-[var(--color-muted-foreground)]">
+                  {email ?? 'Sin correo configurado'}
+                </p>
+                {roles.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {roles.map((role) => (
+                      <Badge
+                        key={role}
+                        variant="secondary"
+                        className="text-[10px] uppercase tracking-wide"
+                      >
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <DropdownMenuSeparator className="my-2 h-px bg-[var(--color-border)]" />
+            <DropdownMenuSeparator className="my-1.5 h-px bg-[var(--color-border)]" />
             <DropdownMenuItem
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-[var(--color-foreground)] outline-none hover:bg-[var(--color-muted)] focus:bg-[var(--color-muted)]"
+              asChild
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] outline-none hover:bg-[var(--color-muted)] focus:bg-[var(--color-muted)]"
+            >
+              <Link to="/perfil" className="flex w-full items-center gap-2">
+                <UserCircle className="h-4 w-4 text-[var(--color-muted-foreground)]" />
+                Mi perfil
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] outline-none hover:bg-[var(--color-muted)] focus:bg-[var(--color-muted)]"
+              onSelect={handleToggleTheme}
+            >
+              <ThemeIcon className="h-4 w-4 text-[var(--color-muted-foreground)]" />
+              <span className="flex-1">{themeLabel}</span>
+              <span className="text-[10px] uppercase tracking-wide text-[var(--color-muted-foreground)]">
+                Cambiar
+              </span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="my-1.5 h-px bg-[var(--color-border)]" />
+            <DropdownMenuItem
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-[var(--color-destructive)] outline-none hover:bg-[var(--color-destructive)]/10 focus:bg-[var(--color-destructive)]/10"
               onSelect={handleLogout}
             >
               <LogOut className="h-4 w-4" />

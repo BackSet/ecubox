@@ -3,6 +3,7 @@ package com.ecubox.ecubox_backend.controller;
 import com.ecubox.ecubox_backend.dto.LoginRequest;
 import com.ecubox.ecubox_backend.dto.LoginResponse;
 import com.ecubox.ecubox_backend.dto.ClienteRegisterSimpleRequest;
+import com.ecubox.ecubox_backend.dto.MeUpdateRequest;
 import com.ecubox.ecubox_backend.entity.Permiso;
 import com.ecubox.ecubox_backend.entity.Rol;
 import com.ecubox.ecubox_backend.entity.Usuario;
@@ -13,11 +14,13 @@ import com.ecubox.ecubox_backend.service.JwtService;
 import com.ecubox.ecubox_backend.service.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -76,6 +79,8 @@ public class AuthController {
         LoginResponse response = LoginResponse.builder()
                 .token(token)
                 .username(username)
+                .email(usuario.getEmail())
+                .createdAt(usuario.getCreatedAt())
                 .roles(roles)
                 .permissions(permissions)
                 .build();
@@ -86,6 +91,26 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<LoginResponse> me() {
         Usuario usuario = currentUserService.getCurrentUsuario();
+        return ResponseEntity.ok(buildMeResponse(usuario));
+    }
+
+    @PutMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<LoginResponse> updateMe(@Valid @RequestBody MeUpdateRequest request) {
+        Usuario usuario = currentUserService.getCurrentUsuario();
+        usuarioService.updateSelf(usuario.getId(), request);
+        Usuario refreshed = usuarioRepository.findByUsernameWithRolesAndPermisos(usuario.getUsername())
+                .orElseThrow();
+        return ResponseEntity.ok(buildMeResponse(refreshed));
+    }
+
+    @PostMapping("/register/simple")
+    public ResponseEntity<Void> registerSimple(@Valid @RequestBody ClienteRegisterSimpleRequest request) {
+        usuarioService.registerClienteSimple(request);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).build();
+    }
+
+    private LoginResponse buildMeResponse(Usuario usuario) {
         List<String> roles = usuario.getRoles().stream()
                 .map(Rol::getNombre)
                 .toList();
@@ -97,18 +122,13 @@ public class AuthController {
                         .map(Permiso::getCodigo)
                         .distinct()
                         .collect(Collectors.toList());
-        LoginResponse response = LoginResponse.builder()
+        return LoginResponse.builder()
                 .token(null)
                 .username(usuario.getUsername())
+                .email(usuario.getEmail())
+                .createdAt(usuario.getCreatedAt())
                 .roles(roles)
                 .permissions(permissions)
                 .build();
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/register/simple")
-    public ResponseEntity<Void> registerSimple(@Valid @RequestBody ClienteRegisterSimpleRequest request) {
-        usuarioService.registerClienteSimple(request);
-        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).build();
     }
 }

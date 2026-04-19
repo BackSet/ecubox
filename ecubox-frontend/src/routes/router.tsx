@@ -37,6 +37,7 @@ import { CalculadoraPage } from '@/pages/calculadora/CalculadoraPage';
 import { TarifaCalculadoraPage } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraPage';
 import { ParametrosSistemaPage } from '@/pages/dashboard/parametros-sistema/ParametrosSistemaPage';
 import { AgenciaEeuuPage } from '@/pages/dashboard/agencia-eeuu/AgenciaEeuuPage';
+import { PerfilPage } from '@/pages/perfil/PerfilPage';
 import { useAuthStore } from '@/stores/authStore';
 import { applyTheme, useThemeStore } from '@/stores/themeStore';
 
@@ -143,6 +144,13 @@ const agenciaEeuuRoute = createRoute({
   path: '/agencia-eeuu',
   beforeLoad: requireAuth,
   component: withDashboardLayout(AgenciaEeuuPage),
+});
+
+const perfilRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/perfil',
+  beforeLoad: requireAuth,
+  component: withDashboardLayout(PerfilPage),
 });
 
 const usuariosRoute = createRoute({
@@ -351,6 +359,7 @@ const routeTree = rootRoute.addChildren([
   calculadoraRoute,
   inicioRoute,
   agenciaEeuuRoute,
+  perfilRoute,
   usuariosRoute,
   rolesRoute,
   permisosRoute,

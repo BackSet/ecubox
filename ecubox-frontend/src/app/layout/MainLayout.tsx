@@ -33,7 +33,7 @@ export function MainLayout({ content }: { content?: ReactNode }) {
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-[var(--color-background)]">
       <div className="hidden lg:block">
-        <Sidebar onOpenSearch={openSearch} shortcutLabel={shortcutLabel} />
+        <Sidebar />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
@@ -50,12 +50,7 @@ export function MainLayout({ content }: { content?: ReactNode }) {
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
         <SheetContent side="left" className="w-[86vw] max-w-[320px] p-0 lg:hidden">
           <SheetTitle className="sr-only">Navegación principal</SheetTitle>
-          <Sidebar
-            mobile
-            onOpenSearch={openSearch}
-            onNavigate={() => setMobileSidebarOpen(false)}
-            shortcutLabel={shortcutLabel}
-          />
+          <Sidebar mobile onNavigate={() => setMobileSidebarOpen(false)} />
         </SheetContent>
       </Sheet>
       <GlobalCommandPalette open={openCommand} onOpenChange={setOpenCommand} />

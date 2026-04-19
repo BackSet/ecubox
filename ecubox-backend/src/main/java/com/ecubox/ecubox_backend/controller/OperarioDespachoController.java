@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.dto.AplicarEstadoPorPeriodoRequest;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoPorPeriodoResponse;
 import com.ecubox.ecubox_backend.dto.DespachoCreateRequest;
 import com.ecubox.ecubox_backend.dto.DespachoDTO;
+import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoGeneradoDTO;
 import com.ecubox.ecubox_backend.service.DespachoService;
 import jakarta.validation.Valid;
@@ -73,6 +74,12 @@ public class OperarioDespachoController {
         return ResponseEntity.ok(despachoService.aplicarEstadoRastreoEnDespachos(
                 request.getDespachoIds(),
                 request.getEstadoRastreoId()));
+    }
+
+    @GetMapping("/estados-aplicables")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    public ResponseEntity<List<EstadoRastreoDTO>> estadosAplicables() {
+        return ResponseEntity.ok(despachoService.listarEstadosPosterioresADespacho());
     }
 
     @GetMapping("/{id}/mensaje-whatsapp")

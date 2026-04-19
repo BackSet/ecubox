@@ -8,6 +8,7 @@ import {
   getMensajeWhatsAppDespacho,
   aplicarEstadoRastreoPorPeriodo,
   aplicarEstadoRastreoEnDespachos,
+  getEstadosAplicablesDespacho,
   getDistribuidores,
   getAgencias,
   getAgenciasDistribuidor,
@@ -119,6 +120,15 @@ export function useAplicarEstadoEnDespachos() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: DESPACHOS_QUERY_KEY });
     },
+  });
+}
+
+export function useEstadosAplicablesDespacho(enabled = true) {
+  return useQuery({
+    queryKey: [...DESPACHOS_QUERY_KEY, 'estados-aplicables'],
+    queryFn: getEstadosAplicablesDespacho,
+    enabled,
+    staleTime: 60_000,
   });
 }
 

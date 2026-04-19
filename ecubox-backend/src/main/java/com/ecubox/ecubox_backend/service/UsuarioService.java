@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.ClienteRegisterSimpleRequest;
+import com.ecubox.ecubox_backend.dto.MeUpdateRequest;
 import com.ecubox.ecubox_backend.dto.UsuarioCreateRequest;
 import com.ecubox.ecubox_backend.dto.UsuarioDTO;
 import com.ecubox.ecubox_backend.dto.UsuarioUpdateRequest;
@@ -91,6 +92,47 @@ public class UsuarioService {
             throw new ResourceNotFoundException("Usuario", id);
         }
         usuarioRepository.deleteById(id);
+    }
+
+    /**
+     * Actualizacion self-service del usuario autenticado.
+     *
+     * - Permite cambiar email y/o contrasena.
+     * - Para cambiar la contrasena se exige {@code currentPassword} valida.
+     * - El email debe ser unico (case-insensitive) entre todos los usuarios.
+     * - No permite cambiar username, roles ni el flag enabled.
+     */
+    @Transactional
+    public UsuarioDTO updateSelf(Long id, MeUpdateRequest request) {
+        Usuario usuario = usuarioRepository.findByIdWithRoles(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
+
+        boolean wantsPasswordChange = request.getNewPassword() != null && !request.getNewPassword().isBlank();
+        if (wantsPasswordChange) {
+            String current = request.getCurrentPassword();
+            if (current == null || current.isBlank()) {
+                throw new BadRequestException("Debes ingresar tu contrasena actual para cambiarla");
+            }
+            if (!passwordEncoder.matches(current, usuario.getPasswordHash())) {
+                throw new BadRequestException("La contrasena actual no es correcta");
+            }
+            usuario.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        }
+
+        if (request.getEmail() != null) {
+            String trimmed = request.getEmail().trim();
+            if (trimmed.isEmpty()) {
+                usuario.setEmail(null);
+            } else if (!trimmed.equalsIgnoreCase(usuario.getEmail())) {
+                if (usuarioRepository.existsByEmailIgnoreCase(trimmed)) {
+                    throw new ConflictException("Ya existe una cuenta con ese correo electronico");
+                }
+                usuario.setEmail(trimmed);
+            }
+        }
+
+        usuario = usuarioRepository.save(usuario);
+        return toDTO(usuario);
     }
 
     @Transactional

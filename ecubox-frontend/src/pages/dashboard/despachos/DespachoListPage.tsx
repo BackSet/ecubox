@@ -39,7 +39,10 @@ import {
   useMensajeWhatsAppDespachoGenerado,
   useAplicarEstadoPorPeriodo,
   useAplicarEstadoEnDespachos,
+  useEstadosAplicablesDespacho,
 } from '@/hooks/useOperarioDespachos';
+import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
+import type { EstadoRastreo } from '@/types/estado-rastreo';
 import { useMensajeWhatsAppDespacho } from '@/hooks/useMensajeWhatsAppDespacho';
 import { getDespachoById } from '@/lib/api/operario-despachos.service';
 import { buildDespachoPdf } from '@/lib/pdf/builders/despachoPdf';
@@ -105,18 +108,31 @@ export function DespachoListPage() {
   const deleteMutation = useDeleteDespacho();
   const aplicarEstadoPorPeriodo = useAplicarEstadoPorPeriodo();
   const aplicarEstadoEnDespachos = useAplicarEstadoEnDespachos();
+  const [aplicarEstadoOpen, setAplicarEstadoOpen] = useState(false);
+  const { data: estadosAplicables } = useEstadosAplicablesDespacho(aplicarEstadoOpen);
+  const { data: estadosPorPunto } = useEstadosRastreoPorPunto();
 
   const [search, setSearch] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<string>(SIN_FILTRO);
   const [distribuidorFiltro, setDistribuidorFiltro] = useState<string>(SIN_FILTRO);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [whatsappDespachoId, setWhatsappDespachoId] = useState<number | null>(null);
-  const [aplicarEstadoOpen, setAplicarEstadoOpen] = useState(false);
   const [aplicarModo, setAplicarModo] = useState<'periodo' | 'despachos'>('periodo');
   const [periodoFechaInicio, setPeriodoFechaInicio] = useState('');
   const [periodoFechaFin, setPeriodoFechaFin] = useState('');
   const [despachosSeleccionados, setDespachosSeleccionados] = useState<number[]>([]);
+  const [estadoRastreoSeleccionado, setEstadoRastreoSeleccionado] = useState<number | null>(null);
   const [exportingId, setExportingId] = useState<{ id: number; mode: 'pdf' | 'print' | 'xlsx' } | null>(null);
+
+  const defaultEstadoId = estadosPorPunto?.estadoRastreoEnTransitoId ?? null;
+  useEffect(() => {
+    if (estadoRastreoSeleccionado != null) return;
+    if (defaultEstadoId && estadosAplicables?.some((e) => e.id === defaultEstadoId)) {
+      setEstadoRastreoSeleccionado(defaultEstadoId);
+    } else if (estadosAplicables && estadosAplicables.length > 0) {
+      setEstadoRastreoSeleccionado(estadosAplicables[0].id);
+    }
+  }, [defaultEstadoId, estadosAplicables, estadoRastreoSeleccionado]);
 
   const handleExportar = async (id: number, mode: 'pdf' | 'print' | 'xlsx') => {
     if (exportingId) return;
@@ -168,6 +184,10 @@ export function DespachoListPage() {
   };
 
   const handleAplicarEstado = async () => {
+    if (estadoRastreoSeleccionado == null) {
+      toast.error('Selecciona un estado a aplicar');
+      return;
+    }
     try {
       if (aplicarModo === 'periodo') {
         if (!periodoFechaInicio || !periodoFechaFin) {
@@ -177,6 +197,7 @@ export function DespachoListPage() {
         const res = await aplicarEstadoPorPeriodo.mutateAsync({
           fechaInicio: periodoFechaInicio,
           fechaFin: periodoFechaFin,
+          estadoRastreoId: estadoRastreoSeleccionado,
         });
         toast.success(
           `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s) actualizado(s).`,
@@ -188,6 +209,7 @@ export function DespachoListPage() {
         }
         const res = await aplicarEstadoEnDespachos.mutateAsync({
           despachoIds: despachosSeleccionados,
+          estadoRastreoId: estadoRastreoSeleccionado,
         });
         toast.success(
           `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s) actualizado(s).`,
@@ -657,6 +679,10 @@ export function DespachoListPage() {
             : aplicarEstadoEnDespachos.isPending
         }
         despachosEnPeriodo={despachosEnPeriodo}
+        estadosAplicables={estadosAplicables ?? []}
+        estadoRastreoSeleccionado={estadoRastreoSeleccionado}
+        onEstadoRastreoChange={setEstadoRastreoSeleccionado}
+        defaultEstadoId={defaultEstadoId}
       />
     </div>
   );
@@ -776,6 +802,10 @@ interface AplicarEstadoDialogProps {
   onConfirm: () => void | Promise<void>;
   loading: boolean;
   despachosEnPeriodo: { count: number; invalid: boolean } | null;
+  estadosAplicables: EstadoRastreo[];
+  estadoRastreoSeleccionado: number | null;
+  onEstadoRastreoChange: (id: number | null) => void;
+  defaultEstadoId: number | null;
 }
 
 function AplicarEstadoDialog({
@@ -793,6 +823,10 @@ function AplicarEstadoDialog({
   onConfirm,
   loading,
   despachosEnPeriodo,
+  estadosAplicables,
+  estadoRastreoSeleccionado,
+  onEstadoRastreoChange,
+  defaultEstadoId,
 }: AplicarEstadoDialogProps) {
   const hoy = useMemo(() => isoDate(new Date()), []);
   const rangoInvalido = despachosEnPeriodo?.invalid ?? false;
@@ -878,8 +912,10 @@ function AplicarEstadoDialog({
   const limpiarSeleccion = () => onDespachosSeleccionadosChange([]);
 
   const sinSeleccion = despachosSeleccionados.length === 0;
+  const sinEstado = estadoRastreoSeleccionado == null;
   const confirmDeshabilitado =
     loading ||
+    sinEstado ||
     (modo === 'periodo'
       ? !rangoCompleto || rangoInvalido || sinDespachosPeriodo
       : sinSeleccion);
@@ -937,19 +973,59 @@ function AplicarEstadoDialog({
           <div className="rounded-md border border-border bg-[var(--color-muted)]/40 p-3 text-xs text-muted-foreground">
             {modo === 'periodo' ? (
               <>
-                Se aplicará el estado a todos los paquetes de los despachos cuya fecha
-                esté dentro del rango indicado.
+                Se aplicará el estado seleccionado a todos los paquetes de los despachos
+                cuya fecha esté dentro del rango indicado.
               </>
             ) : (
               <>
-                Se aplicará el estado a todos los paquetes de los despachos
+                Se aplicará el estado seleccionado a todos los paquetes de los despachos
                 seleccionados (uno o varios).
               </>
             )}{' '}
-            Por defecto se usa el estado configurado en{' '}
-            <span className="font-medium text-foreground">Parámetros del sistema</span>{' '}
-            (Estados por punto –{' '}
-            <span className="font-medium text-foreground">"En tránsito"</span>).
+            Solo se listan estados <span className="font-medium text-foreground">posteriores</span>{' '}
+            al estado del punto de despacho.
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="aplicar-estado-select"
+              className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+            >
+              Estado a aplicar
+            </label>
+            {estadosAplicables.length === 0 ? (
+              <div className="rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
+                No hay estados posteriores al estado del punto de despacho. Configura
+                el orden de estados en{' '}
+                <span className="font-medium">Parámetros del sistema</span>.
+              </div>
+            ) : (
+              <Select
+                value={estadoRastreoSeleccionado != null ? String(estadoRastreoSeleccionado) : ''}
+                onValueChange={(v) => onEstadoRastreoChange(v ? Number(v) : null)}
+              >
+                <SelectTrigger id="aplicar-estado-select" className="h-9 w-full">
+                  <SelectValue placeholder="Selecciona un estado..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {estadosAplicables.map((e) => (
+                    <SelectItem key={e.id} value={String(e.id)}>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="font-mono text-[11px] text-muted-foreground">
+                          #{e.ordenTracking}
+                        </span>
+                        <span>{e.nombre}</span>
+                        {defaultEstadoId === e.id && (
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            Por defecto
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {modo === 'periodo' ? (
