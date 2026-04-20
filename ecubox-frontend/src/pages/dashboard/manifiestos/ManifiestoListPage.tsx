@@ -75,7 +75,7 @@ const ESTADO_BADGE: Record<EstadoManifiesto, string> = {
 
 const FILTRO_LABELS: Record<FiltroManifiesto, string> = {
   POR_PERIODO: 'Por período',
-  POR_DISTRIBUIDOR: 'Por distribuidor',
+  POR_COURIER_ENTREGA: 'Por courier de entrega',
   POR_AGENCIA: 'Por agencia',
 };
 
@@ -181,7 +181,7 @@ export function ManifiestoListPage() {
     return raw.filter(
       (m) =>
         m.codigo?.toLowerCase().includes(q) ||
-        m.filtroDistribuidorNombre?.toLowerCase().includes(q) ||
+        m.filtroCourierEntregaNombre?.toLowerCase().includes(q) ||
         m.filtroAgenciaNombre?.toLowerCase().includes(q) ||
         String(m.id).includes(q),
     );
@@ -264,7 +264,7 @@ export function ManifiestoListPage() {
       )}
       <ListToolbar
         title="Manifiestos"
-        searchPlaceholder="Buscar por #, código, distribuidor o agencia..."
+        searchPlaceholder="Buscar por #, código, courier o agencia..."
         onSearchChange={setSearch}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
@@ -403,7 +403,7 @@ export function ManifiestoListPage() {
                 <TableHead className="hidden w-[12rem] md:table-cell">Periodo</TableHead>
                 <TableHead className="hidden min-w-[12rem] lg:table-cell">Filtro</TableHead>
                 <TableHead className="hidden w-[7rem] text-center xl:table-cell">Despachos</TableHead>
-                <TableHead className="w-[8rem] text-right">Distribuidor</TableHead>
+                <TableHead className="w-[8rem] text-right">CourierEntrega</TableHead>
                 <TableHead className="w-[8rem] text-right">Agencia</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
@@ -424,7 +424,7 @@ export function ManifiestoListPage() {
         <EmptyState
           icon={FileText}
           title="No hay manifiestos"
-          description="Crea un manifiesto para liquidar despachos por periodo, distribuidor o agencia."
+          description="Crea un manifiesto para liquidar despachos por periodo, courier de entrega o agencia."
           action={
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
@@ -456,7 +456,7 @@ export function ManifiestoListPage() {
                   <TableHead className="hidden w-[12rem] md:table-cell">Periodo</TableHead>
                   <TableHead className="hidden min-w-[12rem] lg:table-cell">Filtro</TableHead>
                   <TableHead className="hidden w-[7rem] text-center xl:table-cell">Despachos</TableHead>
-                  <TableHead className="w-[8rem] text-right">Distribuidor</TableHead>
+                  <TableHead className="w-[8rem] text-right">CourierEntrega</TableHead>
                   <TableHead className="w-[8rem] text-right">Agencia</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
@@ -516,7 +516,7 @@ export function ManifiestoListPage() {
                       <DespachosBadge total={m.cantidadDespachos ?? 0} />
                     </TableCell>
                     <TableCell className="text-right align-top">
-                      <MoneyCell value={m.totalDistribuidor} />
+                      <MoneyCell value={m.totalCourierEntrega} />
                     </TableCell>
                     <TableCell className="text-right align-top">
                       <MoneyCell value={m.totalAgencia} />
@@ -682,16 +682,16 @@ function PeriodoCell({
 }
 
 function FiltroCell({ manifiesto: m }: { manifiesto: Manifiesto }) {
-  if (m.filtroTipo === 'POR_DISTRIBUIDOR') {
+  if (m.filtroTipo === 'POR_COURIER_ENTREGA') {
     return (
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          Distribuidor
+          CourierEntrega
         </span>
         <span className="inline-flex items-center gap-1.5 text-sm">
           <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate" title={m.filtroDistribuidorNombre ?? undefined}>
-            {m.filtroDistribuidorNombre ?? '—'}
+          <span className="truncate" title={m.filtroCourierEntregaNombre ?? undefined}>
+            {m.filtroCourierEntregaNombre ?? '—'}
           </span>
         </span>
       </div>

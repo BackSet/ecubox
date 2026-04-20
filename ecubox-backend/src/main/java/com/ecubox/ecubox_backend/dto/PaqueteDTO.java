@@ -33,12 +33,12 @@ public class PaqueteDTO {
     private Long estadoRastreoId;
     private String estadoRastreoNombre;
     private String estadoRastreoCodigo;
-    private Long destinatarioFinalId;
-    private String destinatarioNombre;
-    private String destinatarioDireccion;
-    private String destinatarioProvincia;
-    private String destinatarioCanton;
-    private String destinatarioTelefono;
+    private Long consignatarioId;
+    private String consignatarioNombre;
+    private String consignatarioDireccion;
+    private String consignatarioProvincia;
+    private String consignatarioCanton;
+    private String consignatarioTelefono;
     private Long sacaId;
     private Long despachoId;
     private String despachoNumeroGuia;

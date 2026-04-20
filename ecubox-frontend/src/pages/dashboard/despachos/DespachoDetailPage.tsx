@@ -70,7 +70,7 @@ import type { Despacho, Saca, TamanioSaca, TipoEntrega } from '@/types/despacho'
 import type { Paquete } from '@/types/paquete';
 import {
   GuiaMasterPiezaCell,
-  DestinatarioCell,
+  ConsignatarioCell,
 } from '@/pages/dashboard/paquetes/PaqueteCells';
 
 const TAMANIO_LABELS: Record<TamanioSaca, string> = {
@@ -83,7 +83,7 @@ const TAMANIO_LABELS: Record<TamanioSaca, string> = {
 const TIPO_LABELS: Record<TipoEntrega, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
-  AGENCIA_DISTRIBUIDOR: 'Agencia distribuidor',
+  AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
 };
 
 const TIPO_BADGE: Record<TipoEntrega, string> = {
@@ -91,7 +91,7 @@ const TIPO_BADGE: Record<TipoEntrega, string> = {
     'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
   AGENCIA:
     'border-[color-mix(in_oklab,var(--color-info)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-info)_15%,transparent)] text-[color-mix(in_oklab,var(--color-info)_75%,var(--color-foreground))]',
-  AGENCIA_DISTRIBUIDOR:
+  AGENCIA_COURIER_ENTREGA:
     'border-[color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
 };
 
@@ -100,7 +100,7 @@ const TIPO_ICON_BG: Record<TipoEntrega, string> = {
     'bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
   AGENCIA:
     'bg-[color-mix(in_oklab,var(--color-info)_15%,transparent)] text-[color-mix(in_oklab,var(--color-info)_75%,var(--color-foreground))]',
-  AGENCIA_DISTRIBUIDOR:
+  AGENCIA_COURIER_ENTREGA:
     'bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
 };
 
@@ -205,11 +205,11 @@ export function DespachoDetailPage() {
     return Boolean(
       p.numeroGuia?.toLowerCase().includes(q) ||
         p.guiaMasterTrackingBase?.toLowerCase().includes(q) ||
-        p.destinatarioNombre?.toLowerCase().includes(q) ||
-        p.destinatarioTelefono?.toLowerCase().includes(q) ||
-        p.destinatarioDireccion?.toLowerCase().includes(q) ||
-        p.destinatarioCanton?.toLowerCase().includes(q) ||
-        p.destinatarioProvincia?.toLowerCase().includes(q) ||
+        p.consignatarioNombre?.toLowerCase().includes(q) ||
+        p.consignatarioTelefono?.toLowerCase().includes(q) ||
+        p.consignatarioDireccion?.toLowerCase().includes(q) ||
+        p.consignatarioCanton?.toLowerCase().includes(q) ||
+        p.consignatarioProvincia?.toLowerCase().includes(q) ||
         p.contenido?.toLowerCase().includes(q) ||
         p.estadoRastreoNombre?.toLowerCase().includes(q) ||
         p.estadoRastreoCodigo?.toLowerCase().includes(q) ||
@@ -254,7 +254,7 @@ export function DespachoDetailPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Saca</TableHead>
-                <TableHead>Destinatario</TableHead>
+                <TableHead>Consignatario</TableHead>
                 <TableHead className="hidden md:table-cell">Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
@@ -275,7 +275,7 @@ export function DespachoDetailPage() {
   const d = despacho;
   const plantillaWhats = mensajeWhatsApp?.plantilla?.trim() ?? '';
   const tieneWhatsApp =
-    plantillaWhats.length > 0 && d.tipoEntrega === 'DOMICILIO' && Boolean(d.destinatarioTelefono);
+    plantillaWhats.length > 0 && d.tipoEntrega === 'DOMICILIO' && Boolean(d.consignatarioTelefono);
 
   const handleExport = async (mode: 'pdf' | 'print' | 'xlsx') => {
     if (exporting) return;
@@ -393,10 +393,10 @@ export function DespachoDetailPage() {
                     {d.operarioNombre}
                   </span>
                 )}
-                {d.distribuidorNombre && (
+                {d.courierEntregaNombre && (
                   <span className="inline-flex items-center gap-1">
                     <Building2 className="h-3 w-3" />
-                    {d.distribuidorNombre}
+                    {d.courierEntregaNombre}
                   </span>
                 )}
               </div>
@@ -530,8 +530,8 @@ export function DespachoDetailPage() {
           <InfoRow label="Fecha y hora">
             <span className="text-sm">{fmtFechaCompleta(d.fechaHora)}</span>
           </InfoRow>
-          <InfoRow label="Distribuidor">
-            <span className="text-sm font-medium">{d.distribuidorNombre ?? '—'}</span>
+          <InfoRow label="CourierEntrega">
+            <span className="text-sm font-medium">{d.courierEntregaNombre ?? '—'}</span>
           </InfoRow>
           <InfoRow label="Tipo de entrega">
             <Badge
@@ -589,7 +589,7 @@ export function DespachoDetailPage() {
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Buscar guía, destinatario, contenido..."
+                  placeholder="Buscar guía, consignatario, contenido..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="h-8 pl-7 text-sm"
@@ -686,7 +686,7 @@ export function DespachoDetailPage() {
             </DialogTitle>
           </DialogHeader>
           <WhatsAppPanel
-            telefono={d.destinatarioTelefono}
+            telefono={d.consignatarioTelefono}
             mensaje={mensajeGenerado?.mensaje}
             loading={loadingMensaje}
           />
@@ -761,9 +761,9 @@ function DestinoCard({ despacho: d }: { despacho: Despacho }) {
   // un indicador discreto para que el operario sepa que estos datos son los
   // historicos del momento del despacho, no los del maestro vivo.
   const congelado = d.destinoCongeladoEn != null
-    || d.destinatarioVersionId != null
+    || d.consignatarioVersionId != null
     || d.agenciaVersionId != null
-    || d.agenciaDistribuidorVersionId != null;
+    || d.agenciaCourierEntregaVersionId != null;
   const congeladoBadge = congelado ? (
     <span
       className="ml-2 inline-flex items-center rounded-full border border-border/60 bg-muted/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
@@ -788,25 +788,25 @@ function DestinoCard({ despacho: d }: { despacho: Despacho }) {
         }
         icon={<MapPin className="h-4 w-4" />}
       >
-        <InfoRow label="Destinatario">
-          <span className="text-sm font-medium">{d.destinatarioNombre ?? '—'}</span>
+        <InfoRow label="Consignatario">
+          <span className="text-sm font-medium">{d.consignatarioNombre ?? '—'}</span>
         </InfoRow>
         <InfoRow label="Teléfono">
-          {d.destinatarioTelefono ? (
+          {d.consignatarioTelefono ? (
             <>
               <span className="inline-flex items-center gap-1.5 text-sm">
                 <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                {d.destinatarioTelefono}
+                {d.consignatarioTelefono}
               </span>
-              <CopyButton value={d.destinatarioTelefono} title="Copiar teléfono" small />
+              <CopyButton value={d.consignatarioTelefono} title="Copiar teléfono" small />
             </>
           ) : (
             <span className="text-sm text-muted-foreground">—</span>
           )}
         </InfoRow>
         <InfoRow label="Dirección" multiline>
-          {d.destinatarioDireccion ? (
-            <span className="text-sm">{d.destinatarioDireccion}</span>
+          {d.consignatarioDireccion ? (
+            <span className="text-sm">{d.consignatarioDireccion}</span>
           ) : (
             <span className="text-sm text-muted-foreground">—</span>
           )}
@@ -816,12 +816,12 @@ function DestinoCard({ despacho: d }: { despacho: Despacho }) {
   }
 
   const lugar =
-    d.tipoEntrega === 'AGENCIA_DISTRIBUIDOR'
-      ? d.agenciaDistribuidorNombre
+    d.tipoEntrega === 'AGENCIA_COURIER_ENTREGA'
+      ? d.agenciaCourierEntregaNombre
       : d.agenciaNombre;
   const titulo =
-    d.tipoEntrega === 'AGENCIA_DISTRIBUIDOR'
-      ? 'Destino · Agencia distribuidor'
+    d.tipoEntrega === 'AGENCIA_COURIER_ENTREGA'
+      ? 'Destino · Punto de entrega'
       : 'Destino · Agencia';
 
   return (
@@ -837,23 +837,23 @@ function DestinoCard({ despacho: d }: { despacho: Despacho }) {
       <InfoRow label="Agencia">
         <span className="text-sm font-medium">{lugar ?? '—'}</span>
       </InfoRow>
-      {d.destinatarioNombre && (
+      {d.consignatarioNombre && (
         <InfoRow label="Contacto">
-          <span className="text-sm">{d.destinatarioNombre}</span>
+          <span className="text-sm">{d.consignatarioNombre}</span>
         </InfoRow>
       )}
-      {d.destinatarioTelefono && (
+      {d.consignatarioTelefono && (
         <InfoRow label="Teléfono">
           <span className="inline-flex items-center gap-1.5 text-sm">
             <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-            {d.destinatarioTelefono}
+            {d.consignatarioTelefono}
           </span>
-          <CopyButton value={d.destinatarioTelefono} title="Copiar teléfono" small />
+          <CopyButton value={d.consignatarioTelefono} title="Copiar teléfono" small />
         </InfoRow>
       )}
-      {d.destinatarioDireccion && (
+      {d.consignatarioDireccion && (
         <InfoRow label="Dirección" multiline>
-          <span className="text-sm">{d.destinatarioDireccion}</span>
+          <span className="text-sm">{d.consignatarioDireccion}</span>
         </InfoRow>
       )}
     </InfoCard>
@@ -934,7 +934,7 @@ function SacaCard({
                   <TableHead className="w-[40px] text-center">#</TableHead>
                   <TableHead>Guía master / Pieza</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Destinatario</TableHead>
+                  <TableHead>Consignatario</TableHead>
                   <TableHead className="hidden max-w-[220px] md:table-cell">Contenido</TableHead>
                   <TableHead className="text-right">Peso</TableHead>
                   <TableHead className="w-[60px] text-right">Acción</TableHead>
@@ -956,7 +956,7 @@ function SacaCard({
                       />
                     </TableCell>
                     <TableCell>
-                      <DestinatarioCell paquete={p} />
+                      <ConsignatarioCell paquete={p} />
                     </TableCell>
                     <TableCell className="hidden max-w-[220px] md:table-cell">
                       {p.contenido ? (

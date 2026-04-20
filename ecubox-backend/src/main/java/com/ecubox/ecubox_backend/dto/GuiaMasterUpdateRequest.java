@@ -25,5 +25,5 @@ public class GuiaMasterUpdateRequest {
     @Min(value = 1, message = "Debe tener al menos una pieza")
     private Integer totalPiezasEsperadas;
 
-    private Long destinatarioFinalId;
+    private Long consignatarioId;
 }

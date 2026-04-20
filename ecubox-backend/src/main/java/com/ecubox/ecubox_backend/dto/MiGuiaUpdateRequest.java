@@ -22,5 +22,5 @@ public class MiGuiaUpdateRequest {
     private String trackingBase;
 
     @NotNull(message = "Selecciona un destinatario")
-    private Long destinatarioFinalId;
+    private Long consignatarioId;
 }

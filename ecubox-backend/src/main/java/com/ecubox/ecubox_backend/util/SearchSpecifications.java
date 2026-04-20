@@ -126,8 +126,8 @@ public final class SearchSpecifications {
      *
      * <p>Además, reutiliza joins ya creados sobre el mismo {@link From} cuando
      * varios extractores apuntan a la misma relación (p. ej.
-     * {@code path("destinatarioFinal", "nombre")} y
-     * {@code path("destinatarioFinal", "codigo")}), evitando producir
+     * {@code path("consignatario", "nombre")} y
+     * {@code path("consignatario", "codigo")}), evitando producir
      * múltiples joins duplicados en el SQL.</p>
      */
     public static <T> Function<Root<T>, Expression<String>> path(String... segments) {

@@ -11,7 +11,7 @@ import type { DespachoEnManifiesto, Manifiesto } from '@/types/manifiesto';
 const TIPO_LABELS: Record<string, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
-  AGENCIA_DISTRIBUIDOR: 'Agencia distribuidor',
+  AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
 };
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -170,10 +170,10 @@ interface ColumnDef {
 const DESPACHO_COLS: ColumnDef[] = [
   { key: 'idx', label: '#', width: 5, align: 'center' },
   { key: 'guia', label: 'Guía', width: 24, align: 'left' },
-  { key: 'distribuidor', label: 'Distribuidor', width: 30, align: 'left' },
+  { key: 'courierEntrega', label: 'Courier de entrega', width: 30, align: 'left' },
   { key: 'tipo', label: 'Tipo entrega', width: 18, align: 'left' },
   { key: 'agencia', label: 'Agencia', width: 26, align: 'left' },
-  { key: 'destinatario', label: 'Destinatario', width: 38, align: 'left' },
+  { key: 'consignatario', label: 'Consignatario', width: 38, align: 'left' },
 ];
 
 function setColumnWidths(ws: ExcelJS.Worksheet, cols: ColumnDef[]) {
@@ -306,7 +306,7 @@ function applyDespachoRow(
     cell.alignment = {
       horizontal: c.align,
       vertical: 'middle',
-      wrapText: c.key === 'distribuidor' || c.key === 'destinatario' || c.key === 'agencia',
+      wrapText: c.key === 'courierEntrega' || c.key === 'consignatario' || c.key === 'agencia',
     };
     if (c.numFmt && typeof v === 'number') cell.numFmt = c.numFmt;
     if (zebra) cell.fill = FILL_ZEBRA;
@@ -395,12 +395,12 @@ function columnLetter(col: number): string {
 export interface DownloadManifiestoXlsxInput {
   manifiesto: Manifiesto;
   despachos: DespachoEnManifiesto[];
-  filtroDistribuidorNombre?: string | null;
+  filtroCourierEntregaNombre?: string | null;
   filtroAgenciaNombre?: string | null;
 }
 
 export async function downloadManifiestoXlsx(input: DownloadManifiestoXlsxInput): Promise<void> {
-  const { manifiesto, despachos, filtroDistribuidorNombre, filtroAgenciaNombre } = input;
+  const { manifiesto, despachos, filtroCourierEntregaNombre, filtroAgenciaNombre } = input;
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'ECUBOX';
@@ -439,8 +439,8 @@ export async function downloadManifiestoXlsx(input: DownloadManifiestoXlsxInput)
       dias != null ? `${dias} día${dias === 1 ? '' : 's'}` : '-',
     ],
     [
-      'Filtro distribuidor',
-      safe(filtroDistribuidorNombre ?? manifiesto.filtroDistribuidorNombre ?? 'Todos') || 'Todos',
+      'Filtro courier de entrega',
+      safe(filtroCourierEntregaNombre ?? manifiesto.filtroCourierEntregaNombre ?? 'Todos') || 'Todos',
       'Filtro agencia',
       safe(filtroAgenciaNombre ?? manifiesto.filtroAgenciaNombre ?? 'Todas') || 'Todas',
     ],
@@ -460,8 +460,8 @@ export async function downloadManifiestoXlsx(input: DownloadManifiestoXlsxInput)
     [
       'Subtotal domicilio',
       String(manifiesto.subtotalDomicilio ?? 0),
-      'Total distribuidor',
-      String(manifiesto.totalDistribuidor ?? 0),
+      'Total courier de entrega',
+      String(manifiesto.totalCourierEntrega ?? 0),
     ],
     [
       'Subtotal agencia (flete)',
@@ -550,10 +550,10 @@ export async function downloadManifiestoXlsx(input: DownloadManifiestoXlsxInput)
         [
           i + 1,
           safe(d.numeroGuia),
-          safe(d.distribuidorNombre),
+          safe(d.courierEntregaNombre),
           TIPO_LABELS[d.tipoEntrega] ?? safe(d.tipoEntrega),
           safe(d.agenciaNombre),
-          safe(d.destinatarioNombre),
+          safe(d.consignatarioNombre),
         ],
         i % 2 === 1,
       );
@@ -604,7 +604,7 @@ export async function downloadManifiestoXlsx(input: DownloadManifiestoXlsxInput)
     ['Subtotal domicilio', 'Costos por entregas a domicilio', Number(manifiesto.subtotalDomicilio ?? 0)],
     ['Subtotal agencia (flete)', 'Costo de flete cubierto a la agencia', Number(manifiesto.subtotalAgenciaFlete ?? 0)],
     ['Subtotal comisión agencias', 'Comisiones devengadas por agencia', Number(manifiesto.subtotalComisionAgencias ?? 0)],
-    ['Total distribuidor', 'Total liquidado al distribuidor', Number(manifiesto.totalDistribuidor ?? 0)],
+    ['Total courier de entrega', 'Total liquidado al courier de entrega', Number(manifiesto.totalCourierEntrega ?? 0)],
     ['Total agencia', 'Total liquidado a agencia(s)', Number(manifiesto.totalAgencia ?? 0)],
   ];
 

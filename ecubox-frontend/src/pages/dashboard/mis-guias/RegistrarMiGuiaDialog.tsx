@@ -13,18 +13,18 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
-import { useDestinatarios } from '@/hooks/useDestinatarios';
+import { useConsignatarios } from '@/hooks/useConsignatarios';
 import { useRegistrarMiGuia } from '@/hooks/useMisGuias';
 
 export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
   const [trackingBase, setTrackingBase] = useState('');
-  const [destinatarioId, setDestinatarioId] = useState<number | undefined>();
+  const [consignatarioId, setConsignatarioId] = useState<number | undefined>();
   const registrar = useRegistrarMiGuia();
-  const { data: destinatarios = [], isLoading: loadingDest } = useDestinatarios();
+  const { data: consignatarios = [], isLoading: loadingDest } = useConsignatarios();
 
-  function handleDestinatarioChange(value: string | number | undefined) {
+  function handleConsignatarioChange(value: string | number | undefined) {
     const did = typeof value === 'string' ? Number(value) : value;
-    setDestinatarioId(did);
+    setConsignatarioId(did);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -33,15 +33,15 @@ export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
       notify.warning('Indica el número de guía');
       return;
     }
-    if (destinatarioId == null) {
-      notify.warning('Selecciona un destinatario');
+    if (consignatarioId == null) {
+      notify.warning('Selecciona un consignatario');
       return;
     }
     try {
       await notify.run(
         registrar.mutateAsync({
           trackingBase: trackingBase.trim(),
-          destinatarioFinalId: destinatarioId,
+          consignatarioId: consignatarioId,
         }),
         {
           loading: 'Registrando guía...',
@@ -58,7 +58,7 @@ export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const sinDestinatarios = !loadingDest && destinatarios.length === 0;
+  const sinConsignatarios = !loadingDest && consignatarios.length === 0;
 
   return (
     <Dialog open onOpenChange={(open) => !open && !registrar.isPending && onClose()}>
@@ -85,17 +85,17 @@ export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
 
           <div>
             <Label
-              htmlFor="mi-destinatario-crear"
+              htmlFor="mi-consignatario-crear"
               className="mb-1 flex items-center gap-1 text-xs"
             >
               <UserRound className="h-3.5 w-3.5" />
-              Destinatario *
+              Consignatario *
             </Label>
             <SearchableCombobox
-              id="mi-destinatario-crear"
-              value={destinatarioId}
-              onChange={handleDestinatarioChange}
-              options={destinatarios}
+              id="mi-consignatario-crear"
+              value={consignatarioId}
+              onChange={handleConsignatarioChange}
+              options={consignatarios}
               getKey={(d) => d.id}
               getLabel={(d) => d.nombre}
               getSearchText={(d) =>
@@ -109,14 +109,14 @@ export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
               }
               placeholder={
                 loadingDest
-                  ? 'Cargando destinatarios...'
-                  : sinDestinatarios
-                    ? 'Sin destinatarios'
-                    : 'Selecciona un destinatario'
+                  ? 'Cargando consignatarios...'
+                  : sinConsignatarios
+                    ? 'Sin consignatarios'
+                    : 'Selecciona un consignatario'
               }
               searchPlaceholder="Buscar por nombre, código, cantón..."
               emptyMessage="Sin coincidencias"
-              disabled={loadingDest || sinDestinatarios}
+              disabled={loadingDest || sinConsignatarios}
               clearable={false}
               renderOption={(d) => (
                 <div className="min-w-0">
@@ -141,9 +141,9 @@ export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
                 </span>
               )}
             />
-            {sinDestinatarios && (
+            {sinConsignatarios && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Aún no tienes destinatarios. Crea uno desde "Destinatarios".
+                Aún no tienes consignatarios. Crea uno desde "Mis consignatarios".
               </p>
             )}
             <p className="mt-1 text-[11px] text-muted-foreground">

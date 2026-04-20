@@ -25,8 +25,8 @@ public class ManifiestoRequest {
 
     private FiltroManifiesto filtroTipo;
 
-    /** Requerido cuando filtroTipo es POR_DISTRIBUIDOR (validado en servicio). */
-    private Long filtroDistribuidorId;
+    /** Requerido cuando filtroTipo es POR_COURIER_ENTREGA (validado en servicio). */
+    private Long filtroCourierEntregaId;
 
     /** Requerido cuando filtroTipo es POR_AGENCIA (validado en servicio). */
     private Long filtroAgenciaId;

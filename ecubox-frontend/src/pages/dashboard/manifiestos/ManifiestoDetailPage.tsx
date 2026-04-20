@@ -44,7 +44,7 @@ import {
   useDespachosCandidatosManifiesto,
 } from '@/hooks/useManifiestos';
 import { useAgencias } from '@/hooks/useAgencias';
-import { useDistribuidoresAdmin } from '@/hooks/useDistribuidoresAdmin';
+import { useCouriersEntregaAdmin } from '@/hooks/useCouriersEntregaAdmin';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
@@ -119,14 +119,14 @@ const ESTADO_ICON: Record<
 
 const FILTRO_LABELS: Record<FiltroManifiesto, string> = {
   POR_PERIODO: 'Por período',
-  POR_DISTRIBUIDOR: 'Por distribuidor',
+  POR_COURIER_ENTREGA: 'Por courier de entrega',
   POR_AGENCIA: 'Por agencia',
 };
 
 const TIPO_LABELS: Record<string, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
-  AGENCIA_DISTRIBUIDOR: 'Agencia distribuidor',
+  AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
 };
 
 const TIPO_BADGE: Record<string, string> = {
@@ -134,7 +134,7 @@ const TIPO_BADGE: Record<string, string> = {
     'border-[var(--color-info)]/30 bg-[var(--color-info)]/10 text-[var(--color-info)]',
   AGENCIA:
     'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]',
-  AGENCIA_DISTRIBUIDOR:
+  AGENCIA_COURIER_ENTREGA:
     'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
 };
 
@@ -181,7 +181,7 @@ export function ManifiestoDetailPage() {
 
   const { data: manifiesto, isLoading, error } = useManifiesto(idValido ? id : null);
   const { data: agencias = [] } = useAgencias();
-  const { data: distribuidores = [] } = useDistribuidoresAdmin();
+  const { data: couriersEntrega = [] } = useCouriersEntregaAdmin();
 
   const recalcular = useRecalcularTotales();
   const cambiarEstado = useCambiarEstadoManifiesto();
@@ -194,7 +194,7 @@ export function ManifiestoDetailPage() {
   const [search, setSearch] = useState('');
   const [tipoFilter, setTipoFilter] = useState<string>(SIN_FILTRO);
   const [pdfAgenciaId, setPdfAgenciaId] = useState<number>(0);
-  const [pdfDistribuidorId, setPdfDistribuidorId] = useState<number>(0);
+  const [pdfCourierEntregaId, setPdfCourierEntregaId] = useState<number>(0);
   const [exporting, setExporting] = useState<'pdf' | 'print' | 'xlsx' | null>(null);
   const [exportFiltersOpen, setExportFiltersOpen] = useState(false);
 
@@ -210,7 +210,7 @@ export function ManifiestoDetailPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Despacho</TableHead>
-                <TableHead className="hidden md:table-cell">Distribuidor</TableHead>
+                <TableHead className="hidden md:table-cell">CourierEntrega</TableHead>
                 <TableHead className="hidden lg:table-cell">Agencia</TableHead>
                 <TableHead className="text-right">Total</TableHead>
               </TableRow>
@@ -242,18 +242,18 @@ export function ManifiestoDetailPage() {
     let domicilio = 0;
     let agencia = 0;
     let agenciaDist = 0;
-    const distribuidoresSet = new Set<string>();
+    const couriersEntregaSet = new Set<string>();
     for (const d of despachos) {
       if (d.tipoEntrega === 'DOMICILIO') domicilio += 1;
       else if (d.tipoEntrega === 'AGENCIA') agencia += 1;
-      else if (d.tipoEntrega === 'AGENCIA_DISTRIBUIDOR') agenciaDist += 1;
-      if (d.distribuidorNombre) distribuidoresSet.add(d.distribuidorNombre);
+      else if (d.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') agenciaDist += 1;
+      if (d.courierEntregaNombre) couriersEntregaSet.add(d.courierEntregaNombre);
     }
     return {
       domicilio,
       agencia,
       agenciaDist,
-      distribuidores: distribuidoresSet.size,
+      couriersEntrega: couriersEntregaSet.size,
     };
   })();
 
@@ -263,13 +263,13 @@ export function ManifiestoDetailPage() {
     return Array.from(set);
   })();
 
-  const distribuidorSeleccionado = distribuidores.find((d) => d.id === pdfDistribuidorId);
+  const courierEntregaSeleccionado = couriersEntrega.find((d) => d.id === pdfCourierEntregaId);
   const agenciaSeleccionada = agencias.find((a) => a.id === pdfAgenciaId);
 
   const filtrarDespachos = (lista: DespachoEnManifiesto[]) => {
     let raw = lista;
-    if (distribuidorSeleccionado) {
-      raw = raw.filter((d) => d.distribuidorNombre === distribuidorSeleccionado.nombre);
+    if (courierEntregaSeleccionado) {
+      raw = raw.filter((d) => d.courierEntregaNombre === courierEntregaSeleccionado.nombre);
     }
     if (agenciaSeleccionada) {
       raw = raw.filter((d) => d.agenciaNombre === agenciaSeleccionada.nombre);
@@ -289,9 +289,9 @@ export function ManifiestoDetailPage() {
     return raw.filter(
       (d) =>
         d.numeroGuia?.toLowerCase().includes(q) ||
-        d.distribuidorNombre?.toLowerCase().includes(q) ||
+        d.courierEntregaNombre?.toLowerCase().includes(q) ||
         d.agenciaNombre?.toLowerCase().includes(q) ||
-        d.destinatarioNombre?.toLowerCase().includes(q),
+        d.consignatarioNombre?.toLowerCase().includes(q),
     );
   })();
 
@@ -338,7 +338,7 @@ export function ManifiestoDetailPage() {
             manifiesto: m,
             despachos: despachosFiltradosExport,
             filtroAgenciaNombre: agenciaSeleccionada?.nombre,
-            filtroDistribuidorNombre: distribuidorSeleccionado?.nombre,
+            filtroCourierEntregaNombre: courierEntregaSeleccionado?.nombre,
           });
           runJsPdfAction(doc, {
             mode,
@@ -364,7 +364,7 @@ export function ManifiestoDetailPage() {
           manifiesto: m,
           despachos: despachosFiltradosExport,
           filtroAgenciaNombre: agenciaSeleccionada?.nombre,
-          filtroDistribuidorNombre: distribuidorSeleccionado?.nombre,
+          filtroCourierEntregaNombre: courierEntregaSeleccionado?.nombre,
         }),
         {
           loading: 'Generando Excel del manifiesto...',
@@ -379,7 +379,7 @@ export function ManifiestoDetailPage() {
     }
   }
 
-  const hayFiltrosExport = pdfDistribuidorId !== 0 || pdfAgenciaId !== 0;
+  const hayFiltrosExport = pdfCourierEntregaId !== 0 || pdfAgenciaId !== 0;
   const hayFiltrosTabla = tipoFilter !== SIN_FILTRO || search.trim() !== '';
 
   return (
@@ -525,12 +525,12 @@ export function ManifiestoDetailPage() {
         />
         <KpiCard
           icon={<Building2 className="h-5 w-5" />}
-          label="Total distribuidor"
-          value={fmtMoneda(m.totalDistribuidor)}
+          label="Total courier de entrega"
+          value={fmtMoneda(m.totalCourierEntrega)}
           tone="neutral"
           hint={
-            stats.distribuidores > 0
-              ? `${stats.distribuidores} distribuidor${stats.distribuidores === 1 ? '' : 'es'}`
+            stats.couriersEntrega > 0
+              ? `${stats.couriersEntrega} courier${stats.couriersEntrega === 1 ? '' : 's'} de entrega`
               : undefined
           }
         />
@@ -564,8 +564,8 @@ export function ManifiestoDetailPage() {
             value={dias != null ? `${dias} ${dias === 1 ? 'día' : 'días'}` : '—'}
           />
           <InfoRow label="Tipo de filtro" value={FILTRO_LABELS[m.filtroTipo] ?? m.filtroTipo} />
-          {m.filtroDistribuidorNombre && (
-            <InfoRow label="Distribuidor" value={m.filtroDistribuidorNombre} />
+          {m.filtroCourierEntregaNombre && (
+            <InfoRow label="Courier de entrega" value={m.filtroCourierEntregaNombre} />
           )}
           {m.filtroAgenciaNombre && <InfoRow label="Agencia" value={m.filtroAgenciaNombre} />}
 
@@ -622,8 +622,8 @@ export function ManifiestoDetailPage() {
           />
           <div className="my-1 border-t border-dashed border-border" />
           <InfoRow
-            label="Total distribuidor"
-            value={fmtMoneda(m.totalDistribuidor)}
+            label="Total courier de entrega"
+            value={fmtMoneda(m.totalCourierEntrega)}
             valueClassName="font-mono text-sm font-semibold tabular-nums"
           />
           <InfoRow
@@ -676,18 +676,18 @@ export function ManifiestoDetailPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Distribuidor
+                  CourierEntrega
                 </label>
                 <Select
-                  value={String(pdfDistribuidorId)}
-                  onValueChange={(v) => setPdfDistribuidorId(Number(v))}
+                  value={String(pdfCourierEntregaId)}
+                  onValueChange={(v) => setPdfCourierEntregaId(Number(v))}
                 >
                   <SelectTrigger className="h-9 w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">Todos los distribuidores</SelectItem>
-                    {distribuidores.map((d) => (
+                    <SelectItem value="0">Todos los couriersEntrega</SelectItem>
+                    {couriersEntrega.map((d) => (
                       <SelectItem key={d.id} value={String(d.id)}>
                         {d.nombre} ({d.codigo})
                       </SelectItem>
@@ -726,7 +726,7 @@ export function ManifiestoDetailPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setPdfDistribuidorId(0);
+                    setPdfCourierEntregaId(0);
                     setPdfAgenciaId(0);
                   }}
                   className="gap-1.5 text-xs"
@@ -763,7 +763,7 @@ export function ManifiestoDetailPage() {
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar guía, destinatario..."
+                    placeholder="Buscar guía, consignatario..."
                     className="h-8 w-[16rem] pl-8 text-xs"
                   />
                 </div>
@@ -839,8 +839,8 @@ export function ManifiestoDetailPage() {
                   <TableHead className="w-[3.5rem] text-center">#</TableHead>
                   <TableHead className="w-[12rem]">Guía</TableHead>
                   <TableHead className="hidden w-[8rem] md:table-cell">Tipo</TableHead>
-                  <TableHead className="min-w-[12rem]">Destinatario</TableHead>
-                  <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
+                  <TableHead className="min-w-[12rem]">Consignatario</TableHead>
+                  <TableHead className="min-w-[12rem]">Courier de entrega</TableHead>
                   <TableHead className="min-w-[10rem]">Agencia</TableHead>
                   <TableHead className="w-[5rem] text-right">Acciones</TableHead>
                 </TableRow>
@@ -871,10 +871,10 @@ export function ManifiestoDetailPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="align-top text-sm">
-                      {d.destinatarioNombre ?? <span className="italic text-muted-foreground">—</span>}
+                      {d.consignatarioNombre ?? <span className="italic text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="align-top text-sm">
-                      {d.distribuidorNombre ?? <span className="italic text-muted-foreground">—</span>}
+                      {d.courierEntregaNombre ?? <span className="italic text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="align-top text-sm">
                       {d.agenciaNombre ?? <span className="italic text-muted-foreground">—</span>}
@@ -989,9 +989,9 @@ function AsignarDespachosDialog({
       raw = raw.filter(
         (d) =>
           d.numeroGuia?.toLowerCase().includes(q) ||
-          d.distribuidorNombre?.toLowerCase().includes(q) ||
+          d.courierEntregaNombre?.toLowerCase().includes(q) ||
           d.agenciaNombre?.toLowerCase().includes(q) ||
-          d.destinatarioNombre?.toLowerCase().includes(q),
+          d.consignatarioNombre?.toLowerCase().includes(q),
       );
     }
     return raw;
@@ -1068,7 +1068,7 @@ function AsignarDespachosDialog({
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por guía, distribuidor o destinatario..."
+              placeholder="Buscar por guía, courier o consignatario..."
               className="h-9 pl-8 text-sm"
               autoFocus
             />
@@ -1163,10 +1163,10 @@ function AsignarDespachosDialog({
                           )}
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                          {d.distribuidorNombre && (
+                          {d.courierEntregaNombre && (
                             <span className="inline-flex items-center gap-1">
                               <Building2 className="h-3 w-3" />
-                              {d.distribuidorNombre}
+                              {d.courierEntregaNombre}
                             </span>
                           )}
                           {d.agenciaNombre && (
@@ -1175,10 +1175,10 @@ function AsignarDespachosDialog({
                               {d.agenciaNombre}
                             </span>
                           )}
-                          {d.destinatarioNombre && (
+                          {d.consignatarioNombre && (
                             <span className="inline-flex items-center gap-1">
                               <Home className="h-3 w-3" />
-                              {d.destinatarioNombre}
+                              {d.consignatarioNombre}
                             </span>
                           )}
                           {d.fechaHora && (

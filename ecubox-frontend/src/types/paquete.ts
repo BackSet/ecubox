@@ -8,12 +8,12 @@ export interface Paquete {
   estadoRastreoId?: number;
   estadoRastreoNombre?: string;
   estadoRastreoCodigo?: string;
-  destinatarioFinalId: number;
-  destinatarioNombre?: string;
-  destinatarioDireccion?: string;
-  destinatarioProvincia?: string;
-  destinatarioCanton?: string;
-  destinatarioTelefono?: string;
+  consignatarioId: number;
+  consignatarioNombre?: string;
+  consignatarioDireccion?: string;
+  consignatarioProvincia?: string;
+  consignatarioCanton?: string;
+  consignatarioTelefono?: string;
   sacaId?: number;
   despachoId?: number;
   despachoNumeroGuia?: string;
@@ -41,7 +41,7 @@ export interface Paquete {
 }
 
 export interface PaqueteCreateRequest {
-  destinatarioFinalId: number;
+  consignatarioId: number;
   contenido?: string;
   pesoLbs?: number;
   pesoKg?: number;
@@ -50,7 +50,7 @@ export interface PaqueteCreateRequest {
 }
 
 export interface PaqueteUpdateRequest {
-  destinatarioFinalId: number;
+  consignatarioId: number;
   contenido?: string;
   pesoLbs?: number;
   pesoKg?: number;

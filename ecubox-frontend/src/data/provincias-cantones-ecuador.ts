@@ -1,6 +1,6 @@
 /**
  * Provincias y cantones de Ecuador (24 provincias, división administrativa INEC).
- * Uso: listas desplegables en formularios (Destinatario Final, etc.).
+ * Uso: listas desplegables en formularios (Consignatario Final, etc.).
  */
 
 export interface ProvinciaCanton {

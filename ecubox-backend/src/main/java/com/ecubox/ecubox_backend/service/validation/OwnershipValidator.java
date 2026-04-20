@@ -1,6 +1,6 @@
 package com.ecubox.ecubox_backend.service.validation;
 
-import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
+import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Component;
@@ -25,11 +25,11 @@ public class OwnershipValidator {
      */
     public void requirePaqueteOwnership(Paquete paquete, Long currentUsuarioId, boolean canManageAny) {
         if (canManageAny) return;
-        if (paquete == null || paquete.getDestinatarioFinal() == null
-                || paquete.getDestinatarioFinal().getUsuario() == null) {
+        if (paquete == null || paquete.getConsignatario() == null
+                || paquete.getConsignatario().getUsuario() == null) {
             throw new ResourceNotFoundException("Paquete", paquete != null ? paquete.getId() : null);
         }
-        Long ownerId = paquete.getDestinatarioFinal().getUsuario().getId();
+        Long ownerId = paquete.getConsignatario().getUsuario().getId();
         if (!ownerId.equals(currentUsuarioId)) {
             throw new ResourceNotFoundException("Paquete", paquete.getId());
         }
@@ -38,7 +38,7 @@ public class OwnershipValidator {
     /**
      * Valida que un destinatario final pertenezca al usuario indicado.
      */
-    public void requireDestinatarioOwnership(DestinatarioFinal destinatario, Long currentUsuarioId, boolean canManageAny) {
+    public void requireDestinatarioOwnership(Consignatario destinatario, Long currentUsuarioId, boolean canManageAny) {
         if (canManageAny) return;
         if (destinatario == null || destinatario.getUsuario() == null
                 || !destinatario.getUsuario().getId().equals(currentUsuarioId)) {

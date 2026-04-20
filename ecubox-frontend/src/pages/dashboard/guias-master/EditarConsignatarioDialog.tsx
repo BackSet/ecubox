@@ -1,0 +1,276 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Building2, UserRound } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { SearchableCombobox } from '@/components/ui/searchable-combobox';
+import { useActualizarGuiaMaster } from '@/hooks/useGuiasMaster';
+import { useConsignatariosOperario } from '@/hooks/useOperarioDespachos';
+import type { Consignatario } from '@/types/consignatario';
+import type { GuiaMaster } from '@/types/guia-master';
+
+interface ClienteOption {
+  id: number;
+  nombre: string;
+}
+
+export interface EditarConsignatarioDialogProps {
+  guia: GuiaMaster;
+  open: boolean;
+  onClose: () => void;
+}
+
+export function EditarConsignatarioDialog({
+  guia,
+  open,
+  onClose,
+}: EditarConsignatarioDialogProps) {
+  const actualizar = useActualizarGuiaMaster();
+  const { data: consignatarios = [], isLoading: loadingDest } = useConsignatariosOperario(
+    undefined,
+    open
+  );
+
+  const [clienteId, setClienteId] = useState<number | undefined>(
+    guia.clienteUsuarioId ?? undefined
+  );
+  const [consignatarioId, setConsignatarioId] = useState<number | undefined>(
+    guia.consignatarioId ?? undefined
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    setClienteId(guia.clienteUsuarioId ?? undefined);
+    setConsignatarioId(guia.consignatarioId ?? undefined);
+  }, [open, guia.clienteUsuarioId, guia.consignatarioId]);
+
+  const clientes: ClienteOption[] = useMemo(() => {
+    const map = new Map<number, ClienteOption>();
+    for (const d of consignatarios) {
+      if (d.clienteUsuarioId != null && d.clienteUsuarioNombre) {
+        if (!map.has(d.clienteUsuarioId)) {
+          map.set(d.clienteUsuarioId, {
+            id: d.clienteUsuarioId,
+            nombre: d.clienteUsuarioNombre,
+          });
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+    );
+  }, [consignatarios]);
+
+  const consignatariosFiltrados: Consignatario[] = useMemo(() => {
+    if (clienteId == null) return consignatarios;
+    return consignatarios.filter((d) => d.clienteUsuarioId === clienteId);
+  }, [consignatarios, clienteId]);
+
+  function handleClienteChange(value: string | number | undefined) {
+    const cid = typeof value === 'string' ? Number(value) : value;
+    setClienteId(cid);
+    if (consignatarioId != null) {
+      const dest = consignatarios.find((d) => d.id === consignatarioId);
+      if (!dest || (cid != null && dest.clienteUsuarioId !== cid)) {
+        setConsignatarioId(undefined);
+      }
+    }
+  }
+
+  function handleConsignatarioChange(value: string | number | undefined) {
+    const did = typeof value === 'string' ? Number(value) : value;
+    setConsignatarioId(did);
+    if (did != null) {
+      const dest = consignatarios.find((d) => d.id === did);
+      if (dest && dest.clienteUsuarioId != null) {
+        setClienteId(dest.clienteUsuarioId);
+      }
+    }
+  }
+
+  async function handleSave() {
+    if (consignatarioId == null) {
+      toast.error('Selecciona un consignatario');
+      return;
+    }
+    try {
+      await actualizar.mutateAsync({
+        id: guia.id,
+        body: { consignatarioId: consignatarioId },
+      });
+      toast.success('Guía actualizada');
+      onClose();
+    } catch (err: unknown) {
+      const res = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(res?.data?.message ?? 'No se pudo actualizar la guía');
+    }
+  }
+
+  const sinClientes = !loadingDest && clientes.length === 0;
+  // SCD2: una vez que la guia despacho su primera pieza, el consignatario
+  // queda congelado (snapshot inmutable) para preservar la trazabilidad
+  // del envio. No permitimos cambiarlo desde la UI; el backend tambien lo
+  // rechaza con un mensaje claro.
+  const consignatarioCongelado = guia.consignatarioVersionId != null;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && !actualizar.isPending && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Editar cliente y consignatario</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="rounded-md border border-border bg-muted/30 p-2 text-xs">
+            <p className="text-muted-foreground">Guía master</p>
+            <p className="break-all font-mono font-medium">{guia.trackingBase}</p>
+          </div>
+
+          {consignatarioCongelado && (
+            <div className="rounded-md border border-amber-300/60 bg-amber-50 p-2.5 text-[12px] leading-snug text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+              Esta guía ya tiene piezas despachadas, por lo que el consignatario quedó
+              <strong> congelado </strong>
+              para preservar la trazabilidad del envío. Si necesitas reenrutarlo, anula los
+              despachos asociados o crea una guía nueva con el consignatario correcto.
+            </div>
+          )}
+
+          <div>
+            <Label
+              htmlFor="dest-cliente"
+              className="mb-1 flex items-center gap-1 text-xs"
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              Cliente
+            </Label>
+            <SearchableCombobox<ClienteOption>
+              id="dest-cliente"
+              value={clienteId}
+              onChange={handleClienteChange}
+              options={clientes}
+              getKey={(c) => c.id}
+              getLabel={(c) => c.nombre}
+              placeholder={
+                loadingDest
+                  ? 'Cargando...'
+                  : sinClientes
+                    ? 'Sin clientes disponibles'
+                    : 'Todos los clientes'
+              }
+              searchPlaceholder="Buscar cliente..."
+              emptyMessage="Sin clientes"
+              disabled={loadingDest || sinClientes || consignatarioCongelado}
+              renderOption={(c) => (
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate font-medium">{c.nombre}</span>
+                </div>
+              )}
+              renderSelected={(c) => (
+                <span className="flex items-center gap-2">
+                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{c.nombre}</span>
+                </span>
+              )}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Filtra los consignatarios. Limpia para ver todos.
+            </p>
+          </div>
+
+          <div>
+            <Label
+              htmlFor="dest-consignatario"
+              className="mb-1 flex items-center gap-1 text-xs"
+            >
+              <UserRound className="h-3.5 w-3.5" />
+              Consignatario *
+            </Label>
+            <SearchableCombobox<Consignatario>
+              id="dest-consignatario"
+              value={consignatarioId}
+              onChange={handleConsignatarioChange}
+              options={consignatariosFiltrados}
+              getKey={(d) => d.id}
+              getLabel={(d) => d.nombre}
+              getSearchText={(d) =>
+                [
+                  d.nombre,
+                  d.codigo ?? '',
+                  d.canton ?? '',
+                  d.provincia ?? '',
+                  d.telefono ?? '',
+                ].join(' ')
+              }
+              placeholder={
+                loadingDest
+                  ? 'Cargando consignatarios...'
+                  : 'Selecciona un consignatario'
+              }
+              searchPlaceholder="Buscar por nombre, código, cantón..."
+              emptyMessage="Sin coincidencias"
+              disabled={
+                loadingDest || consignatariosFiltrados.length === 0 || consignatarioCongelado
+              }
+              clearable={false}
+              renderOption={(d) => (
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-medium">{d.nombre}</span>
+                    {d.codigo && (
+                      <span className="text-xs text-muted-foreground">
+                        · {d.codigo}
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {[d.canton, d.provincia].filter(Boolean).join(', ') ||
+                      d.clienteUsuarioNombre ||
+                      ''}
+                  </div>
+                </div>
+              )}
+              renderSelected={(d) => (
+                <span className="flex items-center gap-2">
+                  <UserRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{d.nombre}</span>
+                  {d.codigo && (
+                    <span className="text-xs text-muted-foreground">· {d.codigo}</span>
+                  )}
+                </span>
+              )}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              El cliente se asigna automáticamente al elegir el consignatario.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={actualizar.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={actualizar.isPending || consignatarioCongelado}
+          >
+            {actualizar.isPending ? 'Guardando...' : 'Guardar cambios'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

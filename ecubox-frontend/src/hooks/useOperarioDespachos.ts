@@ -10,14 +10,14 @@ import {
   aplicarEstadoRastreoPorPeriodo,
   aplicarEstadoRastreoEnDespachos,
   getEstadosAplicablesDespacho,
-  getDistribuidores,
+  getCouriersEntrega,
   getAgencias,
-  getAgenciasDistribuidor,
-  createAgenciaDistribuidorOperario,
-  getDestinatariosOperario,
-  getDestinatarioOperario,
-  updateDestinatarioOperario,
-  deleteDestinatarioOperario,
+  getAgenciasCourierEntrega,
+  createAgenciaCourierEntregaOperario,
+  getConsignatariosOperario,
+  getConsignatarioOperario,
+  updateConsignatarioOperario,
+  deleteConsignatarioOperario,
   getSacasOperario,
   createSaca,
   actualizarTamanioSaca,
@@ -28,15 +28,15 @@ import {
   asignarPaqueteSaca,
 } from '@/lib/api/paquetes.service';
 import type { DespachoCreateRequest, SacaCreateRequest, TamanioSaca } from '@/types/despacho';
-import type { CreateAgenciaDistribuidorOperarioBody } from '@/lib/api/operario-despachos.service';
-import type { DestinatarioFinalRequest } from '@/types/destinatario';
+import type { CreateAgenciaCourierEntregaOperarioBody } from '@/lib/api/operario-despachos.service';
+import type { ConsignatarioRequest } from '@/types/consignatario';
 import type { PageQuery } from '@/types/page';
 
 export const DESPACHOS_QUERY_KEY = ['operario', 'despachos'] as const;
-export const DISTRIBUIDORES_QUERY_KEY = ['operario', 'distribuidores'] as const;
+export const COURIERS_ENTREGA_QUERY_KEY = ['operario', 'couriersEntrega'] as const;
 export const AGENCIAS_QUERY_KEY = ['operario', 'agencias'] as const;
-export const AGENCIAS_DISTRIBUIDOR_QUERY_KEY = ['operario', 'agencias-distribuidor'] as const;
-export const DESTINATARIOS_OP_QUERY_KEY = ['operario', 'destinatarios'] as const;
+export const AGENCIAS_COURIER_ENTREGA_QUERY_KEY = ['operario', 'agencias-courierEntrega'] as const;
+export const CONSIGNATARIOS_OP_QUERY_KEY = ['operario', 'consignatarios'] as const;
 export const SACAS_QUERY_KEY = ['operario', 'sacas'] as const;
 export const PAQUETES_SIN_SACA_QUERY_KEY = ['operario', 'paquetes', 'sinSaca'] as const;
 
@@ -149,10 +149,10 @@ export function useEstadosAplicablesDespacho(enabled = true) {
   });
 }
 
-export function useDistribuidores() {
+export function useCouriersEntrega() {
   return useQuery({
-    queryKey: DISTRIBUIDORES_QUERY_KEY,
-    queryFn: getDistribuidores,
+    queryKey: COURIERS_ENTREGA_QUERY_KEY,
+    queryFn: getCouriersEntrega,
   });
 }
 
@@ -163,59 +163,59 @@ export function useAgenciasOperario() {
   });
 }
 
-export function useAgenciasDistribuidor(distribuidorId: number | undefined | null) {
+export function useAgenciasCourierEntrega(courierEntregaId: number | undefined | null) {
   return useQuery({
-    queryKey: [...AGENCIAS_DISTRIBUIDOR_QUERY_KEY, distribuidorId],
-    queryFn: () => getAgenciasDistribuidor(distribuidorId!),
-    enabled: distribuidorId != null && !Number.isNaN(distribuidorId),
+    queryKey: [...AGENCIAS_COURIER_ENTREGA_QUERY_KEY, courierEntregaId],
+    queryFn: () => getAgenciasCourierEntrega(courierEntregaId!),
+    enabled: courierEntregaId != null && !Number.isNaN(courierEntregaId),
   });
 }
 
-export function useCreateAgenciaDistribuidorOperario(distribuidorId: number | undefined | null) {
+export function useCreateAgenciaCourierEntregaOperario(courierEntregaId: number | undefined | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateAgenciaDistribuidorOperarioBody) =>
-      createAgenciaDistribuidorOperario(distribuidorId!, body),
+    mutationFn: (body: CreateAgenciaCourierEntregaOperarioBody) =>
+      createAgenciaCourierEntregaOperario(courierEntregaId!, body),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: AGENCIAS_DISTRIBUIDOR_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: AGENCIAS_COURIER_ENTREGA_QUERY_KEY });
     },
   });
 }
 
-export function useDestinatariosOperario(search?: string, enabled = true) {
+export function useConsignatariosOperario(search?: string, enabled = true) {
   return useQuery({
-    queryKey: [...DESTINATARIOS_OP_QUERY_KEY, search ?? ''],
-    queryFn: () => getDestinatariosOperario({ search: search ?? undefined }),
+    queryKey: [...CONSIGNATARIOS_OP_QUERY_KEY, search ?? ''],
+    queryFn: () => getConsignatariosOperario({ search: search ?? undefined }),
     enabled,
   });
 }
 
-export function useDestinatarioOperario(id: number | undefined | null) {
+export function useConsignatarioOperario(id: number | undefined | null) {
   return useQuery({
-    queryKey: [...DESTINATARIOS_OP_QUERY_KEY, id],
-    queryFn: () => getDestinatarioOperario(id!),
+    queryKey: [...CONSIGNATARIOS_OP_QUERY_KEY, id],
+    queryFn: () => getConsignatarioOperario(id!),
     enabled: id != null,
   });
 }
 
-export function useUpdateDestinatarioOperario() {
+export function useUpdateConsignatarioOperario() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, body }: { id: number; body: DestinatarioFinalRequest }) =>
-      updateDestinatarioOperario(id, body),
+    mutationFn: ({ id, body }: { id: number; body: ConsignatarioRequest }) =>
+      updateConsignatarioOperario(id, body),
     onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: DESTINATARIOS_OP_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: [...DESTINATARIOS_OP_QUERY_KEY, id] });
+      qc.invalidateQueries({ queryKey: CONSIGNATARIOS_OP_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: [...CONSIGNATARIOS_OP_QUERY_KEY, id] });
     },
   });
 }
 
-export function useDeleteDestinatarioOperario() {
+export function useDeleteConsignatarioOperario() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteDestinatarioOperario(id),
+    mutationFn: (id: number) => deleteConsignatarioOperario(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: DESTINATARIOS_OP_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: CONSIGNATARIOS_OP_QUERY_KEY });
     },
   });
 }

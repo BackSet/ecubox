@@ -210,14 +210,14 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
     const total = enRango.length;
     const domicilio = enRango.filter((d) => d.tipoEntrega === 'DOMICILIO').length;
     const agencia = enRango.filter((d) => d.tipoEntrega === 'AGENCIA').length;
-    const agenciaDist = enRango.filter((d) => d.tipoEntrega === 'AGENCIA_DISTRIBUIDOR').length;
-    const distribuidores = new Set(enRango.map((d) => d.distribuidorNombre).filter(Boolean));
+    const agenciaDist = enRango.filter((d) => d.tipoEntrega === 'AGENCIA_COURIER_ENTREGA').length;
+    const couriersEntrega = new Set(enRango.map((d) => d.courierEntregaNombre).filter(Boolean));
     return {
       total,
       domicilio,
       agencia,
       agenciaDist,
-      distribuidores: distribuidores.size,
+      couriersEntrega: couriersEntrega.size,
     };
   }, [todosDespachos, fechaInicio, fechaFin, dias]);
 
@@ -404,8 +404,8 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
                     />
                     <PreviewCard
                       icon={<Building2 className="h-3.5 w-3.5" />}
-                      label="Distribuidores"
-                      value={preview.distribuidores}
+                      label="Couriers de entrega"
+                      value={preview.couriersEntrega}
                     />
                   </div>
                   {preview.total === 0 ? (
@@ -437,7 +437,7 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
           <div className="flex items-start gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-3 py-2 text-xs text-muted-foreground">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-primary)]" />
             <span>
-              Los filtros por <strong>distribuidor</strong> y <strong>agencia</strong> se aplican
+              Los filtros por <strong>courier de entrega</strong> y <strong>agencia</strong> se aplican
               al momento de descargar el PDF/Excel desde el detalle del manifiesto.
             </span>
           </div>

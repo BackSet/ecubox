@@ -28,8 +28,8 @@ import java.util.function.LongSupplier;
 public class CodigoSecuenciaService {
 
     public static final String ENTITY_PAQUETE_REF = "PAQUETE_REF";
-    public static final String ENTITY_AGENCIA_DISTRIBUIDOR = "AGENCIA_DISTRIBUIDOR";
-    public static final String ENTITY_DESTINATARIO_FINAL = "DESTINATARIO_FINAL";
+    public static final String ENTITY_AGENCIA_COURIER_ENTREGA = "AGENCIA_COURIER_ENTREGA";
+    public static final String ENTITY_CONSIGNATARIO = "CONSIGNATARIO";
     public static final String ENTITY_MANIFIESTO = "MANIFIESTO";
     public static final String ENTITY_GUIA_MASTER_AUTO = "GUIA_MASTER_AUTO";
 
@@ -38,11 +38,11 @@ public class CodigoSecuenciaService {
     private static final DateTimeFormatter MANIFIESTO_DAY_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     /**
-     * Semilla por defecto para destinatarios. Mantiene los nuevos codigos
+     * Semilla por defecto para consignatarios. Mantiene los nuevos codigos
      * (ECU-NNNN) por encima del espacio random historico de 4 digitos
      * para evitar colisiones con codigos legacy.
      */
-    private static final long DESTINATARIO_FINAL_SEED_DEFAULT = 10_000L;
+    private static final long CONSIGNATARIO_SEED_DEFAULT = 10_000L;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -122,28 +122,28 @@ public class CodigoSecuenciaService {
      * Genera el siguiente {@code ref} unico para un paquete de un destinatario.
      * Formato: {@code <codigoBase>-<n>} sin padding (preserva formato historico).
      */
-    public String nextRefPaquete(Long destinatarioFinalId, String codigoBase) {
-        long n = siguiente(ENTITY_PAQUETE_REF, String.valueOf(destinatarioFinalId), 0L);
+    public String nextRefPaquete(Long consignatarioId, String codigoBase) {
+        long n = siguiente(ENTITY_PAQUETE_REF, String.valueOf(consignatarioId), 0L);
         return codigoBase + "-" + n;
     }
 
     /**
-     * Genera el siguiente codigo unico para una agencia de un distribuidor.
-     * Formato: {@code <distribuidorId>-AD-<NNN>} con padding a 3 digitos.
+     * Genera el siguiente codigo unico para una agencia de un courierEntrega.
+     * Formato: {@code <courierEntregaId>-AD-<NNN>} con padding a 3 digitos.
      */
-    public String nextCodigoAgencia(Long distribuidorId) {
-        long n = siguiente(ENTITY_AGENCIA_DISTRIBUIDOR, String.valueOf(distribuidorId), 0L);
-        return distribuidorId + "-" + String.format("AD-%03d", n);
+    public String nextCodigoAgencia(Long courierEntregaId) {
+        long n = siguiente(ENTITY_AGENCIA_COURIER_ENTREGA, String.valueOf(courierEntregaId), 0L);
+        return courierEntregaId + "-" + String.format("AD-%03d", n);
     }
 
     /**
-     * Genera el siguiente codigo unico para un destinatario final.
+     * Genera el siguiente codigo unico para un consignatario.
      * Formato: {@code ECU-<NNNN>} con padding a 4 digitos. La semilla
      * inicial es 10000 para evitar colisiones con el espacio random
      * historico (ECU-XXXX de 4 digitos).
      */
-    public String nextCodigoDestinatario() {
-        long n = siguiente(ENTITY_DESTINATARIO_FINAL, SCOPE_GLOBAL, DESTINATARIO_FINAL_SEED_DEFAULT);
+    public String nextCodigoConsignatario() {
+        long n = siguiente(ENTITY_CONSIGNATARIO, SCOPE_GLOBAL, CONSIGNATARIO_SEED_DEFAULT);
         return "ECU-" + String.format("%04d", n);
     }
 

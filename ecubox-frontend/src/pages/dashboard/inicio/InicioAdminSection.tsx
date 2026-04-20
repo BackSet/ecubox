@@ -22,7 +22,7 @@ import { useUsuarios } from '@/hooks/useUsuarios';
 import { useRoles } from '@/hooks/useRoles';
 import { usePermisos } from '@/hooks/usePermisos';
 import { useAgencias } from '@/hooks/useAgencias';
-import { useDistribuidoresAdmin } from '@/hooks/useDistribuidoresAdmin';
+import { useCouriersEntregaAdmin } from '@/hooks/useCouriersEntregaAdmin';
 import { useDashboardGuiasMaster } from '@/hooks/useGuiasMaster';
 
 const ADMIN_QUICK_ACTIONS = [
@@ -57,10 +57,10 @@ const ADMIN_QUICK_ACTIONS = [
     to: '/agencias',
   },
   {
-    label: 'Empresas de entrega',
-    description: 'Distribuidores y tarifas',
+    label: 'Couriers de entrega',
+    description: 'Couriers y tarifas',
     icon: PackageCheck,
-    to: '/distribuidores',
+    to: '/couriers-entrega',
   },
 ] as const;
 
@@ -71,7 +71,7 @@ export function InicioAdminSection() {
   const { data: roles, isLoading: loadingRoles } = useRoles();
   const { data: permisos, isLoading: loadingPermisos } = usePermisos();
   const { data: agencias } = useAgencias();
-  const { data: distribuidores } = useDistribuidoresAdmin();
+  const { data: couriersEntrega } = useCouriersEntregaAdmin();
   const { data: dashGM } = useDashboardGuiasMaster(5, true);
 
   const totalUsuarios = usuarios?.length ?? 0;
@@ -80,7 +80,7 @@ export function InicioAdminSection() {
   const totalRoles = roles?.length ?? 0;
   const totalPermisos = permisos?.length ?? 0;
   const totalAgencias = agencias?.length ?? 0;
-  const totalDistribuidores = distribuidores?.length ?? 0;
+  const totalCouriersEntrega = couriersEntrega?.length ?? 0;
 
   const cargando = loadingUsuarios || loadingRoles || loadingPermisos;
 
@@ -154,10 +154,10 @@ export function InicioAdminSection() {
             />
             <KpiCard
               icon={<PackageCheck className="h-4 w-4" strokeWidth={1.75} />}
-              label="Empresas de entrega"
-              value={totalDistribuidores}
+              label="Couriers de entrega"
+              value={totalCouriersEntrega}
               tone="neutral"
-              to="/distribuidores"
+              to="/couriers-entrega"
             />
             <KpiCard
               icon={<Settings className="h-4 w-4" strokeWidth={1.75} />}

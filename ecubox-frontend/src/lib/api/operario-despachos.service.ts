@@ -2,27 +2,27 @@ import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 import type {
   Agencia,
-  AgenciaDistribuidor,
+  AgenciaCourierEntrega,
   Despacho,
   DespachoCreateRequest,
-  Distribuidor,
+  CourierEntrega,
   Saca,
   SacaCreateRequest,
   TamanioSaca,
 } from '@/types/despacho';
-import type { DestinatarioFinal, DestinatarioFinalRequest } from '@/types/destinatario';
+import type { Consignatario, ConsignatarioRequest } from '@/types/consignatario';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import type { Paquete } from '@/types/paquete';
 import type { PageResponse, PageQuery } from '@/types/page';
 
-const DIST = API_ENDPOINTS.operarioDistribuidores;
+const DIST = API_ENDPOINTS.operarioCouriersEntrega;
 const AGENCIAS = API_ENDPOINTS.operarioAgencias;
-const DEST = API_ENDPOINTS.operarioDestinatarios;
+const DEST = API_ENDPOINTS.operarioConsignatarios;
 const SACAS = API_ENDPOINTS.operarioSacas;
 const DESPACHOS = API_ENDPOINTS.operarioDespachos;
 
-export async function getDistribuidores(): Promise<Distribuidor[]> {
-  const { data } = await apiClient.get<Distribuidor[]>(DIST);
+export async function getCouriersEntrega(): Promise<CourierEntrega[]> {
+  const { data } = await apiClient.get<CourierEntrega[]>(DIST);
   return data;
 }
 
@@ -31,13 +31,13 @@ export async function getAgencias(): Promise<Agencia[]> {
   return data;
 }
 
-export async function getAgenciasDistribuidor(distribuidorId: number): Promise<AgenciaDistribuidor[]> {
-  const { data } = await apiClient.get<AgenciaDistribuidor[]>(`${DIST}/${distribuidorId}/agencias-distribuidor`);
+export async function getAgenciasCourierEntrega(courierEntregaId: number): Promise<AgenciaCourierEntrega[]> {
+  const { data } = await apiClient.get<AgenciaCourierEntrega[]>(`${DIST}/${courierEntregaId}/puntos-entrega`);
   return data;
 }
 
-/** Crear agencia de distribuidor desde flujo operario (sin nombre ni código; provincia/cantón opcionales). */
-export interface CreateAgenciaDistribuidorOperarioBody {
+/** Crear agencia de courierEntrega desde flujo operario (sin nombre ni código; provincia/cantón opcionales). */
+export interface CreateAgenciaCourierEntregaOperarioBody {
   provincia?: string;
   canton?: string;
   direccion?: string;
@@ -46,40 +46,40 @@ export interface CreateAgenciaDistribuidorOperarioBody {
   tarifa: number;
 }
 
-export async function createAgenciaDistribuidorOperario(
-  distribuidorId: number,
-  body: CreateAgenciaDistribuidorOperarioBody
-): Promise<AgenciaDistribuidor> {
-  const { data } = await apiClient.post<AgenciaDistribuidor>(
-    `${DIST}/${distribuidorId}/agencias-distribuidor`,
+export async function createAgenciaCourierEntregaOperario(
+  courierEntregaId: number,
+  body: CreateAgenciaCourierEntregaOperarioBody
+): Promise<AgenciaCourierEntrega> {
+  const { data } = await apiClient.post<AgenciaCourierEntrega>(
+    `${DIST}/${courierEntregaId}/puntos-entrega`,
     body
   );
   return data;
 }
 
-export async function getDestinatariosOperario(params?: {
+export async function getConsignatariosOperario(params?: {
   search?: string;
-}): Promise<DestinatarioFinal[]> {
-  const { data } = await apiClient.get<DestinatarioFinal[]>(DEST, {
+}): Promise<Consignatario[]> {
+  const { data } = await apiClient.get<Consignatario[]>(DEST, {
     params: params?.search ? { search: params.search } : undefined,
   });
   return data;
 }
 
-export async function getDestinatarioOperario(id: number): Promise<DestinatarioFinal> {
-  const { data } = await apiClient.get<DestinatarioFinal>(`${DEST}/${id}`);
+export async function getConsignatarioOperario(id: number): Promise<Consignatario> {
+  const { data } = await apiClient.get<Consignatario>(`${DEST}/${id}`);
   return data;
 }
 
-export async function updateDestinatarioOperario(
+export async function updateConsignatarioOperario(
   id: number,
-  body: DestinatarioFinalRequest
-): Promise<DestinatarioFinal> {
-  const { data } = await apiClient.put<DestinatarioFinal>(`${DEST}/${id}`, body);
+  body: ConsignatarioRequest
+): Promise<Consignatario> {
+  const { data } = await apiClient.put<Consignatario>(`${DEST}/${id}`, body);
   return data;
 }
 
-export async function deleteDestinatarioOperario(id: number): Promise<void> {
+export async function deleteConsignatarioOperario(id: number): Promise<void> {
   await apiClient.delete(`${DEST}/${id}`);
 }
 
@@ -123,7 +123,7 @@ export async function getDespachos(): Promise<Despacho[]> {
   return data;
 }
 
-/** Listado paginado con búsqueda libre (numero, código precinto, distribuidor, agencia, destinatario). */
+/** Listado paginado con búsqueda libre (numero, código precinto, courierEntrega, agencia, consignatario). */
 export async function getDespachosPaginado(
   params: PageQuery = {}
 ): Promise<PageResponse<Despacho>> {

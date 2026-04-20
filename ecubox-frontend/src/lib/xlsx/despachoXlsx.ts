@@ -18,7 +18,7 @@ const TAMANIO_LABELS: Record<TamanioSaca, string> = {
 const TIPO_LABELS: Record<string, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
-  AGENCIA_DISTRIBUIDOR: 'Agencia distribuidor',
+  AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
 };
 
 const COLORS = {
@@ -57,15 +57,15 @@ function destinoFor(d: Despacho): { titulo: string; nombre: string; direccion: s
   if (d.tipoEntrega === 'DOMICILIO') {
     return {
       titulo: 'Entrega a domicilio',
-      nombre: safe(d.destinatarioNombre),
-      direccion: safe(d.destinatarioDireccion),
-      telefono: safe(d.destinatarioTelefono),
+      nombre: safe(d.consignatarioNombre),
+      direccion: safe(d.consignatarioDireccion),
+      telefono: safe(d.consignatarioTelefono),
     };
   }
-  if (d.tipoEntrega === 'AGENCIA_DISTRIBUIDOR') {
+  if (d.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
     return {
-      titulo: 'Entrega en agencia distribuidor',
-      nombre: safe(d.agenciaDistribuidorNombre),
+      titulo: 'Entrega en punto de entrega',
+      nombre: safe(d.agenciaCourierEntregaNombre),
       direccion: '',
       telefono: '',
     };
@@ -170,7 +170,7 @@ const PAQUETE_COLS: ColumnDef[] = [
   { key: 'guia', label: 'Guia (pieza)', width: 26, align: 'left' },
   { key: 'master', label: 'Tracking master', width: 22, align: 'left' },
   { key: 'pieza', label: 'Pieza', width: 8, align: 'center' },
-  { key: 'destinatario', label: 'Destinatario', width: 30, align: 'left' },
+  { key: 'consignatario', label: 'Consignatario', width: 30, align: 'left' },
   { key: 'telefono', label: 'Telefono', width: 14, align: 'left' },
   { key: 'direccion', label: 'Direccion', width: 32, align: 'left' },
   { key: 'cantonProv', label: 'Canton / Provincia', width: 20, align: 'left' },
@@ -315,7 +315,7 @@ function applyPaqueteRow(
       cell.value = v as ExcelJS.CellValue;
     }
     cell.font = FONT_CELL;
-    cell.alignment = { horizontal: c.align, vertical: 'middle', wrapText: c.key === 'direccion' || c.key === 'destinatario' };
+    cell.alignment = { horizontal: c.align, vertical: 'middle', wrapText: c.key === 'direccion' || c.key === 'consignatario' };
     if (c.numFmt && typeof v === 'number') cell.numFmt = c.numFmt;
     if (zebra) cell.fill = FILL_ZEBRA;
     applyBorders(cell);
@@ -473,7 +473,7 @@ export async function downloadDespachoXlsx(despacho: Despacho): Promise<void> {
   row += 1; // espacio
 
   row = buildMetaBox(ws, row, totalCols, [
-    ['Guia', safe(despacho.numeroGuia) || '—', 'Distribuidor', safe(despacho.distribuidorNombre) || '—'],
+    ['Guia', safe(despacho.numeroGuia) || '—', 'CourierEntrega', safe(despacho.courierEntregaNombre) || '—'],
     ['ID interno', String(despacho.id), 'Tipo de entrega', TIPO_LABELS[despacho.tipoEntrega] ?? despacho.tipoEntrega],
     ['Fecha despacho', fmtFechaHora(despacho.fechaHora), 'Codigo precinto', safe(despacho.codigoPrecinto) || '—'],
     ['Operario', safe(despacho.operarioNombre) || '—', destino.titulo, destino.nombre || '—'],
@@ -548,10 +548,10 @@ export async function downloadDespachoXlsx(despacho: Despacho): Promise<void> {
               safe(p.numeroGuia),
               safe(p.guiaMasterTrackingBase),
               p.piezaNumero != null && p.piezaTotal != null ? `${p.piezaNumero}/${p.piezaTotal}` : '',
-              safe(p.destinatarioNombre),
-              safe(p.destinatarioTelefono),
-              safe(p.destinatarioDireccion),
-              [p.destinatarioCanton, p.destinatarioProvincia].filter(Boolean).join(', '),
+              safe(p.consignatarioNombre),
+              safe(p.consignatarioTelefono),
+              safe(p.consignatarioDireccion),
+              [p.consignatarioCanton, p.consignatarioProvincia].filter(Boolean).join(', '),
               safe(p.contenido),
               safe(p.estadoRastreoNombre ?? p.estadoRastreoCodigo),
               p.pesoLbs != null ? Number(lbs.toFixed(2)) : null,

@@ -39,12 +39,12 @@ export interface TrackingPaqueteDespacho {
 }
 
 /**
- * Datos publicos del destinatario expuestos en el tracking.
+ * Datos publicos del consignatario expuestos en el tracking.
  *
  * Nota PII: el backend NO expone `telefono` ni `direccion` exacta en el endpoint
  * publico, por lo que esta interfaz solo declara los campos seguros.
  */
-export interface TrackingDestinatario {
+export interface TrackingConsignatario {
   id?: number;
   nombre?: string;
   provincia?: string;
@@ -53,10 +53,10 @@ export interface TrackingDestinatario {
 
 export interface TrackingOperadorEntrega {
   tipoEntrega?: string;
-  distribuidorNombre?: string;
-  distribuidorCodigo?: string;
-  horarioRepartoDistribuidor?: string;
-  paginaTrackingDistribuidor?: string;
+  courierEntregaNombre?: string;
+  courierEntregaCodigo?: string;
+  horarioRepartoCourierEntrega?: string;
+  paginaTrackingCourierEntrega?: string;
   diasMaxRetiroDomicilio?: number;
   agenciaNombre?: string;
   agenciaCodigo?: string;
@@ -65,20 +65,20 @@ export interface TrackingOperadorEntrega {
   agenciaCanton?: string;
   horarioAtencionAgencia?: string;
   diasMaxRetiroAgencia?: number;
-  agenciaDistribuidorEtiqueta?: string;
-  agenciaDistribuidorCodigo?: string;
-  agenciaDistribuidorDireccion?: string;
-  agenciaDistribuidorProvincia?: string;
-  agenciaDistribuidorCanton?: string;
-  horarioAtencionAgenciaDistribuidor?: string;
-  diasMaxRetiroAgenciaDistribuidor?: number;
+  agenciaCourierEntregaEtiqueta?: string;
+  agenciaCourierEntregaCodigo?: string;
+  agenciaCourierEntregaDireccion?: string;
+  agenciaCourierEntregaProvincia?: string;
+  agenciaCourierEntregaCanton?: string;
+  horarioAtencionAgenciaCourierEntrega?: string;
+  diasMaxRetiroAgenciaCourierEntrega?: number;
 }
 
 export interface TrackingResponse {
   numeroGuia: string;
   estadoRastreoId?: number;
   estadoRastreoNombre?: string;
-  destinatarioNombre?: string;
+  consignatarioNombre?: string;
   estados?: TrackingEstadoItem[];
   estadoActualId?: number;
   fechaEstadoDesde?: string;
@@ -94,7 +94,7 @@ export interface TrackingResponse {
   despacho?: TrackingDespacho | null;
   sacaActual?: TrackingSacaActual | null;
   paquetesDespacho?: TrackingPaqueteDespacho[];
-  destinatario?: TrackingDestinatario | null;
+  consignatario?: TrackingConsignatario | null;
   operadorEntrega?: TrackingOperadorEntrega | null;
   /**
    * Resumen de la guia master a la que pertenece esta pieza, con la lista de
@@ -151,9 +151,9 @@ export interface TrackingMasterResponse {
   piezasRegistradas?: number;
   piezasRecibidas?: number;
   piezasDespachadas?: number;
-  /** @deprecated Mantener por compatibilidad. Usar `destinatario`. */
-  destinatarioNombre?: string;
-  destinatario?: TrackingDestinatario | null;
+  /** @deprecated Mantener por compatibilidad. Usar `consignatario`. */
+  consignatarioNombre?: string;
+  consignatario?: TrackingConsignatario | null;
   piezas?: TrackingPiezaItem[];
   fechaPrimeraRecepcion?: string;
   fechaPrimeraPiezaDespachada?: string;

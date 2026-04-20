@@ -63,7 +63,7 @@ import { buscarPaquetesPorGuias } from '@/lib/api/paquetes.service';
 import type { Paquete } from '@/types/paquete';
 import {
   GuiaMasterPiezaCell,
-  DestinatarioCell,
+  ConsignatarioCell,
 } from '@/pages/dashboard/paquetes/PaqueteCells';
 import { EnvioConsolidadoBadge } from './EnvioConsolidadoBadge';
 
@@ -103,7 +103,7 @@ export function EnvioConsolidadoDetailPage() {
       return (
         p.numeroGuia?.toLowerCase().includes(q) ||
         p.guiaMasterTrackingBase?.toLowerCase().includes(q) ||
-        p.destinatarioNombre?.toLowerCase().includes(q) ||
+        p.consignatarioNombre?.toLowerCase().includes(q) ||
         p.estadoRastreoNombre?.toLowerCase().includes(q) ||
         p.estadoRastreoCodigo?.toLowerCase().includes(q)
       );
@@ -142,7 +142,7 @@ export function EnvioConsolidadoDetailPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Paquete</TableHead>
-                <TableHead className="hidden md:table-cell">Destinatario</TableHead>
+                <TableHead className="hidden md:table-cell">Consignatario</TableHead>
                 <TableHead className="text-right">Peso</TableHead>
                 <TableHead className="text-right">Estado</TableHead>
               </TableRow>
@@ -368,7 +368,7 @@ export function EnvioConsolidadoDetailPage() {
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Buscar guía, destinatario..."
+                  placeholder="Buscar guía, consignatario..."
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
                   className="h-8 pl-7 text-sm"
@@ -525,7 +525,7 @@ function PaquetesTable({
             <TableHead className="w-[40px] text-center">#</TableHead>
             <TableHead>Guía master / Pieza</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead>Destinatario</TableHead>
+            <TableHead>Consignatario</TableHead>
             <TableHead>Peso</TableHead>
             <TableHead className="w-[100px] text-right">Acciones</TableHead>
           </TableRow>
@@ -546,7 +546,7 @@ function PaquetesTable({
                 />
               </TableCell>
               <TableCell>
-                <DestinatarioCell paquete={p} />
+                <ConsignatarioCell paquete={p} />
               </TableCell>
               <TableCell>
                 <PesoMini lbs={p.pesoLbs} />
@@ -823,9 +823,9 @@ function AgregarPaquetesDialog({
                           <span className="font-mono font-medium text-foreground">
                             {p.numeroGuia}
                           </span>
-                          {p.destinatarioNombre && (
+                          {p.consignatarioNombre && (
                             <span className="text-muted-foreground">
-                              · {p.destinatarioNombre}
+                              · {p.consignatarioNombre}
                             </span>
                           )}
                           {peso && (

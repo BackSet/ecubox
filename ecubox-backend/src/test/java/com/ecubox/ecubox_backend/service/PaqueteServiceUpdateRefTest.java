@@ -2,11 +2,11 @@ package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteUpdateRequest;
-import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
+import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.entity.Usuario;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
-import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
+import com.ecubox.ecubox_backend.repository.ConsignatarioRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
@@ -47,7 +47,7 @@ import static org.mockito.Mockito.when;
 class PaqueteServiceUpdateRefTest {
 
     @Mock private PaqueteRepository paqueteRepository;
-    @Mock private DestinatarioFinalRepository destinatarioFinalRepository;
+    @Mock private ConsignatarioRepository consignatarioRepository;
     @Mock private SacaRepository sacaRepository;
     @Mock private LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
     @Mock private PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
@@ -62,7 +62,7 @@ class PaqueteServiceUpdateRefTest {
     private PaqueteService createService() {
         return new PaqueteService(
                 paqueteRepository,
-                destinatarioFinalRepository,
+                consignatarioRepository,
                 sacaRepository,
                 loteRecepcionGuiaRepository,
                 paqueteEstadoEventoRepository,
@@ -78,10 +78,10 @@ class PaqueteServiceUpdateRefTest {
                 false);
     }
 
-    private static Paquete paqueteCon(DestinatarioFinal dest, String ref) {
+    private static Paquete paqueteCon(Consignatario dest, String ref) {
         return Paquete.builder()
                 .id(101L)
-                .destinatarioFinal(dest)
+                .consignatario(dest)
                 .ref(ref)
                 .contenido("contenido valido")
                 .pesoLbs(BigDecimal.valueOf(2.5))
@@ -92,20 +92,20 @@ class PaqueteServiceUpdateRefTest {
     void update_cambioDeDestinatario_ignoraRequestRefViejo_yRegeneraConNuevoCodigoBase() {
         PaqueteService service = createService();
         Usuario owner = Usuario.builder().id(1L).build();
-        DestinatarioFinal cristina = DestinatarioFinal.builder()
+        Consignatario cristina = Consignatario.builder()
                 .id(18L).codigo("ECU-CV01").usuario(owner).build();
-        DestinatarioFinal kevin = DestinatarioFinal.builder()
+        Consignatario kevin = Consignatario.builder()
                 .id(20L).codigo("ECU-KZ66").usuario(owner).build();
         Paquete paquete = paqueteCon(cristina, "ECU-CV01-17");
 
         when(paqueteRepository.findById(101L)).thenReturn(Optional.of(paquete));
-        when(destinatarioFinalRepository.findById(20L)).thenReturn(Optional.of(kevin));
+        when(consignatarioRepository.findById(20L)).thenReturn(Optional.of(kevin));
         when(codigoSecuenciaService.nextRefPaquete(20L, "ECU-KZ66")).thenReturn("ECU-KZ66-1");
         when(paqueteRepository.save(any(Paquete.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // El frontend reenvia el ref viejo del paquete (bug clasico).
         PaqueteUpdateRequest req = PaqueteUpdateRequest.builder()
-                .destinatarioFinalId(20L)
+                .consignatarioId(20L)
                 .contenido("contenido valido")
                 .ref("ECU-CV01-17")
                 .build();
@@ -115,7 +115,7 @@ class PaqueteServiceUpdateRefTest {
         ArgumentCaptor<Paquete> captor = ArgumentCaptor.forClass(Paquete.class);
         verify(paqueteRepository).save(captor.capture());
         Paquete saved = captor.getValue();
-        assertThat(saved.getDestinatarioFinal().getId()).isEqualTo(20L);
+        assertThat(saved.getConsignatario().getId()).isEqualTo(20L);
         assertThat(saved.getRef())
                 .as("ref debe quedar con el codigoBase del nuevo destinatario, no el viejo")
                 .isEqualTo("ECU-KZ66-1");
@@ -128,7 +128,7 @@ class PaqueteServiceUpdateRefTest {
     void update_sinCambioDeDestinatario_aceptaRequestRefConPrefijoCorrecto() {
         PaqueteService service = createService();
         Usuario owner = Usuario.builder().id(1L).build();
-        DestinatarioFinal kevin = DestinatarioFinal.builder()
+        Consignatario kevin = Consignatario.builder()
                 .id(20L).codigo("ECU-KZ66").usuario(owner).build();
         Paquete paquete = paqueteCon(kevin, "ECU-KZ66-1");
 
@@ -137,7 +137,7 @@ class PaqueteServiceUpdateRefTest {
         when(paqueteRepository.save(any(Paquete.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaqueteUpdateRequest req = PaqueteUpdateRequest.builder()
-                .destinatarioFinalId(20L)
+                .consignatarioId(20L)
                 .contenido("contenido valido")
                 .ref("ECU-KZ66-7")
                 .build();
@@ -153,14 +153,14 @@ class PaqueteServiceUpdateRefTest {
     void update_sinCambioDeDestinatario_rechazaRequestRefConPrefijoIncorrecto() {
         PaqueteService service = createService();
         Usuario owner = Usuario.builder().id(1L).build();
-        DestinatarioFinal kevin = DestinatarioFinal.builder()
+        Consignatario kevin = Consignatario.builder()
                 .id(20L).codigo("ECU-KZ66").usuario(owner).build();
         Paquete paquete = paqueteCon(kevin, "ECU-KZ66-1");
 
         when(paqueteRepository.findById(101L)).thenReturn(Optional.of(paquete));
 
         PaqueteUpdateRequest req = PaqueteUpdateRequest.builder()
-                .destinatarioFinalId(20L)
+                .consignatarioId(20L)
                 .contenido("contenido valido")
                 .ref("ECU-CV01-17")
                 .build();

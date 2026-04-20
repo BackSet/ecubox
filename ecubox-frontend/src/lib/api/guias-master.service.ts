@@ -35,7 +35,7 @@ export interface ListarGuiasMasterPageParams extends PageQuery {
   estados?: EstadoGuiaMaster[];
 }
 
-/** Listado paginado con búsqueda libre (trackingBase, destinatario, cliente). */
+/** Listado paginado con búsqueda libre (trackingBase, consignatario, cliente). */
 export async function listarGuiasMasterPaginado(
   params: ListarGuiasMasterPageParams = {}
 ): Promise<PageResponse<GuiaMaster>> {

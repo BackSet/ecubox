@@ -9,7 +9,7 @@ export function TrackingDespachoCard({ result }: TrackingDespachoCardProps) {
   const despacho = result.despacho;
   const totalKg = despacho?.pesoTotalKg ?? (despacho?.pesoTotalLbs != null ? lbsToKg(despacho.pesoTotalLbs) : null);
   const totalLbs = despacho?.pesoTotalLbs ?? (despacho?.pesoTotalKg != null ? kgToLbs(despacho.pesoTotalKg) : null);
-  const agenciaDistribucionAsociada = result.operadorEntrega?.distribuidorNombre;
+  const agenciaDistribucionAsociada = result.operadorEntrega?.courierEntregaNombre;
 
   return (
     <section className="surface-card p-5 sm:p-6 space-y-4">

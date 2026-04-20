@@ -23,14 +23,14 @@ public interface DespachoRepository extends JpaRepository<Despacho, Long>,
               AND d.fechaHora IS NOT NULL
               AND d.fechaHora >= :desde
               AND d.fechaHora < :hastaExclusivo
-              AND (:distribuidorId IS NULL OR d.distribuidor.id = :distribuidorId)
+              AND (:courierEntregaId IS NULL OR d.courierEntrega.id = :courierEntregaId)
               AND (:agenciaId IS NULL OR d.agencia.id = :agenciaId)
             ORDER BY d.fechaHora ASC, d.id ASC
             """)
     List<Despacho> findCandidatosParaManifiesto(
             @Param("desde") LocalDateTime desde,
             @Param("hastaExclusivo") LocalDateTime hastaExclusivo,
-            @Param("distribuidorId") Long distribuidorId,
+            @Param("courierEntregaId") Long courierEntregaId,
             @Param("agenciaId") Long agenciaId
     );
 }

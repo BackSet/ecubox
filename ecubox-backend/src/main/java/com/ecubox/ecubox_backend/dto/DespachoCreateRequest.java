@@ -20,36 +20,36 @@ public class DespachoCreateRequest {
     @NotBlank(message = "El número de guía es obligatorio")
     private String numeroGuia;
 
-    @NotNull(message = "El distribuidor es obligatorio")
-    private Long distribuidorId;
+    @NotNull(message = "El courierEntrega es obligatorio")
+    private Long courierEntregaId;
 
     @NotNull(message = "El tipo de entrega es obligatorio")
     private TipoEntrega tipoEntrega;
 
-    private Long destinatarioFinalId;
+    private Long consignatarioId;
     private Long agenciaId;
-    private Long agenciaDistribuidorId;
+    private Long agenciaCourierEntregaId;
     private String observaciones;
     private String codigoPrecinto;
     private LocalDateTime fechaHora;
     private List<Long> sacaIds;
 
     /**
-     * Si DOMICILIO: destinatarioFinalId obligatorio; agenciaId y agenciaDistribuidorId nulos.
-     * Si AGENCIA: agenciaId obligatorio; destinatarioFinalId y agenciaDistribuidorId nulos.
-     * Si AGENCIA_DISTRIBUIDOR: agenciaDistribuidorId obligatorio; destinatarioFinalId y agenciaId nulos.
+     * Si DOMICILIO: consignatarioId obligatorio; agenciaId y agenciaCourierEntregaId nulos.
+     * Si AGENCIA: agenciaId obligatorio; consignatarioId y agenciaCourierEntregaId nulos.
+     * Si AGENCIA_COURIER_ENTREGA: agenciaCourierEntregaId obligatorio; consignatarioId y agenciaId nulos.
      */
-    @jakarta.validation.constraints.AssertTrue(message = "Domicilio requiere destinatario; Agencia requiere agencia; Agencia de distribuidor requiere agencia del distribuidor")
+    @jakarta.validation.constraints.AssertTrue(message = "Domicilio requiere destinatario; Agencia requiere agencia; Agencia de courierEntrega requiere agencia del courierEntrega")
     public boolean isValidTipoEntrega() {
         if (tipoEntrega == null) return true;
         if (tipoEntrega == TipoEntrega.DOMICILIO) {
-            return destinatarioFinalId != null && agenciaId == null && agenciaDistribuidorId == null;
+            return consignatarioId != null && agenciaId == null && agenciaCourierEntregaId == null;
         }
         if (tipoEntrega == TipoEntrega.AGENCIA) {
-            return agenciaId != null && destinatarioFinalId == null && agenciaDistribuidorId == null;
+            return agenciaId != null && consignatarioId == null && agenciaCourierEntregaId == null;
         }
-        if (tipoEntrega == TipoEntrega.AGENCIA_DISTRIBUIDOR) {
-            return agenciaDistribuidorId != null && destinatarioFinalId == null && agenciaId == null;
+        if (tipoEntrega == TipoEntrega.AGENCIA_COURIER_ENTREGA) {
+            return agenciaCourierEntregaId != null && consignatarioId == null && agenciaId == null;
         }
         return true;
     }

@@ -30,11 +30,11 @@ const MIN_PESO_LBS_RECARGO = 4;
 const RECARGO_ENVIO_MENOR_PESO = 3.5;
 
 const PRESETS_LBS: Array<{ label: string; valor: number }> = [
-  { label: '1 lb', valor: 1 },
-  { label: '2 lb', valor: 2 },
-  { label: '5 lb', valor: 5 },
-  { label: '10 lb', valor: 10 },
-  { label: '20 lb', valor: 20 },
+  { label: '1 lbs', valor: 1 },
+  { label: '2 lbs', valor: 2 },
+  { label: '5 lbs', valor: 5 },
+  { label: '10 lbs', valor: 10 },
+  { label: '20 lbs', valor: 20 },
 ];
 
 function fmtLbs(n: number): string {
@@ -128,11 +128,11 @@ export function CalculadoraPage() {
     if (costoEstimado == null) return;
     const lineas = [
       `Cotización ECUBOX`,
-      `Peso: ${fmtLbs(pesoLbsNum)} lb (${fmtLbs(lbsToKg(pesoLbsNum))} kg)`,
-      `Tarifa: ${fmtMoneda(tarifa)} / lb`,
+      `Peso: ${fmtLbs(pesoLbsNum)} lbs (${fmtLbs(lbsToKg(pesoLbsNum))} kg)`,
+      `Tarifa: ${fmtMoneda(tarifa)} / lbs`,
       `Subtotal: ${fmtMoneda(costoBase ?? 0)}`,
       aplicaRecargo
-        ? `Recargo (< ${MIN_PESO_LBS_RECARGO} lb): ${fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}`
+        ? `Recargo (< ${MIN_PESO_LBS_RECARGO} lbs): ${fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}`
         : null,
       `Total: ${fmtMoneda(costoEstimado)}`,
     ].filter(Boolean);
@@ -242,7 +242,7 @@ export function CalculadoraPage() {
                   <StatusBadge tone="success">Servientrega incluido</StatusBadge>
                   {tarifaConfigurada && (
                     <StatusBadge tone="warning">
-                      Recargo {fmtMoneda(RECARGO_ENVIO_MENOR_PESO)} si &lt; {MIN_PESO_LBS_RECARGO} lb
+                      Recargo {fmtMoneda(RECARGO_ENVIO_MENOR_PESO)} si &lt; {MIN_PESO_LBS_RECARGO} lbs
                     </StatusBadge>
                   )}
                 </div>
@@ -319,7 +319,7 @@ export function CalculadoraPage() {
                         className="h-11 pr-10 text-base"
                       />
                       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[var(--color-muted-foreground)]">
-                        lb
+                        lbs
                       </span>
                     </div>
                   </div>
@@ -350,9 +350,9 @@ export function CalculadoraPage() {
                     <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
                       Tu paquete pesa menos de{' '}
-                      <span className="font-semibold">{MIN_PESO_LBS_RECARGO} lb</span>,
+                      <span className="font-semibold">{MIN_PESO_LBS_RECARGO} lbs</span>,
                       por lo que se aplicará el recargo. Agrega{' '}
-                      <span className="font-semibold">{fmtLbs(lbsParaEvitarRecargo)} lb</span>{' '}
+                      <span className="font-semibold">{fmtLbs(lbsParaEvitarRecargo)} lbs</span>{' '}
                       más para evitarlo.
                     </span>
                   </div>
@@ -373,7 +373,7 @@ export function CalculadoraPage() {
                         <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
                           Para un paquete de{' '}
                           <span className="font-medium text-[var(--color-foreground)]">
-                            {fmtLbs(pesoLbsNum)} lb
+                            {fmtLbs(pesoLbsNum)} lbs
                           </span>{' '}
                           ({fmtLbs(lbsToKg(pesoLbsNum))} kg)
                         </p>
@@ -393,7 +393,7 @@ export function CalculadoraPage() {
                     <dl className="space-y-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/60 p-3.5 text-sm">
                       <div className="flex items-center justify-between gap-2">
                         <dt className="text-[var(--color-muted-foreground)]">
-                          {fmtLbs(pesoLbsNum)} lb × {fmtMoneda(tarifa)}/lb
+                          {fmtLbs(pesoLbsNum)} lbs × {fmtMoneda(tarifa)}/lbs
                         </dt>
                         <dd className="font-medium text-[var(--color-foreground)]">
                           {fmtMoneda(costoBase ?? 0)}
@@ -402,7 +402,7 @@ export function CalculadoraPage() {
                       {aplicaRecargo && (
                         <div className="flex items-center justify-between gap-2">
                           <dt className="text-[var(--color-warning)]">
-                            Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lb)
+                            Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lbs)
                           </dt>
                           <dd className="font-medium text-[var(--color-warning)]">
                             +{fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}

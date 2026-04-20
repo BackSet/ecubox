@@ -14,9 +14,9 @@ import java.time.LocalDateTime;
 public class ManifiestoDespachoCandidatoDTO {
     private Long id;
     private String numeroGuia;
-    private String distribuidorNombre;
+    private String courierEntregaNombre;
     private String tipoEntrega;
     private String agenciaNombre;
-    private String destinatarioNombre;
+    private String consignatarioNombre;
     private LocalDateTime fechaHora;
 }

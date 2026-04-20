@@ -18,11 +18,11 @@ interface TrackingOperadorEntregaCardProps {
 
 export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaCardProps) {
   const op = result.operadorEntrega;
-  const trackingUrl = parseTrackingUrlLabel(op?.paginaTrackingDistribuidor);
+  const trackingUrl = parseTrackingUrlLabel(op?.paginaTrackingCourierEntrega);
   const tipoEntrega = op?.tipoEntrega;
   const isDomicilio = tipoEntrega === 'DOMICILIO';
   const isAgencia = tipoEntrega === 'AGENCIA';
-  const isAgenciaDistribuidor = tipoEntrega === 'AGENCIA_DISTRIBUIDOR';
+  const isAgenciaCourierEntrega = tipoEntrega === 'AGENCIA_COURIER_ENTREGA';
   const tipoVisual =
     !tipoEntrega
       ? { label: 'Modalidad no disponible', color: 'bg-[var(--color-muted-foreground)]' }
@@ -30,7 +30,7 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
       ? { label: 'Entrega a domicilio', color: 'bg-[var(--color-info)]' }
       : isAgencia
         ? { label: 'Retiro en agencia', color: 'bg-[var(--color-success)]' }
-        : { label: 'Retiro en agencia aliada', color: 'bg-[var(--color-warning)]' };
+        : { label: 'Retiro en punto de entrega', color: 'bg-[var(--color-warning)]' };
 
   return (
     <section className="surface-card p-5 sm:p-6 space-y-4">
@@ -47,10 +47,10 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
           <div className="rounded-lg border border-[var(--color-border)] p-4 space-y-2.5">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
-                Empresa de entrega
+                Courier de entrega
               </p>
               <p className="mt-1 text-sm font-medium text-[var(--color-foreground)]">
-                {op?.distribuidorNombre ?? 'No disponible'}
+                {op?.courierEntregaNombre ?? 'No disponible'}
               </p>
             </div>
             <div>
@@ -58,7 +58,7 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
                 Horario de entrega
               </p>
               <p className="mt-1 text-sm font-medium text-[var(--color-foreground)]">
-                {op?.horarioRepartoDistribuidor ?? 'No disponible'}
+                {op?.horarioRepartoCourierEntrega ?? 'No disponible'}
               </p>
             </div>
             <div>
@@ -89,26 +89,26 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
             </p>
           </div>
         ) : null}
-        {isAgenciaDistribuidor && (
+        {isAgenciaCourierEntrega && (
           <div className="rounded-lg border border-[var(--color-border)] p-4">
-            <p className="text-sm font-semibold text-[var(--color-foreground)]">Agencia de distribución asociada</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">Punto de entrega del courier</p>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-              {op?.agenciaDistribuidorEtiqueta ?? 'No disponible'}
+              {op?.agenciaCourierEntregaEtiqueta ?? 'No disponible'}
             </p>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-              {op?.agenciaDistribuidorDireccion ?? 'Sin dirección'} - {op?.agenciaDistribuidorProvincia ?? '—'} / {op?.agenciaDistribuidorCanton ?? '—'}
+              {op?.agenciaCourierEntregaDireccion ?? 'Sin dirección'} - {op?.agenciaCourierEntregaProvincia ?? '—'} / {op?.agenciaCourierEntregaCanton ?? '—'}
             </p>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-              Horario: {op?.horarioAtencionAgenciaDistribuidor ?? 'No disponible'}
+              Horario: {op?.horarioAtencionAgenciaCourierEntrega ?? 'No disponible'}
             </p>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-              Plazo máximo para retirar en esta agencia: {op?.diasMaxRetiroAgenciaDistribuidor ?? 'No informado'} día(s)
+              Plazo máximo para retirar en este punto: {op?.diasMaxRetiroAgenciaCourierEntrega ?? 'No informado'} día(s)
             </p>
           </div>
         )}
 
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-4">
-          <p className="text-sm font-semibold text-[var(--color-foreground)]">Seguimiento en la web de la empresa de entrega</p>
+          <p className="text-sm font-semibold text-[var(--color-foreground)]">Seguimiento en la web del courier de entrega</p>
           <p className="mt-1.5 text-sm text-[var(--color-muted-foreground)]">
             También puedes revisar el estado en su sitio oficial. Copia tu número de guía y pégalo en su buscador para ver el seguimiento del paquete.
           </p>

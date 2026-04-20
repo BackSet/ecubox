@@ -78,24 +78,24 @@ class CodigoSecuenciaServiceTest {
     }
 
     @Test
-    void nextCodigoAgencia_formateaConDistribuidorYPadding3() {
+    void nextCodigoAgencia_formateaConCourierEntregaYPadding3() {
         when(query.getSingleResult()).thenReturn(7L);
 
         String codigo = service.nextCodigoAgencia(3L);
 
         assertThat(codigo).isEqualTo("3-AD-007");
-        verify(query).setParameter("entity", CodigoSecuenciaService.ENTITY_AGENCIA_DISTRIBUIDOR);
+        verify(query).setParameter("entity", CodigoSecuenciaService.ENTITY_AGENCIA_COURIER_ENTREGA);
         verify(query).setParameter("scope", "3");
     }
 
     @Test
-    void nextCodigoDestinatario_usaPrefijoEcuYPadding4YSeedAlto() {
+    void nextCodigoConsignatario_usaPrefijoEcuYPadding4YSeedAlto() {
         when(query.getSingleResult()).thenReturn(10001L);
 
-        String codigo = service.nextCodigoDestinatario();
+        String codigo = service.nextCodigoConsignatario();
 
         assertThat(codigo).isEqualTo("ECU-10001");
-        verify(query).setParameter("entity", CodigoSecuenciaService.ENTITY_DESTINATARIO_FINAL);
+        verify(query).setParameter("entity", CodigoSecuenciaService.ENTITY_CONSIGNATARIO);
         verify(query).setParameter("scope", CodigoSecuenciaService.SCOPE_GLOBAL);
         // Seed alto (>= 10001) para evitar colision con codigos random historicos.
         verify(query).setParameter("seed", 10_001L);

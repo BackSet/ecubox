@@ -73,8 +73,8 @@ import {
   GUIA_MASTER_ESTADOS_TERMINALES,
   GuiaMasterEstadoBadge,
 } from './_estado';
-import { DestinatarioInfo } from '../paquetes/PaqueteCells';
-import { EditarDestinatarioDialog } from './EditarDestinatarioDialog';
+import { ConsignatarioInfo } from '../paquetes/PaqueteCells';
+import { EditarConsignatarioDialog } from './EditarConsignatarioDialog';
 
 function piezaRecibida(p: Paquete): boolean {
   return p.pesoLbs != null || p.pesoKg != null;
@@ -110,7 +110,7 @@ export function GuiaMasterDetailPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Pieza</TableHead>
-                <TableHead className="hidden md:table-cell">Destinatario</TableHead>
+                <TableHead className="hidden md:table-cell">Consignatario</TableHead>
                 <TableHead className="text-right">Estado</TableHead>
               </TableRow>
             </TableHeader>
@@ -478,23 +478,23 @@ function MetadataInline({ guia }: { guia: GuiaMaster }) {
           </p>
         </InfoBlock>
 
-        <InfoBlock label="Destinatario" className="md:col-span-1">
-          <DestinatarioInfo
-            nombre={guia.destinatarioNombre}
-            telefono={guia.destinatarioTelefono}
-            direccion={guia.destinatarioDireccion}
-            provincia={guia.destinatarioProvincia}
-            canton={guia.destinatarioCanton}
+        <InfoBlock label="Consignatario" className="md:col-span-1">
+          <ConsignatarioInfo
+            nombre={guia.consignatarioNombre}
+            telefono={guia.consignatarioTelefono}
+            direccion={guia.consignatarioDireccion}
+            provincia={guia.consignatarioProvincia}
+            canton={guia.consignatarioCanton}
             emptyLabel="Sin asignar"
             emptyItalic
           />
-          {guia.destinatarioVersionId != null && (
+          {guia.consignatarioVersionId != null && (
             <p
               className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
               title={
-                guia.destinatarioCongeladoEn
-                  ? `Datos del destinatario congelados al primer despacho (${new Date(guia.destinatarioCongeladoEn).toLocaleString()}). Cambios en el maestro ya no afectan a esta guia.`
-                  : 'Datos del destinatario congelados al primer despacho.'
+                guia.consignatarioCongeladoEn
+                  ? `Datos del consignatario congelados al primer despacho (${new Date(guia.consignatarioCongeladoEn).toLocaleString()}). Cambios en el maestro ya no afectan a esta guia.`
+                  : 'Datos del consignatario congelados al primer despacho.'
               }
             >
               Datos congelados
@@ -526,14 +526,14 @@ function MetadataInline({ guia }: { guia: GuiaMaster }) {
           variant="outline"
           size="sm"
           onClick={() => setEditing(true)}
-          title="Editar cliente y destinatario"
+          title="Editar cliente y consignatario"
         >
           <Pencil className="mr-2 h-4 w-4" />
-          Editar cliente y destinatario
+          Editar cliente y consignatario
         </Button>
       </div>
 
-      <EditarDestinatarioDialog
+      <EditarConsignatarioDialog
         guia={guia}
         open={editing}
         onClose={() => setEditing(false)}
@@ -703,7 +703,7 @@ function PesoCell({ pesoLbs, pesoKg }: { pesoLbs?: number; pesoKg?: number }) {
   return (
     <div className="space-y-0.5">
       {pesoLbs != null && (
-        <p className="font-medium text-foreground">{pesoLbs.toFixed(2)} lb</p>
+        <p className="font-medium text-foreground">{pesoLbs.toFixed(2)} lbs</p>
       )}
       {pesoKg != null && (
         <p className="text-[11px] text-muted-foreground">{pesoKg.toFixed(2)} kg</p>

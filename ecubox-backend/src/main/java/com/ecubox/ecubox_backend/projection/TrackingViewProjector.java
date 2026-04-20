@@ -1,6 +1,6 @@
 package com.ecubox.ecubox_backend.projection;
 
-import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
+import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -64,6 +64,7 @@ public class TrackingViewProjector {
     // Nota: NO es final para permitir que en tests unitarios se reasigne via
     // ReflectionTestUtils sin chocar con las restricciones de mutación de
     // campos final introducidas en JDK 25.
+    @SuppressWarnings("FieldMayBeFinal")
     private TrackingViewProjector self;
 
     @Value("${tracking.projector.batch-size:200}")
@@ -88,8 +89,9 @@ public class TrackingViewProjector {
         this.self = self;
     }
 
+    /** Invocado por Spring vía {@link PostConstruct} tras la construcción del bean. */
     @PostConstruct
-    void registerMetrics() {
+    public void registerMetrics() {
         if (meterRegistry == null) return;
         appliedCounter = Counter.builder("tracking.projector.events.applied")
                 .description("Eventos aplicados a tracking_view_paquete")
@@ -123,7 +125,7 @@ public class TrackingViewProjector {
     @Transactional
     public int drainBatch() {
         TrackingProjectorState state = loadState();
-        Long lastId = state.getLastEventId() != null ? state.getLastEventId() : 0L;
+        Long lastId = Optional.ofNullable(state.getLastEventId()).orElse(0L);
         Pageable page = PageRequest.of(0, Math.max(1, batchSize));
         List<PaqueteEstadoEvento> batch = eventRepository.findEventsAfter(lastId, page);
         if (batch.isEmpty()) {
@@ -167,7 +169,7 @@ public class TrackingViewProjector {
         Integer piezaTotal = p.getPiezaTotal();
         GuiaMaster gm = p.getGuiaMaster();
         String trackingBase = gm != null ? gm.getTrackingBase() : null;
-        DestinatarioFinal dest = p.getDestinatarioFinal();
+        Consignatario dest = p.getConsignatario();
         Long destId = dest != null ? dest.getId() : null;
         String destNombre = dest != null ? dest.getNombre() : null;
         String destProvincia = dest != null ? dest.getProvincia() : null;
@@ -200,10 +202,10 @@ public class TrackingViewProjector {
         row.setBloqueado(Boolean.TRUE.equals(ev.getBloqueado()));
 
         if (destId != null) {
-            row.setDestinatarioId(destId);
-            row.setDestinatarioNombre(destNombre);
-            row.setDestinatarioProvincia(destProvincia);
-            row.setDestinatarioCanton(destCanton);
+            row.setConsignatarioId(destId);
+            row.setConsignatarioNombre(destNombre);
+            row.setConsignatarioProvincia(destProvincia);
+            row.setConsignatarioCanton(destCanton);
         }
 
         row.setLastEventId(ev.getId());
@@ -228,7 +230,7 @@ public class TrackingViewProjector {
     private void updateLagMetrics() {
         try {
             TrackingProjectorState state = loadState();
-            Long lastId = state.getLastEventId() != null ? state.getLastEventId() : 0L;
+            Long lastId = Optional.ofNullable(state.getLastEventId()).orElse(0L);
             // Una sola consulta para conocer el evento mas viejo pendiente.
             List<PaqueteEstadoEvento> oldestPending = eventRepository.findEventsAfter(lastId, PageRequest.of(0, 1));
             if (oldestPending.isEmpty()) {

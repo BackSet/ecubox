@@ -18,7 +18,7 @@ export interface LabeledFieldProps {
  * - Mensaje de error o hint.
  *
  * Este es el reemplazo del antiguo `FormField` local que se duplicaba
- * en cada formulario (UsuarioForm, DestinatarioForm, etc.).
+ * en cada formulario (UsuarioForm, ConsignatarioForm, etc.).
  */
 export function LabeledField({
   label,

@@ -15,7 +15,7 @@ export async function getPaquetes(): Promise<Paquete[]> {
 export interface PaqueteListParams extends PageQuery {
   /** código de estado de rastreo */
   estado?: string;
-  destinatarioFinalId?: number;
+  consignatarioId?: number;
   /** código del envío consolidado */
   envio?: string;
   guiaMasterId?: number;
@@ -23,7 +23,7 @@ export interface PaqueteListParams extends PageQuery {
   chip?: string;
 }
 
-/** Paquetes paginados con búsqueda libre (numeroGuia, ref, contenido, guía master, envío, destinatario) y filtros. */
+/** Paquetes paginados con búsqueda libre (numeroGuia, ref, contenido, guía master, envío, consignatario) y filtros. */
 export async function getPaquetesPaginated(
   params: PaqueteListParams = {}
 ): Promise<PageResponse<Paquete>> {
@@ -31,7 +31,7 @@ export async function getPaquetesPaginated(
     params: {
       q: params.q,
       estado: params.estado,
-      destinatarioFinalId: params.destinatarioFinalId,
+      consignatarioId: params.consignatarioId,
       envio: params.envio,
       guiaMasterId: params.guiaMasterId,
       // El chip "vencidos" se sigue resolviendo en cliente; el resto va al server.
@@ -64,10 +64,10 @@ export async function deletePaquete(id: number): Promise<void> {
 
 /** Sugiere una ref única para un paquete (solo admin/operario). */
 export async function sugerirRef(
-  destinatarioFinalId: number,
+  consignatarioId: number,
   excludePaqueteId?: number
 ): Promise<{ ref: string }> {
-  const params = new URLSearchParams({ destinatarioFinalId: String(destinatarioFinalId) });
+  const params = new URLSearchParams({ consignatarioId: String(consignatarioId) });
   if (excludePaqueteId != null) params.set('excludePaqueteId', String(excludePaqueteId));
   const { data } = await apiClient.get<{ ref: string }>(`${BASE}/sugerir-ref?${params}`);
   return data;

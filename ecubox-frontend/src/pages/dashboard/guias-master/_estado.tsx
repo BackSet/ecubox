@@ -18,14 +18,14 @@ import { StatusBadge, type StatusTone } from '@/components/ui/StatusBadge';
  */
 
 export const GUIA_MASTER_ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
-  EN_ESPERA_RECEPCION: 'En espera de recepcion',
-  RECEPCION_PARCIAL: 'Recepcion parcial',
-  RECEPCION_COMPLETA: 'Recepcion completa',
+  EN_ESPERA_RECEPCION: 'En espera de recepción',
+  RECEPCION_PARCIAL: 'Recepción parcial',
+  RECEPCION_COMPLETA: 'Recepción completa',
   DESPACHO_PARCIAL: 'Despacho parcial',
   DESPACHO_COMPLETADO: 'Despacho completado',
   DESPACHO_INCOMPLETO: 'Despacho incompleto',
   CANCELADA: 'Cancelada',
-  EN_REVISION: 'En revision',
+  EN_REVISION: 'En revisión',
 };
 
 export const GUIA_MASTER_ESTADO_LABELS_CORTOS: Record<EstadoGuiaMaster, string> = {
@@ -36,18 +36,18 @@ export const GUIA_MASTER_ESTADO_LABELS_CORTOS: Record<EstadoGuiaMaster, string> 
   DESPACHO_COMPLETADO: 'Despachada',
   DESPACHO_INCOMPLETO: 'Desp. incompleto',
   CANCELADA: 'Cancelada',
-  EN_REVISION: 'En revision',
+  EN_REVISION: 'En revisión',
 };
 
 export const GUIA_MASTER_ESTADO_LABELS_PLURAL: Record<EstadoGuiaMaster, string> = {
-  EN_ESPERA_RECEPCION: 'En espera de recepcion',
-  RECEPCION_PARCIAL: 'Recepcion parcial',
-  RECEPCION_COMPLETA: 'Recepcion completa',
+  EN_ESPERA_RECEPCION: 'En espera de recepción',
+  RECEPCION_PARCIAL: 'Recepción parcial',
+  RECEPCION_COMPLETA: 'Recepción completa',
   DESPACHO_PARCIAL: 'Despacho parcial',
   DESPACHO_COMPLETADO: 'Despacho completado',
   DESPACHO_INCOMPLETO: 'Despacho incompleto',
   CANCELADA: 'Canceladas',
-  EN_REVISION: 'En revision',
+  EN_REVISION: 'En revisión',
 };
 
 export const GUIA_MASTER_ESTADO_DESCRIPCIONES: Record<EstadoGuiaMaster, string> = {

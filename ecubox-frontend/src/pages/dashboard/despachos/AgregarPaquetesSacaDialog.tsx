@@ -33,9 +33,9 @@ export interface PaqueteDisponible {
   numeroGuia: string;
   pesoKg?: number;
   pesoLbs?: number;
-  destinatarioFinalId?: number;
-  destinatarioProvincia?: string;
-  destinatarioCanton?: string;
+  consignatarioId?: number;
+  consignatarioProvincia?: string;
+  consignatarioCanton?: string;
 }
 
 export type SacaDialogTipo = 'existente' | 'nueva';
@@ -56,7 +56,7 @@ export interface AgregarPaquetesSacaDialogProps {
   /** Universo de paquetes sin saca (con y sin peso) para distinguir inexistente vs restringido */
   paquetesUniverso?: PaqueteDisponible[];
   tipoEntrega?: TipoEntrega;
-  referenciaDestinatarioId?: number;
+  referenciaConsignatarioId?: number;
   referenciaProvincia?: string;
   referenciaCanton?: string;
   paquetesYaAgregadosIds?: number[];
@@ -91,7 +91,7 @@ export function AgregarPaquetesSacaDialog({
   paquetesSinPeso = [],
   paquetesUniverso = [],
   tipoEntrega,
-  referenciaDestinatarioId,
+  referenciaConsignatarioId,
   referenciaProvincia,
   referenciaCanton,
   paquetesYaAgregadosIds = [],
@@ -110,7 +110,7 @@ export function AgregarPaquetesSacaDialog({
     noEncontrados: string[];
     yaEnSaca: number;
     sinPeso: string[];
-    restringidosDestinatario: string[];
+    restringidosConsignatario: string[];
     restringidosUbicacion: string[];
   } | null>(null);
   const [historial, setHistorial] = useState<
@@ -129,7 +129,7 @@ export function AgregarPaquetesSacaDialog({
   const norm = (s: string | undefined | null) => (s ?? '').trim().toLowerCase();
 
   function clasificarGuia(guia: string): {
-    estado: 'disponible' | 'sinPeso' | 'noEncontrado' | 'restringidoDestinatario' | 'restringidoUbicacion' | 'yaAgregado';
+    estado: 'disponible' | 'sinPeso' | 'noEncontrado' | 'restringidoConsignatario' | 'restringidoUbicacion' | 'yaAgregado';
     paquete?: PaqueteDisponible;
   } {
     const paqueteDisponible = resolverGuia(guia, paquetesDisponibles);
@@ -146,20 +146,20 @@ export function AgregarPaquetesSacaDialog({
     }
 
     if (
-      (tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_DISTRIBUIDOR') &&
-      referenciaDestinatarioId != null &&
-      paqueteUniverso.destinatarioFinalId != null &&
-      paqueteUniverso.destinatarioFinalId !== referenciaDestinatarioId
+      (tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') &&
+      referenciaConsignatarioId != null &&
+      paqueteUniverso.consignatarioId != null &&
+      paqueteUniverso.consignatarioId !== referenciaConsignatarioId
     ) {
-      return { estado: 'restringidoDestinatario', paquete: paqueteUniverso };
+      return { estado: 'restringidoConsignatario', paquete: paqueteUniverso };
     }
 
     if (
       tipoEntrega === 'AGENCIA' &&
       referenciaProvincia != null &&
       referenciaCanton != null &&
-      (norm(paqueteUniverso.destinatarioProvincia) !== norm(referenciaProvincia) ||
-        norm(paqueteUniverso.destinatarioCanton) !== norm(referenciaCanton))
+      (norm(paqueteUniverso.consignatarioProvincia) !== norm(referenciaProvincia) ||
+        norm(paqueteUniverso.consignatarioCanton) !== norm(referenciaCanton))
     ) {
       return { estado: 'restringidoUbicacion', paquete: paqueteUniverso };
     }
@@ -256,7 +256,7 @@ export function AgregarPaquetesSacaDialog({
     let agregados = 0;
     const noEncontrados: string[] = [];
     const sinPeso: string[] = [];
-    const restringidosDestinatario: string[] = [];
+    const restringidosConsignatario: string[] = [];
     const restringidosUbicacion: string[] = [];
     const lineasFallidas: string[] = [];
     let yaEnSaca = 0;
@@ -270,8 +270,8 @@ export function AgregarPaquetesSacaDialog({
             lineasFallidas.push(guia);
           } else if (clasificada.estado === 'yaAgregado') {
             yaEnSaca++;
-          } else if (clasificada.estado === 'restringidoDestinatario') {
-            restringidosDestinatario.push(guia);
+          } else if (clasificada.estado === 'restringidoConsignatario') {
+            restringidosConsignatario.push(guia);
             lineasFallidas.push(guia);
           } else if (clasificada.estado === 'restringidoUbicacion') {
             restringidosUbicacion.push(guia);
@@ -300,8 +300,8 @@ export function AgregarPaquetesSacaDialog({
             lineasFallidas.push(guia);
           } else if (clasificada.estado === 'yaAgregado') {
             yaEnSaca++;
-          } else if (clasificada.estado === 'restringidoDestinatario') {
-            restringidosDestinatario.push(guia);
+          } else if (clasificada.estado === 'restringidoConsignatario') {
+            restringidosConsignatario.push(guia);
             lineasFallidas.push(guia);
           } else if (clasificada.estado === 'restringidoUbicacion') {
             restringidosUbicacion.push(guia);
@@ -327,7 +327,7 @@ export function AgregarPaquetesSacaDialog({
         }
       }
     }
-    setResultado({ agregados, noEncontrados, yaEnSaca, sinPeso, restringidosDestinatario, restringidosUbicacion });
+    setResultado({ agregados, noEncontrados, yaEnSaca, sinPeso, restringidosConsignatario, restringidosUbicacion });
     setProcesandoLista(false);
     setListadoGuias(lineasFallidas.join('\n'));
   };
@@ -344,13 +344,13 @@ export function AgregarPaquetesSacaDialog({
         nuevoHistorial.unshift({
           guia,
           status: 'error',
-          message: 'Sin peso — cargue el peso en Cargar pesos',
+          message: 'Sin peso — registra el peso en Pesaje',
         });
-      } else if (clasificada.estado === 'restringidoDestinatario') {
+      } else if (clasificada.estado === 'restringidoConsignatario') {
         nuevoHistorial.unshift({
           guia,
           status: 'warning',
-          message: 'Existe, pero no corresponde al destinatario del despacho',
+          message: 'Existe, pero no corresponde al consignatario del despacho',
         });
       } else if (clasificada.estado === 'restringidoUbicacion') {
         nuevoHistorial.unshift({
@@ -892,7 +892,7 @@ function ResultadoBloque({
     noEncontrados: string[];
     yaEnSaca: number;
     sinPeso: string[];
-    restringidosDestinatario: string[];
+    restringidosConsignatario: string[];
     restringidosUbicacion: string[];
   };
 }) {
@@ -922,10 +922,10 @@ function ResultadoBloque({
             {resultado.sinPeso.length} sin peso
           </span>
         )}
-        {resultado.restringidosDestinatario.length > 0 && (
+        {resultado.restringidosConsignatario.length > 0 && (
           <span className="inline-flex items-center gap-1 rounded border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-2 py-0.5 text-[var(--color-warning)]">
             <AlertCircle className="h-3 w-3" />
-            {resultado.restringidosDestinatario.length} otro destinatario
+            {resultado.restringidosConsignatario.length} otro consignatario
           </span>
         )}
         {resultado.restringidosUbicacion.length > 0 && (
@@ -938,11 +938,11 @@ function ResultadoBloque({
       {resultado.sinPeso.length > 0 && (
         <p className="text-[11px] text-muted-foreground">
           Las guías sin peso se mantienen arriba para que las cargues en{' '}
-          <span className="font-medium text-foreground">Cargar pesos</span> y reintentes.
+          <span className="font-medium text-foreground">Pesaje</span> y reintentes.
         </p>
       )}
       {(resultado.noEncontrados.length > 0 ||
-        resultado.restringidosDestinatario.length > 0 ||
+        resultado.restringidosConsignatario.length > 0 ||
         resultado.restringidosUbicacion.length > 0) && (
         <p className="text-[11px] text-muted-foreground">
           Las guías que no se pudieron agregar permanecen en el cuadro de arriba para que las revises.

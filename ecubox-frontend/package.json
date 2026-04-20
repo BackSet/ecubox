@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint:nomenclatura": "node scripts/lint-nomenclatura.mjs",
+    "lint:nomenclatura:report": "node scripts/lint-nomenclatura.mjs --report"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

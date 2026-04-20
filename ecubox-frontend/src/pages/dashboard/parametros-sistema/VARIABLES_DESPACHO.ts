@@ -13,10 +13,10 @@ export const VARIABLES_DESPACHO_GROUPS = [
     ],
   },
   {
-    category: 'Destinatario y red',
+    category: 'Consignatario y red',
     items: [
-      { key: 'destinatarioNombre', label: 'Destinatario' },
-      { key: 'distribuidorNombre', label: 'Distribuidor' },
+      { key: 'consignatarioNombre', label: 'Consignatario' },
+      { key: 'courierEntregaNombre', label: 'Courier de entrega' },
       { key: 'agenciaNombre', label: 'Agencia' },
     ],
   },
@@ -39,8 +39,8 @@ export type VariableDespachoKey = (typeof VARIABLES_DESPACHO)[number]['key'];
 /** Valores de ejemplo para la vista previa (reemplazo de variables en preview). */
 export const VARIABLES_PREVIEW: Record<VariableDespachoKey, string> = {
   numeroGuia: 'ECB-12345',
-  destinatarioNombre: 'Juan Pérez',
-  distribuidorNombre: 'Envíos Express',
+  consignatarioNombre: 'Juan Pérez',
+  courierEntregaNombre: 'Envíos Express',
   agenciaNombre: 'Agencia Centro',
   observaciones: 'Fragil',
   codigoPrecinto: 'PRC-001',

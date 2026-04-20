@@ -35,14 +35,28 @@ export type NavGroup = {
 };
 
 /**
- * Estructura del sidebar dividida por flujos de trabajo. Los grupos vacíos
- * se ocultan automáticamente (ver {@link getVisibleNavGroups}), por lo que
- * un cliente puro solo verá los grupos relevantes para su rol y un operario
- * verá los suyos. Si un usuario tiene ambos roles, verá la unión ordenada.
+ * Estructura del sidebar alineada con el flujo de trabajo real del paquete
+ * dentro del courier. Los grupos vacíos se ocultan automáticamente (ver
+ * {@link getVisibleNavGroups}), por lo que un cliente puro solo verá los
+ * grupos relevantes a su rol y un operario los suyos. Si un usuario tiene
+ * ambos roles, verá la unión ordenada.
  *
- * Convención: cliente arriba (su día a día), operación en el medio
- * (de izquierda a derecha siguiendo el flujo del paquete: Recepción ->
- * Paquetes/Guías -> Despacho/Consolidación) y administración al final.
+ * Flujo (de arriba hacia abajo, siguiendo el paquete a lo largo del tiempo):
+ *   1. Inicio                        -> home y datos que el cliente necesita
+ *                                       antes de comprar (dirección en USA).
+ *   2. Mis envíos                    -> vista del cliente.
+ *   3. Recepción y peso              -> llegada de la carga: lote -> pesaje
+ *                                       -> seguimiento de retiros vencidos.
+ *   4. Guías y paquetes              -> clasificación interna una vez pesado:
+ *                                       guía master (agrupación) -> paquete
+ *                                       individual -> cambios de estado.
+ *   5. Consolidación y despachos     -> preparación de la salida: envío
+ *                                       consolidado -> despacho al cliente
+ *                                       final vía agencia -> manifiesto de
+ *                                       carga como cierre documental.
+ *   6. Catálogos                     -> datos maestros (uso recurrente primero).
+ *   7. Administración                -> usuarios, roles y permisos.
+ *   8. Configuración                 -> parámetros del sistema.
  */
 export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
   {
@@ -56,10 +70,10 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         keywords: ['dashboard', 'home', 'panel'],
       },
       {
-        to: '/agencia-eeuu',
-        label: 'Oficina en USA',
+        to: '/casillero',
+        label: 'Mi casillero',
         icon: MapPin,
-        keywords: ['agencia', 'usa', 'eeuu', 'direccion'],
+        keywords: ['casillero', 'agencia', 'usa', 'eeuu', 'direccion', 'mailbox'],
       },
     ],
   },
@@ -86,7 +100,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         keywords: ['recepcion', 'lote', 'llegada'],
       },
       {
-        to: '/cargar-pesos',
+        to: '/pesaje',
         label: 'Registro de peso',
         icon: Weight,
         permission: 'PAQUETES_PESO_WRITE',
@@ -102,8 +116,15 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Paquetes y guías',
+    label: 'Guías y paquetes',
     items: [
+      {
+        to: '/guias-master',
+        label: 'Guías',
+        icon: Boxes,
+        permission: 'GUIAS_MASTER_READ',
+        keywords: ['guia', 'master', 'piezas'],
+      },
       {
         to: '/paquetes',
         label: 'Gestión de paquetes',
@@ -118,31 +139,24 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         permission: 'PAQUETES_PESO_WRITE',
         keywords: ['estado', 'rastreo'],
       },
-      {
-        to: '/guias-master',
-        label: 'Guías',
-        icon: Boxes,
-        permission: 'GUIAS_MASTER_READ',
-        keywords: ['guia', 'master', 'piezas'],
-      },
     ],
   },
   {
-    label: 'Despachos y consolidación',
+    label: 'Consolidación y despachos',
     items: [
-      {
-        to: '/despachos',
-        label: 'Gestión de despachos',
-        icon: Truck,
-        permission: 'DESPACHOS_WRITE',
-        keywords: ['despacho', 'envio', 'salida'],
-      },
       {
         to: '/envios-consolidados',
         label: 'Envíos consolidados',
         icon: Plane,
         permission: 'ENVIOS_CONSOLIDADOS_READ',
         keywords: ['envio', 'consolidado', 'aereo', 'manifiesto'],
+      },
+      {
+        to: '/despachos',
+        label: 'Gestión de despachos',
+        icon: Truck,
+        permission: 'DESPACHOS_WRITE',
+        keywords: ['despacho', 'envio', 'salida'],
       },
       {
         to: '/manifiestos',
@@ -157,29 +171,32 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     label: 'Catálogos',
     items: [
       {
-        to: '/destinatarios',
-        label: 'Destinatarios',
+        to: '/consignatarios',
+        label: 'Consignatarios',
         icon: Contact,
-        permission: 'DESTINATARIOS_READ',
-        keywords: ['destinatario', 'cliente', 'contacto'],
+        permission: 'CONSIGNATARIOS_READ',
+        keywords: ['consignatario', 'consignatario', 'cliente', 'contacto'],
+      },
+      {
+        to: '/couriers-entrega',
+        label: 'Couriers de entrega',
+        icon: PackageCheck,
+        permission: 'COURIERS_ENTREGA_READ',
+        keywords: ['courier', 'courier de entrega', 'empresa de entrega'],
       },
       {
         to: '/agencias',
         label: 'Agencias',
         icon: Building2,
         permission: 'AGENCIAS_READ',
+        keywords: ['agencia', 'oficina'],
       },
       {
-        to: '/agencias-distribuidor',
-        label: 'Agencias asociadas',
+        to: '/puntos-entrega',
+        label: 'Puntos de entrega',
         icon: Building2,
-        permission: 'AGENCIAS_DISTRIBUIDOR_READ',
-      },
-      {
-        to: '/distribuidores',
-        label: 'Empresas de entrega',
-        icon: PackageCheck,
-        permission: 'DISTRIBUIDORES_READ',
+        permission: 'PUNTOS_ENTREGA_READ',
+        keywords: ['punto', 'entrega', 'agencia courier de entrega'],
       },
     ],
   },

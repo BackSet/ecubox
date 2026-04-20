@@ -50,8 +50,8 @@ public class Paquete {
     private EstadoRastreo estadoRastreo;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "destinatario_final_id", nullable = false)
-    private DestinatarioFinal destinatarioFinal;
+    @JoinColumn(name = "consignatario_id", nullable = false)
+    private Consignatario consignatario;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "saca_id")

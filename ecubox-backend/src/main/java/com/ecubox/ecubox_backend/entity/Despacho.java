@@ -38,24 +38,24 @@ public class Despacho {
     private LocalDateTime fechaHora;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "distribuidor_id", nullable = false)
-    private Distribuidor distribuidor;
+    @JoinColumn(name = "courier_entrega_id", nullable = false)
+    private CourierEntrega courierEntrega;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_entrega", nullable = false, length = 50)
     private TipoEntrega tipoEntrega;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "destinatario_final_id")
-    private DestinatarioFinal destinatarioFinal;
+    @JoinColumn(name = "consignatario_id")
+    private Consignatario consignatario;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "agencia_id")
     private Agencia agencia;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "agencia_distribuidor_id")
-    private AgenciaDistribuidor agenciaDistribuidor;
+    @JoinColumn(name = "agencia_courier_entrega_id")
+    private AgenciaCourierEntrega agenciaCourierEntrega;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manifiesto_id")
@@ -76,16 +76,16 @@ public class Despacho {
     // ---------------------------------------------------------------------
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "destinatario_version_id")
-    private DestinatarioFinalVersion destinatarioVersion;
+    @JoinColumn(name = "consignatario_version_id")
+    private ConsignatarioVersion consignatarioVersion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "agencia_version_id")
     private AgenciaVersion agenciaVersion;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "agencia_distribuidor_version_id")
-    private AgenciaDistribuidorVersion agenciaDistribuidorVersion;
+    @JoinColumn(name = "agencia_courier_entrega_version_id")
+    private AgenciaCourierEntregaVersion agenciaCourierEntregaVersion;
 
     @Column(name = "destino_congelado_en")
     private LocalDateTime destinoCongeladoEn;

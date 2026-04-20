@@ -49,11 +49,11 @@ export function GuiaMasterPiezaCell({ paquete: p }: { paquete: Paquete }) {
 }
 
 /**
- * Componente genérico para mostrar el destinatario con datos enriquecidos
+ * Componente genérico para mostrar el consignatario con datos enriquecidos
  * (nombre, teléfono, dirección y cantón/provincia). Sirve tanto para
  * paquetes como para guías master, ya que ambas comparten estos campos.
  */
-export interface DestinatarioInfoProps {
+export interface ConsignatarioInfoProps {
   nombre?: string | null;
   telefono?: string | null;
   direccion?: string | null;
@@ -63,7 +63,7 @@ export interface DestinatarioInfoProps {
   emptyItalic?: boolean;
 }
 
-export function DestinatarioInfo({
+export function ConsignatarioInfo({
   nombre,
   telefono,
   direccion,
@@ -71,7 +71,7 @@ export function DestinatarioInfo({
   canton,
   emptyLabel = '—',
   emptyItalic = false,
-}: DestinatarioInfoProps) {
+}: ConsignatarioInfoProps) {
   const n = nombre?.trim();
   const t = telefono?.trim();
   const d = direccion?.trim();
@@ -114,15 +114,15 @@ export function DestinatarioInfo({
   );
 }
 
-/** Wrapper de `DestinatarioInfo` que toma los datos directamente del paquete. */
-export function DestinatarioCell({ paquete: p }: { paquete: Paquete }) {
+/** Wrapper de `ConsignatarioInfo` que toma los datos directamente del paquete. */
+export function ConsignatarioCell({ paquete: p }: { paquete: Paquete }) {
   return (
-    <DestinatarioInfo
-      nombre={p.destinatarioNombre}
-      telefono={p.destinatarioTelefono}
-      direccion={p.destinatarioDireccion}
-      provincia={p.destinatarioProvincia}
-      canton={p.destinatarioCanton}
+    <ConsignatarioInfo
+      nombre={p.consignatarioNombre}
+      telefono={p.consignatarioTelefono}
+      direccion={p.consignatarioDireccion}
+      provincia={p.consignatarioProvincia}
+      canton={p.consignatarioCanton}
     />
   );
 }

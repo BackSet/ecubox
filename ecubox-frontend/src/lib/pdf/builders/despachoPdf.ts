@@ -13,7 +13,7 @@ const TAMANIO_LABELS: Record<TamanioSaca, string> = {
 const TIPO_LABELS: Record<string, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
-  AGENCIA_DISTRIBUIDOR: 'Agencia distribuidor',
+  AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
 };
 
 const COLORS = {
@@ -55,16 +55,16 @@ function destinoFor(d: Despacho): { titulo: string; nombre: string; direccion: s
   if (d.tipoEntrega === 'DOMICILIO') {
     return {
       titulo: 'Entrega a domicilio',
-      nombre: safe(d.destinatarioNombre),
-      direccion: safe(d.destinatarioDireccion),
-      telefono: safe(d.destinatarioTelefono),
+      nombre: safe(d.consignatarioNombre),
+      direccion: safe(d.consignatarioDireccion),
+      telefono: safe(d.consignatarioTelefono),
     };
   }
-  if (d.tipoEntrega === 'AGENCIA_DISTRIBUIDOR') {
+  if (d.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
     return {
-      titulo: 'Entrega en agencia distribuidor',
-      nombre: safe(d.agenciaDistribuidorNombre),
-      direccion: safe(d.agenciaDistribuidorNombre),
+      titulo: 'Entrega en punto de entrega',
+      nombre: safe(d.agenciaCourierEntregaNombre),
+      direccion: safe(d.agenciaCourierEntregaNombre),
       telefono: '-',
     };
   }
@@ -200,7 +200,7 @@ export function buildDespachoPdf(despacho: Despacho): jsPDF {
     ]);
 
     drawBlock(margin + blockW + 3, 'Distribucion', [
-      { label: 'Distribuidor', value: safe(despacho.distribuidorNombre), bold: true },
+      { label: 'CourierEntrega', value: safe(despacho.courierEntregaNombre), bold: true },
       { label: 'Tipo de entrega', value: TIPO_LABELS[despacho.tipoEntrega] ?? despacho.tipoEntrega },
       { label: 'Codigo precinto', value: safe(despacho.codigoPrecinto) },
     ]);
@@ -246,7 +246,7 @@ export function buildDespachoPdf(despacho: Despacho): jsPDF {
   const cols = [
     { key: 'guia', label: 'GUIA', width: 36, align: 'left' as const },
     { key: 'pieza', label: 'PIEZA', width: 14, align: 'center' as const },
-    { key: 'destinatario', label: 'DESTINATARIO', width: 50, align: 'left' as const },
+    { key: 'consignatario', label: 'CONSIGNATARIO', width: 50, align: 'left' as const },
     { key: 'telefono', label: 'TELEFONO', width: 24, align: 'left' as const },
     { key: 'ubicacion', label: 'UBICACION', width: 70, align: 'left' as const },
     { key: 'contenido', label: 'CONTENIDO', width: 45, align: 'left' as const },
@@ -315,9 +315,9 @@ export function buildDespachoPdf(despacho: Despacho): jsPDF {
       const w = colWidths[i] - 4;
       let txt = '';
       switch (c.key) {
-        case 'destinatario': txt = safe(p.destinatarioNombre); break;
+        case 'consignatario': txt = safe(p.consignatarioNombre); break;
         case 'ubicacion':
-          txt = [safe(p.destinatarioDireccion), [p.destinatarioCanton, p.destinatarioProvincia].filter(Boolean).join(', ')]
+          txt = [safe(p.consignatarioDireccion), [p.consignatarioCanton, p.consignatarioProvincia].filter(Boolean).join(', ')]
             .filter((x) => x && x !== '-')
             .join(' | ') || '-';
           break;
@@ -357,14 +357,14 @@ export function buildDespachoPdf(despacho: Despacho): jsPDF {
         case 'pieza':
           txt = p.piezaNumero != null && p.piezaTotal != null ? `${p.piezaNumero}/${p.piezaTotal}` : '-';
           break;
-        case 'destinatario':
-          txt = safe(p.destinatarioNombre);
+        case 'consignatario':
+          txt = safe(p.consignatarioNombre);
           break;
         case 'telefono':
-          txt = safe(p.destinatarioTelefono);
+          txt = safe(p.consignatarioTelefono);
           break;
         case 'ubicacion':
-          txt = [safe(p.destinatarioDireccion), [p.destinatarioCanton, p.destinatarioProvincia].filter(Boolean).join(', ')]
+          txt = [safe(p.consignatarioDireccion), [p.consignatarioCanton, p.consignatarioProvincia].filter(Boolean).join(', ')]
             .filter((s) => s && s !== '-')
             .join(' | ') || '-';
           break;
@@ -447,8 +447,8 @@ export function buildDespachoPdf(despacho: Despacho): jsPDF {
     doc.setFontSize(8);
     doc.text('Entrega (operario)', margin + 6, y + 18);
     doc.text(safe(despacho.operarioNombre), margin + 6, y + 22);
-    doc.text('Recibe (distribuidor)', margin + w + 6 + 6, y + 18);
-    doc.text(safe(despacho.distribuidorNombre), margin + w + 6 + 6, y + 22);
+    doc.text('Recibe (courier de entrega)', margin + w + 6 + 6, y + 18);
+    doc.text(safe(despacho.courierEntregaNombre), margin + w + 6 + 6, y + 22);
     y += 26;
   };
 

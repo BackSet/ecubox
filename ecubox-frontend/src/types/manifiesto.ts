@@ -1,23 +1,23 @@
 export type EstadoManifiesto = 'PENDIENTE' | 'PAGADO' | 'ANULADO';
 
-export type FiltroManifiesto = 'POR_PERIODO' | 'POR_DISTRIBUIDOR' | 'POR_AGENCIA';
+export type FiltroManifiesto = 'POR_PERIODO' | 'POR_COURIER_ENTREGA' | 'POR_AGENCIA';
 
 export interface DespachoEnManifiesto {
   id: number;
   numeroGuia: string;
-  distribuidorNombre: string | null;
+  courierEntregaNombre: string | null;
   tipoEntrega: string;
   agenciaNombre: string | null;
-  destinatarioNombre: string | null;
+  consignatarioNombre: string | null;
 }
 
 export interface ManifiestoDespachoCandidato {
   id: number;
   numeroGuia: string;
-  distribuidorNombre: string | null;
+  courierEntregaNombre: string | null;
   tipoEntrega: string | null;
   agenciaNombre: string | null;
-  destinatarioNombre: string | null;
+  consignatarioNombre: string | null;
   fechaHora: string | null;
 }
 
@@ -27,15 +27,15 @@ export interface Manifiesto {
   fechaInicio: string;
   fechaFin: string;
   filtroTipo: FiltroManifiesto;
-  filtroDistribuidorId: number | null;
-  filtroDistribuidorNombre: string | null;
+  filtroCourierEntregaId: number | null;
+  filtroCourierEntregaNombre: string | null;
   filtroAgenciaId: number | null;
   filtroAgenciaNombre: string | null;
   cantidadDespachos: number;
   subtotalDomicilio: number;
   subtotalAgenciaFlete: number;
   subtotalComisionAgencias: number;
-  totalDistribuidor: number;
+  totalCourierEntrega: number;
   totalAgencia: number;
   totalPagar: number;
   estado: EstadoManifiesto;
@@ -47,7 +47,7 @@ export interface ManifiestoRequest {
   fechaInicio: string;
   fechaFin: string;
   filtroTipo?: FiltroManifiesto;
-  filtroDistribuidorId?: number | null;
+  filtroCourierEntregaId?: number | null;
   filtroAgenciaId?: number | null;
 }
 

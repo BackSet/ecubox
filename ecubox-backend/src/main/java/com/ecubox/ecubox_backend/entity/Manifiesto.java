@@ -37,8 +37,8 @@ public class Manifiesto {
     private FiltroManifiesto filtroTipo;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "filtro_distribuidor_id")
-    private Distribuidor filtroDistribuidor;
+    @JoinColumn(name = "filtro_courier_entrega_id")
+    private CourierEntrega filtroCourierEntrega;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "filtro_agencia_id")

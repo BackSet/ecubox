@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   actualizarMiGuia,
-  actualizarMiGuiaDestinatario,
+  actualizarMiGuiaConsignatario,
   eliminarMiGuia,
   listarMisGuias,
   obtenerMiGuia,
@@ -47,16 +47,16 @@ export function useRegistrarMiGuia() {
   });
 }
 
-export function useActualizarMiGuiaDestinatario() {
+export function useActualizarMiGuiaConsignatario() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
       id,
-      destinatarioFinalId,
+      consignatarioId,
     }: {
       id: number;
-      destinatarioFinalId: number;
-    }) => actualizarMiGuiaDestinatario(id, destinatarioFinalId),
+      consignatarioId: number;
+    }) => actualizarMiGuiaConsignatario(id, consignatarioId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MIS_GUIAS_QUERY_KEY });
     },

@@ -15,7 +15,7 @@ import java.util.Optional;
 
 /**
  * Gestion de snapshots inmutables (SCD Tipo 2) de {@link Agencia}.
- * Ver {@link DestinatarioVersionService} para la semantica completa.
+ * Ver {@link ConsignatarioVersionService} para la semantica completa.
  */
 @Service
 public class AgenciaVersionService {

@@ -134,7 +134,7 @@ export function TarifaCalculadoraForm() {
                 )}
               />
               <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-medium text-muted-foreground">
-                / lb
+                / lbs
               </span>
             </div>
           )}

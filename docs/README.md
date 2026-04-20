@@ -11,6 +11,12 @@ Manuales en lenguaje claro para operadores y consultas de cliente:
 | [Manual de usuario](usuario/MANUAL_USUARIO.md) | Visión general del sistema, módulos, permisos y parámetros. |
 | [Guía de estados y seguimiento](usuario/GUIA_ESTADOS_Y_SEGUIMIENTO.md) | Cómo cambia el estado de un paquete, Rastreo público y plazos de retiro. |
 
+## Convenciones del proyecto
+
+| Documento | Descripción |
+|-----------|-------------|
+| [Glosario de nomenclatura](nomenclatura.md) | Única fuente de verdad para los nombres de los conceptos del dominio. **Lectura obligatoria** antes de introducir cualquier término nuevo o renombrar uno existente. |
+
 ## Desarrollo
 
 Referencias técnicas para quienes mantienen o amplían el código:

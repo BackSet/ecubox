@@ -9,7 +9,7 @@ import {
 } from '@/hooks/useGuiasMaster';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { TablePagination } from '@/components/ui/TablePagination';
-import { useDestinatariosOperario } from '@/hooks/useOperarioDespachos';
+import { useConsignatariosOperario } from '@/hooks/useOperarioDespachos';
 import { useAuthStore } from '@/stores/authStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getApiErrorMessage } from '@/lib/api/error-message';
@@ -64,7 +64,7 @@ import {
 } from './_estado';
 import type { EstadoGuiaMaster, GuiaMaster } from '@/types/guia-master';
 import type { StatusTone } from '@/components/ui/StatusBadge';
-import { DestinatarioInfo } from '../paquetes/PaqueteCells';
+import { ConsignatarioInfo } from '../paquetes/PaqueteCells';
 
 /**
  * Mapea el tono semantico del estado de la guia (StatusTone, 6 colores) al tono
@@ -161,8 +161,8 @@ export function GuiasMasterPage() {
   return (
     <div className="page-stack">
       <ListToolbar
-        title="Guías"
-        searchPlaceholder="Buscar por número de guía, destinatario (nombre/código) o cliente (usuario/email)..."
+        title="Guías master"
+        searchPlaceholder="Buscar por número de guía, consignatario (nombre/código) o cliente (usuario/email)..."
         value={q}
         onSearchChange={setQ}
         actions={
@@ -282,9 +282,9 @@ export function GuiasMasterPage() {
               title={sinDatos ? 'No hay guías registradas' : 'Sin resultados'}
               description={
                 sinDatos
-                  ? 'Registra una guía indicando su número, destinatario y total de piezas esperadas (opcional).'
+                  ? 'Registra una guía indicando su número, consignatario y total de piezas esperadas (opcional).'
                   : tieneFiltros && q.trim() !== ''
-                    ? `No encontramos guías que coincidan con "${q.trim()}". Prueba con otro número de guía, destinatario o cliente.`
+                    ? `No encontramos guías que coincidan con "${q.trim()}". Prueba con otro número de guía, consignatario o cliente.`
                     : 'No hay guías que coincidan con los filtros aplicados.'
               }
               action={
@@ -319,7 +319,7 @@ export function GuiasMasterPage() {
                 <TableHead className="w-[14rem]">Guía</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="min-w-[14rem]">Piezas</TableHead>
-                <TableHead>Destinatario</TableHead>
+                <TableHead>Consignatario</TableHead>
                 <TableHead className="hidden md:table-cell">Cliente</TableHead>
                 <TableHead className="hidden xl:table-cell">Creada</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
@@ -361,12 +361,12 @@ export function GuiasMasterPage() {
                       <PiezasProgressCell guia={g} />
                     </TableCell>
                     <TableCell className="max-w-[18rem] align-top">
-                      <DestinatarioInfo
-                        nombre={g.destinatarioNombre}
-                        telefono={g.destinatarioTelefono}
-                        direccion={g.destinatarioDireccion}
-                        provincia={g.destinatarioProvincia}
-                        canton={g.destinatarioCanton}
+                      <ConsignatarioInfo
+                        nombre={g.consignatarioNombre}
+                        telefono={g.consignatarioTelefono}
+                        direccion={g.consignatarioDireccion}
+                        provincia={g.consignatarioProvincia}
+                        canton={g.consignatarioCanton}
                         emptyLabel="Sin asignar"
                         emptyItalic
                       />
@@ -621,17 +621,17 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
   const [clienteId, setClienteId] = useState<number | undefined>(
     editing?.clienteUsuarioId ?? undefined,
   );
-  const [destinatarioId, setDestinatarioId] = useState<number | undefined>(
-    editing?.destinatarioFinalId ?? undefined,
+  const [consignatarioId, setConsignatarioId] = useState<number | undefined>(
+    editing?.consignatarioId ?? undefined,
   );
   const crear = useCrearGuiaMaster();
   const actualizar = useActualizarGuiaMaster();
   const saving = isEdit ? actualizar.isPending : crear.isPending;
-  const { data: destinatarios = [], isLoading: loadingDest } = useDestinatariosOperario();
+  const { data: consignatarios = [], isLoading: loadingDest } = useConsignatariosOperario();
 
   const clientes = useMemo(() => {
     const map = new Map<number, { id: number; nombre: string }>();
-    for (const d of destinatarios) {
+    for (const d of consignatarios) {
       if (d.clienteUsuarioId != null && d.clienteUsuarioNombre && !map.has(d.clienteUsuarioId)) {
         map.set(d.clienteUsuarioId, {
           id: d.clienteUsuarioId,
@@ -642,29 +642,29 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
     return Array.from(map.values()).sort((a, b) =>
       a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
     );
-  }, [destinatarios]);
+  }, [consignatarios]);
 
-  const destinatariosFiltrados = useMemo(() => {
-    if (clienteId == null) return destinatarios;
-    return destinatarios.filter((d) => d.clienteUsuarioId === clienteId);
-  }, [destinatarios, clienteId]);
+  const consignatariosFiltrados = useMemo(() => {
+    if (clienteId == null) return consignatarios;
+    return consignatarios.filter((d) => d.clienteUsuarioId === clienteId);
+  }, [consignatarios, clienteId]);
 
   function handleClienteChange(value: string | number | undefined) {
     const cid = typeof value === 'string' ? Number(value) : value;
     setClienteId(cid);
-    if (destinatarioId != null) {
-      const dest = destinatarios.find((d) => d.id === destinatarioId);
+    if (consignatarioId != null) {
+      const dest = consignatarios.find((d) => d.id === consignatarioId);
       if (!dest || (cid != null && dest.clienteUsuarioId !== cid)) {
-        setDestinatarioId(undefined);
+        setConsignatarioId(undefined);
       }
     }
   }
 
-  function handleDestinatarioChange(value: string | number | undefined) {
+  function handleConsignatarioChange(value: string | number | undefined) {
     const did = typeof value === 'string' ? Number(value) : value;
-    setDestinatarioId(did);
+    setConsignatarioId(did);
     if (did != null) {
-      const dest = destinatarios.find((d) => d.id === did);
+      const dest = consignatarios.find((d) => d.id === did);
       if (dest && dest.clienteUsuarioId != null) {
         setClienteId(dest.clienteUsuarioId);
       }
@@ -677,15 +677,15 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
       toast.error('Indica el número de guía');
       return;
     }
-    if (destinatarioId == null) {
-      toast.error('Selecciona un destinatario');
+    if (consignatarioId == null) {
+      toast.error('Selecciona un consignatario');
       return;
     }
     try {
       if (isEdit && editing) {
         const tb = trackingBase.trim();
-        const body: { destinatarioFinalId: number; trackingBase?: string } = {
-          destinatarioFinalId: destinatarioId,
+        const body: { consignatarioId: number; trackingBase?: string } = {
+          consignatarioId: consignatarioId,
         };
         if (tb && tb !== editing.trackingBase) {
           body.trackingBase = tb;
@@ -695,7 +695,7 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
       } else {
         await crear.mutateAsync({
           trackingBase: trackingBase.trim(),
-          destinatarioFinalId: destinatarioId,
+          consignatarioId: consignatarioId,
         });
         toast.success('Guía registrada');
       }
@@ -780,23 +780,23 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
               )}
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Filtra los destinatarios. Limpia para ver todos.
+              Filtra los consignatarios. Limpia para ver todos.
             </p>
           </div>
 
           <div>
             <Label
-              htmlFor="destinatario-crear"
+              htmlFor="consignatario-crear"
               className="mb-1 flex items-center gap-1 text-xs"
             >
               <UserRound className="h-3.5 w-3.5" />
-              Destinatario *
+              Consignatario *
             </Label>
             <SearchableCombobox
-              id="destinatario-crear"
-              value={destinatarioId}
-              onChange={handleDestinatarioChange}
-              options={destinatariosFiltrados}
+              id="consignatario-crear"
+              value={consignatarioId}
+              onChange={handleConsignatarioChange}
+              options={consignatariosFiltrados}
               getKey={(d) => d.id}
               getLabel={(d) => d.nombre}
               getSearchText={(d) =>
@@ -810,12 +810,12 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
               }
               placeholder={
                 loadingDest
-                  ? 'Cargando destinatarios...'
-                  : 'Selecciona un destinatario'
+                  ? 'Cargando consignatarios...'
+                  : 'Selecciona un consignatario'
               }
               searchPlaceholder="Buscar por nombre, código, cantón..."
               emptyMessage="Sin coincidencias"
-              disabled={loadingDest || destinatariosFiltrados.length === 0}
+              disabled={loadingDest || consignatariosFiltrados.length === 0}
               clearable={false}
               renderOption={(d) => (
                 <div className="min-w-0">
@@ -842,9 +842,9 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
                 </span>
               )}
             />
-            {!loadingDest && destinatarios.length === 0 && (
+            {!loadingDest && consignatarios.length === 0 && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Aún no hay destinatarios registrados. Crea uno desde "Destinatarios".
+                Aún no hay consignatarios registrados. Crea uno desde "Consignatarios".
               </p>
             )}
             <p className="mt-1 text-[11px] text-muted-foreground">

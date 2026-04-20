@@ -4,7 +4,7 @@ import type { DespachoEnManifiesto, Manifiesto } from '@/types/manifiesto';
 const TIPO_LABELS: Record<string, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
-  AGENCIA_DISTRIBUIDOR: 'Agencia distribuidor',
+  AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
 };
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -100,11 +100,11 @@ export interface BuildManifiestoPdfInput {
   manifiesto: Manifiesto;
   despachos: DespachoEnManifiesto[];
   filtroAgenciaNombre?: string;
-  filtroDistribuidorNombre?: string;
+  filtroCourierEntregaNombre?: string;
 }
 
 export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
-  const { manifiesto, despachos, filtroAgenciaNombre, filtroDistribuidorNombre } = input;
+  const { manifiesto, despachos, filtroAgenciaNombre, filtroCourierEntregaNombre } = input;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const margin = PAGE.margin;
   const contentWidth = PAGE.width - margin * 2;
@@ -230,8 +230,8 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
 
     drawBlock(margin + (blockW + 3) * 2, 'Filtros aplicados', [
       {
-        label: 'Distribuidor',
-        value: safe(filtroDistribuidorNombre ?? manifiesto.filtroDistribuidorNombre ?? 'Todos'),
+        label: 'CourierEntrega',
+        value: safe(filtroCourierEntregaNombre ?? manifiesto.filtroCourierEntregaNombre ?? 'Todos'),
       },
       {
         label: 'Agencia',
@@ -258,8 +258,8 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
     }> = [
       { label: 'Despachos', value: String(despachos.length) },
       {
-        label: 'Total distribuidor',
-        value: fmtMoneda(manifiesto.totalDistribuidor),
+        label: 'Total courier de entrega',
+        value: fmtMoneda(manifiesto.totalCourierEntrega),
       },
       {
         label: 'Total agencia',
@@ -343,10 +343,10 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
   const cols: Array<{ key: string; label: string; width: number; align: Align }> = [
     { key: 'idx', label: '#', width: 8, align: 'center' },
     { key: 'guia', label: 'GUÍA', width: 36, align: 'left' },
-    { key: 'distribuidor', label: 'DISTRIBUIDOR', width: 56, align: 'left' },
+    { key: 'courierEntrega', label: 'COURIER DE ENTREGA', width: 56, align: 'left' },
     { key: 'tipo', label: 'TIPO ENTREGA', width: 32, align: 'left' },
     { key: 'agencia', label: 'AGENCIA', width: 50, align: 'left' },
-    { key: 'destinatario', label: 'DESTINATARIO', width: 75, align: 'left' },
+    { key: 'consignatario', label: 'CONSIGNATARIO', width: 75, align: 'left' },
   ];
   const tableWidth = cols.reduce((s, c) => s + c.width, 0);
   const colWidths = cols.map((c) => (c.width / tableWidth) * contentWidth);
@@ -379,14 +379,14 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
       const w = colWidths[i] - 4;
       let txt = '';
       switch (c.key) {
-        case 'distribuidor':
-          txt = safe(d.distribuidorNombre);
+        case 'courierEntrega':
+          txt = safe(d.courierEntregaNombre);
           break;
         case 'agencia':
           txt = safe(d.agenciaNombre);
           break;
-        case 'destinatario':
-          txt = safe(d.destinatarioNombre);
+        case 'consignatario':
+          txt = safe(d.consignatarioNombre);
           break;
         default:
           txt = '';
@@ -427,8 +427,8 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
         case 'guia':
           txt = safe(d.numeroGuia);
           break;
-        case 'distribuidor':
-          txt = safe(d.distribuidorNombre);
+        case 'courierEntrega':
+          txt = safe(d.courierEntregaNombre);
           break;
         case 'tipo':
           txt = TIPO_LABELS[d.tipoEntrega] ?? safe(d.tipoEntrega);
@@ -436,8 +436,8 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
         case 'agencia':
           txt = safe(d.agenciaNombre);
           break;
-        case 'destinatario':
-          txt = safe(d.destinatarioNombre);
+        case 'consignatario':
+          txt = safe(d.consignatarioNombre);
           break;
       }
       setText(doc, c.key === 'idx' ? COLORS.muted : COLORS.text);
@@ -502,7 +502,7 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.text('Aprobación (ECUBOX)', margin + 6, y + 18);
-    doc.text('Conformidad (Distribuidor / Agencia)', margin + w + 6 + 6, y + 18);
+    doc.text('Conformidad (CourierEntrega / Agencia)', margin + w + 6 + 6, y + 18);
     y += 26;
   };
 

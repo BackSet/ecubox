@@ -28,7 +28,7 @@ function labelTipoEntrega(tipo?: string): string {
   if (!tipo) return 'Modalidad no disponible';
   if (tipo === 'DOMICILIO') return 'Entrega a domicilio';
   if (tipo === 'AGENCIA') return 'Retiro en agencia';
-  if (tipo === 'AGENCIA_DISTRIBUIDOR') return 'Retiro en agencia aliada';
+  if (tipo === 'AGENCIA_COURIER_ENTREGA') return 'Retiro en agencia aliada';
   return tipo;
 }
 
@@ -627,10 +627,10 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
 
   const drawTableHeight = (rowCount: number) => 5 + rowCount * 4.6;
 
-  const drawDestinatarioCard = () => {
-    const dest = data.destinatario;
+  const drawConsignatarioCard = () => {
+    const dest = data.consignatario;
     const entries = [
-      ['Nombre', safe(dest?.nombre ?? data.destinatarioNombre)],
+      ['Nombre', safe(dest?.nombre ?? data.consignatarioNombre)],
       ['Provincia / Cantón', `${safe(dest?.provincia)} / ${safe(dest?.canton)}`],
     ] as const;
     let bodyHeight = 0;
@@ -640,7 +640,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     });
     bodyHeight += lineHeight(t.fonts.label) + 0.6;
 
-    drawCard('Destinatario', bodyHeight, (x, startY, maxW) => {
+    drawCard('Consignatario', bodyHeight, (x, startY, maxW) => {
       let cursorY = startY;
       entries.forEach(([label, value]) => {
         cursorY += drawField(label, value, x, cursorY, maxW);
@@ -666,15 +666,15 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
             ['Horario', safe(op.horarioAtencionAgencia)],
             ['Días máx. retiro agencia', String(op.diasMaxRetiroAgencia ?? 'No configurado')],
           ]
-        : op.tipoEntrega === 'AGENCIA_DISTRIBUIDOR'
+        : op.tipoEntrega === 'AGENCIA_COURIER_ENTREGA'
           ? [
-              ['Agencia distribuidor', safe(op.agenciaDistribuidorEtiqueta)],
+              ['Punto de entrega', safe(op.agenciaCourierEntregaEtiqueta)],
               [
                 'Dirección',
-                `${safe(op.agenciaDistribuidorDireccion)} - ${safe(op.agenciaDistribuidorProvincia)} / ${safe(op.agenciaDistribuidorCanton)}`,
+                `${safe(op.agenciaCourierEntregaDireccion)} - ${safe(op.agenciaCourierEntregaProvincia)} / ${safe(op.agenciaCourierEntregaCanton)}`,
               ],
-              ['Horario', safe(op.horarioAtencionAgenciaDistribuidor)],
-              ['Días máx. retiro agencia distribuidor', String(op.diasMaxRetiroAgenciaDistribuidor ?? 'No configurado')],
+              ['Horario', safe(op.horarioAtencionAgenciaCourierEntrega)],
+              ['Días máx. retiro punto de entrega', String(op.diasMaxRetiroAgenciaCourierEntrega ?? 'No configurado')],
             ]
           : [];
 
@@ -689,10 +689,10 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
       let cursorY = startY;
       drawBadge(labelTipoEntrega(op.tipoEntrega), x, cursorY + 2, 'info');
       cursorY += 6.2;
-      cursorY += drawField('Distribuidor', safe(op.distribuidorNombre), x, cursorY, maxW);
+      cursorY += drawField('CourierEntrega', safe(op.courierEntregaNombre), x, cursorY, maxW);
       cursorY += drawField(
         'Horario',
-        safe(op.horarioRepartoDistribuidor ?? op.horarioAtencionAgencia ?? op.horarioAtencionAgenciaDistribuidor),
+        safe(op.horarioRepartoCourierEntrega ?? op.horarioAtencionAgencia ?? op.horarioAtencionAgenciaCourierEntrega),
         x,
         cursorY,
         maxW
@@ -704,11 +704,11 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
         cursorY,
         maxW
       );
-      const trackingUrl = safe(op.paginaTrackingDistribuidor);
+      const trackingUrl = safe(op.paginaTrackingCourierEntrega);
       const trackingUrlValue = trackingUrl === '-' ? 'No disponible para este envío' : trackingUrl;
       cursorY += drawField(
-        'Tracking del distribuidor',
-        `${trackingHost(op.paginaTrackingDistribuidor)} · ${trackingUrlValue}`,
+        'Tracking del courier de entrega',
+        `${trackingHost(op.paginaTrackingCourierEntrega)} · ${trackingUrlValue}`,
         x,
         cursorY,
         maxW
@@ -738,7 +738,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
   drawProgressCard(totalBase, pasoBaseActual);
   drawTimelineCards(estados, currentIndex);
   drawPaquetesCards();
-  drawDestinatarioCard();
+  drawConsignatarioCard();
   drawOperadorCard();
 
   const totalPages = doc.getNumberOfPages();

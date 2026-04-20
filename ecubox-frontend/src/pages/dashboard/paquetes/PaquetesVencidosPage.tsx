@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { usePaquetesVencidosOperario } from '@/hooks/usePaquetesOperario';
 import type { Paquete } from '@/types/paquete';
-import { DestinatarioCell, GuiaMasterPiezaCell } from './PaqueteCells';
+import { ConsignatarioCell, GuiaMasterPiezaCell } from './PaqueteCells';
 
 export function PaquetesVencidosPage() {
   const navigate = useNavigate();
@@ -33,16 +33,16 @@ export function PaquetesVencidosPage() {
   const [chipActivo, setChipActivo] = useState<
     'todos' | 'leve' | 'alto' | 'critico'
   >('todos');
-  const [destinatarioFiltro, setDestinatarioFiltro] = useState<string | undefined>(
+  const [consignatarioFiltro, setConsignatarioFiltro] = useState<string | undefined>(
     undefined,
   );
   const [estadoFiltro, setEstadoFiltro] = useState<string | undefined>(undefined);
 
   // Comboboxes alimentados con valores presentes en los datos.
-  const destinatarios = useMemo(() => {
+  const consignatarios = useMemo(() => {
     const set = new Set<string>();
     for (const p of paquetes ?? []) {
-      const n = p.destinatarioNombre?.trim();
+      const n = p.consignatarioNombre?.trim();
       if (n) set.add(n);
     }
     return Array.from(set).sort((a, b) =>
@@ -70,8 +70,8 @@ export function PaquetesVencidosPage() {
     const q = search.trim().toLowerCase();
     return raw.filter((p) => {
       if (
-        destinatarioFiltro &&
-        (p.destinatarioNombre ?? '') !== destinatarioFiltro
+        consignatarioFiltro &&
+        (p.consignatarioNombre ?? '') !== consignatarioFiltro
       )
         return false;
       if (estadoFiltro) {
@@ -83,12 +83,12 @@ export function PaquetesVencidosPage() {
         p.numeroGuia?.toLowerCase().includes(q) ||
         (p.guiaMasterTrackingBase?.toLowerCase().includes(q) ?? false) ||
         (p.ref?.toLowerCase().includes(q) ?? false) ||
-        (p.destinatarioNombre?.toLowerCase().includes(q) ?? false) ||
-        (p.destinatarioTelefono?.toLowerCase().includes(q) ?? false) ||
+        (p.consignatarioNombre?.toLowerCase().includes(q) ?? false) ||
+        (p.consignatarioTelefono?.toLowerCase().includes(q) ?? false) ||
         (p.estadoRastreoNombre?.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [paquetes, search, destinatarioFiltro, estadoFiltro]);
+  }, [paquetes, search, consignatarioFiltro, estadoFiltro]);
 
   const chipCounts = useMemo(() => {
     let leve = 0;
@@ -115,10 +115,10 @@ export function PaquetesVencidosPage() {
   }, [baseList, chipActivo]);
 
   const tieneFiltros =
-    !!destinatarioFiltro || !!estadoFiltro || chipActivo !== 'todos';
+    !!consignatarioFiltro || !!estadoFiltro || chipActivo !== 'todos';
 
   const limpiarFiltros = useCallback(() => {
-    setDestinatarioFiltro(undefined);
+    setConsignatarioFiltro(undefined);
     setEstadoFiltro(undefined);
     setChipActivo('todos');
   }, []);
@@ -143,7 +143,7 @@ export function PaquetesVencidosPage() {
     <div className="page-stack">
       <ListToolbar
         title="Paquetes vencidos de retiro"
-        searchPlaceholder="Buscar por guía, ref, destinatario, teléfono o estado..."
+        searchPlaceholder="Buscar por guía, ref, consignatario, teléfono o estado..."
         onSearchChange={setSearch}
       />
 
@@ -232,23 +232,23 @@ export function PaquetesVencidosPage() {
             </>
           }
           filtros={
-            (destinatarios.length > 0 || estados.length > 0) && (
+            (consignatarios.length > 0 || estados.length > 0) && (
               <>
-                {destinatarios.length > 0 && (
-                  <FiltroCampo label="Destinatario" width="w-[16rem]">
+                {consignatarios.length > 0 && (
+                  <FiltroCampo label="Consignatario" width="w-[16rem]">
                     <SearchableCombobox<string>
-                      value={destinatarioFiltro}
+                      value={consignatarioFiltro}
                       onChange={(v) =>
-                        setDestinatarioFiltro(
+                        setConsignatarioFiltro(
                           v === undefined ? undefined : String(v),
                         )
                       }
-                      options={destinatarios}
+                      options={consignatarios}
                       getKey={(n) => n}
                       getLabel={(n) => n}
                       placeholder="Todos"
-                      searchPlaceholder="Buscar destinatario..."
-                      emptyMessage="Sin destinatarios"
+                      searchPlaceholder="Buscar consignatario..."
+                      emptyMessage="Sin consignatarios"
                       className="h-9 w-full"
                     />
                   </FiltroCampo>
@@ -287,7 +287,7 @@ export function PaquetesVencidosPage() {
                 <TableHead>Atraso</TableHead>
                 <TableHead className="hidden min-w-[12rem] md:table-cell">Plazo</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="min-w-[16rem]">Destinatario</TableHead>
+                <TableHead className="min-w-[16rem]">Consignatario</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -336,7 +336,7 @@ export function PaquetesVencidosPage() {
                   <TableHead>Atraso</TableHead>
                   <TableHead className="hidden min-w-[12rem] md:table-cell">Plazo</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="min-w-[16rem]">Destinatario</TableHead>
+                  <TableHead className="min-w-[16rem]">Consignatario</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
@@ -363,7 +363,7 @@ export function PaquetesVencidosPage() {
                       </StatusBadge>
                     </TableCell>
                     <TableCell className="max-w-[20rem] align-top">
-                      <DestinatarioCell paquete={p} />
+                      <ConsignatarioCell paquete={p} />
                     </TableCell>
                     <TableCell className="text-right align-top">
                       <RowActionsMenu

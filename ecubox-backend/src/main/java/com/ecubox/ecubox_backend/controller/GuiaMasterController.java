@@ -53,7 +53,7 @@ public class GuiaMasterController {
         GuiaMaster gm = guiaMasterService.create(
                 request.getTrackingBase(),
                 request.getTotalPiezasEsperadas(),
-                request.getDestinatarioFinalId());
+                request.getConsignatarioId());
         return ResponseEntity.status(HttpStatus.CREATED).body(construirDTO(gm, false));
     }
 

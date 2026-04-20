@@ -5,11 +5,11 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
-  useDistribuidores,
+  useCouriersEntrega,
   useAgenciasOperario,
-  useAgenciasDistribuidor,
-  useCreateAgenciaDistribuidorOperario,
-  useDestinatariosOperario,
+  useAgenciasCourierEntrega,
+  useCreateAgenciaCourierEntregaOperario,
+  useConsignatariosOperario,
   useSacasOperario,
   useCreateDespacho,
   useUpdateDespacho,
@@ -21,7 +21,7 @@ import {
 } from '@/hooks/useOperarioDespachos';
 import { toast } from 'sonner';
 import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
-import type { DestinatarioFinal } from '@/types/destinatario';
+import type { Consignatario } from '@/types/consignatario';
 import type { Despacho, TipoEntrega, TamanioSaca } from '@/types/despacho';
 import { SelectionCard } from '@/components/ui/selection-card';
 import {
@@ -72,15 +72,15 @@ const sacaNuevaSchema = z.object({
 });
 
 const UX_MESSAGES = {
-  refineDestino: 'Completa el destino según el tipo de entrega: destinatario (domicilio) o agencia.',
-  domicilioRegla: 'En despachos a domicilio, todos los paquetes deben ser del mismo destinatario.',
+  refineDestino: 'Completa el destino según el tipo de entrega: consignatario (domicilio) o agencia.',
+  domicilioRegla: 'En despachos a domicilio, todos los paquetes deben ser del mismo consignatario.',
   agenciaRegla: 'En despachos a agencia, todos los paquetes deben coincidir en provincia y cantón.',
-  agenciaDistribuidorRegla: 'En despachos a agencia de distribuidor, todos los paquetes deben tener el mismo destinatario.',
-  seleccionarDestinatario: 'Selecciona un destinatario para continuar.',
+  agenciaCourierEntregaRegla: 'En despachos a punto de entrega, todos los paquetes deben tener el mismo consignatario.',
+  seleccionarConsignatario: 'Selecciona un consignatario para continuar.',
   seleccionarAgencia: 'Selecciona una agencia para continuar.',
-  seleccionarAgenciaDistribuidor: 'Selecciona una agencia del distribuidor para continuar.',
+  seleccionarAgenciaCourierEntrega: 'Selecciona un punto de entrega para continuar.',
   validarPaquetes: 'No pudimos validar algunos paquetes seleccionados. Revisa la lista e inténtalo de nuevo.',
-  detectarDestinatario: 'No se pudo identificar el destinatario desde los paquetes agregados.',
+  detectarConsignatario: 'No se pudo identificar el consignatario desde los paquetes agregados.',
   minSacas: 'Debes tener al menos una saca para continuar.',
 } as const;
 
@@ -88,11 +88,11 @@ const formSchema = z
   .object({
     fechaHora: z.string().min(1, 'Fecha y hora obligatoria'),
     numeroGuia: z.string().min(1, 'El número de guía es obligatorio'),
-    distribuidorId: z.number().refine((n) => n > 0, 'Selecciona un distribuidor'),
-    tipoEntrega: z.enum(['DOMICILIO', 'AGENCIA', 'AGENCIA_DISTRIBUIDOR']),
-    destinatarioFinalId: z.number().optional(),
+    courierEntregaId: z.number().refine((n) => n > 0, 'Selecciona un courier de entrega'),
+    tipoEntrega: z.enum(['DOMICILIO', 'AGENCIA', 'AGENCIA_COURIER_ENTREGA']),
+    consignatarioId: z.number().optional(),
     agenciaId: z.number().optional(),
-    agenciaDistribuidorId: z.number().optional(),
+    agenciaCourierEntregaId: z.number().optional(),
     observaciones: z.string().optional(),
     codigoPrecinto: z.string().optional(),
     sacaIds: z.array(z.number()).optional(),
@@ -100,12 +100,12 @@ const formSchema = z
   })
   .refine(
     (data) => {
-      if (data.tipoEntrega === 'DOMICILIO') return data.destinatarioFinalId != null && data.destinatarioFinalId > 0;
+      if (data.tipoEntrega === 'DOMICILIO') return data.consignatarioId != null && data.consignatarioId > 0;
       if (data.tipoEntrega === 'AGENCIA') return data.agenciaId != null && data.agenciaId > 0;
-      if (data.tipoEntrega === 'AGENCIA_DISTRIBUIDOR') return data.agenciaDistribuidorId != null && data.agenciaDistribuidorId > 0;
+      if (data.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') return data.agenciaCourierEntregaId != null && data.agenciaCourierEntregaId > 0;
       return true;
     },
-    { message: UX_MESSAGES.refineDestino, path: ['destinatarioFinalId'] }
+    { message: UX_MESSAGES.refineDestino, path: ['consignatarioId'] }
   );
 
 export type FormValues = z.infer<typeof formSchema>;
@@ -149,7 +149,7 @@ const TAMANIO_LIMITS_LBS = {
   grandeLbs: kgToLbs(50),
 };
 
-function agenciaDistribuidorEtiqueta(a: { etiqueta?: string; provincia?: string; canton?: string; codigo?: string }): string {
+function agenciaCourierEntregaEtiqueta(a: { etiqueta?: string; provincia?: string; canton?: string; codigo?: string }): string {
   if (a.etiqueta?.trim()) return a.etiqueta.trim();
   const parts = [a.provincia, a.canton].filter(Boolean);
   return (parts.length ? parts.join(', ') + ' ' : '') + (a.codigo ? `(${a.codigo})` : '—');
@@ -209,9 +209,9 @@ export function DespachoStepperForm({
 }: DespachoStepperFormProps) {
   const navigate = useNavigate();
   const username = useAuthStore((s) => s.username);
-  const { data: distribuidores = [] } = useDistribuidores();
+  const { data: couriersEntrega = [] } = useCouriersEntrega();
   const { data: agencias = [] } = useAgenciasOperario();
-  const { data: destinatarios = [] } = useDestinatariosOperario();
+  const { data: consignatarios = [] } = useConsignatariosOperario();
   const { data: sacasSinDespacho = [] } = useSacasOperario(true);
   const { data: sacasOperario = [] } = useSacasOperario(false);
   const { data: paquetesSinSaca = [] } = usePaquetesSinSaca();
@@ -233,7 +233,7 @@ export function DespachoStepperForm({
     sacaNuevaIndex?: number;
     label: string;
   }>({ open: false, modo: 'agregarASaca', tipo: 'nueva', label: '' });
-  const [crearAgenciaDistribuidorModalOpen, setCrearAgenciaDistribuidorModalOpen] = useState(false);
+  const [crearAgenciaCourierEntregaModalOpen, setCrearAgenciaCourierEntregaModalOpen] = useState(false);
   const [tamanioEditandoPorSaca, setTamanioEditandoPorSaca] = useState<Record<number, TamanioSaca | undefined>>({});
   const [confirmQuitarSaca, setConfirmQuitarSaca] = useState<{ open: boolean; sacaId: number | null; label: string }>({
     open: false,
@@ -261,7 +261,7 @@ export function DespachoStepperForm({
     tarifa: '0',
   });
   const sectionSacasRef = useRef<HTMLDivElement>(null);
-  const prevDistribuidorIdRef = useRef<number | null>(null);
+  const prevCourierEntregaIdRef = useRef<number | null>(null);
 
   const isEdit = mode === 'edit' && despacho != null;
 
@@ -270,11 +270,11 @@ export function DespachoStepperForm({
     defaultValues: {
       fechaHora: getDefaultFechaHora(),
       numeroGuia: '',
-      distribuidorId: 0,
+      courierEntregaId: 0,
       tipoEntrega: 'DOMICILIO' as TipoEntrega,
-      destinatarioFinalId: undefined,
+      consignatarioId: undefined,
       agenciaId: undefined,
-      agenciaDistribuidorId: undefined,
+      agenciaCourierEntregaId: undefined,
       observaciones: '',
       codigoPrecinto: '',
       sacaIds: [],
@@ -287,13 +287,13 @@ export function DespachoStepperForm({
     name: 'sacasNuevas',
   });
 
-  const distribuidorIdForm = form.watch('distribuidorId');
+  const courierEntregaIdForm = form.watch('courierEntregaId');
   const tipoEntregaWatch = form.watch('tipoEntrega');
-  const { data: agenciasDistribuidor = [] } = useAgenciasDistribuidor(
-    tipoEntregaWatch === 'AGENCIA_DISTRIBUIDOR' && distribuidorIdForm != null && distribuidorIdForm > 0 ? distribuidorIdForm : null
+  const { data: puntosEntrega = [] } = useAgenciasCourierEntrega(
+    tipoEntregaWatch === 'AGENCIA_COURIER_ENTREGA' && courierEntregaIdForm != null && courierEntregaIdForm > 0 ? courierEntregaIdForm : null
   );
-  const createAgenciaDistribuidorOperarioMutation = useCreateAgenciaDistribuidorOperario(
-    tipoEntregaWatch === 'AGENCIA_DISTRIBUIDOR' && distribuidorIdForm != null && distribuidorIdForm > 0 ? distribuidorIdForm : null
+  const createAgenciaCourierEntregaOperarioMutation = useCreateAgenciaCourierEntregaOperario(
+    tipoEntregaWatch === 'AGENCIA_COURIER_ENTREGA' && courierEntregaIdForm != null && courierEntregaIdForm > 0 ? courierEntregaIdForm : null
   );
 
   useEffect(() => {
@@ -301,11 +301,11 @@ export function DespachoStepperForm({
     form.reset({
       fechaHora: formatFechaHoraForInput(despacho.fechaHora),
       numeroGuia: despacho.numeroGuia ?? '',
-      distribuidorId: despacho.distribuidorId ?? 0,
+      courierEntregaId: despacho.courierEntregaId ?? 0,
       tipoEntrega: (despacho.tipoEntrega ?? 'DOMICILIO') as TipoEntrega,
-      destinatarioFinalId: despacho.destinatarioFinalId ?? undefined,
+      consignatarioId: despacho.consignatarioId ?? undefined,
       agenciaId: despacho.agenciaId ?? undefined,
-      agenciaDistribuidorId: despacho.agenciaDistribuidorId ?? undefined,
+      agenciaCourierEntregaId: despacho.agenciaCourierEntregaId ?? undefined,
       observaciones: despacho.observaciones ?? '',
       codigoPrecinto: despacho.codigoPrecinto ?? '',
       sacaIds: despacho.sacaIds ?? [],
@@ -315,46 +315,46 @@ export function DespachoStepperForm({
 
   const tipoEntrega = form.watch('tipoEntrega');
   const agenciaIdForm = form.watch('agenciaId');
-  const agenciaDistribuidorIdForm = form.watch('agenciaDistribuidorId');
+  const agenciaCourierEntregaIdForm = form.watch('agenciaCourierEntregaId');
   const selectedAgencia = agencias.find((a) => a.id === agenciaIdForm);
-  const selectedAgenciaDistribuidor = agenciasDistribuidor.find((a) => a.id === agenciaDistribuidorIdForm);
+  const selectedAgenciaCourierEntrega = puntosEntrega.find((a) => a.id === agenciaCourierEntregaIdForm);
   useEffect(() => {
     if (tipoEntrega === 'AGENCIA') {
-      form.setValue('destinatarioFinalId', undefined);
-      form.setValue('agenciaDistribuidorId', undefined);
-    } else if (tipoEntrega === 'AGENCIA_DISTRIBUIDOR') {
-      form.setValue('destinatarioFinalId', undefined);
+      form.setValue('consignatarioId', undefined);
+      form.setValue('agenciaCourierEntregaId', undefined);
+    } else if (tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
+      form.setValue('consignatarioId', undefined);
       form.setValue('agenciaId', undefined);
     } else {
       form.setValue('agenciaId', undefined);
-      form.setValue('agenciaDistribuidorId', undefined);
+      form.setValue('agenciaCourierEntregaId', undefined);
     }
   }, [tipoEntrega, form]);
 
   useEffect(() => {
-    const currentDistribuidorId = distribuidorIdForm != null ? Number(distribuidorIdForm) : 0;
-    const prevDistribuidorId = prevDistribuidorIdRef.current;
+    const currentCourierEntregaId = courierEntregaIdForm != null ? Number(courierEntregaIdForm) : 0;
+    const prevCourierEntregaId = prevCourierEntregaIdRef.current;
 
     if (
-      tipoEntrega === 'AGENCIA_DISTRIBUIDOR' &&
-      prevDistribuidorId != null &&
-      prevDistribuidorId !== currentDistribuidorId
+      tipoEntrega === 'AGENCIA_COURIER_ENTREGA' &&
+      prevCourierEntregaId != null &&
+      prevCourierEntregaId !== currentCourierEntregaId
     ) {
-      form.setValue('agenciaDistribuidorId', undefined);
+      form.setValue('agenciaCourierEntregaId', undefined);
     }
 
-    prevDistribuidorIdRef.current = currentDistribuidorId;
-  }, [tipoEntrega, distribuidorIdForm, form]);
+    prevCourierEntregaIdRef.current = currentCourierEntregaId;
+  }, [tipoEntrega, courierEntregaIdForm, form]);
 
   useEffect(() => {
-    if (tipoEntrega !== 'AGENCIA_DISTRIBUIDOR') return;
-    if (agenciaDistribuidorIdForm == null || agenciaDistribuidorIdForm <= 0) return;
-    if (agenciasDistribuidor.length === 0) return;
-    const stillValid = agenciasDistribuidor.some((ag) => ag.id === agenciaDistribuidorIdForm);
+    if (tipoEntrega !== 'AGENCIA_COURIER_ENTREGA') return;
+    if (agenciaCourierEntregaIdForm == null || agenciaCourierEntregaIdForm <= 0) return;
+    if (puntosEntrega.length === 0) return;
+    const stillValid = puntosEntrega.some((ag) => ag.id === agenciaCourierEntregaIdForm);
     if (!stillValid) {
-      form.setValue('agenciaDistribuidorId', undefined);
+      form.setValue('agenciaCourierEntregaId', undefined);
     }
-  }, [tipoEntrega, agenciasDistribuidor, agenciaDistribuidorIdForm, form]);
+  }, [tipoEntrega, puntosEntrega, agenciaCourierEntregaIdForm, form]);
 
   const loading =
     createDespachoMutation.isPending ||
@@ -377,52 +377,52 @@ export function DespachoStepperForm({
     const firstIdFromNuevas = idsEnSacasNuevas[0];
     if (firstIdFromNuevas != null) {
       const p = paquetesSinSaca.find((x) => x.id === firstIdFromNuevas);
-      if (p && (p.destinatarioProvincia != null || p.destinatarioCanton != null))
-        return { provincia: norm(p.destinatarioProvincia), canton: norm(p.destinatarioCanton) };
+      if (p && (p.consignatarioProvincia != null || p.consignatarioCanton != null))
+        return { provincia: norm(p.consignatarioProvincia), canton: norm(p.consignatarioCanton) };
     }
     const firstSaca = sacasEnDespacho[0];
     const firstPaquete = firstSaca?.paquetes?.[0];
-    if (firstPaquete && ('destinatarioProvincia' in firstPaquete || 'destinatarioCanton' in firstPaquete)) {
-      const prov = norm((firstPaquete as { destinatarioProvincia?: string }).destinatarioProvincia);
-      const cant = norm((firstPaquete as { destinatarioCanton?: string }).destinatarioCanton);
+    if (firstPaquete && ('consignatarioProvincia' in firstPaquete || 'consignatarioCanton' in firstPaquete)) {
+      const prov = norm((firstPaquete as { consignatarioProvincia?: string }).consignatarioProvincia);
+      const cant = norm((firstPaquete as { consignatarioCanton?: string }).consignatarioCanton);
       if (prov || cant) return { provincia: prov, canton: cant };
     }
     return null;
   })();
 
   const autoDetectedDestId = ((): number | null => {
-    if (tipoEntrega !== 'DOMICILIO' && tipoEntrega !== 'AGENCIA_DISTRIBUIDOR') return null;
+    if (tipoEntrega !== 'DOMICILIO' && tipoEntrega !== 'AGENCIA_COURIER_ENTREGA') return null;
     const firstIdFromNuevas = idsEnSacasNuevas[0];
     if (firstIdFromNuevas != null) {
       const p = paquetesSinSaca.find((x) => x.id === firstIdFromNuevas);
-      if (p) return p.destinatarioFinalId;
+      if (p) return p.consignatarioId;
     }
     const firstSaca = sacasEnDespacho[0];
     const fp = firstSaca?.paquetes?.[0];
-    if (fp && 'destinatarioFinalId' in fp && fp.destinatarioFinalId != null) return fp.destinatarioFinalId;
+    if (fp && 'consignatarioId' in fp && fp.consignatarioId != null) return fp.consignatarioId;
     return null;
   })();
 
   const autoDetectedDest = autoDetectedDestId != null
-    ? destinatarios.find((d) => d.id === autoDetectedDestId)
+    ? consignatarios.find((d) => d.id === autoDetectedDestId)
       ?? (() => {
-        const p = paquetesSinSaca.find((x) => x.destinatarioFinalId === autoDetectedDestId);
-        return p ? { id: autoDetectedDestId, nombre: p.destinatarioNombre ?? '—', provincia: p.destinatarioProvincia, canton: p.destinatarioCanton } as DestinatarioFinal : undefined;
+        const p = paquetesSinSaca.find((x) => x.consignatarioId === autoDetectedDestId);
+        return p ? { id: autoDetectedDestId, nombre: p.consignatarioNombre ?? '—', provincia: p.consignatarioProvincia, canton: p.consignatarioCanton } as Consignatario : undefined;
       })()
     : undefined;
 
   const paquetesDisponiblesParaDespacho: typeof paquetesConPeso = (() => {
-    if (tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_DISTRIBUIDOR') {
+    if (tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
       if (autoDetectedDestId == null) return paquetesConPeso;
-      return paquetesConPeso.filter((p) => p.destinatarioFinalId === autoDetectedDestId);
+      return paquetesConPeso.filter((p) => p.consignatarioId === autoDetectedDestId);
     }
     if (tipoEntrega === 'AGENCIA') {
       if (provinciaCantonRef == null) return paquetesConPeso;
       const norm = (s: string | undefined | null) => (s ?? '').trim().toLowerCase();
       return paquetesConPeso.filter(
         (p) =>
-          norm(p.destinatarioProvincia) === provinciaCantonRef.provincia &&
-          norm(p.destinatarioCanton) === provinciaCantonRef.canton
+          norm(p.consignatarioProvincia) === provinciaCantonRef.provincia &&
+          norm(p.consignatarioCanton) === provinciaCantonRef.canton
       );
     }
     return paquetesConPeso;
@@ -430,10 +430,10 @@ export function DespachoStepperForm({
 
   const disponiblesParaAgregar = sacasSinDespacho.filter((s) => {
     if (sacaIds.includes(s.id)) return false;
-    if (tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_DISTRIBUIDOR') {
+    if (tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
       if (autoDetectedDestId == null) return true;
       const paqs = s.paquetes ?? [];
-      return paqs.length > 0 && paqs.every((p) => (p as { destinatarioFinalId?: number }).destinatarioFinalId === autoDetectedDestId);
+      return paqs.length > 0 && paqs.every((p) => (p as { consignatarioId?: number }).consignatarioId === autoDetectedDestId);
     }
     if (tipoEntrega === 'AGENCIA') {
       if (provinciaCantonRef == null) return true;
@@ -443,8 +443,8 @@ export function DespachoStepperForm({
         paqs.length > 0 &&
         paqs.every(
           (p) =>
-            norm((p as { destinatarioProvincia?: string }).destinatarioProvincia) === provinciaCantonRef.provincia &&
-            norm((p as { destinatarioCanton?: string }).destinatarioCanton) === provinciaCantonRef.canton
+            norm((p as { consignatarioProvincia?: string }).consignatarioProvincia) === provinciaCantonRef.provincia &&
+            norm((p as { consignatarioCanton?: string }).consignatarioCanton) === provinciaCantonRef.canton
         )
       );
     }
@@ -469,7 +469,7 @@ export function DespachoStepperForm({
 
   useEffect(() => {
     if (autoDetectedDestId != null && autoDetectedDestId > 0) {
-      form.setValue('destinatarioFinalId', autoDetectedDestId);
+      form.setValue('consignatarioId', autoDetectedDestId);
     }
   }, [autoDetectedDestId, form]);
 
@@ -500,24 +500,24 @@ export function DespachoStepperForm({
     form.setValue('sacaIds', [...sacaIds, sacaId]);
   }
 
-  function openCrearAgenciaDistribuidorModal() {
+  function openCrearAgenciaCourierEntregaModal() {
     const provincia = autoDetectedDest?.provincia?.trim() ?? '';
     const canton = autoDetectedDest?.canton?.trim() ?? '';
     let prefillProvincia = provincia;
     let prefillCanton = canton;
     if (!prefillProvincia && !prefillCanton) {
       const firstSaca = sacasEnDespacho[0];
-      const firstPaqueteFromSaca = firstSaca?.paquetes?.[0] as { destinatarioProvincia?: string; destinatarioCanton?: string } | undefined;
+      const firstPaqueteFromSaca = firstSaca?.paquetes?.[0] as { consignatarioProvincia?: string; consignatarioCanton?: string } | undefined;
       if (firstPaqueteFromSaca) {
-        prefillProvincia = firstPaqueteFromSaca.destinatarioProvincia?.trim() ?? '';
-        prefillCanton = firstPaqueteFromSaca.destinatarioCanton?.trim() ?? '';
+        prefillProvincia = firstPaqueteFromSaca.consignatarioProvincia?.trim() ?? '';
+        prefillCanton = firstPaqueteFromSaca.consignatarioCanton?.trim() ?? '';
       }
       if (!prefillProvincia && !prefillCanton) {
         const firstIdNueva = sacasNuevas.find((s) => (s.paqueteIds?.length ?? 0) > 0)?.paqueteIds?.[0];
         const p = firstIdNueva != null ? paquetesSinSaca.find((x) => x.id === firstIdNueva) : undefined;
         if (p) {
-          prefillProvincia = p.destinatarioProvincia?.trim() ?? '';
-          prefillCanton = p.destinatarioCanton?.trim() ?? '';
+          prefillProvincia = p.consignatarioProvincia?.trim() ?? '';
+          prefillCanton = p.consignatarioCanton?.trim() ?? '';
         }
       }
     }
@@ -529,17 +529,17 @@ export function DespachoStepperForm({
       diasMaxRetiro: '',
       tarifa: '0',
     });
-    setCrearAgenciaDistribuidorModalOpen(true);
+    setCrearAgenciaCourierEntregaModalOpen(true);
   }
 
-  async function submitCrearAgenciaDistribuidor() {
-    const distribuidorId = form.getValues('distribuidorId');
-    if (distribuidorId == null || distribuidorId <= 0) {
-      toast.error('Seleccione un distribuidor primero.');
+  async function submitCrearAgenciaCourierEntrega() {
+    const courierEntregaId = form.getValues('courierEntregaId');
+    if (courierEntregaId == null || courierEntregaId <= 0) {
+      toast.error('Seleccione un courier de entrega primero.');
       return;
     }
     try {
-      const created = await createAgenciaDistribuidorOperarioMutation.mutateAsync({
+      const created = await createAgenciaCourierEntregaOperarioMutation.mutateAsync({
         provincia: modalCrearAgencia.provincia?.trim() || undefined,
         canton: modalCrearAgencia.canton?.trim() || undefined,
         direccion: modalCrearAgencia.direccion?.trim() || undefined,
@@ -550,11 +550,11 @@ export function DespachoStepperForm({
             ? 0
             : Number(modalCrearAgencia.tarifa),
       });
-      form.setValue('agenciaDistribuidorId', created.id);
-      setCrearAgenciaDistribuidorModalOpen(false);
-      toast.success('Agencia de distribuidor creada. Selecciona la agencia en la lista si no se eligió automáticamente.');
+      form.setValue('agenciaCourierEntregaId', created.id);
+      setCrearAgenciaCourierEntregaModalOpen(false);
+      toast.success('Punto de entrega creado. Selecciona el punto en la lista si no se eligió automáticamente.');
     } catch {
-      toast.error('Error al crear la agencia de distribuidor.');
+      toast.error('Error al crear el punto de entrega.');
     }
   }
 
@@ -568,9 +568,9 @@ export function DespachoStepperForm({
         autoDetectedDestId ??
         (() => {
           const firstId = idsEnSacasNuevas[0];
-          return firstId != null ? paquetesSinSaca.find((x) => x.id === firstId)?.destinatarioFinalId ?? null : null;
+          return firstId != null ? paquetesSinSaca.find((x) => x.id === firstId)?.consignatarioId ?? null : null;
         })();
-      if (refDestId != null && paquete.destinatarioFinalId !== refDestId) {
+      if (refDestId != null && paquete.consignatarioId !== refDestId) {
         toast.error(UX_MESSAGES.domicilioRegla);
         return;
       }
@@ -580,7 +580,7 @@ export function DespachoStepperForm({
       const ref = provinciaCantonRef;
       if (
         ref != null &&
-        (norm(paquete.destinatarioProvincia) !== ref.provincia || norm(paquete.destinatarioCanton) !== ref.canton)
+        (norm(paquete.consignatarioProvincia) !== ref.provincia || norm(paquete.consignatarioCanton) !== ref.canton)
       ) {
         toast.error(UX_MESSAGES.agenciaRegla);
         return;
@@ -621,12 +621,12 @@ export function DespachoStepperForm({
       return;
     }
     if (tipoEntrega === 'DOMICILIO') {
-      const refDestId = autoDetectedDestId ?? paquetesSeleccionados[0]?.destinatarioFinalId ?? null;
+      const refDestId = autoDetectedDestId ?? paquetesSeleccionados[0]?.consignatarioId ?? null;
       if (refDestId == null) {
-        toast.error(UX_MESSAGES.detectarDestinatario);
+        toast.error(UX_MESSAGES.detectarConsignatario);
         return;
       }
-      const hayIncompatibles = paquetesSeleccionados.some((p) => p.destinatarioFinalId !== refDestId);
+      const hayIncompatibles = paquetesSeleccionados.some((p) => p.consignatarioId !== refDestId);
       if (hayIncompatibles) {
         toast.error(UX_MESSAGES.domicilioRegla);
         return;
@@ -635,11 +635,11 @@ export function DespachoStepperForm({
     if (tipoEntrega === 'AGENCIA') {
       const norm = (s: string | undefined | null) => (s ?? '').trim().toLowerCase();
       const ref = provinciaCantonRef ?? {
-        provincia: norm(paquetesSeleccionados[0]?.destinatarioProvincia),
-        canton: norm(paquetesSeleccionados[0]?.destinatarioCanton),
+        provincia: norm(paquetesSeleccionados[0]?.consignatarioProvincia),
+        canton: norm(paquetesSeleccionados[0]?.consignatarioCanton),
       };
       const hayIncompatibles = paquetesSeleccionados.some(
-        (p) => norm(p.destinatarioProvincia) !== ref.provincia || norm(p.destinatarioCanton) !== ref.canton
+        (p) => norm(p.consignatarioProvincia) !== ref.provincia || norm(p.consignatarioCanton) !== ref.canton
       );
       if (hayIncompatibles) {
         toast.error(UX_MESSAGES.agenciaRegla);
@@ -696,12 +696,12 @@ export function DespachoStepperForm({
   }
 
   async function onSubmit(values: FormValues) {
-    const destinatarioFinalId =
+    const consignatarioId =
       values.tipoEntrega === 'DOMICILIO' &&
-      values.destinatarioFinalId != null &&
-      !Number.isNaN(values.destinatarioFinalId) &&
-      values.destinatarioFinalId > 0
-        ? values.destinatarioFinalId
+      values.consignatarioId != null &&
+      !Number.isNaN(values.consignatarioId) &&
+      values.consignatarioId > 0
+        ? values.consignatarioId
         : undefined;
     const agenciaId =
       values.tipoEntrega === 'AGENCIA' &&
@@ -710,23 +710,23 @@ export function DespachoStepperForm({
       values.agenciaId > 0
         ? values.agenciaId
         : undefined;
-    const agenciaDistribuidorId =
-      values.tipoEntrega === 'AGENCIA_DISTRIBUIDOR' &&
-      values.agenciaDistribuidorId != null &&
-      !Number.isNaN(values.agenciaDistribuidorId) &&
-      values.agenciaDistribuidorId > 0
-        ? values.agenciaDistribuidorId
+    const agenciaCourierEntregaId =
+      values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' &&
+      values.agenciaCourierEntregaId != null &&
+      !Number.isNaN(values.agenciaCourierEntregaId) &&
+      values.agenciaCourierEntregaId > 0
+        ? values.agenciaCourierEntregaId
         : undefined;
-    if (values.tipoEntrega === 'DOMICILIO' && !destinatarioFinalId) {
-      toast.error(UX_MESSAGES.seleccionarDestinatario);
+    if (values.tipoEntrega === 'DOMICILIO' && !consignatarioId) {
+      toast.error(UX_MESSAGES.seleccionarConsignatario);
       return;
     }
     if (values.tipoEntrega === 'AGENCIA' && !agenciaId) {
       toast.error(UX_MESSAGES.seleccionarAgencia);
       return;
     }
-    if (values.tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && !agenciaDistribuidorId) {
-      toast.error(UX_MESSAGES.seleccionarAgenciaDistribuidor);
+    if (values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && !agenciaCourierEntregaId) {
+      toast.error(UX_MESSAGES.seleccionarAgenciaCourierEntrega);
       return;
     }
 
@@ -750,26 +750,26 @@ export function DespachoStepperForm({
       .flatMap((s) => s.paqueteIds ?? [])
       .map((id) => paquetesSinSaca.find((x) => x.id === id))
       .filter(Boolean) as Array<{
-      destinatarioFinalId?: number;
-      destinatarioProvincia?: string;
-      destinatarioCanton?: string;
+      consignatarioId?: number;
+      consignatarioProvincia?: string;
+      consignatarioCanton?: string;
     }>;
     const paquetesExistentes = sacasEnDespacho.flatMap((s) => s.paquetes ?? []);
     const paquetesDespacho = [...paquetesExistentes, ...paquetesNuevos];
 
-    if (values.tipoEntrega === 'DOMICILIO' && destinatarioFinalId != null) {
-      const todosMismoDestinatario = paquetesDespacho.every((p) => p.destinatarioFinalId === destinatarioFinalId);
-      if (!todosMismoDestinatario) {
+    if (values.tipoEntrega === 'DOMICILIO' && consignatarioId != null) {
+      const todosMismoConsignatario = paquetesDespacho.every((p) => p.consignatarioId === consignatarioId);
+      if (!todosMismoConsignatario) {
         toast.error(UX_MESSAGES.domicilioRegla);
         return;
       }
     }
 
-    if (values.tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && paquetesDespacho.length > 0) {
-      const refDest = paquetesDespacho[0].destinatarioFinalId;
-      const todosMismoDestinatario = paquetesDespacho.every((p) => p.destinatarioFinalId === refDest);
-      if (!todosMismoDestinatario) {
-        toast.error(UX_MESSAGES.agenciaDistribuidorRegla);
+    if (values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && paquetesDespacho.length > 0) {
+      const refDest = paquetesDespacho[0].consignatarioId;
+      const todosMismoConsignatario = paquetesDespacho.every((p) => p.consignatarioId === refDest);
+      if (!todosMismoConsignatario) {
+        toast.error(UX_MESSAGES.agenciaCourierEntregaRegla);
         return;
       }
     }
@@ -779,8 +779,8 @@ export function DespachoStepperForm({
       let refProv: string | null = null;
       let refCanton: string | null = null;
       for (const p of paquetesDespacho) {
-        const prov = norm(p.destinatarioProvincia);
-        const cant = norm(p.destinatarioCanton);
+        const prov = norm(p.consignatarioProvincia);
+        const cant = norm(p.consignatarioCanton);
         if (refProv == null) {
           refProv = prov;
           refCanton = cant;
@@ -826,11 +826,11 @@ export function DespachoStepperForm({
           id: despacho.id,
           body: {
             numeroGuia: values.numeroGuia.trim(),
-            distribuidorId: values.distribuidorId,
+            courierEntregaId: values.courierEntregaId,
             tipoEntrega: values.tipoEntrega,
-            destinatarioFinalId: values.tipoEntrega === 'DOMICILIO' ? destinatarioFinalId : undefined,
+            consignatarioId: values.tipoEntrega === 'DOMICILIO' ? consignatarioId : undefined,
             agenciaId: values.tipoEntrega === 'AGENCIA' ? agenciaId : undefined,
-            agenciaDistribuidorId: values.tipoEntrega === 'AGENCIA_DISTRIBUIDOR' ? agenciaDistribuidorId : undefined,
+            agenciaCourierEntregaId: values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' ? agenciaCourierEntregaId : undefined,
             observaciones: values.observaciones?.trim() || undefined,
             codigoPrecinto: values.codigoPrecinto?.trim() || undefined,
             fechaHora: (() => {
@@ -845,11 +845,11 @@ export function DespachoStepperForm({
       } else {
         await createDespachoMutation.mutateAsync({
           numeroGuia: values.numeroGuia.trim(),
-          distribuidorId: values.distribuidorId,
+          courierEntregaId: values.courierEntregaId,
           tipoEntrega: values.tipoEntrega,
-          destinatarioFinalId: values.tipoEntrega === 'DOMICILIO' ? destinatarioFinalId : undefined,
+          consignatarioId: values.tipoEntrega === 'DOMICILIO' ? consignatarioId : undefined,
           agenciaId: values.tipoEntrega === 'AGENCIA' ? agenciaId : undefined,
-          agenciaDistribuidorId: values.tipoEntrega === 'AGENCIA_DISTRIBUIDOR' ? agenciaDistribuidorId : undefined,
+          agenciaCourierEntregaId: values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' ? agenciaCourierEntregaId : undefined,
           observaciones: values.observaciones?.trim() || undefined,
           codigoPrecinto: values.codigoPrecinto?.trim() || undefined,
           fechaHora: (() => {
@@ -899,7 +899,7 @@ export function DespachoStepperForm({
     return Array.from(ids);
   })();
 
-  const hasDistribuidorSeleccionado = distribuidorIdForm != null && Number(distribuidorIdForm) > 0;
+  const hasCourierEntregaSeleccionado = courierEntregaIdForm != null && Number(courierEntregaIdForm) > 0;
 
   async function avanzarAPaso2() {
     const ok = await form.trigger(['fechaHora', 'tipoEntrega']);
@@ -1048,7 +1048,7 @@ export function DespachoStepperForm({
                       ? `${pesoTotalDespacho.kg.toFixed(2)} kg`
                       : null,
                     pesoTotalDespacho.lbs > 0
-                      ? `${pesoTotalDespacho.lbs.toFixed(2)} lb`
+                      ? `${pesoTotalDespacho.lbs.toFixed(2)} lbs`
                       : null,
                   ]
                     .filter(Boolean)
@@ -1062,8 +1062,8 @@ export function DespachoStepperForm({
             value={
               tipoEntrega === 'DOMICILIO'
                 ? 'Domicilio'
-                : tipoEntrega === 'AGENCIA_DISTRIBUIDOR'
-                  ? 'Ag. distribuidor'
+                : tipoEntrega === 'AGENCIA_COURIER_ENTREGA'
+                  ? 'Punto de entrega'
                   : 'Agencia'
             }
           />
@@ -1156,7 +1156,7 @@ export function DespachoStepperForm({
                 <div className="grid gap-3 sm:gap-4 md:grid-cols-3">
                   <SelectionCard
                     title="Domicilio"
-                    description="Entrega directa al destinatario final. Todos los paquetes para un mismo cliente."
+                    description="Entrega directa al consignatario. Todos los paquetes para un mismo cliente."
                     icon={<Users className="h-5 w-5" />}
                     selected={form.watch('tipoEntrega') === 'DOMICILIO'}
                     onClick={() => form.setValue('tipoEntrega', 'DOMICILIO')}
@@ -1169,11 +1169,11 @@ export function DespachoStepperForm({
                     onClick={() => form.setValue('tipoEntrega', 'AGENCIA')}
                   />
                   <SelectionCard
-                    title="Agencia Distribuidor"
-                    description="Entrega en agencia de tercero. El distribuidor gestiona el reparto final."
+                    title="Punto de entrega"
+                    description="Entrega en punto del courier de entrega. El courier gestiona el reparto final."
                     icon={<Store className="h-5 w-5" />}
-                    selected={form.watch('tipoEntrega') === 'AGENCIA_DISTRIBUIDOR'}
-                    onClick={() => form.setValue('tipoEntrega', 'AGENCIA_DISTRIBUIDOR')}
+                    selected={form.watch('tipoEntrega') === 'AGENCIA_COURIER_ENTREGA'}
+                    onClick={() => form.setValue('tipoEntrega', 'AGENCIA_COURIER_ENTREGA')}
                   />
                 </div>
               </section>
@@ -1199,20 +1199,20 @@ export function DespachoStepperForm({
                   Ingresa paquetes (lista o individual) y define la distribución para crear sacas. El peso se calcula automáticamente y el tamaño se configura en cada saca.
                 </p>
               </div>
-              {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_DISTRIBUIDOR') && autoDetectedDestId != null && autoDetectedDest && (
+              {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') && autoDetectedDestId != null && autoDetectedDest && (
                 <div className="ui-alert ui-alert-success">
                   <p className="font-medium">
-                    Destinatario detectado: <strong>{autoDetectedDest.nombre}</strong>
+                    Consignatario detectado: <strong>{autoDetectedDest.nombre}</strong>
                     {(autoDetectedDest.provincia || autoDetectedDest.canton) && (
                       <span className="font-normal"> — {[autoDetectedDest.provincia, autoDetectedDest.canton].filter(Boolean).join(', ')}</span>
                     )}
                   </p>
-                  <p className="mt-1 text-xs opacity-80">Solo puedes agregar paquetes del destinatario detectado.</p>
+                  <p className="mt-1 text-xs opacity-80">Solo puedes agregar paquetes del consignatario detectado.</p>
                 </div>
               )}
-              {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_DISTRIBUIDOR') && autoDetectedDestId == null && (
+              {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') && autoDetectedDestId == null && (
                 <div className="ui-alert ui-alert-info">
-                  Agrega un primer paquete para fijar automáticamente el destinatario del despacho.
+                  Agrega un primer paquete para fijar automáticamente el consignatario del despacho.
                 </div>
               )}
               {tipoEntrega === 'AGENCIA' && provinciaCantonRef != null && (
@@ -1324,7 +1324,7 @@ export function DespachoStepperForm({
                                   <th>Número de guía</th>
                                   <th>Guía master / Pieza</th>
                                   <th>Guía de envío</th>
-                                  <th>Destinatario</th>
+                                  <th>Consignatario</th>
                                   <th>Teléfono</th>
                                   <th>Provincia / Cantón</th>
                                   <th className="text-right">Peso</th>
@@ -1348,9 +1348,9 @@ export function DespachoStepperForm({
                                       )}
                                     </td>
                                     <td data-label="Guía de envío" className="font-mono text-xs">{p.envioConsolidadoCodigo ?? '—'}</td>
-                                    <td data-label="Destinatario">{p.destinatarioNombre ?? '—'}</td>
-                                    <td data-label="Teléfono">{p.destinatarioTelefono ?? '—'}</td>
-                                    <td data-label="Provincia / Cantón">{[p.destinatarioProvincia, p.destinatarioCanton].filter(Boolean).join(' / ') || '—'}</td>
+                                    <td data-label="Consignatario">{p.consignatarioNombre ?? '—'}</td>
+                                    <td data-label="Teléfono">{p.consignatarioTelefono ?? '—'}</td>
+                                    <td data-label="Provincia / Cantón">{[p.consignatarioProvincia, p.consignatarioCanton].filter(Boolean).join(' / ') || '—'}</td>
                                     <td data-label="Peso" className="text-right md:text-right">
                                       {[p.pesoKg != null ? `${p.pesoKg} kg` : null, p.pesoLbs != null ? `${p.pesoLbs} lbs` : null]
                                         .filter(Boolean)
@@ -1601,17 +1601,17 @@ export function DespachoStepperForm({
                                             </Button>
                                           </div>
                                         </div>
-                                        {p && (p.destinatarioNombre ?? p.destinatarioDireccion ?? p.destinatarioProvincia ?? p.destinatarioCanton) && (
+                                        {p && (p.consignatarioNombre ?? p.consignatarioDireccion ?? p.consignatarioProvincia ?? p.consignatarioCanton) && (
                                           <div className="text-xs text-[var(--color-muted-foreground)]">
-                                            {p.destinatarioNombre && <span>{p.destinatarioNombre}</span>}
-                                            {p.destinatarioDireccion && (
-                                              <span className={p.destinatarioNombre ? ' block truncate' : ''} title={p.destinatarioDireccion}>
-                                                {p.destinatarioDireccion}
+                                            {p.consignatarioNombre && <span>{p.consignatarioNombre}</span>}
+                                            {p.consignatarioDireccion && (
+                                              <span className={p.consignatarioNombre ? ' block truncate' : ''} title={p.consignatarioDireccion}>
+                                                {p.consignatarioDireccion}
                                               </span>
                                             )}
-                                            {(p.destinatarioProvincia ?? p.destinatarioCanton) && (
+                                            {(p.consignatarioProvincia ?? p.consignatarioCanton) && (
                                               <span className="block">
-                                                {[p.destinatarioProvincia, p.destinatarioCanton].filter(Boolean).join(', ')}
+                                                {[p.consignatarioProvincia, p.consignatarioCanton].filter(Boolean).join(', ')}
                                               </span>
                                             )}
                                           </div>
@@ -1683,7 +1683,7 @@ export function DespachoStepperForm({
                 <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Resumen del despacho</h3>
                 <div className="grid gap-3 text-sm">
                   <div className="flex flex-wrap gap-x-6 gap-y-1">
-                    <span><strong className="text-[var(--color-foreground)]">Tipo:</strong> {tipoEntrega === 'DOMICILIO' ? 'Domicilio' : tipoEntrega === 'AGENCIA_DISTRIBUIDOR' ? 'Agencia de distribuidor' : 'Agencia'}</span>
+                    <span><strong className="text-[var(--color-foreground)]">Tipo:</strong> {tipoEntrega === 'DOMICILIO' ? 'Domicilio' : tipoEntrega === 'AGENCIA_COURIER_ENTREGA' ? 'Punto de entrega' : 'Agencia'}</span>
                     <span><strong className="text-[var(--color-foreground)]">Peso total:</strong> {pesoTotalDespacho.kg > 0 || pesoTotalDespacho.lbs > 0 ? [pesoTotalDespacho.kg > 0 ? `${pesoTotalDespacho.kg} kg` : null, pesoTotalDespacho.lbs > 0 ? `${pesoTotalDespacho.lbs} lbs` : null].filter(Boolean).join(' / ') : '—'}</span>
                     <span><strong className="text-[var(--color-foreground)]">Total paquetes:</strong> {totalPaquetesDisplay}</span>
                     <span><strong className="text-[var(--color-foreground)]">Sacas:</strong> {totalSacasDisplay}</span>
@@ -1707,7 +1707,7 @@ export function DespachoStepperForm({
                   )}
                   {tipoEntrega === 'DOMICILIO' && autoDetectedDest && (
                     <div>
-                      <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1.5">Destinatario final</p>
+                      <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1.5">Consignatario</p>
                       <div className="text-[var(--color-foreground)] rounded-md bg-[var(--color-background)]/60 p-3 space-y-0.5">
                         <p className="font-medium">{autoDetectedDest.nombre}</p>
                         {autoDetectedDest.direccion && <p className="text-xs">{autoDetectedDest.direccion}</p>}
@@ -1719,16 +1719,16 @@ export function DespachoStepperForm({
                       </div>
                     </div>
                   )}
-                  {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_DISTRIBUIDOR') && !autoDetectedDest && (
-                    <p className="text-xs text-[var(--color-warning)]">No se ha detectado destinatario. Agrega paquetes en el paso anterior.</p>
+                  {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') && !autoDetectedDest && (
+                    <p className="text-xs text-[var(--color-warning)]">No se ha detectado consignatario. Agrega paquetes en el paso anterior.</p>
                   )}
-                  {tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && selectedAgenciaDistribuidor && (
+                  {tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && selectedAgenciaCourierEntrega && (
                     <div>
-                      <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1.5">Agencia del distribuidor</p>
+                      <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1.5">Punto de entrega</p>
                       <div className="text-[var(--color-foreground)] rounded-md bg-[var(--color-background)]/60 p-3 space-y-0.5">
-                        <p className="font-medium">{agenciaDistribuidorEtiqueta(selectedAgenciaDistribuidor)}</p>
-                        {(selectedAgenciaDistribuidor.provincia || selectedAgenciaDistribuidor.canton) && (
-                          <p className="text-xs">{[selectedAgenciaDistribuidor.provincia, selectedAgenciaDistribuidor.canton].filter(Boolean).join(', ')}</p>
+                        <p className="font-medium">{agenciaCourierEntregaEtiqueta(selectedAgenciaCourierEntrega)}</p>
+                        {(selectedAgenciaCourierEntrega.provincia || selectedAgenciaCourierEntrega.canton) && (
+                          <p className="text-xs">{[selectedAgenciaCourierEntrega.provincia, selectedAgenciaCourierEntrega.canton].filter(Boolean).join(', ')}</p>
                         )}
                       </div>
                     </div>
@@ -1757,27 +1757,27 @@ export function DespachoStepperForm({
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label
-                      htmlFor="distribuidor"
+                      htmlFor="courierEntrega"
                       className="flex items-center gap-1.5 text-sm"
                     >
                       <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      Distribuidor *
+                      Courier de entrega *
                     </Label>
                     <SearchableCombobox
-                      id="distribuidor"
-                      value={distribuidorIdForm > 0 ? distribuidorIdForm : undefined}
+                      id="courierEntrega"
+                      value={courierEntregaIdForm > 0 ? courierEntregaIdForm : undefined}
                       onChange={(v) => {
                         const num = typeof v === 'number' ? v : Number(v ?? 0);
-                        form.setValue('distribuidorId', Number.isFinite(num) ? num : 0, {
+                        form.setValue('courierEntregaId', Number.isFinite(num) ? num : 0, {
                           shouldDirty: true,
                           shouldValidate: true,
                         });
                       }}
-                      options={distribuidores}
+                      options={couriersEntrega}
                       getKey={(d) => d.id}
                       getLabel={(d) => `${d.nombre} (${d.codigo})`}
                       getSearchText={(d) => `${d.nombre} ${d.codigo} ${d.email ?? ''}`}
-                      placeholder="Selecciona distribuidor"
+                      placeholder="Selecciona courier de entrega"
                       searchPlaceholder="Buscar por nombre o código..."
                       clearable={false}
                       renderOption={(d) => (
@@ -1792,9 +1792,9 @@ export function DespachoStepperForm({
                         </div>
                       )}
                     />
-                    {form.formState.errors.distribuidorId && (
+                    {form.formState.errors.courierEntregaId && (
                       <p className="text-sm text-[var(--color-destructive)]">
-                        {form.formState.errors.distribuidorId.message}
+                        {form.formState.errors.courierEntregaId.message}
                       </p>
                     )}
                   </div>
@@ -1810,7 +1810,7 @@ export function DespachoStepperForm({
                     <Input
                       id="numero-guia"
                       {...form.register('numeroGuia')}
-                      placeholder="Guía del distribuidor"
+                      placeholder="Guía del courier de entrega"
                     />
                     {form.formState.errors.numeroGuia && (
                       <p className="text-sm text-[var(--color-destructive)]">
@@ -1883,61 +1883,61 @@ export function DespachoStepperForm({
                   </div>
                 )}
 
-                {tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && (
+                {tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && (
                   <div className="space-y-1.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Label
-                        htmlFor="agencia-distribuidor"
+                        htmlFor="agencia-courierEntrega"
                         className="flex items-center gap-1.5 text-sm"
                       >
                         <Store className="h-3.5 w-3.5 text-muted-foreground" />
-                        Agencia del distribuidor *
+                        Punto de entrega del courier *
                       </Label>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         className="h-8 gap-1.5"
-                        onClick={openCrearAgenciaDistribuidorModal}
-                        disabled={!hasDistribuidorSeleccionado}
+                        onClick={openCrearAgenciaCourierEntregaModal}
+                        disabled={!hasCourierEntregaSeleccionado}
                       >
                         <Plus className="h-3.5 w-3.5" />
                         Crear nueva
                       </Button>
                     </div>
-                    {!hasDistribuidorSeleccionado && (
+                    {!hasCourierEntregaSeleccionado && (
                       <p className="text-xs text-muted-foreground">
-                        Selecciona primero un distribuidor.
+                        Selecciona primero un courier de entrega.
                       </p>
                     )}
                     <SearchableCombobox
-                      id="agencia-distribuidor"
-                      value={agenciaDistribuidorIdForm}
+                      id="agencia-courierEntrega"
+                      value={agenciaCourierEntregaIdForm}
                       onChange={(v) => {
                         const num = v == null ? undefined : typeof v === 'number' ? v : Number(v);
                         form.setValue(
-                          'agenciaDistribuidorId',
+                          'agenciaCourierEntregaId',
                           num != null && Number.isFinite(num) && num > 0 ? num : undefined,
                           { shouldDirty: true, shouldValidate: true },
                         );
                       }}
-                      options={agenciasDistribuidor}
+                      options={puntosEntrega}
                       getKey={(a) => a.id}
-                      getLabel={(a) => agenciaDistribuidorEtiqueta(a)}
+                      getLabel={(a) => agenciaCourierEntregaEtiqueta(a)}
                       getSearchText={(a) =>
                         `${a.etiqueta ?? ''} ${a.codigo ?? ''} ${a.provincia ?? ''} ${a.canton ?? ''} ${a.direccion ?? ''}`
                       }
                       placeholder={
-                        hasDistribuidorSeleccionado
-                          ? 'Selecciona agencia del distribuidor'
-                          : 'Selecciona un distribuidor primero'
+                        hasCourierEntregaSeleccionado
+                          ? 'Selecciona el punto de entrega del courier'
+                          : 'Selecciona un courier de entrega primero'
                       }
-                      disabled={!hasDistribuidorSeleccionado}
+                      disabled={!hasCourierEntregaSeleccionado}
                       searchPlaceholder="Buscar por código, provincia, dirección..."
                       renderOption={(a) => (
                         <div className="min-w-0">
                           <div className="truncate font-medium">
-                            {agenciaDistribuidorEtiqueta(a)}
+                            {agenciaCourierEntregaEtiqueta(a)}
                           </div>
                           {(a.provincia || a.canton || a.direccion) && (
                             <div className="truncate text-xs text-muted-foreground">
@@ -1948,9 +1948,9 @@ export function DespachoStepperForm({
                         </div>
                       )}
                     />
-                    {form.formState.errors.agenciaDistribuidorId && (
+                    {form.formState.errors.agenciaCourierEntregaId && (
                       <p className="text-sm text-[var(--color-destructive)]">
-                        {form.formState.errors.agenciaDistribuidorId.message}
+                        {form.formState.errors.agenciaCourierEntregaId.message}
                       </p>
                     )}
                   </div>
@@ -2080,7 +2080,7 @@ export function DespachoStepperForm({
         paquetesSinPeso={paquetesSinPeso}
         paquetesUniverso={paquetesSinSaca}
         tipoEntrega={tipoEntrega}
-        referenciaDestinatarioId={autoDetectedDestId ?? undefined}
+        referenciaConsignatarioId={autoDetectedDestId ?? undefined}
         referenciaProvincia={provinciaCantonRef?.provincia}
         referenciaCanton={provinciaCantonRef?.canton}
         paquetesYaAgregadosIds={paquetesYaAgregadosIdsParaDialog}
@@ -2103,10 +2103,10 @@ export function DespachoStepperForm({
         loading={loading}
       />
 
-      <Dialog open={crearAgenciaDistribuidorModalOpen} onOpenChange={setCrearAgenciaDistribuidorModalOpen}>
+      <Dialog open={crearAgenciaCourierEntregaModalOpen} onOpenChange={setCrearAgenciaCourierEntregaModalOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Crear nueva agencia de distribuidor</DialogTitle>
+            <DialogTitle>Crear nuevo punto de entrega</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -2186,15 +2186,15 @@ export function DespachoStepperForm({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setCrearAgenciaDistribuidorModalOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => setCrearAgenciaCourierEntregaModalOpen(false)}>
               Cancelar
             </Button>
             <Button
               type="button"
-              disabled={createAgenciaDistribuidorOperarioMutation.isPending || Number(modalCrearAgencia.tarifa || 0) < 0}
-              onClick={submitCrearAgenciaDistribuidor}
+              disabled={createAgenciaCourierEntregaOperarioMutation.isPending || Number(modalCrearAgencia.tarifa || 0) < 0}
+              onClick={submitCrearAgenciaCourierEntrega}
             >
-              {createAgenciaDistribuidorOperarioMutation.isPending ? 'Creando...' : 'Crear agencia'}
+              {createAgenciaCourierEntregaOperarioMutation.isPending ? 'Creando...' : 'Crear punto de entrega'}
             </Button>
           </DialogFooter>
         </DialogContent>

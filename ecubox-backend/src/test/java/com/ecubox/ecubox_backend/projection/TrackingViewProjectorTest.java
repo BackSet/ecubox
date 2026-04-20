@@ -1,6 +1,6 @@
 package com.ecubox.ecubox_backend.projection;
 
-import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
+import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -79,12 +79,12 @@ class TrackingViewProjectorTest {
     }
 
     private Paquete paquete(Long id, String numeroGuia) {
-        DestinatarioFinal d = DestinatarioFinal.builder()
+        Consignatario d = Consignatario.builder()
                 .id(99L).nombre("Juan Perez").provincia("Pichincha").canton("Quito").build();
         GuiaMaster gm = GuiaMaster.builder().id(11L).trackingBase("TRK-1").build();
         return Paquete.builder()
                 .id(id).numeroGuia(numeroGuia).piezaNumero(1).piezaTotal(2)
-                .guiaMaster(gm).destinatarioFinal(d).build();
+                .guiaMaster(gm).consignatario(d).build();
     }
 
     private EstadoRastreo estado(Long id, String codigo, String nombre) {
@@ -119,7 +119,7 @@ class TrackingViewProjectorTest {
         assertEquals("EN_DESPACHO", row.getEstadoActualCodigo(),
                 "El ultimo evento debe ser el estado actual");
         assertEquals(11L, row.getLastEventId());
-        assertEquals("Pichincha", row.getDestinatarioProvincia());
+        assertEquals("Pichincha", row.getConsignatarioProvincia());
         // PII NO debe estar (telefono / direccion no estan en el view)
 
         ArgumentCaptor<TrackingProjectorState> stateCap = ArgumentCaptor.forClass(TrackingProjectorState.class);
@@ -210,8 +210,8 @@ class TrackingViewProjectorTest {
         projector.drainBatch();
         TrackingViewPaquete row = viewStore.get(1L);
         // Campos publicos
-        assertEquals("Juan Perez", row.getDestinatarioNombre());
-        assertEquals("Quito", row.getDestinatarioCanton());
+        assertEquals("Juan Perez", row.getConsignatarioNombre());
+        assertEquals("Quito", row.getConsignatarioCanton());
         // No hay setter ni columna de telefono/direccion en la vista (compile-safe)
         assertNull(row.getClass().getDeclaredFields()[0] == null ? null : null,
                 "El read model no expone PII (asercion estructural via diseno).");

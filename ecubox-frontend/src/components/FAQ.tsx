@@ -30,7 +30,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '¿Puedo retirar en agencia o solo a domicilio?',
-    a: 'Tenemos ambas opciones según tu provincia. Al crear tu envío puedes elegir retirar en una de nuestras agencias o en una agencia aliada de un distribuidor cercano a ti.',
+    a: 'Tenemos ambas opciones según tu provincia. Al crear tu envío puedes elegir retirar en una de nuestras agencias o en un punto de entrega aliado de un courier cercano a ti.',
   },
 ];
 

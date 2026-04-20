@@ -140,10 +140,10 @@ export function InicioClienteSection() {
         />
         <KpiCard
           icon={<Users className="h-4 w-4" strokeWidth={1.75} />}
-          label="Destinatarios"
-          value={data.totalDestinatarios}
+          label="Consignatarios"
+          value={data.totalConsignatarios}
           tone="neutral"
-          to="/destinatarios"
+          to="/consignatarios"
         />
       </div>
 
@@ -233,7 +233,7 @@ function ListaGuiasCard({
                     {g.trackingBase}
                   </p>
                   <p className="truncate text-[12px] text-[var(--color-muted-foreground)]">
-                    {g.destinatarioNombre ?? 'Sin destinatario'}
+                    {g.consignatarioNombre ?? 'Sin consignatario'}
                     {' · '}
                     {formatDateShort(
                       showFecha === 'recepcion'

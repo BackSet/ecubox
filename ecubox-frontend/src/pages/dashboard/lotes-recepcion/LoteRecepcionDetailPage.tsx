@@ -53,7 +53,7 @@ import { toast } from 'sonner';
 import type { Paquete } from '@/types/paquete';
 import type { EnvioConsolidado } from '@/types/envio-consolidado';
 import {
-  DestinatarioCell,
+  ConsignatarioCell,
   GuiaMasterPiezaCell,
 } from '@/pages/dashboard/paquetes/PaqueteCells';
 
@@ -90,7 +90,7 @@ export function LoteRecepcionDetailPage() {
   const deleteLote = useDeleteLoteRecepcion();
 
   const [search, setSearch] = useState('');
-  const [groupByDestinatario, setGroupByDestinatario] = useState(false);
+  const [groupByConsignatario, setGroupByConsignatario] = useState(false);
   const [dialogAgregarOpen, setDialogAgregarOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
@@ -115,18 +115,18 @@ export function LoteRecepcionDetailPage() {
   }, [paquetes, codigosLote]);
 
   const stats = useMemo(() => {
-    const destinatarios = new Set<number | string>();
+    const consignatarios = new Set<number | string>();
     let pesoLbs = 0;
     let pesoKg = 0;
     for (const p of paquetes) {
-      destinatarios.add(p.destinatarioFinalId ?? p.destinatarioNombre ?? p.id);
+      consignatarios.add(p.consignatarioId ?? p.consignatarioNombre ?? p.id);
       pesoLbs += Number(p.pesoLbs ?? 0);
       pesoKg += Number(p.pesoKg ?? 0);
     }
     return {
       envios: codigosLote.length,
       paquetes: paquetes.length,
-      destinatarios: destinatarios.size,
+      consignatarios: consignatarios.size,
       pesoLbs,
       pesoKg,
     };
@@ -141,11 +141,11 @@ export function LoteRecepcionDetailPage() {
         p.guiaMasterTrackingBase,
         p.ref,
         p.contenido,
-        p.destinatarioNombre,
-        p.destinatarioTelefono,
-        p.destinatarioDireccion,
-        p.destinatarioProvincia,
-        p.destinatarioCanton,
+        p.consignatarioNombre,
+        p.consignatarioTelefono,
+        p.consignatarioDireccion,
+        p.consignatarioProvincia,
+        p.consignatarioCanton,
         p.envioConsolidadoCodigo,
         p.estadoRastreoNombre,
       ]
@@ -155,14 +155,14 @@ export function LoteRecepcionDetailPage() {
   }, [paquetes, search]);
 
   const grupos = useMemo(() => {
-    if (!groupByDestinatario) return null;
+    if (!groupByConsignatario) return null;
     const norm = (v?: string | null) => (v ?? '').trim().toLowerCase();
     const map = new Map<
       string,
       {
         key: string;
-        destinatarioId: number | undefined;
-        destinatario: string;
+        consignatarioId: number | undefined;
+        consignatario: string;
         provincia: string;
         canton: string;
         paquetes: Paquete[];
@@ -171,10 +171,10 @@ export function LoteRecepcionDetailPage() {
       }
     >();
     for (const p of filtrados) {
-      const destinatario = p.destinatarioNombre?.trim() || 'Sin destinatario';
-      const provincia = p.destinatarioProvincia?.trim() || 'Sin provincia';
-      const canton = p.destinatarioCanton?.trim() || 'Sin cantón';
-      const key = `${p.destinatarioFinalId ?? 0}__${norm(provincia)}__${norm(canton)}`;
+      const consignatario = p.consignatarioNombre?.trim() || 'Sin consignatario';
+      const provincia = p.consignatarioProvincia?.trim() || 'Sin provincia';
+      const canton = p.consignatarioCanton?.trim() || 'Sin cantón';
+      const key = `${p.consignatarioId ?? 0}__${norm(provincia)}__${norm(canton)}`;
       const cur = map.get(key);
       if (cur) {
         cur.paquetes.push(p);
@@ -183,8 +183,8 @@ export function LoteRecepcionDetailPage() {
       } else {
         map.set(key, {
           key,
-          destinatarioId: p.destinatarioFinalId,
-          destinatario,
+          consignatarioId: p.consignatarioId,
+          consignatario,
           provincia,
           canton,
           paquetes: [p],
@@ -196,11 +196,11 @@ export function LoteRecepcionDetailPage() {
     return Array.from(map.values()).sort((a, b) => {
       if (a.provincia !== b.provincia) return a.provincia.localeCompare(b.provincia, 'es');
       if (a.canton !== b.canton) return a.canton.localeCompare(b.canton, 'es');
-      return a.destinatario.localeCompare(b.destinatario, 'es');
+      return a.consignatario.localeCompare(b.consignatario, 'es');
     });
-  }, [filtrados, groupByDestinatario]);
+  }, [filtrados, groupByConsignatario]);
 
-  const copiarGuiasDestinatario = useCallback(
+  const copiarGuiasConsignatario = useCallback(
     async (paqs: Paquete[], etiqueta: string) => {
       const guias = Array.from(
         new Set(paqs.map((p) => p.numeroGuia.trim()).filter(Boolean)),
@@ -254,7 +254,7 @@ export function LoteRecepcionDetailPage() {
               <TableRow>
                 <TableHead>Guía</TableHead>
                 <TableHead>Paquetes</TableHead>
-                <TableHead className="hidden md:table-cell">Destinatario</TableHead>
+                <TableHead className="hidden md:table-cell">Consignatario</TableHead>
                 <TableHead className="text-right">Estado</TableHead>
               </TableRow>
             </TableHeader>
@@ -349,8 +349,8 @@ export function LoteRecepcionDetailPage() {
         />
         <KpiCard
           icon={<Users className="h-5 w-5" />}
-          label="Destinatarios"
-          value={stats.destinatarios}
+          label="Consignatarios"
+          value={stats.consignatarios}
           tone="neutral"
         />
         <KpiCard
@@ -486,18 +486,18 @@ export function LoteRecepcionDetailPage() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por guía, destinatario, ref..."
+                placeholder="Buscar por guía, consignatario, ref..."
                 className="h-9 w-[18rem] pl-8"
               />
             </div>
             <Button
               type="button"
-              variant={groupByDestinatario ? 'default' : 'outline'}
+              variant={groupByConsignatario ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setGroupByDestinatario((v) => !v)}
+              onClick={() => setGroupByConsignatario((v) => !v)}
             >
               <Users className="mr-2 h-4 w-4" />
-              {groupByDestinatario ? 'Vista plana' : 'Agrupar por destinatario'}
+              {groupByConsignatario ? 'Vista plana' : 'Agrupar por consignatario'}
             </Button>
           </div>
         </div>
@@ -519,7 +519,7 @@ export function LoteRecepcionDetailPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-[var(--color-muted)]/30 px-4 py-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">
-                      {g.destinatario}
+                      {g.consignatario}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {g.canton}, {g.provincia}
@@ -541,7 +541,7 @@ export function LoteRecepcionDetailPage() {
                       size="sm"
                       variant="outline"
                       onClick={() =>
-                        void copiarGuiasDestinatario(g.paquetes, g.destinatario)
+                        void copiarGuiasConsignatario(g.paquetes, g.consignatario)
                       }
                     >
                       <Copy className="mr-2 h-3.5 w-3.5" />
@@ -610,7 +610,7 @@ function PaquetesTabla({ paquetes }: { paquetes: Paquete[] }) {
           <TableRow>
             <TableHead className="w-[16rem]">Guía / Pieza</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead className="min-w-[16rem]">Destinatario</TableHead>
+            <TableHead className="min-w-[16rem]">Consignatario</TableHead>
             <TableHead>Envío</TableHead>
             <TableHead className="text-right">Peso</TableHead>
           </TableRow>
@@ -632,7 +632,7 @@ function PaquetesTabla({ paquetes }: { paquetes: Paquete[] }) {
                 </Badge>
               </TableCell>
               <TableCell className="max-w-[20rem] align-top">
-                <DestinatarioCell paquete={p} />
+                <ConsignatarioCell paquete={p} />
               </TableCell>
               <TableCell className="align-top">
                 {p.envioConsolidadoCodigo ? (

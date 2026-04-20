@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 /**
  * Snapshot inmutable de una {@link Agencia} (SCD Tipo 2). Ver
- * {@link DestinatarioFinalVersion} para la semantica completa.
+ * {@link ConsignatarioVersion} para la semantica completa.
  */
 @Entity
 @Table(name = "agencia_version")

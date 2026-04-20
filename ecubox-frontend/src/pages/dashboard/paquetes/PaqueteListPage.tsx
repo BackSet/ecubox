@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import type { Paquete } from '@/types/paquete';
 import { getApiErrorMessage } from '@/lib/api/error-message';
-import { GuiaMasterPiezaCell, DestinatarioCell } from './PaqueteCells';
+import { GuiaMasterPiezaCell, ConsignatarioCell } from './PaqueteCells';
 
 export function PaqueteListPage() {
   const hasPaquetesCreate = useAuthStore((s) => s.hasPermission('PAQUETES_CREATE'));
@@ -71,7 +71,7 @@ export function PaqueteListPage() {
     'todos' | 'sin_peso' | 'con_peso' | 'sin_guia_master' | 'vencidos'
   >('todos');
   const [estadoFiltro, setEstadoFiltro] = useState<string | undefined>(undefined);
-  const [destinatarioFiltro, setDestinatarioFiltro] = useState<string | undefined>(
+  const [consignatarioFiltro, setConsignatarioFiltro] = useState<string | undefined>(
     undefined,
   );
   const [envioFiltro, setEnvioFiltro] = useState<string | undefined>(undefined);
@@ -79,15 +79,15 @@ export function PaqueteListPage() {
     undefined,
   );
 
-  // Resolver el id de destinatario a partir del nombre seleccionado (porque el
+  // Resolver el id de consignatario a partir del nombre seleccionado (porque el
   // combobox actual filtra por nombre y el server filtra por id).
-  const destinatarioFinalIdFiltro = useMemo(() => {
-    if (!destinatarioFiltro) return undefined;
+  const consignatarioIdFiltro = useMemo(() => {
+    if (!consignatarioFiltro) return undefined;
     const match = (paquetes ?? []).find(
-      (p) => (p.destinatarioNombre ?? '') === destinatarioFiltro,
+      (p) => (p.consignatarioNombre ?? '') === consignatarioFiltro,
     );
-    return match?.destinatarioFinalId ?? undefined;
-  }, [destinatarioFiltro, paquetes]);
+    return match?.consignatarioId ?? undefined;
+  }, [consignatarioFiltro, paquetes]);
 
   // Solo activamos paginación servidor si el chip no es "vencidos" (que se
   // sigue resolviendo cliente sobre dataset completo).
@@ -96,7 +96,7 @@ export function PaqueteListPage() {
   const pageQuery = usePaquetesPaginated({
     q: q.trim() || undefined,
     estado: estadoFiltro,
-    destinatarioFinalId: destinatarioFinalIdFiltro,
+    consignatarioId: consignatarioIdFiltro,
     envio: envioFiltro,
     guiaMasterId: guiaMasterFiltro,
     chip: chipActivo === 'todos' ? undefined : chipActivo,
@@ -120,10 +120,10 @@ export function PaqueteListPage() {
       );
   }, [paquetes]);
 
-  const destinatarios = useMemo(() => {
+  const consignatarios = useMemo(() => {
     const set = new Set<string>();
     for (const p of paquetes ?? []) {
-      const n = p.destinatarioNombre?.trim();
+      const n = p.consignatarioNombre?.trim();
       if (n) set.add(n);
     }
     return Array.from(set).sort((a, b) =>
@@ -165,8 +165,8 @@ export function PaqueteListPage() {
         if (key !== estadoFiltro) return false;
       }
       if (
-        destinatarioFiltro &&
-        (p.destinatarioNombre ?? '') !== destinatarioFiltro
+        consignatarioFiltro &&
+        (p.consignatarioNombre ?? '') !== consignatarioFiltro
       ) {
         return false;
       }
@@ -184,7 +184,7 @@ export function PaqueteListPage() {
         (hasPesoWrite &&
           (p.envioConsolidadoCodigo?.toLowerCase().includes(qLower) ?? false)) ||
         (p.ref?.toLowerCase().includes(qLower) ?? false) ||
-        (p.destinatarioNombre?.toLowerCase().includes(qLower) ?? false) ||
+        (p.consignatarioNombre?.toLowerCase().includes(qLower) ?? false) ||
         (p.contenido?.toLowerCase().includes(qLower) ?? false)
       );
     });
@@ -193,7 +193,7 @@ export function PaqueteListPage() {
     q,
     hasPesoWrite,
     estadoFiltro,
-    destinatarioFiltro,
+    consignatarioFiltro,
     envioFiltro,
     guiaMasterFiltro,
   ]);
@@ -236,30 +236,30 @@ export function PaqueteListPage() {
     const all = paquetes ?? [];
     let conPeso = 0;
     let vencidos = 0;
-    const destinatariosSet = new Set<number>();
+    const consignatariosSet = new Set<number>();
     for (const p of all) {
       if (p.pesoLbs != null || p.pesoKg != null) conPeso += 1;
       if (p.paqueteVencido) vencidos += 1;
-      if (p.destinatarioFinalId != null) destinatariosSet.add(p.destinatarioFinalId);
+      if (p.consignatarioId != null) consignatariosSet.add(p.consignatarioId);
     }
     return {
       total: all.length,
       conPeso,
       vencidos,
-      destinatarios: destinatariosSet.size,
+      consignatarios: consignatariosSet.size,
     };
   }, [paquetes]);
 
   const tieneFiltros =
     !!estadoFiltro ||
-    !!destinatarioFiltro ||
+    !!consignatarioFiltro ||
     !!envioFiltro ||
     guiaMasterFiltro != null ||
     chipActivo !== 'todos';
 
   const limpiarFiltros = useCallback(() => {
     setEstadoFiltro(undefined);
-    setDestinatarioFiltro(undefined);
+    setConsignatarioFiltro(undefined);
     setEnvioFiltro(undefined);
     setGuiaMasterFiltro(undefined);
     setChipActivo('todos');
@@ -273,9 +273,9 @@ export function PaqueteListPage() {
     },
     [resetPage],
   );
-  const handleSetDestinatario = useCallback(
+  const handleSetConsignatario = useCallback(
     (v?: string) => {
-      setDestinatarioFiltro(v);
+      setConsignatarioFiltro(v);
       resetPage();
     },
     [resetPage],
@@ -326,7 +326,7 @@ export function PaqueteListPage() {
     <div className="page-stack">
       <ListToolbar
         title="Gestión de paquetes"
-        searchPlaceholder="Buscar por guía master, pieza/ref, envío, destinatario o contenido..."
+        searchPlaceholder="Buscar por guía master, pieza/ref, envío, consignatario o contenido..."
         value={q}
         onSearchChange={setQ}
         actions={
@@ -372,8 +372,8 @@ export function PaqueteListPage() {
           />
           <KpiCard
             icon={<Users className="h-5 w-5" />}
-            label="Destinatarios únicos"
-            value={stats.destinatarios}
+            label="Consignatarios únicos"
+            value={stats.consignatarios}
             tone="neutral"
           />
           <KpiCard
@@ -434,7 +434,7 @@ export function PaqueteListPage() {
           }
           filtros={
             (estadosDisponibles.length > 0 ||
-              destinatarios.length > 0 ||
+              consignatarios.length > 0 ||
               codigosEnvio.length > 0 ||
               guiasMasterDisponibles.length > 0) && (
               <>
@@ -457,21 +457,21 @@ export function PaqueteListPage() {
                     />
                   </FiltroCampo>
                 )}
-                {destinatarios.length > 0 && (
-                  <FiltroCampo label="Destinatario" width="w-[16rem]">
+                {consignatarios.length > 0 && (
+                  <FiltroCampo label="Consignatario" width="w-[16rem]">
                     <SearchableCombobox<string>
-                      value={destinatarioFiltro}
+                      value={consignatarioFiltro}
                       onChange={(v) =>
-                        handleSetDestinatario(
+                        handleSetConsignatario(
                           v === undefined ? undefined : String(v),
                         )
                       }
-                      options={destinatarios}
+                      options={consignatarios}
                       getKey={(n) => n}
                       getLabel={(n) => n}
                       placeholder="Todos"
-                      searchPlaceholder="Buscar destinatario..."
-                      emptyMessage="Sin destinatarios"
+                      searchPlaceholder="Buscar consignatario..."
+                      emptyMessage="Sin consignatarios"
                       className="h-9 w-full"
                     />
                   </FiltroCampo>
@@ -546,7 +546,7 @@ export function PaqueteListPage() {
                 <TableHead>Guía master / Pieza</TableHead>
                 <TableHead>Ref</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Destinatario</TableHead>
+                <TableHead>Consignatario</TableHead>
                 {hasPesoWrite && (
                   <TableHead className="hidden md:table-cell">Guía de envío</TableHead>
                 )}
@@ -581,7 +581,7 @@ export function PaqueteListPage() {
           title={allPaquetes.length === 0 ? 'No hay paquetes' : 'Sin resultados'}
           description={
             allPaquetes.length === 0
-              ? 'Registra un paquete con su número de guía y destinatario para hacer seguimiento.'
+              ? 'Registra un paquete con su número de guía y consignatario para hacer seguimiento.'
               : tieneFiltros
                 ? 'No hay paquetes que coincidan con los filtros aplicados.'
                 : 'No se encontraron paquetes con ese criterio.'
@@ -610,7 +610,7 @@ export function PaqueteListPage() {
                   <TableHead>Guía master / Pieza</TableHead>
                   <TableHead>Ref</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Destinatario</TableHead>
+                  <TableHead>Consignatario</TableHead>
                   {hasPesoWrite && (
                     <TableHead className="hidden md:table-cell">Guía de envío</TableHead>
                   )}
@@ -635,8 +635,8 @@ export function PaqueteListPage() {
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                       </StatusBadge>
                     </TableCell>
-                    <TableCell data-label="Destinatario" className="align-top">
-                      <DestinatarioCell paquete={p} />
+                    <TableCell data-label="Consignatario" className="align-top">
+                      <ConsignatarioCell paquete={p} />
                     </TableCell>
                     {hasPesoWrite && (
                       <TableCell

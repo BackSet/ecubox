@@ -9,10 +9,10 @@ import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { UsuarioList } from '@/pages/dashboard/usuarios/UsuarioList';
 import { RolList } from '@/pages/dashboard/roles/RolList';
 import { PermisoList } from '@/pages/dashboard/permisos/PermisoList';
-import { DestinatarioListPage } from '@/pages/dashboard/destinatarios/DestinatarioListPage';
+import { ConsignatarioListPage } from '@/pages/dashboard/consignatarios/ConsignatarioListPage';
 import { PaqueteListPage } from '@/pages/dashboard/paquetes/PaqueteListPage';
 import { PaquetesVencidosPage } from '@/pages/dashboard/paquetes/PaquetesVencidosPage';
-import { CargarPesosPage } from '@/pages/dashboard/cargar-pesos/CargarPesosPage';
+import { PesajePage } from '@/pages/dashboard/pesaje/PesajePage';
 import { GuiasMasterPage } from '@/pages/dashboard/guias-master/GuiasMasterPage';
 import { GuiaMasterDetailPage } from '@/pages/dashboard/guias-master/GuiaMasterDetailPage';
 import { MisGuiasListPage } from '@/pages/dashboard/mis-guias/MisGuiasListPage';
@@ -28,15 +28,15 @@ import { LoteRecepcionListPage } from '@/pages/dashboard/lotes-recepcion/LoteRec
 import { LoteRecepcionNuevoPage } from '@/pages/dashboard/lotes-recepcion/LoteRecepcionNuevoPage';
 import { LoteRecepcionDetailPage } from '@/pages/dashboard/lotes-recepcion/LoteRecepcionDetailPage';
 import { AgenciaListPage } from '@/pages/dashboard/agencias/AgenciaListPage';
-import { AgenciaDistribuidorListPage } from '@/pages/dashboard/agencias-distribuidor/AgenciaDistribuidorListPage';
-import { DistribuidorListPage } from '@/pages/dashboard/distribuidores/DistribuidorListPage';
+import { PuntoEntregaListPage } from '@/pages/dashboard/puntos-entrega/PuntoEntregaListPage';
+import { CourierEntregaListPage } from '@/pages/dashboard/couriers-entrega/CourierEntregaListPage';
 import { ManifiestoListPage } from '@/pages/dashboard/manifiestos/ManifiestoListPage';
 import { ManifiestoDetailPage } from '@/pages/dashboard/manifiestos/ManifiestoDetailPage';
 import { TrackingPage } from '@/pages/tracking/TrackingPage';
 import { CalculadoraPage } from '@/pages/calculadora/CalculadoraPage';
 import { TarifaCalculadoraPage } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraPage';
 import { ParametrosSistemaPage } from '@/pages/dashboard/parametros-sistema/ParametrosSistemaPage';
-import { AgenciaEeuuPage } from '@/pages/dashboard/agencia-eeuu/AgenciaEeuuPage';
+import { CasilleroPage } from '@/pages/dashboard/casillero/CasilleroPage';
 import { PerfilPage } from '@/pages/perfil/PerfilPage';
 import { useAuthStore } from '@/stores/authStore';
 import { applyTheme, useThemeStore } from '@/stores/themeStore';
@@ -139,11 +139,19 @@ const inicioRoute = createRoute({
   component: withDashboardLayout(DashboardPage),
 });
 
-const agenciaEeuuRoute = createRoute({
+const casilleroRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/casillero',
+  beforeLoad: requireAuth,
+  component: withDashboardLayout(CasilleroPage),
+});
+
+const agenciaEeuuLegacyRedirect = createRoute({
   getParentRoute: () => rootRoute,
   path: '/agencia-eeuu',
-  beforeLoad: requireAuth,
-  component: withDashboardLayout(AgenciaEeuuPage),
+  beforeLoad: () => {
+    throw redirect({ to: '/casillero' });
+  },
 });
 
 const perfilRoute = createRoute({
@@ -174,11 +182,11 @@ const permisosRoute = createRoute({
   component: withDashboardLayout(PermisoList),
 });
 
-const destinatariosRoute = createRoute({
+const consignatariosRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/destinatarios',
-  beforeLoad: requirePermission('DESTINATARIOS_READ'),
-  component: withDashboardLayout(DestinatarioListPage),
+  path: '/consignatarios',
+  beforeLoad: requirePermission('CONSIGNATARIOS_READ'),
+  component: withDashboardLayout(ConsignatarioListPage),
 });
 
 const paquetesRoute = createRoute({
@@ -195,11 +203,19 @@ const paquetesVencidosRoute = createRoute({
   component: withDashboardLayout(PaquetesVencidosPage),
 });
 
-const cargarPesosRoute = createRoute({
+const pesajeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/pesaje',
+  beforeLoad: requirePermission('PAQUETES_PESO_WRITE'),
+  component: withDashboardLayout(PesajePage),
+});
+
+const cargarPesosLegacyRedirect = createRoute({
   getParentRoute: () => rootRoute,
   path: '/cargar-pesos',
-  beforeLoad: requirePermission('PAQUETES_PESO_WRITE'),
-  component: withDashboardLayout(CargarPesosPage),
+  beforeLoad: () => {
+    throw redirect({ to: '/pesaje' });
+  },
 });
 
 const guiasMasterRoute = createRoute({
@@ -307,18 +323,18 @@ const agenciasRoute = createRoute({
   component: withDashboardLayout(AgenciaListPage),
 });
 
-const agenciasDistribuidorRoute = createRoute({
+const puntosEntregaRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/agencias-distribuidor',
-  beforeLoad: requirePermission('AGENCIAS_DISTRIBUIDOR_READ'),
-  component: withDashboardLayout(AgenciaDistribuidorListPage),
+  path: '/puntos-entrega',
+  beforeLoad: requirePermission('PUNTOS_ENTREGA_READ'),
+  component: withDashboardLayout(PuntoEntregaListPage),
 });
 
-const distribuidoresRoute = createRoute({
+const couriersEntregaRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/distribuidores',
-  beforeLoad: requirePermission('DISTRIBUIDORES_READ'),
-  component: withDashboardLayout(DistribuidorListPage),
+  path: '/couriers-entrega',
+  beforeLoad: requirePermission('COURIERS_ENTREGA_READ'),
+  component: withDashboardLayout(CourierEntregaListPage),
 });
 
 const manifiestosRoute = createRoute({
@@ -358,15 +374,17 @@ const routeTree = rootRoute.addChildren([
   trackingRoute,
   calculadoraRoute,
   inicioRoute,
-  agenciaEeuuRoute,
+  casilleroRoute,
+  agenciaEeuuLegacyRedirect,
   perfilRoute,
   usuariosRoute,
   rolesRoute,
   permisosRoute,
-  destinatariosRoute,
+  consignatariosRoute,
   paquetesRoute,
   paquetesVencidosRoute,
-  cargarPesosRoute,
+  pesajeRoute,
+  cargarPesosLegacyRedirect,
   guiasMasterRoute,
   guiasMasterDetailRoute,
   misGuiasRoute,
@@ -382,8 +400,8 @@ const routeTree = rootRoute.addChildren([
   lotesRecepcionNuevoRoute,
   lotesRecepcionDetailRoute,
   agenciasRoute,
-  agenciasDistribuidorRoute,
-  distribuidoresRoute,
+  puntosEntregaRoute,
+  couriersEntregaRoute,
   manifiestosRoute,
   manifiestosDetailRoute,
   tarifaCalculadoraRoute,

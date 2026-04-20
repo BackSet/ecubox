@@ -81,9 +81,9 @@ export function PaqueteForm({
     },
   });
 
-  // Solo guías con destinatario asignado pueden recibir paquetes nuevos.
+  // Solo guías con consignatario asignado pueden recibir paquetes nuevos.
   const guiasSeleccionables = useMemo(
-    () => guiasMaster.filter((gm) => gm.destinatarioFinalId != null),
+    () => guiasMaster.filter((gm) => gm.consignatarioId != null),
     [guiasMaster]
   );
 
@@ -93,8 +93,8 @@ export function PaqueteForm({
     [guiasMaster, guiaMasterId]
   );
 
-  const destinatarioId = guiaSeleccionada?.destinatarioFinalId ?? paquete?.destinatarioFinalId ?? null;
-  const destinatarioNombre = guiaSeleccionada?.destinatarioNombre ?? paquete?.destinatarioNombre ?? null;
+  const consignatarioId = guiaSeleccionada?.consignatarioId ?? paquete?.consignatarioId ?? null;
+  const consignatarioNombre = guiaSeleccionada?.consignatarioNombre ?? paquete?.consignatarioNombre ?? null;
 
   useEffect(() => {
     if (paquete) {
@@ -107,13 +107,13 @@ export function PaqueteForm({
   }, [paquete]);
 
   async function handleGenerarRef() {
-    if (destinatarioId == null) {
-      toast.error('Selecciona una guía con destinatario para generar la referencia');
+    if (consignatarioId == null) {
+      toast.error('Selecciona una guía con consignatario para generar la referencia');
       return;
     }
     setGeneratingRef(true);
     try {
-      const data = await sugerirRef(destinatarioId, isEdit && paquete ? paquete.id : undefined);
+      const data = await sugerirRef(consignatarioId, isEdit && paquete ? paquete.id : undefined);
       form.setValue('ref', data.ref);
     } catch {
       toast.error('No se pudo generar la referencia');
@@ -133,25 +133,25 @@ export function PaqueteForm({
       return;
     }
     const guia = guiasMaster.find((gm) => gm.id === guiaId);
-    const destinatarioFinalId = guia?.destinatarioFinalId ?? paquete?.destinatarioFinalId ?? null;
-    if (destinatarioFinalId == null) {
+    const consignatarioId = guia?.consignatarioId ?? paquete?.consignatarioId ?? null;
+    if (consignatarioId == null) {
       form.setError('guiaMasterId', {
-        message: 'La guía seleccionada no tiene destinatario asignado',
+        message: 'La guía seleccionada no tiene consignatario asignado',
       });
-      toast.error('La guía seleccionada no tiene destinatario asignado');
+      toast.error('La guía seleccionada no tiene consignatario asignado');
       return;
     }
     try {
       if (isEdit && paquete) {
         const body: {
-          destinatarioFinalId: number;
+          consignatarioId: number;
           contenido?: string;
           pesoLbs?: number;
           pesoKg?: number;
           guiaMasterId?: number;
           ref?: string;
         } = {
-          destinatarioFinalId,
+          consignatarioId,
           contenido: values.contenido?.trim() || undefined,
           guiaMasterId: guiaId,
         };
@@ -163,8 +163,8 @@ export function PaqueteForm({
           // Solo enviar el ref si el usuario lo modifico explicitamente
           // (p.ej. via "generar nuevo ref"). Si reenviamos el ref viejo
           // por defecto, machacamos el ref que el backend regenera al
-          // cambiar de destinatario y rompemos la consistencia
-          // ref<->destinatario.
+          // cambiar de consignatario y rompemos la consistencia
+          // ref<->consignatario.
           const refOriginal = (paquete?.ref ?? '').trim();
           const refActual = values.ref?.trim() ?? '';
           if (refActual && refActual !== refOriginal) {
@@ -178,13 +178,13 @@ export function PaqueteForm({
         toast.success('Paquete actualizado correctamente');
       } else {
         const createBody: {
-          destinatarioFinalId: number;
+          consignatarioId: number;
           contenido?: string;
           pesoLbs?: number;
           pesoKg?: number;
           guiaMasterId?: number;
         } = {
-          destinatarioFinalId,
+          consignatarioId,
           contenido: values.contenido?.trim() || undefined,
           guiaMasterId: guiaId,
         };
@@ -233,7 +233,7 @@ export function PaqueteForm({
             <GuiaInfoReadonly
               paquete={paquete}
               trackingBaseFallback={guiaSeleccionada?.trackingBase}
-              destinatarioNombreFallback={guiaSeleccionada?.destinatarioNombre ?? null}
+              consignatarioNombreFallback={guiaSeleccionada?.consignatarioNombre ?? null}
               guiaMasterId={guiaMasterId ?? paquete?.guiaMasterId}
             />
           ) : (
@@ -261,7 +261,7 @@ export function PaqueteForm({
                     {gm.totalPiezasEsperadas
                       ? ` (${gm.piezasRegistradas ?? 0}/${gm.totalPiezasEsperadas})`
                       : ` (${gm.piezasRegistradas ?? 0})`}
-                    {gm.destinatarioNombre ? ` — ${gm.destinatarioNombre}` : ''}
+                    {gm.consignatarioNombre ? ` — ${gm.consignatarioNombre}` : ''}
                   </option>
                 ))}
               </select>
@@ -272,16 +272,16 @@ export function PaqueteForm({
               )}
               {sinGuiasDisponibles && (
                 <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-                  No hay guías con destinatario asignado. Crea o asigna un destinatario en la guía antes de registrar paquetes.
+                  No hay guías con consignatario asignado. Crea o asigna un consignatario en la guía antes de registrar paquetes.
                 </p>
               )}
-              {destinatarioNombre && (
+              {consignatarioNombre && (
                 <div className="mt-2 flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 px-3 py-2 text-sm">
                   <UserRound className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]" />
                   <div className="min-w-0">
-                    <p className="text-xs text-[var(--color-muted-foreground)]">Destinatario</p>
+                    <p className="text-xs text-[var(--color-muted-foreground)]">Consignatario</p>
                     <p className="truncate font-medium text-[var(--color-foreground)]">
-                      {destinatarioNombre}
+                      {consignatarioNombre}
                     </p>
                   </div>
                 </div>
@@ -331,7 +331,7 @@ export function PaqueteForm({
                     type="button"
                     variant="secondary"
                     onClick={handleGenerarRef}
-                    disabled={generatingRef || destinatarioId == null}
+                    disabled={generatingRef || consignatarioId == null}
                   >
                     {generatingRef ? (
                       <>
@@ -439,14 +439,14 @@ export function PaqueteForm({
 interface GuiaInfoReadonlyProps {
   paquete?: Paquete | null;
   trackingBaseFallback?: string | null;
-  destinatarioNombreFallback?: string | null;
+  consignatarioNombreFallback?: string | null;
   guiaMasterId?: number;
 }
 
 function GuiaInfoReadonly({
   paquete,
   trackingBaseFallback,
-  destinatarioNombreFallback,
+  consignatarioNombreFallback,
   guiaMasterId,
 }: GuiaInfoReadonlyProps) {
   if (!paquete) return null;
@@ -461,10 +461,10 @@ function GuiaInfoReadonly({
         ? String(piezaNumero)
         : null;
 
-  const nombre = paquete.destinatarioNombre ?? destinatarioNombreFallback ?? null;
-  const telefono = paquete.destinatarioTelefono ?? null;
-  const direccion = paquete.destinatarioDireccion ?? null;
-  const ubicacion = [paquete.destinatarioCanton, paquete.destinatarioProvincia]
+  const nombre = paquete.consignatarioNombre ?? consignatarioNombreFallback ?? null;
+  const telefono = paquete.consignatarioTelefono ?? null;
+  const direccion = paquete.consignatarioDireccion ?? null;
+  const ubicacion = [paquete.consignatarioCanton, paquete.consignatarioProvincia]
     .filter((v): v is string => Boolean(v && v.trim()))
     .join(', ');
 
@@ -498,7 +498,7 @@ function GuiaInfoReadonly({
       {(nombre || telefono || direccion || ubicacion) && (
         <div className="space-y-1.5 border-t border-[var(--color-border)] pt-3">
           <p className="text-xs uppercase tracking-wide text-[var(--color-muted-foreground)]">
-            Destinatario final
+            Consignatario
           </p>
           {nombre && (
             <div className="flex items-start gap-2 text-sm">
@@ -529,7 +529,7 @@ function GuiaInfoReadonly({
       )}
 
       <p className="text-xs text-[var(--color-muted-foreground)]">
-        La guía y la información del destinatario no se editan desde aquí.
+        La guía y la información del consignatario no se editan desde aquí.
       </p>
     </div>
   );

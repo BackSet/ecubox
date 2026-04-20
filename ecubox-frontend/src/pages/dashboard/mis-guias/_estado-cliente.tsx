@@ -51,7 +51,7 @@ export const MI_GUIA_ESTADO_DESCRIPCIONES: Record<EstadoGuiaMaster, string> = {
   DESPACHO_PARCIAL:
     'Parte de tus piezas ya está en camino a Ecuador. El resto se enviará pronto.',
   DESPACHO_COMPLETADO:
-    'Todas las piezas fueron despachadas y entregadas a tu destinatario.',
+    'Todas las piezas fueron despachadas y entregadas a tu consignatario.',
   DESPACHO_INCOMPLETO:
     'Cerramos esta guía, pero algunas piezas no llegaron a la bodega. Contáctanos si necesitas ayuda.',
   CANCELADA:

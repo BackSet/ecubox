@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
-import { useDestinatarios } from '@/hooks/useDestinatarios';
+import { useConsignatarios } from '@/hooks/useConsignatarios';
 import { useActualizarMiGuia } from '@/hooks/useMisGuias';
 import type { GuiaMaster } from '@/types/guia-master';
 
@@ -23,28 +23,28 @@ interface Props {
 }
 
 /**
- * Dialog para que el cliente final edite el número de guía y/o el destinatario
+ * Dialog para que el cliente final edite el número de guía y/o el consignatario
  * de una de sus propias guías. Solo es invocable desde la lista cuando la guía
  * está en estado inicial; el backend valida el estado de todas formas.
  */
 export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
   const [trackingBase, setTrackingBase] = useState(guia.trackingBase);
-  const [destinatarioId, setDestinatarioId] = useState<number | undefined>(
-    guia.destinatarioFinalId ?? undefined,
+  const [consignatarioId, setConsignatarioId] = useState<number | undefined>(
+    guia.consignatarioId ?? undefined,
   );
-  const { data: destinatarios = [], isLoading: loadingDest } = useDestinatarios();
+  const { data: consignatarios = [], isLoading: loadingDest } = useConsignatarios();
   const actualizar = useActualizarMiGuia();
 
   useEffect(() => {
     if (open) {
       setTrackingBase(guia.trackingBase);
-      setDestinatarioId(guia.destinatarioFinalId ?? undefined);
+      setConsignatarioId(guia.consignatarioId ?? undefined);
     }
-  }, [open, guia.trackingBase, guia.destinatarioFinalId]);
+  }, [open, guia.trackingBase, guia.consignatarioId]);
 
-  function handleDestinatarioChange(value: string | number | undefined) {
+  function handleConsignatarioChange(value: string | number | undefined) {
     const did = typeof value === 'string' ? Number(value) : value;
-    setDestinatarioId(did);
+    setConsignatarioId(did);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -54,13 +54,13 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
       toast.error('Indica el número de guía');
       return;
     }
-    if (destinatarioId == null) {
-      toast.error('Selecciona un destinatario');
+    if (consignatarioId == null) {
+      toast.error('Selecciona un consignatario');
       return;
     }
 
     const tbCambio = tbTrim.toLowerCase() !== guia.trackingBase.toLowerCase();
-    const destCambio = destinatarioId !== guia.destinatarioFinalId;
+    const destCambio = consignatarioId !== guia.consignatarioId;
     if (!tbCambio && !destCambio) {
       onClose();
       return;
@@ -71,7 +71,7 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
         id: guia.id,
         body: {
           ...(tbCambio ? { trackingBase: tbTrim } : {}),
-          destinatarioFinalId: destinatarioId,
+          consignatarioId: consignatarioId,
         },
       });
       toast.success('Guía actualizada');
@@ -87,7 +87,7 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
     }
   }
 
-  const sinDestinatarios = !loadingDest && destinatarios.length === 0;
+  const sinConsignatarios = !loadingDest && consignatarios.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !actualizar.isPending && onClose()}>
@@ -114,17 +114,17 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
 
           <div>
             <Label
-              htmlFor="mi-guia-edit-destinatario"
+              htmlFor="mi-guia-edit-consignatario"
               className="mb-1 flex items-center gap-1 text-xs"
             >
               <UserRound className="h-3.5 w-3.5" />
-              Destinatario *
+              Consignatario *
             </Label>
             <SearchableCombobox
-              id="mi-guia-edit-destinatario"
-              value={destinatarioId}
-              onChange={handleDestinatarioChange}
-              options={destinatarios}
+              id="mi-guia-edit-consignatario"
+              value={consignatarioId}
+              onChange={handleConsignatarioChange}
+              options={consignatarios}
               getKey={(d) => d.id}
               getLabel={(d) => d.nombre}
               getSearchText={(d) =>
@@ -138,14 +138,14 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
               }
               placeholder={
                 loadingDest
-                  ? 'Cargando destinatarios...'
-                  : sinDestinatarios
-                    ? 'Sin destinatarios'
-                    : 'Selecciona un destinatario'
+                  ? 'Cargando consignatarios...'
+                  : sinConsignatarios
+                    ? 'Sin consignatarios'
+                    : 'Selecciona un consignatario'
               }
               searchPlaceholder="Buscar por nombre, código, cantón..."
               emptyMessage="Sin coincidencias"
-              disabled={loadingDest || sinDestinatarios}
+              disabled={loadingDest || sinConsignatarios}
               clearable={false}
               renderOption={(d) => (
                 <div className="min-w-0">
@@ -181,7 +181,7 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={actualizar.isPending || sinDestinatarios}>
+            <Button type="submit" disabled={actualizar.isPending || sinConsignatarios}>
               {actualizar.isPending ? 'Guardando...' : 'Guardar cambios'}
             </Button>
           </DialogFooter>

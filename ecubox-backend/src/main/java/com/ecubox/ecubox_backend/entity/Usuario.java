@@ -50,7 +50,7 @@ public class Usuario {
 
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<DestinatarioFinal> destinatariosFinales = new ArrayList<>();
+    private List<Consignatario> destinatariosFinales = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

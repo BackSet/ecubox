@@ -22,15 +22,15 @@ public class ManifiestoDTO {
     private LocalDate fechaInicio;
     private LocalDate fechaFin;
     private FiltroManifiesto filtroTipo;
-    private Long filtroDistribuidorId;
-    private String filtroDistribuidorNombre;
+    private Long filtroCourierEntregaId;
+    private String filtroCourierEntregaNombre;
     private Long filtroAgenciaId;
     private String filtroAgenciaNombre;
     private Integer cantidadDespachos;
     private BigDecimal subtotalDomicilio;
     private BigDecimal subtotalAgenciaFlete;
     private BigDecimal subtotalComisionAgencias;
-    private BigDecimal totalDistribuidor;
+    private BigDecimal totalCourierEntrega;
     private BigDecimal totalAgencia;
     private BigDecimal totalPagar;
     private EstadoManifiesto estado;
@@ -45,9 +45,9 @@ public class ManifiestoDTO {
     public static class DespachoEnManifiestoDTO {
         private Long id;
         private String numeroGuia;
-        private String distribuidorNombre;
+        private String courierEntregaNombre;
         private String tipoEntrega;
         private String agenciaNombre;
-        private String destinatarioNombre;
+        private String consignatarioNombre;
     }
 }

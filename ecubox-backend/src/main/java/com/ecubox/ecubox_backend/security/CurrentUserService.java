@@ -67,7 +67,7 @@ public class CurrentUserService {
     }
 
     /**
-     * Indica si el usuario actual tiene el permiso (authority) dado (ej. "DESTINATARIOS_OPERARIO").
+     * Indica si el usuario actual tiene el permiso (authority) dado (ej. "CONSIGNATARIOS_OPERARIO").
      */
     public boolean hasAuthority(String authority) {
         if (authority == null || authority.isBlank()) {

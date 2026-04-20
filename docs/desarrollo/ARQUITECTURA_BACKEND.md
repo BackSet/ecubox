@@ -25,7 +25,7 @@ Base: `com.ecubox.ecubox_backend` bajo `ecubox-backend/src/main/java/`.
 
 | Paquete | Contenido |
 |---------|-----------|
-| **controller** | Controllers REST: Auth, Usuario, Agencia, Paquete, Despacho, LoteRecepcion, Saca, ManifiestoConsolidado, Distribuidor, AgenciaDistribuidor, Destinatario, Rol, Permiso, Health, ParametrosSistema, etc. |
+| **controller** | Controllers REST: Auth, Usuario, Agencia, Paquete, Despacho, LoteRecepcion, Saca, Manifiesto, EnvioConsolidado, GuiaMaster, MisGuias, CourierEntrega, AgenciaCourierEntrega (expuesto como `/api/puntos-entrega`), Consignatario, Rol, Permiso, Health, ConfigPublic, OperarioConfig, etc. |
 | **service** | Lógica de negocio (un servicio por dominio) + JwtService, AuthService |
 | **repository** | Interfaces JpaRepository |
 | **entity** | Entidades JPA |
@@ -129,7 +129,7 @@ sequenceDiagram
 
 - **CORS:** `CorsConfig`: orígenes configurables via `CORS_ALLOWED_ORIGINS`, métodos GET/POST/PUT/DELETE/OPTIONS/PATCH, `allowCredentials=true`.
 
-- **Flyway:** Migraciones en `src/main/resources/db/migration/`; 39 scripts `V*.sql`.
+- **Flyway:** Migraciones en `src/main/resources/db/migration/`; scripts `V*.sql`. Las migraciones más relevantes para nomenclatura son `V71__refactor_nomenclatura_industria.sql` (renombre de tablas/columnas: `destinatario_final` → `consignatario`, `distribuidor` → `courier_entrega`, columnas `*_id` correspondientes; permisos `DESTINATARIOS_*` → `CONSIGNATARIOS_*`, `DISTRIBUIDORES_*` → `COURIERS_ENTREGA_*`), `V72__rename_permisos_puntos_entrega.sql` (`AGENCIAS_DISTRIBUIDOR_*` → `PUNTOS_ENTREGA_*`) y `V73__rename_agencia_distribuidor_a_courier_entrega.sql` (renombre del sub-dominio: tablas `agencia_distribuidor`/`agencia_distribuidor_version` → `agencia_courier_entrega`/`agencia_courier_entrega_version`, columnas FK en `despacho`, valor de `tipo_entrega` `AGENCIA_DISTRIBUIDOR` → `AGENCIA_COURIER_ENTREGA`, y `codigo_secuencia.entity` correspondiente).
 
 - **Despliegue en producción:** Ver [RAILWAY_PRODUCCION_GUIA.md](../despliegue/RAILWAY_PRODUCCION_GUIA.md) para build, variables de entorno y configuración.
 
@@ -139,16 +139,18 @@ sequenceDiagram
 
 | Entidad | Tabla | Responsabilidad |
 |---------|-------|-----------------|
-| Paquete | paquete | Paquete de envío: guía, peso, estado, tipo, remitente/destinatario |
+| Paquete | paquete | Paquete (también "pieza" cuando pertenece a una guía master): guía master, peso (lbs), estado, tipo, consignatario |
+| GuiaMaster | guia_master | Guía master (MAWB): documento agrupador de piezas que viajan juntas |
 | Usuario | usuario | Usuario del sistema: username, email, password, roles |
-| Agencia | agencia | Agencia de distribución/destino |
-| AgenciaDistribuidor | agencia_distribuidor | Agencia asociada a un distribuidor |
+| Agencia | agencia | Agencia ECUBOX (oficinas propias) |
+| AgenciaCourierEntrega | agencia_courier_entrega | Punto de entrega del courier (sucursal). Renombrado desde `AgenciaDistribuidor`/`agencia_distribuidor` en V73. En API y UI se expone como **Punto de entrega** (`/api/puntos-entrega`, ruta `/puntos-entrega`). |
 | Despacho | despacho | Despacho asociado a sacas/paquetes |
 | Saca | saca | Agrupación física de paquetes, vinculada a despacho |
 | LoteRecepcion | lote_recepcion | Lote de recepción de paquetes |
-| Destinatario | destinatario | Destinatario de envíos |
-| Distribuidor | distribuidor | Distribuidor |
-| Manifiesto | manifiesto_consolidado | Manifiesto consolidado |
+| Consignatario | consignatario | Receptor del envío en Ecuador (back-office: "Consignatario"; vista cliente: "Destinatario"). Renombrado desde `destinatario_final` en V71. |
+| CourierEntrega | courier_entrega | Empresa de paquetería de última milla en Ecuador. Renombrado desde `distribuidor` en V71. |
+| EnvioConsolidado | envio_consolidado | Agrupación de guías master que viajan juntas en un mismo vuelo USA → Ecuador |
+| Manifiesto | manifiesto | Manifiesto aduanero/operativo |
 | Rol | rol | Rol de usuario |
 | Permiso | permiso | Permiso granular |
 | TrackingEvent | tracking_event | Eventos de rastreo de paquetes |

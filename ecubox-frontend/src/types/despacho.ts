@@ -1,11 +1,11 @@
 import type { Paquete } from '@/types/paquete';
 
-export type TipoEntrega = 'DOMICILIO' | 'AGENCIA' | 'AGENCIA_DISTRIBUIDOR';
+export type TipoEntrega = 'DOMICILIO' | 'AGENCIA' | 'AGENCIA_COURIER_ENTREGA';
 
-export interface AgenciaDistribuidor {
+export interface AgenciaCourierEntrega {
   id: number;
-  distribuidorId: number;
-  distribuidorNombre?: string;
+  courierEntregaId: number;
+  courierEntregaNombre?: string;
   codigo: string;
   etiqueta?: string;
   provincia?: string;
@@ -16,8 +16,8 @@ export interface AgenciaDistribuidor {
   tarifa: number;
 }
 
-export interface AgenciaDistribuidorRequest {
-  distribuidorId: number;
+export interface AgenciaCourierEntregaRequest {
+  courierEntregaId: number;
   codigo?: string;
   provincia?: string;
   canton?: string;
@@ -29,7 +29,7 @@ export interface AgenciaDistribuidorRequest {
 
 export type TamanioSaca = 'INDIVIDUAL' | 'PEQUENO' | 'MEDIANO' | 'GRANDE';
 
-export interface Distribuidor {
+export interface CourierEntrega {
   id: number;
   nombre: string;
   codigo: string;
@@ -40,7 +40,7 @@ export interface Distribuidor {
   diasMaxRetiroDomicilio?: number;
 }
 
-export interface DistribuidorRequest {
+export interface CourierEntregaRequest {
   nombre: string;
   codigo: string;
   email?: string;
@@ -97,43 +97,43 @@ export interface Despacho {
   operarioId?: number;
   operarioNombre?: string;
   fechaHora?: string;
-  distribuidorId: number;
-  distribuidorNombre?: string;
+  courierEntregaId: number;
+  courierEntregaNombre?: string;
   tipoEntrega: TipoEntrega;
-  destinatarioFinalId?: number;
-  destinatarioNombre?: string;
-  destinatarioDireccion?: string;
-  destinatarioTelefono?: string;
+  consignatarioId?: number;
+  consignatarioNombre?: string;
+  consignatarioDireccion?: string;
+  consignatarioTelefono?: string;
   agenciaId?: number;
   agenciaNombre?: string;
-  agenciaDistribuidorId?: number;
-  agenciaDistribuidorNombre?: string;
+  agenciaCourierEntregaId?: number;
+  agenciaCourierEntregaNombre?: string;
   sacaIds?: number[];
   /** Sacas con paquetes (solo en respuesta de detalle por id). */
   sacas?: Saca[];
 
   /**
-   * SCD2 (V67): id de la version inmutable del destinatario que viaja en
-   * el despacho. Si tiene valor, los datos del destinatario son los del
+   * SCD2 (V67): id de la version inmutable del consignatario que viaja en
+   * el despacho. Si tiene valor, los datos del consignatario son los del
    * snapshot historico, independientemente de cambios posteriores en el
    * maestro.
    */
-  destinatarioVersionId?: number | null;
+  consignatarioVersionId?: number | null;
   /** SCD2: id de la version inmutable de la agencia destino. */
   agenciaVersionId?: number | null;
-  /** SCD2: id de la version inmutable de la agencia de distribuidor destino. */
-  agenciaDistribuidorVersionId?: number | null;
+  /** SCD2: id de la version inmutable de la agencia de courierEntrega destino. */
+  agenciaCourierEntregaVersionId?: number | null;
   /** SCD2: cuando se congelo el snapshot de destino del despacho. */
   destinoCongeladoEn?: string | null;
 }
 
 export interface DespachoCreateRequest {
   numeroGuia: string;
-  distribuidorId: number;
+  courierEntregaId: number;
   tipoEntrega: TipoEntrega;
-  destinatarioFinalId?: number;
+  consignatarioId?: number;
   agenciaId?: number;
-  agenciaDistribuidorId?: number;
+  agenciaCourierEntregaId?: number;
   observaciones?: string;
   codigoPrecinto?: string;
   fechaHora?: string;

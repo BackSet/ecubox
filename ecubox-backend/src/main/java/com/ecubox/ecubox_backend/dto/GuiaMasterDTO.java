@@ -17,23 +17,23 @@ public class GuiaMasterDTO {
     private Long id;
     private String trackingBase;
     private Integer totalPiezasEsperadas;
-    private Long destinatarioFinalId;
-    private String destinatarioNombre;
-    private String destinatarioTelefono;
-    private String destinatarioDireccion;
-    private String destinatarioProvincia;
-    private String destinatarioCanton;
+    private Long consignatarioId;
+    private String consignatarioNombre;
+    private String consignatarioTelefono;
+    private String consignatarioDireccion;
+    private String consignatarioProvincia;
+    private String consignatarioCanton;
     /**
      * TRUE cuando los datos del destinatario no provienen del propio
-     * {@code GuiaMaster.destinatarioFinal} sino de un fallback (primera pieza
+     * {@code GuiaMaster.consignatario} sino de un fallback (primera pieza
      * con destinatario asignado). Permite a la UI advertir que el dato es
      * inferido en lugar de mostrar "Sin asignar".
      */
-    private Boolean destinatarioInferido;
+    private Boolean consignatarioInferido;
     /** Snapshot SCD2: id de la version del destinatario congelada en la guia. NULL si todavia no hay congelado. */
-    private Long destinatarioVersionId;
+    private Long consignatarioVersionId;
     /** Cuando se congelaron los datos del destinatario (primer despacho). */
-    private LocalDateTime destinatarioCongeladoEn;
+    private LocalDateTime consignatarioCongeladoEn;
     private Long clienteUsuarioId;
     private String clienteUsuarioNombre;
     private Integer piezasRegistradas;

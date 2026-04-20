@@ -127,24 +127,24 @@ public class ManifiestoService {
         BigDecimal subtotalAgenciaFlete = BigDecimal.ZERO;
         BigDecimal subtotalComisionAgencias = BigDecimal.ZERO;
         for (Despacho d : despachos) {
-            if (d.getTipoEntrega() == TipoEntrega.DOMICILIO && d.getDistribuidor() != null) {
+            if (d.getTipoEntrega() == TipoEntrega.DOMICILIO && d.getCourierEntrega() != null) {
                 subtotalDomicilio = subtotalDomicilio.add(
-                        d.getDistribuidor().getTarifaEnvio() != null
-                                ? d.getDistribuidor().getTarifaEnvio()
+                        d.getCourierEntrega().getTarifaEnvio() != null
+                                ? d.getCourierEntrega().getTarifaEnvio()
                                 : BigDecimal.ZERO);
             } else if (d.getTipoEntrega() == TipoEntrega.AGENCIA) {
-                if (d.getDistribuidor() != null && d.getDistribuidor().getTarifaEnvio() != null) {
-                    subtotalAgenciaFlete = subtotalAgenciaFlete.add(d.getDistribuidor().getTarifaEnvio());
+                if (d.getCourierEntrega() != null && d.getCourierEntrega().getTarifaEnvio() != null) {
+                    subtotalAgenciaFlete = subtotalAgenciaFlete.add(d.getCourierEntrega().getTarifaEnvio());
                 }
                 if (d.getAgencia() != null && d.getAgencia().getTarifaServicio() != null) {
                     subtotalComisionAgencias = subtotalComisionAgencias.add(d.getAgencia().getTarifaServicio());
                 }
-            } else if (d.getTipoEntrega() == TipoEntrega.AGENCIA_DISTRIBUIDOR) {
-                if (d.getDistribuidor() != null && d.getDistribuidor().getTarifaEnvio() != null) {
-                    subtotalAgenciaFlete = subtotalAgenciaFlete.add(d.getDistribuidor().getTarifaEnvio());
+            } else if (d.getTipoEntrega() == TipoEntrega.AGENCIA_COURIER_ENTREGA) {
+                if (d.getCourierEntrega() != null && d.getCourierEntrega().getTarifaEnvio() != null) {
+                    subtotalAgenciaFlete = subtotalAgenciaFlete.add(d.getCourierEntrega().getTarifaEnvio());
                 }
-                if (d.getAgenciaDistribuidor() != null && d.getAgenciaDistribuidor().getTarifa() != null) {
-                    subtotalComisionAgencias = subtotalComisionAgencias.add(d.getAgenciaDistribuidor().getTarifa());
+                if (d.getAgenciaCourierEntrega() != null && d.getAgenciaCourierEntrega().getTarifa() != null) {
+                    subtotalComisionAgencias = subtotalComisionAgencias.add(d.getAgenciaCourierEntrega().getTarifa());
                 }
             }
         }
@@ -182,7 +182,7 @@ public class ManifiestoService {
                 .fechaInicio(r.getFechaInicio())
                 .fechaFin(r.getFechaFin())
                 .filtroTipo(FiltroManifiesto.POR_PERIODO)
-                .filtroDistribuidor(null)
+                .filtroCourierEntrega(null)
                 .filtroAgencia(null)
                 .estado(EstadoManifiesto.PENDIENTE)
                 .cantidadDespachos(0)
@@ -197,7 +197,7 @@ public class ManifiestoService {
         entity.setFechaInicio(r.getFechaInicio());
         entity.setFechaFin(r.getFechaFin());
         entity.setFiltroTipo(FiltroManifiesto.POR_PERIODO);
-        entity.setFiltroDistribuidor(null);
+        entity.setFiltroCourierEntrega(null);
         entity.setFiltroAgencia(null);
     }
 
@@ -208,9 +208,9 @@ public class ManifiestoService {
     private List<Despacho> findDespachosCandidatosEntities(Manifiesto m) {
         LocalDateTime desde = m.getFechaInicio().atStartOfDay();
         LocalDateTime hastaExclusivo = m.getFechaFin().plusDays(1).atStartOfDay();
-        Long distribuidorId = m.getFiltroDistribuidor() != null ? m.getFiltroDistribuidor().getId() : null;
+        Long courierEntregaId = m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getId() : null;
         Long agenciaId = m.getFiltroAgencia() != null ? m.getFiltroAgencia().getId() : null;
-        return despachoRepository.findCandidatosParaManifiesto(desde, hastaExclusivo, distribuidorId, agenciaId);
+        return despachoRepository.findCandidatosParaManifiesto(desde, hastaExclusivo, courierEntregaId, agenciaId);
     }
 
     private void vincularDespachosAManifiesto(Manifiesto manifiesto, List<Despacho> despachos) {
@@ -243,10 +243,10 @@ public class ManifiestoService {
         return ManifiestoDespachoCandidatoDTO.builder()
                 .id(d.getId())
                 .numeroGuia(d.getNumeroGuia())
-                .distribuidorNombre(d.getDistribuidor() != null ? d.getDistribuidor().getNombre() : null)
+                .courierEntregaNombre(d.getCourierEntrega() != null ? d.getCourierEntrega().getNombre() : null)
                 .tipoEntrega(d.getTipoEntrega() != null ? d.getTipoEntrega().name() : null)
                 .agenciaNombre(d.getAgencia() != null ? d.getAgencia().getNombre() : null)
-                .destinatarioNombre(d.getDestinatarioFinal() != null ? d.getDestinatarioFinal().getNombre() : null)
+                .consignatarioNombre(d.getConsignatario() != null ? d.getConsignatario().getNombre() : null)
                 .fechaHora(d.getFechaHora())
                 .build();
     }
@@ -258,15 +258,15 @@ public class ManifiestoService {
                 .fechaInicio(m.getFechaInicio())
                 .fechaFin(m.getFechaFin())
                 .filtroTipo(m.getFiltroTipo())
-                .filtroDistribuidorId(m.getFiltroDistribuidor() != null ? m.getFiltroDistribuidor().getId() : null)
-                .filtroDistribuidorNombre(m.getFiltroDistribuidor() != null ? m.getFiltroDistribuidor().getNombre() : null)
+                .filtroCourierEntregaId(m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getId() : null)
+                .filtroCourierEntregaNombre(m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getNombre() : null)
                 .filtroAgenciaId(m.getFiltroAgencia() != null ? m.getFiltroAgencia().getId() : null)
                 .filtroAgenciaNombre(m.getFiltroAgencia() != null ? m.getFiltroAgencia().getNombre() : null)
                 .cantidadDespachos(m.getCantidadDespachos() != null ? m.getCantidadDespachos() : 0)
                 .subtotalDomicilio(m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
                 .subtotalAgenciaFlete(m.getSubtotalAgenciaFlete() != null ? m.getSubtotalAgenciaFlete() : BigDecimal.ZERO)
                 .subtotalComisionAgencias(m.getSubtotalComisionAgencias() != null ? m.getSubtotalComisionAgencias() : BigDecimal.ZERO)
-                .totalDistribuidor((m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
+                .totalCourierEntrega((m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
                         .add(m.getSubtotalAgenciaFlete() != null ? m.getSubtotalAgenciaFlete() : BigDecimal.ZERO))
                 .totalAgencia(m.getSubtotalComisionAgencias() != null ? m.getSubtotalComisionAgencias() : BigDecimal.ZERO)
                 .totalPagar(m.getTotalPagar() != null ? m.getTotalPagar() : BigDecimal.ZERO)
@@ -281,10 +281,10 @@ public class ManifiestoService {
             despachosList.add(new ManifiestoDTO.DespachoEnManifiestoDTO(
                     d.getId(),
                     d.getNumeroGuia(),
-                    d.getDistribuidor() != null ? d.getDistribuidor().getNombre() : null,
+                    d.getCourierEntrega() != null ? d.getCourierEntrega().getNombre() : null,
                     d.getTipoEntrega() != null ? d.getTipoEntrega().name() : null,
                     d.getAgencia() != null ? d.getAgencia().getNombre() : null,
-                    d.getDestinatarioFinal() != null ? d.getDestinatarioFinal().getNombre() : null
+                    d.getConsignatario() != null ? d.getConsignatario().getNombre() : null
             ));
         }
         return ManifiestoDTO.builder()
@@ -293,15 +293,15 @@ public class ManifiestoService {
                 .fechaInicio(m.getFechaInicio())
                 .fechaFin(m.getFechaFin())
                 .filtroTipo(m.getFiltroTipo())
-                .filtroDistribuidorId(m.getFiltroDistribuidor() != null ? m.getFiltroDistribuidor().getId() : null)
-                .filtroDistribuidorNombre(m.getFiltroDistribuidor() != null ? m.getFiltroDistribuidor().getNombre() : null)
+                .filtroCourierEntregaId(m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getId() : null)
+                .filtroCourierEntregaNombre(m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getNombre() : null)
                 .filtroAgenciaId(m.getFiltroAgencia() != null ? m.getFiltroAgencia().getId() : null)
                 .filtroAgenciaNombre(m.getFiltroAgencia() != null ? m.getFiltroAgencia().getNombre() : null)
                 .cantidadDespachos(m.getCantidadDespachos() != null ? m.getCantidadDespachos() : 0)
                 .subtotalDomicilio(m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
                 .subtotalAgenciaFlete(m.getSubtotalAgenciaFlete() != null ? m.getSubtotalAgenciaFlete() : BigDecimal.ZERO)
                 .subtotalComisionAgencias(m.getSubtotalComisionAgencias() != null ? m.getSubtotalComisionAgencias() : BigDecimal.ZERO)
-                .totalDistribuidor((m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
+                .totalCourierEntrega((m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
                         .add(m.getSubtotalAgenciaFlete() != null ? m.getSubtotalAgenciaFlete() : BigDecimal.ZERO))
                 .totalAgencia(m.getSubtotalComisionAgencias() != null ? m.getSubtotalComisionAgencias() : BigDecimal.ZERO)
                 .totalPagar(m.getTotalPagar() != null ? m.getTotalPagar() : BigDecimal.ZERO)

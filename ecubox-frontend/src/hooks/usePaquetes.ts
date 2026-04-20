@@ -26,7 +26,7 @@ export function usePaquetesPaginated(params: PaqueteListParams) {
       'page',
       params.q ?? '',
       params.estado ?? '',
-      params.destinatarioFinalId ?? '',
+      params.consignatarioId ?? '',
       params.envio ?? '',
       params.guiaMasterId ?? '',
       params.chip ?? '',

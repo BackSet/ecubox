@@ -49,7 +49,7 @@ public class PaqueteController {
     public ResponseEntity<PageResponse<PaqueteDTO>> findAllPage(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Long destinatarioFinalId,
+            @RequestParam(required = false) Long consignatarioId,
             @RequestParam(required = false) String envio,
             @RequestParam(required = false) Long guiaMasterId,
             @RequestParam(required = false) String chip,
@@ -58,7 +58,7 @@ public class PaqueteController {
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
         boolean canManageAny = currentUserService.hasRole("ADMIN") || currentUserService.hasRole("OPERARIO");
         var filters = new PaqueteService.PaqueteListFilters(
-                estado, destinatarioFinalId, envio, guiaMasterId, chip);
+                estado, consignatarioId, envio, guiaMasterId, chip);
         var pageResult = canManageAny
                 ? paqueteService.findAllPaginated(q, filters, page, size)
                 : paqueteService.findAllByUsuarioIdPaginated(usuarioId, q, filters, page, size);
@@ -68,9 +68,9 @@ public class PaqueteController {
     @GetMapping("/sugerir-ref")
     @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
     public ResponseEntity<Map<String, String>> sugerirRef(
-            @RequestParam Long destinatarioFinalId,
+            @RequestParam Long consignatarioId,
             @RequestParam(required = false) Long excludePaqueteId) {
-        String ref = paqueteService.sugerirRef(destinatarioFinalId, excludePaqueteId);
+        String ref = paqueteService.sugerirRef(consignatarioId, excludePaqueteId);
         return ResponseEntity.ok(Map.of("ref", ref));
     }
 

@@ -179,7 +179,7 @@ export function PaqueteBulkCreateForm({
   const guiasSeleccionables = useMemo(
     () =>
       guiasMaster.filter((gm) => {
-        if (gm.destinatarioFinalId == null) return false;
+        if (gm.consignatarioId == null) return false;
         if (isEditMode) return true; // en edición no filtramos
         const total = gm.totalPiezasEsperadas;
         const registradas = gm.piezasRegistradas ?? 0;
@@ -207,8 +207,8 @@ export function PaqueteBulkCreateForm({
     if (guiaEdit && guiaEdit.id === guiaMasterId) return guiaEdit;
     return guiasMaster.find((gm) => gm.id === guiaMasterId) ?? null;
   }, [guiasMaster, guiaEdit, guiaMasterId]);
-  const destinatarioId = guiaSeleccionada?.destinatarioFinalId ?? null;
-  const destinatarioNombre = guiaSeleccionada?.destinatarioNombre ?? null;
+  const consignatarioId = guiaSeleccionada?.consignatarioId ?? null;
+  const consignatarioNombre = guiaSeleccionada?.consignatarioNombre ?? null;
   const piezasRegistradas = guiaSeleccionada?.piezasRegistradas ?? 0;
   const totalEsperadas = guiaSeleccionada?.totalPiezasEsperadas ?? null;
   const cupoRestante =
@@ -350,8 +350,8 @@ export function PaqueteBulkCreateForm({
     !diff.totalChanged;
 
   async function onSubmitCreate(values: FormValues) {
-    if (destinatarioId == null) {
-      notify.warning('La guía seleccionada no tiene destinatario asignado');
+    if (consignatarioId == null) {
+      notify.warning('La guía seleccionada no tiene consignatario asignado');
       return;
     }
     const guiaId = values.guiaMasterId as number;
@@ -380,7 +380,7 @@ export function PaqueteBulkCreateForm({
     for (let i = 0; i < values.paquetes.length; i++) {
       const item = values.paquetes[i];
       const body: PaqueteCreateRequest = {
-        destinatarioFinalId: destinatarioId,
+        consignatarioId: consignatarioId,
         guiaMasterId: guiaId,
         contenido: item.contenido?.trim() || undefined,
       };
@@ -425,8 +425,8 @@ export function PaqueteBulkCreateForm({
   }
 
   async function onSubmitEdit(values: FormValues) {
-    if (destinatarioId == null) {
-      notify.warning('La guía no tiene destinatario asignado');
+    if (consignatarioId == null) {
+      notify.warning('La guía no tiene consignatario asignado');
       return;
     }
     const guiaId = values.guiaMasterId as number;
@@ -500,7 +500,7 @@ export function PaqueteBulkCreateForm({
       // 2. Actualizar existentes
       for (const { item } of itemsAActualizar) {
         const body: PaqueteUpdateRequest = {
-          destinatarioFinalId: destinatarioId,
+          consignatarioId: consignatarioId,
           contenido: item.contenido?.trim() || undefined,
           guiaMasterId: guiaId,
         };
@@ -526,7 +526,7 @@ export function PaqueteBulkCreateForm({
       // 4. Crear nuevos al final (toman piezaNumero libre)
       for (const { item } of itemsACrear) {
         const body: PaqueteCreateRequest = {
-          destinatarioFinalId: destinatarioId,
+          consignatarioId: consignatarioId,
           guiaMasterId: guiaId,
           contenido: item.contenido?.trim() || undefined,
         };
@@ -642,7 +642,7 @@ export function PaqueteBulkCreateForm({
                   )}
                   {sinGuiasDisponibles && (
                     <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-                      No hay guías con destinatario asignado. Crea o asigna un destinatario en la guía
+                      No hay guías con consignatario asignado. Crea o asigna un consignatario en la guía
                       antes de registrar paquetes.
                     </p>
                   )}
@@ -713,13 +713,13 @@ export function PaqueteBulkCreateForm({
               </div>
             )}
 
-            {destinatarioNombre && (
+            {consignatarioNombre && (
               <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 px-3 py-2 text-sm">
                 <UserRound className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]" />
                 <div className="min-w-0">
-                  <p className="text-xs text-[var(--color-muted-foreground)]">Destinatario</p>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">Consignatario</p>
                   <p className="truncate font-medium text-[var(--color-foreground)]">
-                    {destinatarioNombre}
+                    {consignatarioNombre}
                   </p>
                 </div>
               </div>

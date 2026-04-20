@@ -131,7 +131,7 @@ Base: `/api/tracking`
 |--------|------|---------|-------------|
 | GET | `/api/tracking?numeroGuia=ABC123` | Público | Rastreo de paquete por número de guía |
 
-**Response (200):** `TrackingResponse` con información del paquete, estados de rastreo, despacho y destinatario.
+**Response (200):** `TrackingResponse` con información del paquete, estados de rastreo, despacho y destinatario (consignatario en términos de back-office).
 
 ---
 
@@ -225,22 +225,24 @@ Base: `/api/permisos`
 
 ---
 
-## Mis Destinatarios
+## Mis Consignatarios
 
-Base: `/api/mis-destinatarios`
+Base: `/api/mis-consignatarios`
 
-Destinatarios del usuario autenticado.
+Consignatarios (vista cliente: "Mis destinatarios") del usuario autenticado.
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
-| GET | `/api/mis-destinatarios` | `DESTINATARIOS_READ` | Listar destinatarios del usuario |
-| GET | `/api/mis-destinatarios/sugerir-codigo?nombre=...&canton=...` | `DESTINATARIOS_READ` | Sugerir código para destinatario |
-| GET | `/api/mis-destinatarios/{id}` | `DESTINATARIOS_READ` | Obtener destinatario por ID |
-| POST | `/api/mis-destinatarios` | `DESTINATARIOS_CREATE` | Crear destinatario |
-| PUT | `/api/mis-destinatarios/{id}` | `DESTINATARIOS_UPDATE` | Actualizar destinatario |
-| DELETE | `/api/mis-destinatarios/{id}` | `DESTINATARIOS_DELETE` | Eliminar destinatario y sus paquetes asociados |
+| GET | `/api/mis-consignatarios` | `CONSIGNATARIOS_READ` | Listar consignatarios del usuario |
+| GET | `/api/mis-consignatarios/sugerir-codigo?nombre=...&canton=...` | `CONSIGNATARIOS_READ` | Sugerir código para consignatario |
+| GET | `/api/mis-consignatarios/{id}` | `CONSIGNATARIOS_READ` | Obtener consignatario por ID |
+| POST | `/api/mis-consignatarios` | `CONSIGNATARIOS_CREATE` | Crear consignatario |
+| PUT | `/api/mis-consignatarios/{id}` | `CONSIGNATARIOS_UPDATE` | Actualizar consignatario |
+| DELETE | `/api/mis-consignatarios/{id}` | `CONSIGNATARIOS_DELETE` | Eliminar consignatario y sus paquetes asociados |
 
-**Request/Response:** `DestinatarioFinalRequest` / `DestinatarioFinalDTO`.
+**Request/Response:** `ConsignatarioRequest` / `ConsignatarioDTO`.
+
+> Nota histórica: este endpoint se llamaba `/api/mis-destinatarios` con permisos `DESTINATARIOS_*` y DTOs `DestinatarioFinal*` antes de la migración `V71__refactor_nomenclatura_industria.sql`.
 
 ---
 
@@ -253,13 +255,16 @@ Paquetes del usuario autenticado (ADMIN/OPERARIO ven todos).
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
 | GET | `/api/mis-paquetes` | `PAQUETES_READ` | Listar paquetes |
-| GET | `/api/mis-paquetes/sugerir-ref?destinatarioFinalId=...` | `PAQUETES_PESO_WRITE` | Sugerir referencia |
+| GET | `/api/mis-paquetes/page?q=&estado=&consignatarioId=&envio=&guiaMasterId=&chip=&page=&size=` | `PAQUETES_READ` | Listado paginado con filtros |
+| GET | `/api/mis-paquetes/sugerir-ref?consignatarioId=...` | `PAQUETES_PESO_WRITE` | Sugerir referencia |
 | POST | `/api/mis-paquetes` | `PAQUETES_CREATE` | Crear paquete |
 | PUT | `/api/mis-paquetes/{id}` | `PAQUETES_UPDATE` | Actualizar paquete |
 | DELETE | `/api/mis-paquetes/{id}` | `PAQUETES_DELETE` | Eliminar paquete (limpia eventos/outbox del paquete) |
 
 **Request:** `PaqueteCreateRequest` (POST), `PaqueteUpdateRequest` (PUT).
 **Response:** `PaqueteDTO`.
+
+> El parámetro `consignatarioId` reemplaza al antiguo `destinatarioFinalId` (renombrado en V71).
 
 ---
 
@@ -279,36 +284,46 @@ Base: `/api/agencias`
 
 ---
 
-## Distribuidores
+## Couriers de entrega
 
-Base: `/api/distribuidores`
+Base: `/api/couriers-entrega`
+
+Empresas de paquetería de última milla (Servientrega, Laar, Tramaco, etc.).
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
-| GET | `/api/distribuidores` | `DISTRIBUIDORES_READ` | Listar distribuidores |
-| GET | `/api/distribuidores/{id}` | `DISTRIBUIDORES_READ` | Obtener distribuidor por ID |
-| POST | `/api/distribuidores` | `DISTRIBUIDORES_WRITE` | Crear distribuidor |
-| PUT | `/api/distribuidores/{id}` | `DISTRIBUIDORES_WRITE` | Actualizar distribuidor |
-| DELETE | `/api/distribuidores/{id}` | `DISTRIBUIDORES_WRITE` | Eliminar distribuidor |
+| GET | `/api/couriers-entrega` | `COURIERS_ENTREGA_READ` | Listar couriers de entrega |
+| GET | `/api/couriers-entrega/page?q=&page=&size=` | `COURIERS_ENTREGA_READ` | Listado paginado con búsqueda |
+| GET | `/api/couriers-entrega/{id}` | `COURIERS_ENTREGA_READ` | Obtener courier por ID |
+| POST | `/api/couriers-entrega` | `COURIERS_ENTREGA_WRITE` | Crear courier |
+| PUT | `/api/couriers-entrega/{id}` | `COURIERS_ENTREGA_WRITE` | Actualizar courier |
+| DELETE | `/api/couriers-entrega/{id}` | `COURIERS_ENTREGA_WRITE` | Eliminar courier |
 
-**Request/Response:** `DistribuidorRequest` / `DistribuidorDTO`.
+**Request/Response:** `CourierEntregaRequest` / `CourierEntregaDTO`.
+
+> Nota histórica: este endpoint se llamaba `/api/distribuidores` con permisos `DISTRIBUIDORES_*` antes de la migración `V71__refactor_nomenclatura_industria.sql`. La tabla interna se renombró de `distribuidor` a `courier_entrega` en V71 y la clase request `DistribuidorRequest` pasó a `CourierEntregaRequest` en el refactor de V73.
 
 ---
 
-## Agencias Distribuidor
+## Puntos de entrega
 
-Base: `/api/agencias-distribuidor`
+Base: `/api/puntos-entrega`
+
+Sucursales del courier de entrega donde el consignatario puede retirar su paquete.
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
-| GET | `/api/agencias-distribuidor` | `AGENCIAS_DISTRIBUIDOR_READ` | Listar todas |
-| GET | `/api/agencias-distribuidor/{id}` | `AGENCIAS_DISTRIBUIDOR_READ` | Obtener por ID |
-| GET | `/api/agencias-distribuidor/por-distribuidor/{distribuidorId}` | `AGENCIAS_DISTRIBUIDOR_READ` | Listar por distribuidor |
-| POST | `/api/agencias-distribuidor` | `AGENCIAS_DISTRIBUIDOR_WRITE` | Crear |
-| PUT | `/api/agencias-distribuidor/{id}` | `AGENCIAS_DISTRIBUIDOR_WRITE` | Actualizar |
-| DELETE | `/api/agencias-distribuidor/{id}` | `AGENCIAS_DISTRIBUIDOR_WRITE` | Eliminar |
+| GET | `/api/puntos-entrega` | `PUNTOS_ENTREGA_READ` | Listar todos |
+| GET | `/api/puntos-entrega/page?q=&page=&size=` | `PUNTOS_ENTREGA_READ` | Listado paginado |
+| GET | `/api/puntos-entrega/{id}` | `PUNTOS_ENTREGA_READ` | Obtener por ID |
+| GET | `/api/puntos-entrega/por-courier-entrega/{courierEntregaId}` | `PUNTOS_ENTREGA_READ` | Listar puntos por courier de entrega |
+| POST | `/api/puntos-entrega` | `PUNTOS_ENTREGA_WRITE` | Crear |
+| PUT | `/api/puntos-entrega/{id}` | `PUNTOS_ENTREGA_WRITE` | Actualizar |
+| DELETE | `/api/puntos-entrega/{id}` | `PUNTOS_ENTREGA_WRITE` | Eliminar |
 
-**Request/Response:** `AgenciaDistribuidorRequest` / `AgenciaDistribuidorDTO`.
+**Request/Response:** `AgenciaCourierEntregaRequest` / `AgenciaCourierEntregaDTO` (la entidad `AgenciaCourierEntrega` y la tabla `agencia_courier_entrega` se exponen en API/UI como **Punto de entrega**).
+
+> Nota histórica: este endpoint se llamaba `/api/agencias-distribuidor` con permisos `AGENCIAS_DISTRIBUIDOR_*` antes de las migraciones `V71__refactor_nomenclatura_industria.sql` (URL) y `V72__rename_permisos_puntos_entrega.sql` (permisos). La entidad/tabla `AgenciaDistribuidor`/`agencia_distribuidor` se renombró a `AgenciaCourierEntrega`/`agencia_courier_entrega` en `V73__rename_agencia_distribuidor_a_courier_entrega.sql`.
 
 ---
 
@@ -364,12 +379,12 @@ Base: `/api/operario/paquetes`
 | PATCH | `/api/operario/paquetes/{paqueteId}/estado-rastreo` | `PAQUETES_PESO_WRITE` | Cambiar estado de rastreo |
 | POST | `/api/operario/paquetes/estados-destino-permitidos` | `PAQUETES_PESO_WRITE` | Estados destino permitidos para paquetes |
 | POST | `/api/operario/paquetes/cambiar-estado-rastreo-bulk` | `PAQUETES_PESO_WRITE` | Cambio masivo de estado de rastreo |
-| PATCH | `/api/operario/paquetes/{paqueteId}/guia-envio` | `PAQUETES_PESO_WRITE` | Asignar guía de envío |
-| POST | `/api/operario/paquetes/asignar-guia-envio` | `PAQUETES_PESO_WRITE` | Asignar guía a varios paquetes |
-| POST | `/api/operario/paquetes/buscar-por-guias` | `PAQUETES_PESO_WRITE` | Buscar paquetes por guías |
+| PATCH | `/api/operario/paquetes/{paqueteId}/guia-master` | `PAQUETES_PESO_WRITE` | Asignar guía master a un paquete |
+| POST | `/api/operario/paquetes/asignar-guia-master` | `PAQUETES_PESO_WRITE` | Asignar guía master a varios paquetes |
+| POST | `/api/operario/paquetes/buscar-por-guias` | `PAQUETES_PESO_WRITE` | Buscar paquetes por guías master |
 | PATCH | `/api/operario/paquetes/{paqueteId}/liberar-incidencia` | `PAQUETES_PESO_WRITE` | Liberar incidencia de paquete |
 
-**Request:** `PaqueteAsignarSacaRequest`, `BulkPaquetePesoRequest`, `CambiarEstadoRastreoRequest`, `CambiarEstadoRastreoBulkRequest`, `AsignarGuiaEnvioBulkRequest`, `BuscarPaquetesPorGuiasRequest`, `LiberarIncidenciaRequest`.
+**Request:** `PaqueteAsignarSacaRequest`, `BulkPaquetePesoRequest`, `CambiarEstadoRastreoRequest`, `CambiarEstadoRastreoBulkRequest`, `AsignarGuiaMasterBulkRequest`, `BuscarPaquetesPorGuiasRequest`, `LiberarIncidenciaRequest`.
 **Response:** `PaqueteDTO`, `CambiarEstadoRastreoBulkResponse`.
 
 ---
@@ -407,31 +422,36 @@ Base: `/api/operario/lotes-recepcion`
 
 ---
 
-## Operario: Destinatarios
+## Operario: Consignatarios
 
-Base: `/api/operario/destinatarios`
+Base: `/api/operario/consignatarios`
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
-| GET | `/api/operario/destinatarios?search=...` | `DESTINATARIOS_OPERARIO` | Listar destinatarios (búsqueda) |
-| GET | `/api/operario/destinatarios/{id}` | `DESTINATARIOS_OPERARIO` | Obtener destinatario por ID |
-| PUT | `/api/operario/destinatarios/{id}` | `DESTINATARIOS_OPERARIO` | Actualizar destinatario |
+| GET | `/api/operario/consignatarios?search=...` | `CONSIGNATARIOS_OPERARIO` | Listar consignatarios (búsqueda) |
+| GET | `/api/operario/consignatarios/{id}` | `CONSIGNATARIOS_OPERARIO` | Obtener consignatario por ID |
+| PUT | `/api/operario/consignatarios/{id}` | `CONSIGNATARIOS_OPERARIO` | Actualizar consignatario |
+| DELETE | `/api/operario/consignatarios/{id}` | `CONSIGNATARIOS_OPERARIO` | Eliminar consignatario |
 
-**Request/Response:** `DestinatarioFinalRequest` / `DestinatarioFinalDTO`.
+**Request/Response:** `ConsignatarioRequest` / `ConsignatarioDTO`.
+
+> Nota histórica: estos endpoints estaban bajo `/api/operario/destinatarios` con permiso `DESTINATARIOS_OPERARIO` antes de V71.
 
 ---
 
-## Operario: Distribuidores
+## Operario: Couriers de entrega y Puntos de entrega
 
-Base: `/api/operario/distribuidores`
+Base: `/api/operario/couriers-entrega`
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
-| GET | `/api/operario/distribuidores` | `DESPACHOS_WRITE` | Listar distribuidores |
-| GET | `/api/operario/distribuidores/{distribuidorId}/agencias-distribuidor` | `DESPACHOS_WRITE` | Agencias de un distribuidor |
-| POST | `/api/operario/distribuidores/{distribuidorId}/agencias-distribuidor` | `DESPACHOS_WRITE` | Crear agencia-distribuidor |
+| GET | `/api/operario/couriers-entrega` | `DESPACHOS_WRITE` | Listar couriers de entrega |
+| GET | `/api/operario/couriers-entrega/{courierEntregaId}/puntos-entrega` | `DESPACHOS_WRITE` | Puntos de entrega de un courier |
+| POST | `/api/operario/couriers-entrega/{courierEntregaId}/puntos-entrega` | `DESPACHOS_WRITE` | Crear punto de entrega para un courier |
 
-**Request:** `AgenciaDistribuidorCreateOperarioRequest` (POST).
+**Request:** `AgenciaCourierEntregaCreateOperarioRequest` (POST).
+
+> Nota histórica: estos endpoints estaban bajo `/api/operario/distribuidores/.../agencias-distribuidor` antes de V71. Las clases pasaron de `AgenciaDistribuidor*` a `AgenciaCourierEntrega*` con V73.
 
 ---
 
@@ -498,23 +518,23 @@ Tabla de permisos usados en `@PreAuthorize` y los endpoints que protegen:
 | `PERMISOS_READ` | GET `/api/permisos` |
 | `AGENCIAS_READ` | GET `/api/agencias` |
 | `AGENCIAS_WRITE` | POST/PUT/DELETE `/api/agencias` |
-| `DISTRIBUIDORES_READ` | GET `/api/distribuidores` |
-| `DISTRIBUIDORES_WRITE` | POST/PUT/DELETE `/api/distribuidores` |
-| `AGENCIAS_DISTRIBUIDOR_READ` | GET `/api/agencias-distribuidor` |
-| `AGENCIAS_DISTRIBUIDOR_WRITE` | POST/PUT/DELETE `/api/agencias-distribuidor` |
+| `COURIERS_ENTREGA_READ` | GET `/api/couriers-entrega` |
+| `COURIERS_ENTREGA_WRITE` | POST/PUT/DELETE `/api/couriers-entrega` |
+| `PUNTOS_ENTREGA_READ` | GET `/api/puntos-entrega` |
+| `PUNTOS_ENTREGA_WRITE` | POST/PUT/DELETE `/api/puntos-entrega` |
 | `MANIFIESTOS_READ` | GET `/api/manifiestos` |
 | `MANIFIESTOS_WRITE` | POST/PUT/DELETE/PATCH `/api/manifiestos` |
-| `DESTINATARIOS_READ` | GET `/api/mis-destinatarios` |
-| `DESTINATARIOS_CREATE` | POST `/api/mis-destinatarios` |
-| `DESTINATARIOS_UPDATE` | PUT `/api/mis-destinatarios/{id}` |
-| `DESTINATARIOS_DELETE` | DELETE `/api/mis-destinatarios/{id}` |
-| `DESTINATARIOS_OPERARIO` | `/api/operario/destinatarios` |
+| `CONSIGNATARIOS_READ` | GET `/api/mis-consignatarios` |
+| `CONSIGNATARIOS_CREATE` | POST `/api/mis-consignatarios` |
+| `CONSIGNATARIOS_UPDATE` | PUT `/api/mis-consignatarios/{id}` |
+| `CONSIGNATARIOS_DELETE` | DELETE `/api/mis-consignatarios/{id}` |
+| `CONSIGNATARIOS_OPERARIO` | `/api/operario/consignatarios` |
 | `PAQUETES_READ` | GET `/api/mis-paquetes` |
 | `PAQUETES_CREATE` | POST `/api/mis-paquetes` |
 | `PAQUETES_UPDATE` | PUT `/api/mis-paquetes/{id}` |
 | `PAQUETES_DELETE` | DELETE `/api/mis-paquetes/{id}` |
-| `PAQUETES_PESO_WRITE` | `/api/operario/paquetes/*` |
-| `DESPACHOS_WRITE` | `/api/operario/despachos/*`, `/api/operario/sacas/*`, `/api/operario/lotes-recepcion/*`, `/api/operario/agencias`, `/api/operario/distribuidores` |
+| `PAQUETES_PESO_WRITE` | `/api/operario/paquetes/*` (incluye pesaje y asignación de guía master) |
+| `DESPACHOS_WRITE` | `/api/operario/despachos/*`, `/api/operario/sacas/*`, `/api/operario/lotes-recepcion/*`, `/api/operario/agencias`, `/api/operario/couriers-entrega/*` |
 | `TARIFA_CALCULADORA_READ` | GET `/api/operario/config/tarifa-calculadora` |
 | `TARIFA_CALCULADORA_WRITE` | PUT `/api/operario/config/tarifa-calculadora` |
 | `ESTADOS_RASTREO_READ` | GET `/api/operario/estados-rastreo/*`, `/api/operario/config/estados-rastreo-por-punto` |

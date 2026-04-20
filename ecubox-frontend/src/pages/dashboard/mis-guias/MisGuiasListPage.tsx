@@ -34,7 +34,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useEliminarMiGuia, useMisGuias } from '@/hooks/useMisGuias';
-import { DestinatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
+import { ConsignatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
 import type { StatusTone } from '@/components/ui/StatusBadge';
 import type { EstadoGuiaMaster, GuiaMaster } from '@/types/guia-master';
 import { EditarMiGuiaDialog } from './EditarMiGuiaDialog';
@@ -125,7 +125,7 @@ export function MisGuiasListPage() {
       if (!q) return true;
       return (
         g.trackingBase.toLowerCase().includes(q) ||
-        (g.destinatarioNombre ?? '').toLowerCase().includes(q)
+        (g.consignatarioNombre ?? '').toLowerCase().includes(q)
       );
     });
   }, [guias, search, estadoFiltro]);
@@ -143,7 +143,7 @@ export function MisGuiasListPage() {
     <div className="page-stack">
       <ListToolbar
         title="Mis guías"
-        searchPlaceholder="Buscar por número de guía o destinatario..."
+        searchPlaceholder="Buscar por número de guía o consignatario..."
         onSearchChange={setSearch}
         actions={
           <Button className="w-full sm:w-auto" onClick={() => setRegistrarOpen(true)}>
@@ -251,7 +251,7 @@ export function MisGuiasListPage() {
           }
           description={
             guias.length === 0
-              ? 'Registra el número de guía que envías desde EE.UU. y asígnale un destinatario para hacer seguimiento.'
+              ? 'Registra el número de guía que envías desde tu casillero y asígnale un consignatario para hacer seguimiento.'
               : estadoFiltro !== 'TODAS'
                 ? 'Cambia el filtro para ver tus otras guías.'
                 : 'Prueba con otro término de búsqueda.'
@@ -274,7 +274,7 @@ export function MisGuiasListPage() {
                 <TableHead className="w-[14rem]">Guía</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="min-w-[12rem]">Piezas</TableHead>
-                <TableHead className="w-[20rem]">Destinatario</TableHead>
+                <TableHead className="w-[20rem]">Consignatario</TableHead>
                 <TableHead className="hidden md:table-cell">Registrada</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
@@ -317,12 +317,12 @@ export function MisGuiasListPage() {
                       <PiezasMiniProgress guia={g} />
                     </TableCell>
                     <TableCell className="max-w-[20rem] align-top">
-                      <DestinatarioInfo
-                        nombre={g.destinatarioNombre}
-                        telefono={g.destinatarioTelefono}
-                        direccion={g.destinatarioDireccion}
-                        provincia={g.destinatarioProvincia}
-                        canton={g.destinatarioCanton}
+                      <ConsignatarioInfo
+                        nombre={g.consignatarioNombre}
+                        telefono={g.consignatarioTelefono}
+                        direccion={g.consignatarioDireccion}
+                        provincia={g.consignatarioProvincia}
+                        canton={g.consignatarioCanton}
                         emptyLabel="Sin asignar"
                         emptyItalic
                       />

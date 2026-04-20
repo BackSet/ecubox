@@ -6,8 +6,8 @@ interface TrackingDetailsCardProps {
 }
 
 export function TrackingDetailsCard({ result }: TrackingDetailsCardProps) {
-  const dest = result.destinatario;
-  const nombre = dest?.nombre ?? result.destinatarioNombre ?? null;
+  const dest = result.consignatario;
+  const nombre = dest?.nombre ?? result.consignatarioNombre ?? null;
   const provincia = dest?.provincia ?? null;
   const canton = dest?.canton ?? null;
   const tieneUbicacion = Boolean(provincia || canton);
@@ -17,7 +17,7 @@ export function TrackingDetailsCard({ result }: TrackingDetailsCardProps) {
       <div className="flex items-center gap-2">
         <UserRound className="h-4 w-4 text-[var(--color-muted-foreground)]" />
         <h3 className="text-base font-semibold text-[var(--color-foreground)]">
-          Destinatario
+          Consignatario
         </h3>
       </div>
       <div className="grid grid-cols-1 gap-2.5">

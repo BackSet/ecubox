@@ -4,8 +4,8 @@ import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteCreateRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.entity.Despacho;
-import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
-import com.ecubox.ecubox_backend.entity.Distribuidor;
+import com.ecubox.ecubox_backend.entity.Consignatario;
+import com.ecubox.ecubox_backend.entity.CourierEntrega;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -14,7 +14,7 @@ import com.ecubox.ecubox_backend.entity.Saca;
 import com.ecubox.ecubox_backend.entity.Usuario;
 import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
-import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
+import com.ecubox.ecubox_backend.repository.ConsignatarioRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
@@ -49,7 +49,7 @@ class PaqueteServiceOp3Test {
     @Mock
     private PaqueteRepository paqueteRepository;
     @Mock
-    private DestinatarioFinalRepository destinatarioFinalRepository;
+    private ConsignatarioRepository consignatarioRepository;
     @Mock
     private SacaRepository sacaRepository;
     @Mock
@@ -74,7 +74,7 @@ class PaqueteServiceOp3Test {
     private PaqueteService createPaqueteService(boolean useEventTimeline) {
         return new PaqueteService(
                 paqueteRepository,
-                destinatarioFinalRepository,
+                consignatarioRepository,
                 sacaRepository,
                 loteRecepcionGuiaRepository,
                 paqueteEstadoEventoRepository,
@@ -300,8 +300,8 @@ class PaqueteServiceOp3Test {
     void trackingMarcaPaqueteVencidoCuandoSuperaMaximoRetiro() {
         PaqueteService paqueteService = createPaqueteService(false);
         EstadoRastreo enAgencia = EstadoRastreo.builder().id(20L).codigo("EN_AGENCIA").nombre("En agencia").ordenTracking(2).publicoTracking(true).build();
-        Distribuidor distribuidor = Distribuidor.builder().id(1L).nombre("Distribuidor").diasMaxRetiroDomicilio(3).build();
-        Despacho despacho = Despacho.builder().id(1L).tipoEntrega(TipoEntrega.DOMICILIO).distribuidor(distribuidor).build();
+        CourierEntrega courierEntrega = CourierEntrega.builder().id(1L).nombre("CourierEntrega").diasMaxRetiroDomicilio(3).build();
+        Despacho despacho = Despacho.builder().id(1L).tipoEntrega(TipoEntrega.DOMICILIO).courierEntrega(courierEntrega).build();
         Saca saca = Saca.builder().id(1L).despacho(despacho).build();
         Paquete p = Paquete.builder()
                 .id(104L)
@@ -326,8 +326,8 @@ class PaqueteServiceOp3Test {
     void listarVencidosParaOperario_filtraYOrdenaPorDiasAtrasoDesc() {
         PaqueteService paqueteService = createPaqueteService(false);
         EstadoRastreo enAgencia = EstadoRastreo.builder().id(30L).codigo("EN_AGENCIA").nombre("En agencia").build();
-        Distribuidor distribuidor = Distribuidor.builder().id(2L).nombre("Distribuidor").diasMaxRetiroDomicilio(3).build();
-        Despacho despacho = Despacho.builder().id(2L).tipoEntrega(TipoEntrega.DOMICILIO).distribuidor(distribuidor).build();
+        CourierEntrega courierEntrega = CourierEntrega.builder().id(2L).nombre("CourierEntrega").diasMaxRetiroDomicilio(3).build();
+        Despacho despacho = Despacho.builder().id(2L).tipoEntrega(TipoEntrega.DOMICILIO).courierEntrega(courierEntrega).build();
         Saca saca = Saca.builder().id(2L).despacho(despacho).build();
         Paquete vencidoAtraso1 = Paquete.builder()
                 .id(201L)
@@ -366,9 +366,9 @@ class PaqueteServiceOp3Test {
     void delete_eliminaEventosOutboxYPaquete() {
         PaqueteService paqueteService = createPaqueteService(false);
         com.ecubox.ecubox_backend.entity.Usuario owner = com.ecubox.ecubox_backend.entity.Usuario.builder().id(10L).build();
-        com.ecubox.ecubox_backend.entity.DestinatarioFinal destinatario =
-                com.ecubox.ecubox_backend.entity.DestinatarioFinal.builder().id(30L).usuario(owner).build();
-        Paquete paquete = Paquete.builder().id(99L).destinatarioFinal(destinatario).build();
+        com.ecubox.ecubox_backend.entity.Consignatario destinatario =
+                com.ecubox.ecubox_backend.entity.Consignatario.builder().id(30L).usuario(owner).build();
+        Paquete paquete = Paquete.builder().id(99L).consignatario(destinatario).build();
         when(paqueteRepository.findById(99L)).thenReturn(Optional.of(paquete));
 
         paqueteService.delete(99L, 10L, false);
@@ -405,13 +405,13 @@ class PaqueteServiceOp3Test {
     void create_autogeneraNumeroGuiaCompuestoConGuiaMasterYPieza() {
         PaqueteService paqueteService = createPaqueteService(false);
         Usuario usuario = Usuario.builder().id(7L).build();
-        DestinatarioFinal destinatario = DestinatarioFinal.builder()
+        Consignatario destinatario = Consignatario.builder()
                 .id(50L).codigo("D50").usuario(usuario).build();
         EstadoRastreo registrado = EstadoRastreo.builder().id(1L).codigo("REGISTRADO").orden(1).build();
         GuiaMaster gm = GuiaMaster.builder()
                 .id(99L).trackingBase("1Z52159R0379385035").totalPiezasEsperadas(3).build();
 
-        when(destinatarioFinalRepository.findById(50L)).thenReturn(Optional.of(destinatario));
+        when(consignatarioRepository.findById(50L)).thenReturn(Optional.of(destinatario));
         when(codigoSecuenciaService.nextRefPaquete(50L, "D50")).thenReturn("D50-1");
         when(parametroSistemaService.getEstadosRastreoPorPunto())
                 .thenReturn(EstadosRastreoPorPuntoDTO.builder().estadoRastreoRegistroPaqueteId(1L).build());
@@ -422,7 +422,7 @@ class PaqueteServiceOp3Test {
         when(paqueteRepository.save(any(Paquete.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaqueteCreateRequest req = PaqueteCreateRequest.builder()
-                .destinatarioFinalId(50L)
+                .consignatarioId(50L)
                 .guiaMasterId(99L)
                 .piezaNumero(2)
                 .contenido("Ropa")

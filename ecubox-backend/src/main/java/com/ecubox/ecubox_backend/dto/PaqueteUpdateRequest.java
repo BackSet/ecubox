@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 public class PaqueteUpdateRequest {
 
     @NotNull(message = "El destinatario final es obligatorio")
-    private Long destinatarioFinalId;
+    private Long consignatarioId;
 
     private String contenido;
     private BigDecimal pesoLbs;

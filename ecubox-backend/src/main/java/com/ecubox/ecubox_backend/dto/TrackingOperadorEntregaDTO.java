@@ -12,10 +12,10 @@ import lombok.NoArgsConstructor;
 public class TrackingOperadorEntregaDTO {
     private String tipoEntrega;
 
-    private String distribuidorNombre;
-    private String distribuidorCodigo;
-    private String horarioRepartoDistribuidor;
-    private String paginaTrackingDistribuidor;
+    private String courierEntregaNombre;
+    private String courierEntregaCodigo;
+    private String horarioRepartoCourierEntrega;
+    private String paginaTrackingCourierEntrega;
     private Integer diasMaxRetiroDomicilio;
 
     private String agenciaNombre;
@@ -26,12 +26,12 @@ public class TrackingOperadorEntregaDTO {
     private String horarioAtencionAgencia;
     private Integer diasMaxRetiroAgencia;
 
-    private String agenciaDistribuidorEtiqueta;
-    private String agenciaDistribuidorCodigo;
-    private String agenciaDistribuidorDireccion;
-    private String agenciaDistribuidorProvincia;
-    private String agenciaDistribuidorCanton;
-    private String horarioAtencionAgenciaDistribuidor;
-    private Integer diasMaxRetiroAgenciaDistribuidor;
+    private String agenciaCourierEntregaEtiqueta;
+    private String agenciaCourierEntregaCodigo;
+    private String agenciaCourierEntregaDireccion;
+    private String agenciaCourierEntregaProvincia;
+    private String agenciaCourierEntregaCanton;
+    private String horarioAtencionAgenciaCourierEntrega;
+    private Integer diasMaxRetiroAgenciaCourierEntrega;
 }
 

@@ -1,6 +1,6 @@
 package com.ecubox.ecubox_backend.service;
 
-import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
+import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -132,7 +132,7 @@ public class ManifiestoEnvioConsolidadoService {
                     totalConPeso++;
                 }
 
-                DestinatarioFinal d = p.getDestinatarioFinal();
+                Consignatario d = p.getConsignatario();
                 String trackingBase = formatTrackingBase(p);
                 String pieza = formatPieza(p);
                 String destNombre = d == null ? "" : nullSafe(d.getNombre());
@@ -479,7 +479,7 @@ public class ManifiestoEnvioConsolidadoService {
                 CellStyle dashSt = zebra ? s.cellDashZebra : s.cellDash;
 
                 GuiaMaster gm = p.getGuiaMaster();
-                DestinatarioFinal d = p.getDestinatarioFinal();
+                Consignatario d = p.getConsignatario();
                 String trackingBase = gm != null && gm.getTrackingBase() != null
                         ? gm.getTrackingBase()
                         : extraerTrackingBase(p.getNumeroGuia());
@@ -891,7 +891,7 @@ public class ManifiestoEnvioConsolidadoService {
     }
 
     /** "{canton}, {provincia}" / "{canton}" / "{provincia}" / "" segun datos disponibles. */
-    private static String formatCantonProvincia(DestinatarioFinal d) {
+    private static String formatCantonProvincia(Consignatario d) {
         String canton = d.getCanton();
         String prov = d.getProvincia();
         if (canton != null && !canton.isBlank() && prov != null && !prov.isBlank()) {
@@ -911,7 +911,7 @@ public class ManifiestoEnvioConsolidadoService {
     }
 
     /** Devuelve "{direccion} - {canton}, {provincia}" segun los datos disponibles. */
-    private static String formatUbicacion(DestinatarioFinal d) {
+    private static String formatUbicacion(Consignatario d) {
         if (d == null) return "";
         StringBuilder sb = new StringBuilder();
         String dir = d.getDireccion();

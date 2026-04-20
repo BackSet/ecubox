@@ -14,21 +14,21 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
 
     /**
      * Carga paquete con todas las asociaciones que el endpoint publico de
-     * tracking lee (saca, despacho, distribuidor/agencia/agenciaDistribuidor,
+     * tracking lee (saca, despacho, courierEntrega/agencia/agenciaCourierEntrega,
      * destinatario del despacho, destinatario final del paquete, estado y
      * guia master). Sin estos JOIN FETCH la respuesta de tracking dispara
      * decenas de queries por LAZY loading.
      */
     @Query("SELECT DISTINCT p FROM Paquete p " +
            "LEFT JOIN FETCH p.estadoRastreo " +
-           "LEFT JOIN FETCH p.destinatarioFinal df " +
+           "LEFT JOIN FETCH p.consignatario df " +
            "LEFT JOIN FETCH df.usuario " +
            "LEFT JOIN FETCH p.saca s " +
            "LEFT JOIN FETCH s.despacho d " +
-           "LEFT JOIN FETCH d.distribuidor " +
+           "LEFT JOIN FETCH d.courierEntrega " +
            "LEFT JOIN FETCH d.agencia " +
-           "LEFT JOIN FETCH d.agenciaDistribuidor " +
-           "LEFT JOIN FETCH d.destinatarioFinal " +
+           "LEFT JOIN FETCH d.agenciaCourierEntrega " +
+           "LEFT JOIN FETCH d.consignatario " +
            "LEFT JOIN FETCH p.guiaMaster " +
            "WHERE LOWER(p.numeroGuia) = LOWER(:numeroGuia)")
     Optional<Paquete> findByNumeroGuiaWithSacaAndDespacho(@Param("numeroGuia") String numeroGuia);
@@ -45,7 +45,7 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     /** Verifica si existe otro paquete (distinto de id) con la misma ref. */
     boolean existsByRefAndIdNot(String ref, Long id);
 
-    long countByDestinatarioFinalId(Long destinatarioFinalId);
+    long countByConsignatarioId(Long consignatarioId);
 
     long countBySacaId(Long sacaId);
 
@@ -53,7 +53,7 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
 
     long countByGuiaMasterId(Long guiaMasterId);
 
-    List<Paquete> findByDestinatarioFinalUsuarioIdOrderByEstadoRastreo_OrdenAscIdAsc(Long usuarioId);
+    List<Paquete> findByConsignatarioUsuarioIdOrderByEstadoRastreo_OrdenAscIdAsc(Long usuarioId);
 
     List<Paquete> findBySacaId(Long sacaId);
 
@@ -76,7 +76,7 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     /** Paquetes de una saca en orden de creación. */
     List<Paquete> findBySacaIdOrderByIdAsc(Long sacaId);
 
-    List<Paquete> findByDestinatarioFinalIdOrderByIdAsc(Long destinatarioFinalId);
+    List<Paquete> findByConsignatarioIdOrderByIdAsc(Long consignatarioId);
 
     /** Paquetes sin saca asignada (disponibles para agregar a una saca), orden por creación. */
     List<Paquete> findBySacaIsNullOrderByIdAsc();
@@ -109,7 +109,7 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
      * XLSX) que itera sobre cada paquete leyendo destinatario.* y guiaMaster.*.
      */
     @Query("SELECT DISTINCT p FROM Paquete p " +
-           "LEFT JOIN FETCH p.destinatarioFinal df " +
+           "LEFT JOIN FETCH p.consignatario df " +
            "LEFT JOIN FETCH df.usuario " +
            "LEFT JOIN FETCH p.guiaMaster " +
            "LEFT JOIN FETCH p.estadoRastreo " +

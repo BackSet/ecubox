@@ -44,7 +44,7 @@ public class MisGuiasController {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         GuiaMaster gm = guiaMasterService.createForCliente(
                 request.getTrackingBase(),
-                request.getDestinatarioFinalId(),
+                request.getConsignatarioId(),
                 clienteId);
         return ResponseEntity.status(HttpStatus.CREATED).body(guiaMasterService.toDTO(gm, List.of()));
     }
@@ -93,7 +93,7 @@ public class MisGuiasController {
             @Valid @RequestBody MiGuiaUpdateRequest request) {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         GuiaMaster gm = guiaMasterService.updateDestinatarioForCliente(
-                id, request.getDestinatarioFinalId(), clienteId);
+                id, request.getConsignatarioId(), clienteId);
         return ResponseEntity.ok(guiaMasterService.toDTO(gm, List.of()));
     }
 
@@ -108,7 +108,7 @@ public class MisGuiasController {
             @Valid @RequestBody MiGuiaUpdateRequest request) {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         GuiaMaster gm = guiaMasterService.updateForCliente(
-                id, request.getTrackingBase(), request.getDestinatarioFinalId(), clienteId);
+                id, request.getTrackingBase(), request.getConsignatarioId(), clienteId);
         return ResponseEntity.ok(guiaMasterService.toDTO(gm, List.of()));
     }
 

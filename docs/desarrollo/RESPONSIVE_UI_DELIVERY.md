@@ -29,7 +29,7 @@
 ## Bloque 3: Dashboard listados
 - Patron responsive unificado aplicado en listados representativos:
   - `ecubox-frontend/src/pages/dashboard/paquetes/PaqueteListPage.tsx`
-  - `ecubox-frontend/src/pages/dashboard/destinatarios/DestinatarioListPage.tsx`
+  - `ecubox-frontend/src/pages/dashboard/consignatarios/ConsignatarioListPage.tsx`
   - `ecubox-frontend/src/pages/dashboard/despachos/DespachoListPage.tsx`
 - Cambios clave:
   - acciones apiladas en movil y alineadas en desktop;

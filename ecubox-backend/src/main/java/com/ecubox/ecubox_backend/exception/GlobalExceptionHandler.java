@@ -195,19 +195,19 @@ public class GlobalExceptionHandler {
                     "Ya existe una guía master con ese tracking base";
             case "manifiesto_codigo_key" ->
                     "Ya existe un manifiesto con ese código";
-            case "uq_agencia_distribuidor_distribuidor_codigo",
-                 "uq_agencia_distribuidor_distribuidor_codigo_vivos" ->
-                    "Ya existe una agencia con ese código para el distribuidor";
-            case "uq_destinatario_final_codigo_vivos" ->
-                    "Ya existe un destinatario con ese código";
+            case "uq_agencia_courier_entrega_courier_entrega_codigo",
+                 "uq_agencia_courier_entrega_courier_entrega_codigo_vivos" ->
+                    "Ya existe un punto de entrega con ese código para el courier de entrega";
+            case "uq_consignatario_codigo_vivos" ->
+                    "Ya existe un consignatario con ese código";
             case "uq_agencia_codigo_vivos" ->
                     "Ya existe una agencia con ese código";
-            case "distribuidor_codigo_key" ->
-                    "Ya existe un distribuidor con ese código";
+            case "courier_entrega_codigo_key" ->
+                    "Ya existe un courier de entrega con ese código";
             case "agencia_codigo_key" ->
                     "Ya existe una agencia con ese código";
-            case "destinatario_final_codigo_key" ->
-                    "Ya existe un destinatario con ese código";
+            case "consignatario_codigo_key" ->
+                    "Ya existe un consignatario con ese código";
             case "idx_lote_recepcion_guia_uk" ->
                     "Ese número de guía ya está en el lote de recepción";
             case "ux_tracking_view_paquete_numero_guia" ->

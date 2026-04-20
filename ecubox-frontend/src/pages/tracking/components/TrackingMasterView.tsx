@@ -68,11 +68,11 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
 
   const estadoLabel = master.estadoGlobal ? ESTADO_LABELS[master.estadoGlobal] : 'Sin estado';
 
-  const dest = master.destinatario;
-  const destinatarioNombre = dest?.nombre ?? master.destinatarioNombre ?? null;
-  const destinatarioProvincia = dest?.provincia ?? null;
-  const destinatarioCanton = dest?.canton ?? null;
-  const tieneUbicacion = Boolean(destinatarioProvincia || destinatarioCanton);
+  const dest = master.consignatario;
+  const consignatarioNombre = dest?.nombre ?? master.consignatarioNombre ?? null;
+  const consignatarioProvincia = dest?.provincia ?? null;
+  const consignatarioCanton = dest?.canton ?? null;
+  const tieneUbicacion = Boolean(consignatarioProvincia || consignatarioCanton);
 
   const timeline: TrackingMasterEventoItem[] = useMemo(() => {
     const base = master.timeline ?? [];
@@ -96,9 +96,9 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
             <h2 className="text-2xl font-semibold text-[var(--color-foreground)] break-all">
               {master.trackingBase}
             </h2>
-            {destinatarioNombre ? (
+            {consignatarioNombre ? (
               <p className="text-sm text-[var(--color-muted-foreground)]">
-                Destinatario: <span className="font-medium">{destinatarioNombre}</span>
+                Consignatario: <span className="font-medium">{consignatarioNombre}</span>
               </p>
             ) : null}
           </div>
@@ -144,26 +144,26 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
         </div>
       </div>
 
-      {destinatarioNombre || tieneUbicacion ? (
+      {consignatarioNombre || tieneUbicacion ? (
         <div className="surface-card p-5 sm:p-6 space-y-4">
           <div className="flex items-center gap-2">
             <UserRound className="h-4 w-4 text-[var(--color-muted-foreground)]" />
             <h3 className="text-base font-semibold text-[var(--color-foreground)]">
-              Destinatario
+              Consignatario
             </h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <DestinatarioField
+            <ConsignatarioField
               icon={<UserRound className="h-3.5 w-3.5" />}
               label="Nombre"
-              value={destinatarioNombre ?? 'No disponible'}
+              value={consignatarioNombre ?? 'No disponible'}
             />
-            <DestinatarioField
+            <ConsignatarioField
               icon={<MapPin className="h-3.5 w-3.5" />}
               label="Provincia / Cantón"
               value={
                 tieneUbicacion
-                  ? `${destinatarioProvincia ?? '—'} / ${destinatarioCanton ?? '—'}`
+                  ? `${consignatarioProvincia ?? '—'} / ${consignatarioCanton ?? '—'}`
                   : 'No disponible'
               }
             />
@@ -294,7 +294,7 @@ function DateChip({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function DestinatarioField({
+function ConsignatarioField({
   icon,
   label,
   value,

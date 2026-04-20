@@ -8,7 +8,7 @@ import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.entity.PaqueteEstadoEvento;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.enums.TrackingEventType;
-import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
+import com.ecubox.ecubox_backend.repository.ConsignatarioRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
 class PaqueteServiceTimelineTest {
 
     @Mock private PaqueteRepository paqueteRepository;
-    @Mock private DestinatarioFinalRepository destinatarioFinalRepository;
+    @Mock private ConsignatarioRepository consignatarioRepository;
     @Mock private SacaRepository sacaRepository;
     @Mock private LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
     @Mock private PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
@@ -60,7 +60,7 @@ class PaqueteServiceTimelineTest {
     @BeforeEach
     void setUp() {
         service = new PaqueteService(
-                paqueteRepository, destinatarioFinalRepository, sacaRepository,
+                paqueteRepository, consignatarioRepository, sacaRepository,
                 loteRecepcionGuiaRepository, paqueteEstadoEventoRepository, outboxEventRepository,
                 parametroSistemaService, estadoRastreoService, trackingEventService,
                 guiaMasterRepository, guiaMasterService,

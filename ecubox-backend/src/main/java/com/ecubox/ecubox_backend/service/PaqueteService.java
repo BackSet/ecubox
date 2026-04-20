@@ -7,14 +7,14 @@ import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.dto.PaquetePesoItem;
 import com.ecubox.ecubox_backend.dto.PaqueteUpdateRequest;
 import com.ecubox.ecubox_backend.dto.TrackingDespachoDTO;
-import com.ecubox.ecubox_backend.dto.TrackingDestinatarioDTO;
+import com.ecubox.ecubox_backend.dto.TrackingConsignatarioDTO;
 import com.ecubox.ecubox_backend.dto.TrackingEstadoItemDTO;
 import com.ecubox.ecubox_backend.dto.TrackingMasterResponse;
 import com.ecubox.ecubox_backend.dto.TrackingOperadorEntregaDTO;
 import com.ecubox.ecubox_backend.dto.TrackingPaqueteDespachoDTO;
 import com.ecubox.ecubox_backend.dto.TrackingResponse;
 import com.ecubox.ecubox_backend.dto.TrackingSacaDTO;
-import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
+import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.Despacho;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
@@ -26,7 +26,7 @@ import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
-import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
+import com.ecubox.ecubox_backend.repository.ConsignatarioRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
@@ -67,7 +67,7 @@ import java.util.stream.Collectors;
 public class PaqueteService {
 
     private final PaqueteRepository paqueteRepository;
-    private final DestinatarioFinalRepository destinatarioFinalRepository;
+    private final ConsignatarioRepository consignatarioRepository;
     private final SacaRepository sacaRepository;
     private final LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
     private final PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
@@ -83,7 +83,7 @@ public class PaqueteService {
     private final boolean useEventTimeline;
 
     public PaqueteService(PaqueteRepository paqueteRepository,
-                          DestinatarioFinalRepository destinatarioFinalRepository,
+                          ConsignatarioRepository consignatarioRepository,
                           SacaRepository sacaRepository,
                           LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
                           PaqueteEstadoEventoRepository paqueteEstadoEventoRepository,
@@ -98,7 +98,7 @@ public class PaqueteService {
                           CodigoSecuenciaService codigoSecuenciaService,
                           @Value("${tracking.timeline.use-events:true}") boolean useEventTimeline) {
         this.paqueteRepository = paqueteRepository;
-        this.destinatarioFinalRepository = destinatarioFinalRepository;
+        this.consignatarioRepository = consignatarioRepository;
         this.sacaRepository = sacaRepository;
         this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
         this.paqueteEstadoEventoRepository = paqueteEstadoEventoRepository;
@@ -116,7 +116,7 @@ public class PaqueteService {
 
     @Transactional(readOnly = true)
     public List<PaqueteDTO> findAllByUsuarioId(Long usuarioId) {
-        return paqueteRepository.findByDestinatarioFinalUsuarioIdOrderByEstadoRastreo_OrdenAscIdAsc(usuarioId).stream()
+        return paqueteRepository.findByConsignatarioUsuarioIdOrderByEstadoRastreo_OrdenAscIdAsc(usuarioId).stream()
                 .map(this::toDTO)
                 .toList();
     }
@@ -136,7 +136,7 @@ public class PaqueteService {
      */
     public record PaqueteListFilters(
             String estadoCodigo,
-            Long destinatarioFinalId,
+            Long consignatarioId,
             String envioCodigo,
             Long guiaMasterId,
             /** "sin_peso" | "con_peso" | "sin_guia_master" | "vencidos" | null */
@@ -152,8 +152,8 @@ public class PaqueteService {
      * listados de Admin/Operario.
      * <p>Campos contemplados por {@code q}: {@code numeroGuia} (pieza), {@code ref},
      * {@code contenido}, {@code guiaMaster.trackingBase} (guía master),
-     * {@code envioConsolidado.codigo}, {@code destinatarioFinal.nombre},
-     * {@code destinatarioFinal.codigo}.</p>
+     * {@code envioConsolidado.codigo}, {@code consignatario.nombre},
+     * {@code consignatario.codigo}.</p>
      */
     @Transactional(readOnly = true)
     public Page<PaqueteDTO> findAllPaginated(String q, PaqueteListFilters filters, int page, int size) {
@@ -170,7 +170,7 @@ public class PaqueteService {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
                 Sort.by(Sort.Direction.ASC, "estadoRastreo.orden").and(Sort.by(Sort.Direction.ASC, "id")));
         Specification<Paquete> ownership = (root, query, cb) ->
-                cb.equal(root.get("destinatarioFinal").get("usuario").get("id"), usuarioId);
+                cb.equal(root.get("consignatario").get("usuario").get("id"), usuarioId);
         Specification<Paquete> textAndFilters = buildSpec(q, filters);
         return paqueteRepository.findAll(ownership.and(textAndFilters), pageable).map(this::toDTO);
     }
@@ -184,13 +184,13 @@ public class PaqueteService {
                 SearchSpecifications.field("contenido"),
                 SearchSpecifications.path("guiaMaster", "trackingBase"),
                 SearchSpecifications.path("envioConsolidado", "codigo"),
-                SearchSpecifications.path("destinatarioFinal", "nombre"),
-                SearchSpecifications.path("destinatarioFinal", "codigo"));
+                SearchSpecifications.path("consignatario", "nombre"),
+                SearchSpecifications.path("consignatario", "codigo"));
         if (f.estadoCodigo() != null && !f.estadoCodigo().isBlank()) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("estadoRastreo").get("codigo"), f.estadoCodigo()));
         }
-        if (f.destinatarioFinalId() != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("destinatarioFinal").get("id"), f.destinatarioFinalId()));
+        if (f.consignatarioId() != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("consignatario").get("id"), f.consignatarioId()));
         }
         if (f.envioCodigo() != null && !f.envioCodigo().isBlank()) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("envioConsolidado").get("codigo"), f.envioCodigo()));
@@ -221,7 +221,7 @@ public class PaqueteService {
      * fallback {@code D<id>}. Centraliza la regla para evitar drift entre
      * create/update/sugerir y la propagacion desde guia master.
      */
-    static String resolverCodigoBase(DestinatarioFinal dest) {
+    static String resolverCodigoBase(Consignatario dest) {
         if (dest == null) return null;
         return (dest.getCodigo() != null && !dest.getCodigo().isBlank())
                 ? dest.getCodigo().trim()
@@ -233,8 +233,8 @@ public class PaqueteService {
         if (contenidoObligatorio && (request.getContenido() == null || request.getContenido().isBlank())) {
             throw new BadRequestException("El contenido es obligatorio");
         }
-        DestinatarioFinal dest = destinatarioFinalRepository.findById(request.getDestinatarioFinalId())
-                .orElseThrow(() -> new ResourceNotFoundException("Destinatario", request.getDestinatarioFinalId()));
+        Consignatario dest = consignatarioRepository.findById(request.getConsignatarioId())
+                .orElseThrow(() -> new ResourceNotFoundException("Destinatario", request.getConsignatarioId()));
         ownershipValidator.requireDestinatarioOwnership(dest, usuarioId, canManageAny);
         String codigoBase = resolverCodigoBase(dest);
         String ref = codigoSecuenciaService.nextRefPaquete(dest.getId(), codigoBase);
@@ -262,7 +262,7 @@ public class PaqueteService {
                 .piezaNumero(asignacion.piezaNumero())
                 .piezaTotal(asignacion.piezaTotal())
                 .ref(ref)
-                .destinatarioFinal(dest)
+                .consignatario(dest)
                 .contenido(request.getContenido())
                 .pesoLbs(pesoLbs)
                 .estadoRastreo(estadoInicial)
@@ -340,21 +340,21 @@ public class PaqueteService {
      * se devuelve la ref actual de ese paquete (sin avanzar el contador).
      */
     @Transactional(readOnly = true)
-    public String sugerirRef(Long destinatarioFinalId, Long excludePaqueteId) {
-        DestinatarioFinal dest = destinatarioFinalRepository.findById(destinatarioFinalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Destinatario", destinatarioFinalId));
+    public String sugerirRef(Long consignatarioId, Long excludePaqueteId) {
+        Consignatario dest = consignatarioRepository.findById(consignatarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Destinatario", consignatarioId));
         String codigoBase = resolverCodigoBase(dest);
         if (excludePaqueteId != null) {
             var existing = paqueteRepository.findById(excludePaqueteId);
-            if (existing.isPresent() && existing.get().getDestinatarioFinal() != null
-                    && Objects.equals(existing.get().getDestinatarioFinal().getId(), destinatarioFinalId)
+            if (existing.isPresent() && existing.get().getConsignatario() != null
+                    && Objects.equals(existing.get().getConsignatario().getId(), consignatarioId)
                     && existing.get().getRef() != null) {
                 return existing.get().getRef();
             }
         }
         long n = codigoSecuenciaService.peek(
                 CodigoSecuenciaService.ENTITY_PAQUETE_REF,
-                String.valueOf(destinatarioFinalId),
+                String.valueOf(consignatarioId),
                 0L);
         return codigoBase + "-" + n;
     }
@@ -579,14 +579,14 @@ public class PaqueteService {
         Paquete p = paqueteRepository.findById(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
         ownershipValidator.requirePaqueteOwnership(p, currentUsuarioId, canManageAny);
-        Long newDestId = request.getDestinatarioFinalId();
+        Long newDestId = request.getConsignatarioId();
         boolean destChanged = newDestId != null
-                && (p.getDestinatarioFinal() == null || !p.getDestinatarioFinal().getId().equals(newDestId));
+                && (p.getConsignatario() == null || !p.getConsignatario().getId().equals(newDestId));
         if (destChanged) {
-            DestinatarioFinal newDest = destinatarioFinalRepository.findById(newDestId)
+            Consignatario newDest = consignatarioRepository.findById(newDestId)
                     .orElseThrow(() -> new ResourceNotFoundException("Destinatario", newDestId));
             ownershipValidator.requireDestinatarioOwnership(newDest, currentUsuarioId, canManageAny);
-            p.setDestinatarioFinal(newDest);
+            p.setConsignatario(newDest);
             String codigoBase = resolverCodigoBase(newDest);
             p.setRef(codigoSecuenciaService.nextRefPaquete(newDest.getId(), codigoBase));
         }
@@ -619,7 +619,7 @@ public class PaqueteService {
             // que mande el cliente para no machacarlo (bug que producia destId vs
             // ref desincronizados, p.ej. destId KEVIN con ref ECU-CV01-...).
             if (newRef != null && !newRef.isEmpty() && !destChanged) {
-                String codigoBaseActual = resolverCodigoBase(p.getDestinatarioFinal());
+                String codigoBaseActual = resolverCodigoBase(p.getConsignatario());
                 if (codigoBaseActual != null && !newRef.startsWith(codigoBaseActual + "-")) {
                     throw new BadRequestException(
                             "La referencia debe iniciar con el código del destinatario: " + codigoBaseActual);
@@ -814,8 +814,8 @@ public class PaqueteService {
                 .numeroGuia(p.getNumeroGuia())
                 .estadoRastreoId(estadoActualId)
                 .estadoRastreoNombre(estadoRastreoNombre)
-                .destinatarioNombre(p.getDestinatarioFinal() != null ? p.getDestinatarioFinal().getNombre() : null)
-                .destinatario(buildDestinatarioCard(p))
+                .consignatarioNombre(p.getConsignatario() != null ? p.getConsignatario().getNombre() : null)
+                .consignatario(buildConsignatarioCard(p))
                 .estados(estados)
                 .estadoActualId(estadoActualId)
                 .fechaEstadoDesde(p.getFechaEstadoActualDesde() != null ? p.getFechaEstadoActualDesde().format(ISO_FORMATTER) : null)
@@ -923,9 +923,9 @@ public class PaqueteService {
             return null;
         }
         return switch (d.getTipoEntrega()) {
-            case DOMICILIO -> d.getDistribuidor() != null ? d.getDistribuidor().getDiasMaxRetiroDomicilio() : null;
+            case DOMICILIO -> d.getCourierEntrega() != null ? d.getCourierEntrega().getDiasMaxRetiroDomicilio() : null;
             case AGENCIA -> d.getAgencia() != null ? d.getAgencia().getDiasMaxRetiro() : null;
-            case AGENCIA_DISTRIBUIDOR -> d.getAgenciaDistribuidor() != null ? d.getAgenciaDistribuidor().getDiasMaxRetiro() : null;
+            case AGENCIA_COURIER_ENTREGA -> d.getAgenciaCourierEntrega() != null ? d.getAgenciaCourierEntrega().getDiasMaxRetiro() : null;
         };
     }
 
@@ -1048,11 +1048,11 @@ public class PaqueteService {
         return result;
     }
 
-    private TrackingDestinatarioDTO buildDestinatarioCard(Paquete p) {
-        DestinatarioFinal dest = p.getDestinatarioFinal();
+    private TrackingConsignatarioDTO buildConsignatarioCard(Paquete p) {
+        Consignatario dest = p.getConsignatario();
         if (dest == null) return null;
         // PII (telefono, direccion) se omite intencionalmente por ser endpoint publico.
-        return TrackingDestinatarioDTO.builder()
+        return TrackingConsignatarioDTO.builder()
                 .id(dest.getId())
                 .nombre(dest.getNombre())
                 .provincia(dest.getProvincia())
@@ -1066,13 +1066,13 @@ public class PaqueteService {
         Despacho d = saca.getDespacho();
         TrackingOperadorEntregaDTO.TrackingOperadorEntregaDTOBuilder builder = TrackingOperadorEntregaDTO.builder()
                 .tipoEntrega(d.getTipoEntrega() != null ? d.getTipoEntrega().name() : null);
-        if (d.getDistribuidor() != null) {
+        if (d.getCourierEntrega() != null) {
             builder
-                    .distribuidorNombre(d.getDistribuidor().getNombre())
-                    .distribuidorCodigo(d.getDistribuidor().getCodigo())
-                    .horarioRepartoDistribuidor(d.getDistribuidor().getHorarioReparto())
-                    .paginaTrackingDistribuidor(d.getDistribuidor().getPaginaTracking())
-                    .diasMaxRetiroDomicilio(d.getDistribuidor().getDiasMaxRetiroDomicilio());
+                    .courierEntregaNombre(d.getCourierEntrega().getNombre())
+                    .courierEntregaCodigo(d.getCourierEntrega().getCodigo())
+                    .horarioRepartoCourierEntrega(d.getCourierEntrega().getHorarioReparto())
+                    .paginaTrackingCourierEntrega(d.getCourierEntrega().getPaginaTracking())
+                    .diasMaxRetiroDomicilio(d.getCourierEntrega().getDiasMaxRetiroDomicilio());
         }
         if (d.getAgencia() != null) {
             builder
@@ -1084,15 +1084,15 @@ public class PaqueteService {
                     .horarioAtencionAgencia(d.getAgencia().getHorarioAtencion())
                     .diasMaxRetiroAgencia(d.getAgencia().getDiasMaxRetiro());
         }
-        if (d.getAgenciaDistribuidor() != null) {
+        if (d.getAgenciaCourierEntrega() != null) {
             builder
-                    .agenciaDistribuidorEtiqueta(AgenciaDistribuidorService.etiquetaDe(d.getAgenciaDistribuidor()))
-                    .agenciaDistribuidorCodigo(d.getAgenciaDistribuidor().getCodigo())
-                    .agenciaDistribuidorDireccion(d.getAgenciaDistribuidor().getDireccion())
-                    .agenciaDistribuidorProvincia(d.getAgenciaDistribuidor().getProvincia())
-                    .agenciaDistribuidorCanton(d.getAgenciaDistribuidor().getCanton())
-                    .horarioAtencionAgenciaDistribuidor(d.getAgenciaDistribuidor().getHorarioAtencion())
-                    .diasMaxRetiroAgenciaDistribuidor(d.getAgenciaDistribuidor().getDiasMaxRetiro());
+                    .agenciaCourierEntregaEtiqueta(AgenciaCourierEntregaService.etiquetaDe(d.getAgenciaCourierEntrega()))
+                    .agenciaCourierEntregaCodigo(d.getAgenciaCourierEntrega().getCodigo())
+                    .agenciaCourierEntregaDireccion(d.getAgenciaCourierEntrega().getDireccion())
+                    .agenciaCourierEntregaProvincia(d.getAgenciaCourierEntrega().getProvincia())
+                    .agenciaCourierEntregaCanton(d.getAgenciaCourierEntrega().getCanton())
+                    .horarioAtencionAgenciaCourierEntrega(d.getAgenciaCourierEntrega().getHorarioAtencion())
+                    .diasMaxRetiroAgenciaCourierEntrega(d.getAgenciaCourierEntrega().getDiasMaxRetiro());
         }
         return builder.build();
     }
@@ -1386,12 +1386,12 @@ public class PaqueteService {
                 .estadoRastreoId(er != null ? er.getId() : null)
                 .estadoRastreoNombre(er != null ? er.getNombre() : null)
                 .estadoRastreoCodigo(er != null ? er.getCodigo() : null)
-                .destinatarioFinalId(p.getDestinatarioFinal() != null ? p.getDestinatarioFinal().getId() : null)
-                .destinatarioNombre(p.getDestinatarioFinal() != null ? p.getDestinatarioFinal().getNombre() : null)
-                .destinatarioDireccion(p.getDestinatarioFinal() != null ? p.getDestinatarioFinal().getDireccion() : null)
-                .destinatarioProvincia(p.getDestinatarioFinal() != null ? p.getDestinatarioFinal().getProvincia() : null)
-                .destinatarioCanton(p.getDestinatarioFinal() != null ? p.getDestinatarioFinal().getCanton() : null)
-                .destinatarioTelefono(p.getDestinatarioFinal() != null ? p.getDestinatarioFinal().getTelefono() : null)
+                .consignatarioId(p.getConsignatario() != null ? p.getConsignatario().getId() : null)
+                .consignatarioNombre(p.getConsignatario() != null ? p.getConsignatario().getNombre() : null)
+                .consignatarioDireccion(p.getConsignatario() != null ? p.getConsignatario().getDireccion() : null)
+                .consignatarioProvincia(p.getConsignatario() != null ? p.getConsignatario().getProvincia() : null)
+                .consignatarioCanton(p.getConsignatario() != null ? p.getConsignatario().getCanton() : null)
+                .consignatarioTelefono(p.getConsignatario() != null ? p.getConsignatario().getTelefono() : null)
                 .sacaId(p.getSaca() != null ? p.getSaca().getId() : null)
                 .despachoId(p.getSaca() != null && p.getSaca().getDespacho() != null ? p.getSaca().getDespacho().getId() : null)
                 .despachoNumeroGuia(p.getSaca() != null && p.getSaca().getDespacho() != null ? p.getSaca().getDespacho().getNumeroGuia() : null)

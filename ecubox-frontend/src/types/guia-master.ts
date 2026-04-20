@@ -36,29 +36,29 @@ export interface GuiaMaster {
   id: number;
   trackingBase: string;
   totalPiezasEsperadas: number | null;
-  destinatarioFinalId?: number | null;
-  destinatarioNombre?: string | null;
-  destinatarioTelefono?: string | null;
-  destinatarioDireccion?: string | null;
-  destinatarioProvincia?: string | null;
-  destinatarioCanton?: string | null;
+  consignatarioId?: number | null;
+  consignatarioNombre?: string | null;
+  consignatarioTelefono?: string | null;
+  consignatarioDireccion?: string | null;
+  consignatarioProvincia?: string | null;
+  consignatarioCanton?: string | null;
   /**
-   * TRUE cuando los datos del destinatario provienen de un fallback
-   * (primera pieza con destinatario asignado) en vez del propio
-   * `destinatarioFinal` de la guia. Util para mostrar un badge "inferido"
-   * en lugar de "Sin asignar" cuando la guia no tiene destinatario propio
+   * TRUE cuando los datos del consignatario provienen de un fallback
+   * (primera pieza con consignatario asignado) en vez del propio
+   * `consignatario` de la guia. Util para mostrar un badge "inferido"
+   * en lugar de "Sin asignar" cuando la guia no tiene consignatario propio
    * pero las piezas si.
    */
-  destinatarioInferido?: boolean | null;
+  consignatarioInferido?: boolean | null;
   /**
-   * SCD2 (V67): id de la version inmutable del destinatario congelada en
+   * SCD2 (V67): id de la version inmutable del consignatario congelada en
    * la guia al primer despacho de pieza. Si tiene valor, los campos
-   * destinatarioNombre/Direccion/etc. se sirven desde el snapshot historico
-   * y no se pueden cambiar reasignando el destinatario.
+   * consignatarioNombre/Direccion/etc. se sirven desde el snapshot historico
+   * y no se pueden cambiar reasignando el consignatario.
    */
-  destinatarioVersionId?: number | null;
-  /** SCD2: cuando se congelaron los datos del destinatario. */
-  destinatarioCongeladoEn?: string | null;
+  consignatarioVersionId?: number | null;
+  /** SCD2: cuando se congelaron los datos del consignatario. */
+  consignatarioCongeladoEn?: string | null;
   clienteUsuarioId?: number | null;
   clienteUsuarioNombre?: string | null;
   piezasRegistradas?: number;
@@ -116,7 +116,7 @@ export interface MiInicioDashboard {
   totalGuiasActivas: number;
   totalGuiasCerradas: number;
   totalGuiasSinTotalDefinido: number;
-  totalDestinatarios: number;
+  totalConsignatarios: number;
   piezasEnTransito: number;
   guiasRecientes: GuiaMaster[];
   guiasProximasACerrar: GuiaMaster[];
@@ -125,18 +125,18 @@ export interface MiInicioDashboard {
 export interface GuiaMasterCreateRequest {
   trackingBase: string;
   totalPiezasEsperadas?: number | null;
-  destinatarioFinalId?: number | null;
+  consignatarioId?: number | null;
 }
 
 export interface GuiaMasterUpdateRequest {
   trackingBase?: string;
   totalPiezasEsperadas?: number | null;
-  destinatarioFinalId?: number | null;
+  consignatarioId?: number | null;
 }
 
 export interface MiGuiaCreateRequest {
   trackingBase: string;
-  destinatarioFinalId: number;
+  consignatarioId: number;
 }
 
 export interface GuiaMasterCerrarConFaltanteRequest {

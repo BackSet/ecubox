@@ -63,17 +63,17 @@ public class TrackingViewPaquete {
     @Builder.Default
     private Boolean bloqueado = false;
 
-    @Column(name = "destinatario_id")
-    private Long destinatarioId;
+    @Column(name = "consignatario_id")
+    private Long consignatarioId;
 
-    @Column(name = "destinatario_nombre", length = 200)
-    private String destinatarioNombre;
+    @Column(name = "consignatario_nombre", length = 200)
+    private String consignatarioNombre;
 
-    @Column(name = "destinatario_provincia", length = 80)
-    private String destinatarioProvincia;
+    @Column(name = "consignatario_provincia", length = 80)
+    private String consignatarioProvincia;
 
-    @Column(name = "destinatario_canton", length = 80)
-    private String destinatarioCanton;
+    @Column(name = "consignatario_canton", length = 80)
+    private String consignatarioCanton;
 
     @Column(name = "last_event_id")
     private Long lastEventId;

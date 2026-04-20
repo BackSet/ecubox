@@ -17,18 +17,18 @@ import { RadioCards } from '@/components/ui/radio-cards';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  useDistribuidores,
+  useCouriersEntrega,
   useAgenciasOperario,
-  useAgenciasDistribuidor,
-  useDestinatariosOperario,
+  useAgenciasCourierEntrega,
+  useConsignatariosOperario,
   useSacasOperario,
   useCreateDespacho,
 } from '@/hooks/useOperarioDespachos';
 import { toast } from 'sonner';
-import type { DestinatarioFinal } from '@/types/destinatario';
+import type { Consignatario } from '@/types/consignatario';
 import type { TipoEntrega } from '@/types/despacho';
 
-function agenciaDistribuidorEtiqueta(a: { etiqueta?: string; provincia?: string; canton?: string; codigo?: string }): string {
+function agenciaCourierEntregaEtiqueta(a: { etiqueta?: string; provincia?: string; canton?: string; codigo?: string }): string {
   if (a.etiqueta?.trim()) return a.etiqueta.trim();
   const parts = [a.provincia, a.canton].filter(Boolean);
   return (parts.length ? parts.join(', ') + ' ' : '') + (a.codigo ? `(${a.codigo})` : '—');
@@ -37,35 +37,35 @@ function agenciaDistribuidorEtiqueta(a: { etiqueta?: string; provincia?: string;
 const formSchema = z
   .object({
     numeroGuia: z.string().min(1, 'El número de guía es obligatorio'),
-    distribuidorId: z.number().refine((n) => n > 0, 'Selecciona un distribuidor'),
-    tipoEntrega: z.enum(['DOMICILIO', 'AGENCIA', 'AGENCIA_DISTRIBUIDOR']),
-    destinatarioFinalId: z.number().optional(),
+    courierEntregaId: z.number().refine((n) => n > 0, 'Selecciona un courier de entrega'),
+    tipoEntrega: z.enum(['DOMICILIO', 'AGENCIA', 'AGENCIA_COURIER_ENTREGA']),
+    consignatarioId: z.number().optional(),
     agenciaId: z.number().optional(),
-    agenciaDistribuidorId: z.number().optional(),
+    agenciaCourierEntregaId: z.number().optional(),
     observaciones: z.string().optional(),
     codigoPrecinto: z.string().optional(),
     sacaIds: z.array(z.number()).optional(),
   })
   .refine(
     (data) => {
-      if (data.tipoEntrega === 'DOMICILIO') return data.destinatarioFinalId != null && data.destinatarioFinalId > 0;
+      if (data.tipoEntrega === 'DOMICILIO') return data.consignatarioId != null && data.consignatarioId > 0;
       if (data.tipoEntrega === 'AGENCIA') return data.agenciaId != null && data.agenciaId > 0;
-      if (data.tipoEntrega === 'AGENCIA_DISTRIBUIDOR') return data.agenciaDistribuidorId != null && data.agenciaDistribuidorId > 0;
+      if (data.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') return data.agenciaCourierEntregaId != null && data.agenciaCourierEntregaId > 0;
       return true;
     },
-    { message: 'Domicilio requiere destinatario; Agencia requiere agencia; Agencia de distribuidor requiere agencia del distribuidor', path: ['destinatarioFinalId'] }
+    { message: 'Domicilio requiere consignatario; Agencia requiere agencia; Punto de entrega requiere un punto de entrega del courier', path: ['consignatarioId'] }
   );
 
 type FormValues = z.infer<typeof formSchema>;
 
-function destinatarioLabel(d: DestinatarioFinal): string {
+function consignatarioLabel(d: Consignatario): string {
   const parts = [d.nombre];
   if (d.canton) parts.push(d.canton);
   if (d.codigo) parts.push(d.codigo);
   return parts.filter(Boolean).join(' — ');
 }
 
-function filterDestinatarios(list: DestinatarioFinal[], q: string): DestinatarioFinal[] {
+function filterConsignatarios(list: Consignatario[], q: string): Consignatario[] {
   const s = q.trim().toLowerCase();
   if (!s) return list;
   return list.filter(
@@ -82,9 +82,9 @@ interface DespachoFormProps {
 }
 
 export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
-  const { data: distribuidores = [] } = useDistribuidores();
+  const { data: couriersEntrega = [] } = useCouriersEntrega();
   const { data: agencias = [] } = useAgenciasOperario();
-  const { data: destinatarios = [] } = useDestinatariosOperario();
+  const { data: consignatarios = [] } = useConsignatariosOperario();
   const { data: sacas = [] } = useSacasOperario(true);
   const createMutation = useCreateDespacho();
   const [destSearch, setDestSearch] = useState('');
@@ -95,11 +95,11 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       numeroGuia: '',
-      distribuidorId: 0,
+      courierEntregaId: 0,
       tipoEntrega: 'DOMICILIO' as TipoEntrega,
-      destinatarioFinalId: undefined,
+      consignatarioId: undefined,
       agenciaId: undefined,
-      agenciaDistribuidorId: undefined,
+      agenciaCourierEntregaId: undefined,
       observaciones: '',
       codigoPrecinto: '',
       sacaIds: [],
@@ -107,26 +107,26 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
   });
 
   const tipoEntrega = form.watch('tipoEntrega');
-  const distribuidorIdForm = form.watch('distribuidorId');
+  const courierEntregaIdForm = form.watch('courierEntregaId');
   const agenciaIdValue = form.watch('agenciaId');
-  const agenciaDistribuidorIdValue = form.watch('agenciaDistribuidorId');
-  const { data: agenciasDistribuidor = [] } = useAgenciasDistribuidor(
-    tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && distribuidorIdForm != null && distribuidorIdForm > 0 ? distribuidorIdForm : null
+  const agenciaCourierEntregaIdValue = form.watch('agenciaCourierEntregaId');
+  const { data: puntosEntrega = [] } = useAgenciasCourierEntrega(
+    tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && courierEntregaIdForm != null && courierEntregaIdForm > 0 ? courierEntregaIdForm : null
   );
-  const selectedDestId = form.watch('destinatarioFinalId');
-  const selectedDest = destinatarios.find((d) => d.id === selectedDestId);
-  const filteredDest = filterDestinatarios(destinatarios, destSearch);
+  const selectedDestId = form.watch('consignatarioId');
+  const selectedDest = consignatarios.find((d) => d.id === selectedDestId);
+  const filteredDest = filterConsignatarios(consignatarios, destSearch);
 
   useEffect(() => {
     if (tipoEntrega === 'AGENCIA') {
-      form.setValue('destinatarioFinalId', undefined);
-      form.setValue('agenciaDistribuidorId', undefined);
-    } else if (tipoEntrega === 'AGENCIA_DISTRIBUIDOR') {
-      form.setValue('destinatarioFinalId', undefined);
+      form.setValue('consignatarioId', undefined);
+      form.setValue('agenciaCourierEntregaId', undefined);
+    } else if (tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
+      form.setValue('consignatarioId', undefined);
       form.setValue('agenciaId', undefined);
     } else {
       form.setValue('agenciaId', undefined);
-      form.setValue('agenciaDistribuidorId', undefined);
+      form.setValue('agenciaCourierEntregaId', undefined);
     }
   }, [tipoEntrega, form]);
 
@@ -151,38 +151,38 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
   }
 
   async function onSubmit(values: FormValues) {
-    const destinatarioFinalId =
-      values.tipoEntrega === 'DOMICILIO' && values.destinatarioFinalId != null && !Number.isNaN(values.destinatarioFinalId) && values.destinatarioFinalId > 0
-        ? values.destinatarioFinalId
+    const consignatarioId =
+      values.tipoEntrega === 'DOMICILIO' && values.consignatarioId != null && !Number.isNaN(values.consignatarioId) && values.consignatarioId > 0
+        ? values.consignatarioId
         : undefined;
     const agenciaId =
       values.tipoEntrega === 'AGENCIA' && values.agenciaId != null && !Number.isNaN(values.agenciaId) && values.agenciaId > 0
         ? values.agenciaId
         : undefined;
-    const agenciaDistribuidorId =
-      values.tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && values.agenciaDistribuidorId != null && !Number.isNaN(values.agenciaDistribuidorId) && values.agenciaDistribuidorId > 0
-        ? values.agenciaDistribuidorId
+    const agenciaCourierEntregaId =
+      values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && values.agenciaCourierEntregaId != null && !Number.isNaN(values.agenciaCourierEntregaId) && values.agenciaCourierEntregaId > 0
+        ? values.agenciaCourierEntregaId
         : undefined;
-    if (values.tipoEntrega === 'DOMICILIO' && !destinatarioFinalId) {
-      toast.error('Selecciona un destinatario final');
+    if (values.tipoEntrega === 'DOMICILIO' && !consignatarioId) {
+      toast.error('Selecciona un consignatario');
       return;
     }
     if (values.tipoEntrega === 'AGENCIA' && !agenciaId) {
       toast.error('Selecciona una agencia');
       return;
     }
-    if (values.tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && !agenciaDistribuidorId) {
-      toast.error('Selecciona una agencia del distribuidor');
+    if (values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && !agenciaCourierEntregaId) {
+      toast.error('Selecciona un punto de entrega');
       return;
     }
     try {
       await createMutation.mutateAsync({
         numeroGuia: values.numeroGuia.trim(),
-        distribuidorId: values.distribuidorId,
+        courierEntregaId: values.courierEntregaId,
         tipoEntrega: values.tipoEntrega,
-        destinatarioFinalId: values.tipoEntrega === 'DOMICILIO' ? destinatarioFinalId : undefined,
+        consignatarioId: values.tipoEntrega === 'DOMICILIO' ? consignatarioId : undefined,
         agenciaId: values.tipoEntrega === 'AGENCIA' ? agenciaId : undefined,
-        agenciaDistribuidorId: values.tipoEntrega === 'AGENCIA_DISTRIBUIDOR' ? agenciaDistribuidorId : undefined,
+        agenciaCourierEntregaId: values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' ? agenciaCourierEntregaId : undefined,
         observaciones: values.observaciones?.trim() || undefined,
         codigoPrecinto: values.codigoPrecinto?.trim() || undefined,
         sacaIds: (values.sacaIds?.length ?? 0) > 0 ? values.sacaIds : undefined,
@@ -208,7 +208,7 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
             </Label>
             <Input
               {...form.register('numeroGuia')}
-              placeholder="Guía del distribuidor"
+              placeholder="Guía del courier de entrega"
             />
             {form.formState.errors.numeroGuia && (
               <p className="mt-1 text-sm text-[var(--color-destructive)]">
@@ -219,28 +219,28 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
 
           <div>
             <Label className="mb-1 block">
-              Distribuidor
+              Courier de entrega
             </Label>
             <Select
-              value={distribuidorIdForm > 0 ? String(distribuidorIdForm) : undefined}
+              value={courierEntregaIdForm > 0 ? String(courierEntregaIdForm) : undefined}
               onValueChange={(value) => {
-                form.setValue('distribuidorId', Number(value), { shouldValidate: true, shouldDirty: true });
+                form.setValue('courierEntregaId', Number(value), { shouldValidate: true, shouldDirty: true });
               }}
             >
               <SelectTrigger variant="clean">
-                <SelectValue placeholder="Seleccione distribuidor" />
+                <SelectValue placeholder="Seleccione courier de entrega" />
               </SelectTrigger>
               <SelectContent>
-                {distribuidores.map((d) => (
+                {couriersEntrega.map((d) => (
                   <SelectItem key={d.id} value={String(d.id)}>
                     {d.nombre} ({d.codigo})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {form.formState.errors.distribuidorId && (
+            {form.formState.errors.courierEntregaId && (
               <p className="mt-1 text-sm text-[var(--color-destructive)]">
-                {form.formState.errors.distribuidorId.message}
+                {form.formState.errors.courierEntregaId.message}
               </p>
             )}
           </div>
@@ -251,9 +251,9 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
               value={tipoEntrega}
               onValueChange={(value) => form.setValue('tipoEntrega', value as TipoEntrega)}
               options={[
-                { value: 'DOMICILIO', title: 'Domicilio', description: 'Entrega directa al destinatario final.' },
+                { value: 'DOMICILIO', title: 'Domicilio', description: 'Entrega directa al consignatario.' },
                 { value: 'AGENCIA', title: 'Agencia', description: 'Entrega en agencia según zona.' },
-                { value: 'AGENCIA_DISTRIBUIDOR', title: 'Agencia distribuidor', description: 'Entrega en agencia del distribuidor.' },
+                { value: 'AGENCIA_COURIER_ENTREGA', title: 'Punto de entrega', description: 'Entrega en punto del courier de entrega.' },
               ]}
             />
           </div>
@@ -261,15 +261,15 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
           {tipoEntrega === 'DOMICILIO' && (
             <div ref={destRef} className="relative">
               <Label className="mb-1 block">
-                Destinatario final
+                Consignatario
               </Label>
               <Input
                 type="text"
-                value={selectedDest ? destinatarioLabel(selectedDest) : destSearch}
+                value={selectedDest ? consignatarioLabel(selectedDest) : destSearch}
                 onChange={(e) => {
                   setDestSearch(e.target.value);
                   setDestOpen(true);
-                  if (selectedDestId) form.setValue('destinatarioFinalId', undefined);
+                  if (selectedDestId) form.setValue('consignatarioId', undefined);
                 }}
                 onFocus={() => setDestOpen(true)}
                 placeholder="Buscar por nombre, cantón o código..."
@@ -286,20 +286,20 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
                         key={d.id}
                         className="cursor-pointer px-3 py-2 text-sm hover:bg-[var(--color-accent)] hover:text-[var(--color-accent-foreground)]"
                         onClick={() => {
-                          form.setValue('destinatarioFinalId', d.id);
-                          setDestSearch(destinatarioLabel(d));
+                          form.setValue('consignatarioId', d.id);
+                          setDestSearch(consignatarioLabel(d));
                           setDestOpen(false);
                         }}
                       >
-                        {destinatarioLabel(d)}
+                        {consignatarioLabel(d)}
                       </li>
                     ))
                   )}
                 </ul>
               )}
-              {form.formState.errors.destinatarioFinalId && (
+              {form.formState.errors.consignatarioId && (
                 <p className="mt-1 text-sm text-[var(--color-destructive)]">
-                  {form.formState.errors.destinatarioFinalId.message}
+                  {form.formState.errors.consignatarioId.message}
                 </p>
               )}
             </div>
@@ -335,31 +335,31 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
             </div>
           )}
 
-          {tipoEntrega === 'AGENCIA_DISTRIBUIDOR' && (
+          {tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && (
             <div>
               <Label className="mb-1 block">
-                Agencia del distribuidor
+                Punto de entrega
               </Label>
               <Select
-                value={agenciaDistribuidorIdValue != null && agenciaDistribuidorIdValue > 0 ? String(agenciaDistribuidorIdValue) : undefined}
+                value={agenciaCourierEntregaIdValue != null && agenciaCourierEntregaIdValue > 0 ? String(agenciaCourierEntregaIdValue) : undefined}
                 onValueChange={(value) => {
-                  form.setValue('agenciaDistribuidorId', Number(value), { shouldValidate: true, shouldDirty: true });
+                  form.setValue('agenciaCourierEntregaId', Number(value), { shouldValidate: true, shouldDirty: true });
                 }}
               >
                 <SelectTrigger variant="clean">
-                  <SelectValue placeholder="Seleccione agencia del distribuidor" />
+                  <SelectValue placeholder="Seleccione punto de entrega" />
                 </SelectTrigger>
                 <SelectContent>
-                  {agenciasDistribuidor.map((a) => (
+                  {puntosEntrega.map((a) => (
                     <SelectItem key={a.id} value={String(a.id)}>
-                      {agenciaDistribuidorEtiqueta(a)}
+                      {agenciaCourierEntregaEtiqueta(a)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {form.formState.errors.agenciaDistribuidorId && (
+              {form.formState.errors.agenciaCourierEntregaId && (
                 <p className="mt-1 text-sm text-[var(--color-destructive)]">
-                  {form.formState.errors.agenciaDistribuidorId.message}
+                  {form.formState.errors.agenciaCourierEntregaId.message}
                 </p>
               )}
             </div>

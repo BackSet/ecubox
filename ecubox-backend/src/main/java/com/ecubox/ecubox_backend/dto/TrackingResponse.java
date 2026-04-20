@@ -16,7 +16,7 @@ public class TrackingResponse {
     private String numeroGuia;
     private Long estadoRastreoId;
     private String estadoRastreoNombre;
-    private String destinatarioNombre;
+    private String consignatarioNombre;
 
     /** Timeline: estados activos ordenados; cada ítem indica si es el actual. */
     private List<TrackingEstadoItemDTO> estados;
@@ -37,7 +37,7 @@ public class TrackingResponse {
     private TrackingDespachoDTO despacho;
     private TrackingSacaDTO sacaActual;
     private List<TrackingPaqueteDespachoDTO> paquetesDespacho;
-    private TrackingDestinatarioDTO destinatario;
+    private TrackingConsignatarioDTO consignatario;
     private TrackingOperadorEntregaDTO operadorEntrega;
 
     /**

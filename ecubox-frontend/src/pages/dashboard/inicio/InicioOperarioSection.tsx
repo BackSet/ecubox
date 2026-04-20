@@ -157,7 +157,7 @@ export function InicioOperarioSection() {
             label="Paquetes sin peso"
             value={totalSinPeso}
             tone={totalSinPeso > 0 ? 'warning' : 'success'}
-            to="/cargar-pesos"
+            to="/pesaje"
           />
         )}
         {canPesoWrite && (
@@ -231,7 +231,7 @@ export function InicioOperarioSection() {
                     <p className="truncate text-[12px] text-[var(--color-muted-foreground)]">
                       {g.clienteUsuarioNombre ?? 'Sin cliente'}
                       {' · '}
-                      {g.destinatarioNombre ?? 'Sin destinatario'}
+                      {g.consignatarioNombre ?? 'Sin consignatario'}
                       {' · creada '}
                       {formatDateShort(g.createdAt)}
                     </p>

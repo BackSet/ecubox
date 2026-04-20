@@ -929,9 +929,9 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
                               className="font-medium text-foreground"
                               copy={false}
                             />
-                            {p.destinatarioNombre && (
+                            {p.consignatarioNombre && (
                               <span className="text-muted-foreground">
-                                · {p.destinatarioNombre}
+                                · {p.consignatarioNombre}
                               </span>
                             )}
                             {peso && (

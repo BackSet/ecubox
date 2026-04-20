@@ -1,10 +1,10 @@
 package com.ecubox.ecubox_backend.enums;
 
 /**
- * Filtro aplicado al manifiesto: liquidar por distribuidor o por agencia.
+ * Filtro aplicado al manifiesto: liquidar por courierEntrega o por agencia.
  */
 public enum FiltroManifiesto {
     POR_PERIODO,
-    POR_DISTRIBUIDOR,
+    POR_COURIER_ENTREGA,
     POR_AGENCIA
 }

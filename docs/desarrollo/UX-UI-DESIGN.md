@@ -178,7 +178,7 @@ Fondo con `landing-shell` y `landing-overlay` (radial gradient sutil).
 
 ### 5.3 Formularios multi-paso (Stepper)
 
-Usado en Despachos: navegación por pasos con botones, campos dependientes (ej. seleccionar Distribuidor antes de Agencia), estados deshabilitados hasta cumplir prerequisitos.
+Usado en Despachos: navegación por pasos con botones, campos dependientes (ej. seleccionar Courier de entrega antes de Punto de entrega), estados deshabilitados hasta cumplir prerequisitos.
 
 ---
 

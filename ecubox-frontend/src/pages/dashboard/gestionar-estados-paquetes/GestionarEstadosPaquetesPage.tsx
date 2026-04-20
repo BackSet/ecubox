@@ -47,7 +47,7 @@ import {
   X,
 } from 'lucide-react';
 import { notify } from '@/lib/notify';
-import { GuiaMasterPiezaCell, DestinatarioCell } from '../paquetes/PaqueteCells';
+import { GuiaMasterPiezaCell, ConsignatarioCell } from '../paquetes/PaqueteCells';
 import type { Paquete } from '@/types/paquete';
 
 export function GestionarEstadosPaquetesPage() {
@@ -131,8 +131,8 @@ export function GestionarEstadosPaquetesPage() {
         p.guiaMasterTrackingBase,
         p.ref,
         p.contenido,
-        p.destinatarioNombre,
-        p.destinatarioTelefono,
+        p.consignatarioNombre,
+        p.consignatarioTelefono,
         p.envioConsolidadoCodigo,
         p.estadoRastreoNombre,
         p.estadoRastreoCodigo,
@@ -295,7 +295,7 @@ export function GestionarEstadosPaquetesPage() {
       )}
       <ListToolbar
         title="Gestionar estados de paquetes"
-        searchPlaceholder="Buscar por guía, ref, destinatario, envío, contenido o estado..."
+        searchPlaceholder="Buscar por guía, ref, consignatario, envío, contenido o estado..."
         onSearchChange={setSearch}
       />
 
@@ -406,7 +406,7 @@ export function GestionarEstadosPaquetesPage() {
                 <TableHead className="w-10" aria-label="Selección" />
                 <TableHead className="w-[16rem]">Guía / Pieza</TableHead>
                 <TableHead>Estado actual</TableHead>
-                <TableHead className="min-w-[16rem]">Destinatario</TableHead>
+                <TableHead className="min-w-[16rem]">Consignatario</TableHead>
                 <TableHead className="hidden md:table-cell">Envío</TableHead>
                 <TableHead className="hidden lg:table-cell">Contenido</TableHead>
                 <TableHead className="text-right">Peso</TableHead>
@@ -455,7 +455,7 @@ export function GestionarEstadosPaquetesPage() {
                 </TableHead>
                 <TableHead className="w-[16rem]">Guía / Pieza</TableHead>
                 <TableHead>Estado actual</TableHead>
-                <TableHead className="min-w-[16rem]">Destinatario</TableHead>
+                <TableHead className="min-w-[16rem]">Consignatario</TableHead>
                 <TableHead className="hidden md:table-cell">Envío</TableHead>
                 <TableHead className="hidden lg:table-cell">Contenido</TableHead>
                 <TableHead className="text-right">Peso</TableHead>
@@ -507,7 +507,7 @@ export function GestionarEstadosPaquetesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-[20rem] align-top">
-                      <DestinatarioCell paquete={p} />
+                      <ConsignatarioCell paquete={p} />
                     </TableCell>
                     <TableCell className="hidden align-top md:table-cell">
                       {p.envioConsolidadoCodigo ? (
@@ -755,9 +755,9 @@ function ResultadoDialog({ data, onClose, paquetes }: ResultadoDialogProps) {
                             #{r.paqueteId}
                           </span>
                         )}
-                        {p?.destinatarioNombre && (
+                        {p?.consignatarioNombre && (
                           <span className="text-xs text-muted-foreground">
-                            {p.destinatarioNombre}
+                            {p.consignatarioNombre}
                           </span>
                         )}
                       </div>

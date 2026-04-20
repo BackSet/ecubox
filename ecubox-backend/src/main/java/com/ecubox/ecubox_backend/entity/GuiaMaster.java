@@ -27,8 +27,8 @@ public class GuiaMaster {
     private Integer totalPiezasEsperadas;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "destinatario_final_id")
-    private DestinatarioFinal destinatarioFinal;
+    @JoinColumn(name = "consignatario_id")
+    private Consignatario consignatario;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_usuario_id")
@@ -78,16 +78,16 @@ public class GuiaMaster {
     /**
      * Snapshot inmutable del destinatario al momento del primer despacho.
      * Mientras sea NULL, las lecturas resuelven al destinatario vivo
-     * ({@link #destinatarioFinal}). Una vez congelado, las lecturas usan
+     * ({@link #consignatario}). Una vez congelado, las lecturas usan
      * esta version, garantizando que la direccion impresa no cambie si
      * el cliente edita despues.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "destinatario_version_id")
-    private DestinatarioFinalVersion destinatarioVersion;
+    @JoinColumn(name = "consignatario_version_id")
+    private ConsignatarioVersion consignatarioVersion;
 
-    @Column(name = "destinatario_congelado_en")
-    private LocalDateTime destinatarioCongeladoEn;
+    @Column(name = "consignatario_congelado_en")
+    private LocalDateTime consignatarioCongeladoEn;
 
     @Version
     @Column(nullable = false)

@@ -306,10 +306,10 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
       drawBadge(estadoLabel, Math.min(x + valueW + 4, x + maxW - 35), cursorY, estadoVariant);
       cursorY += lineHeight(t.fonts.value) + 0.4;
 
-      drawTextLines(['Destinatario'], x, cursorY, t.fonts.label, t.colors.muted);
+      drawTextLines(['Consignatario'], x, cursorY, t.fonts.label, t.colors.muted);
       cursorY += lineHeight(t.fonts.label);
       drawTextLines(
-        [safe(data.destinatarioNombre)],
+        [safe(data.consignatarioNombre)],
         x,
         cursorY,
         t.fonts.body,
@@ -557,9 +557,9 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
     }
   };
 
-  const drawDestinatarioCard = () => {
-    const dest = data.destinatario;
-    const nombre = dest?.nombre ?? data.destinatarioNombre ?? null;
+  const drawConsignatarioCard = () => {
+    const dest = data.consignatario;
+    const nombre = dest?.nombre ?? data.consignatarioNombre ?? null;
     const provincia = dest?.provincia ?? null;
     const canton = dest?.canton ?? null;
     const tieneUbicacion = Boolean(provincia || canton);
@@ -571,7 +571,7 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
     const noteH = lineHeight(t.fonts.label) + 0.6;
     const bodyHeight = fieldH + noteH;
 
-    drawCard('Destinatario', bodyHeight, (x, startY) => {
+    drawCard('Consignatario', bodyHeight, (x, startY) => {
       drawField(
         'Nombre',
         safe(nombre),
@@ -601,7 +601,7 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
   drawHeader();
   drawSummaryCard();
   drawProgressCard();
-  drawDestinatarioCard();
+  drawConsignatarioCard();
   drawPiezasCard();
   drawTimelineCard();
 

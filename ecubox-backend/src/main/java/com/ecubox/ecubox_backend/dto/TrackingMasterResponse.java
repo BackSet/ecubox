@@ -25,15 +25,15 @@ public class TrackingMasterResponse {
     private Integer piezasRegistradas;
     private Integer piezasRecibidas;
     private Integer piezasDespachadas;
-    /** @deprecated Mantener por compatibilidad. Usar {@link #destinatario}. */
+    /** @deprecated Mantener por compatibilidad. Usar {@link #consignatario}. */
     @Deprecated
-    private String destinatarioNombre;
+    private String consignatarioNombre;
     /**
-     * Datos públicos del destinatario asociado a la guía master (sin PII sensible).
+     * Datos públicos del consignatario asociado a la guía master (sin PII sensible).
      * Permite mostrar nombre y provincia/cantón en el tracking de la guía consolidada,
      * con la misma estructura que la vista de pieza.
      */
-    private TrackingDestinatarioDTO destinatario;
+    private TrackingConsignatarioDTO consignatario;
     private List<TrackingPiezaItem> piezas;
     private LocalDateTime fechaPrimeraRecepcion;
     private LocalDateTime fechaPrimeraPiezaDespachada;

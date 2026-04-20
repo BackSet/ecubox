@@ -92,7 +92,7 @@ import type { Despacho, TipoEntrega } from '@/types/despacho';
 const TIPO_LABELS: Record<TipoEntrega, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
-  AGENCIA_DISTRIBUIDOR: 'Agencia distribuidor',
+  AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
 };
 
 const TIPO_COLORS: Record<TipoEntrega, string> = {
@@ -100,7 +100,7 @@ const TIPO_COLORS: Record<TipoEntrega, string> = {
     'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
   AGENCIA:
     'border-[color-mix(in_oklab,var(--color-info)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-info)_15%,transparent)] text-[color-mix(in_oklab,var(--color-info)_75%,var(--color-foreground))]',
-  AGENCIA_DISTRIBUIDOR:
+  AGENCIA_COURIER_ENTREGA:
     'border-[color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
 };
 
@@ -111,17 +111,17 @@ export function DespachoListPage() {
   // NOTA(deuda técnica - cliente vs servidor):
   // Este listado todavía carga TODO el dataset (`useDespachos()`) y filtra en
   // cliente porque hay funcionalidad que depende del universo completo:
-  //   - KPIs globales (total, hoy, sacas, distribuidores).
+  //   - KPIs globales (total, hoy, sacas, couriersEntrega).
   //   - Chips con conteo por tipo/periodo.
-  //   - `distribuidoresPresentes` y `tiposPresentes` para el combobox/filtros.
+  //   - `couriersEntregaPresentes` y `tiposPresentes` para el combobox/filtros.
   //   - El diálogo "Aplicar estado a despachos" (modo "por despachos") lista
   //     TODOS los despachos para selección bulk.
   //   - `despachosEnPeriodo` se calcula sobre la lista completa.
   // Para migrar a `useDespachosPaginados` (servidor) habría que:
-  //   1. Crear endpoints de KPIs/chips/distribuidores agregados en el backend.
+  //   1. Crear endpoints de KPIs/chips/couriersEntrega agregados en el backend.
   //   2. Cargar el catálogo completo bajo demanda solo cuando se abre el
   //      diálogo de aplicar estado por despachos.
-  //   3. Mover `q + tipo + distribuidor + periodo` al servidor como params.
+  //   3. Mover `q + tipo + courierEntrega + periodo` al servidor como params.
   // Mientras tanto, conservamos el patrón actual pero con:
   //   - Toolbar con búsqueda debounced (`ListToolbar` ya usa `useDebouncedValue`).
   //   - Manejo de errores que NO oculta resultados previos (banner inline).
@@ -137,14 +137,14 @@ export function DespachoListPage() {
 
   const [search, setSearchRaw] = useState('');
   const [tipoFiltro, setTipoFiltroRaw] = useState<TipoEntrega | typeof SIN_FILTRO>(SIN_FILTRO);
-  const [distribuidorFiltro, setDistribuidorFiltroRaw] = useState<string | undefined>(undefined);
+  const [courierEntregaFiltro, setCourierEntregaFiltroRaw] = useState<string | undefined>(undefined);
   // Chip rapido sobre el conjunto: hoy, ultimos 7 dias.
   const [chipPeriodo, setChipPeriodoRaw] = useState<'todos' | 'hoy' | '7d'>('todos');
   const [page, setPage] = useState(0);
   const [size, setSizeRaw] = useState(25);
   const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
   const setTipoFiltro = (v: TipoEntrega | typeof SIN_FILTRO) => { setTipoFiltroRaw(v); setPage(0); };
-  const setDistribuidorFiltro = (v: string | undefined) => { setDistribuidorFiltroRaw(v); setPage(0); };
+  const setCourierEntregaFiltro = (v: string | undefined) => { setCourierEntregaFiltroRaw(v); setPage(0); };
   const setChipPeriodo = (v: 'todos' | 'hoy' | '7d') => { setChipPeriodoRaw(v); setPage(0); };
   const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -274,10 +274,10 @@ export function DespachoListPage() {
 
   const allDespachos = despachos ?? [];
 
-  const distribuidoresPresentes = useMemo(() => {
+  const couriersEntregaPresentes = useMemo(() => {
     const set = new Map<string, string>();
     for (const d of allDespachos) {
-      if (d.distribuidorNombre) set.set(d.distribuidorNombre, d.distribuidorNombre);
+      if (d.courierEntregaNombre) set.set(d.courierEntregaNombre, d.courierEntregaNombre);
     }
     return Array.from(set.values()).sort((a, b) => a.localeCompare(b, 'es'));
   }, [allDespachos]);
@@ -309,8 +309,8 @@ export function DespachoListPage() {
     if (tipoFiltro !== SIN_FILTRO) {
       raw = raw.filter((d) => d.tipoEntrega === tipoFiltro);
     }
-    if (distribuidorFiltro) {
-      raw = raw.filter((d) => d.distribuidorNombre === distribuidorFiltro);
+    if (courierEntregaFiltro) {
+      raw = raw.filter((d) => d.courierEntregaNombre === courierEntregaFiltro);
     }
     if (rangoChip) {
       raw = raw.filter((d) => {
@@ -324,26 +324,26 @@ export function DespachoListPage() {
     return raw.filter(
       (d) =>
         d.numeroGuia?.toLowerCase().includes(q) ||
-        d.distribuidorNombre?.toLowerCase().includes(q) ||
-        d.destinatarioNombre?.toLowerCase().includes(q) ||
-        d.destinatarioTelefono?.toLowerCase().includes(q) ||
-        d.destinatarioDireccion?.toLowerCase().includes(q) ||
+        d.courierEntregaNombre?.toLowerCase().includes(q) ||
+        d.consignatarioNombre?.toLowerCase().includes(q) ||
+        d.consignatarioTelefono?.toLowerCase().includes(q) ||
+        d.consignatarioDireccion?.toLowerCase().includes(q) ||
         d.agenciaNombre?.toLowerCase().includes(q) ||
-        d.agenciaDistribuidorNombre?.toLowerCase().includes(q) ||
+        d.agenciaCourierEntregaNombre?.toLowerCase().includes(q) ||
         d.observaciones?.toLowerCase().includes(q) ||
         d.codigoPrecinto?.toLowerCase().includes(q) ||
         d.operarioNombre?.toLowerCase().includes(q) ||
         String(d.id).includes(q),
     );
-  }, [allDespachos, search, tipoFiltro, distribuidorFiltro, rangoChip]);
+  }, [allDespachos, search, tipoFiltro, courierEntregaFiltro, rangoChip]);
 
   // Conteo por tipo para los chips rapidos, considerando los demas filtros activos.
   const tipoCounts = useMemo(() => {
     const counts: Record<string, number> = { TODOS: 0 };
     for (const d of allDespachos) {
       // Los chips de tipo deben reflejar el universo actualmente filtrado por
-      // los OTROS filtros (distribuidor + periodo + busqueda).
-      if (distribuidorFiltro && d.distribuidorNombre !== distribuidorFiltro) continue;
+      // los OTROS filtros (courierEntrega + periodo + busqueda).
+      if (courierEntregaFiltro && d.courierEntregaNombre !== courierEntregaFiltro) continue;
       if (rangoChip) {
         if (!d.fechaHora) continue;
         const t = new Date(d.fechaHora).getTime();
@@ -353,21 +353,21 @@ export function DespachoListPage() {
       counts[d.tipoEntrega] = (counts[d.tipoEntrega] ?? 0) + 1;
     }
     return counts;
-  }, [allDespachos, distribuidorFiltro, rangoChip]);
+  }, [allDespachos, courierEntregaFiltro, rangoChip]);
 
   const stats = useMemo(() => {
     const all = allDespachos;
     if (all.length === 0) {
-      return { total: 0, hoy: 0, sacas: 0, distribuidores: 0 };
+      return { total: 0, hoy: 0, sacas: 0, couriersEntrega: 0 };
     }
-    const distribuidores = new Set<string>();
+    const couriersEntrega = new Set<string>();
     let hoy = 0;
     let sacas = 0;
     const ahora = new Date();
     const hoyStr = `${ahora.getFullYear()}-${ahora.getMonth()}-${ahora.getDate()}`;
     for (const d of all) {
       sacas += d.sacaIds?.length ?? 0;
-      if (d.distribuidorNombre) distribuidores.add(d.distribuidorNombre);
+      if (d.courierEntregaNombre) couriersEntrega.add(d.courierEntregaNombre);
       if (d.fechaHora) {
         const f = new Date(d.fechaHora);
         if (!Number.isNaN(f.getTime())) {
@@ -380,7 +380,7 @@ export function DespachoListPage() {
       total: all.length,
       hoy,
       sacas,
-      distribuidores: distribuidores.size,
+      couriersEntrega: couriersEntrega.size,
     };
   }, [allDespachos]);
 
@@ -426,11 +426,11 @@ export function DespachoListPage() {
   const plantilla = mensajeWhatsApp?.plantilla ?? '';
   const tieneFiltros =
     tipoFiltro !== SIN_FILTRO ||
-    !!distribuidorFiltro ||
+    !!courierEntregaFiltro ||
     chipPeriodo !== 'todos';
   const limpiarFiltros = () => {
     setTipoFiltro(SIN_FILTRO);
-    setDistribuidorFiltro(undefined);
+    setCourierEntregaFiltro(undefined);
     setChipPeriodo('todos');
   };
 
@@ -447,7 +447,7 @@ export function DespachoListPage() {
 
       <ListToolbar
         title="Despachos"
-        searchPlaceholder="Buscar por #, guía, precinto, distribuidor, agencia, destinatario, operario u observaciones..."
+        searchPlaceholder="Buscar por #, guía, precinto, courier, agencia, consignatario, operario u observaciones..."
         onSearchChange={setSearch}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -496,8 +496,8 @@ export function DespachoListPage() {
           />
           <KpiCard
             icon={<Users className="h-5 w-5" />}
-            label="Distribuidores"
-            value={stats.distribuidores}
+            label="Couriers de entrega"
+            value={stats.couriersEntrega}
             tone="neutral"
           />
         </div>
@@ -582,19 +582,19 @@ export function DespachoListPage() {
             </>
           }
           filtros={
-            distribuidoresPresentes.length > 1 && (
-              <FiltroCampo label="Distribuidor" width="w-[16rem]">
+            couriersEntregaPresentes.length > 1 && (
+              <FiltroCampo label="Courier de entrega" width="w-[16rem]">
                 <SearchableCombobox<string>
-                  value={distribuidorFiltro}
+                  value={courierEntregaFiltro}
                   onChange={(v) =>
-                    setDistribuidorFiltro(v === undefined ? undefined : String(v))
+                    setCourierEntregaFiltro(v === undefined ? undefined : String(v))
                   }
-                  options={distribuidoresPresentes}
+                  options={couriersEntregaPresentes}
                   getKey={(n) => n}
                   getLabel={(n) => n}
                   placeholder="Todos"
-                  searchPlaceholder="Buscar distribuidor..."
-                  emptyMessage="Sin distribuidores"
+                  searchPlaceholder="Buscar courier..."
+                  emptyMessage="Sin couriers"
                   className="h-9 w-full"
                 />
               </FiltroCampo>
@@ -612,7 +612,7 @@ export function DespachoListPage() {
                 <TableHead className="w-[14rem]">Despacho</TableHead>
                 <TableHead className="hidden w-[10rem] lg:table-cell">Tipo</TableHead>
                 <TableHead className="min-w-[14rem]">Destino</TableHead>
-                <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
+                <TableHead className="min-w-[12rem]">CourierEntrega</TableHead>
                 <TableHead className="hidden w-[8rem] md:table-cell">Sacas</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
@@ -632,7 +632,7 @@ export function DespachoListPage() {
         <EmptyState
           icon={Truck}
           title="No hay despachos"
-          description="Crea un despacho para asignar sacas y enviar con un distribuidor."
+          description="Crea un despacho para asignar sacas y enviar con un courier de entrega."
           action={
             <Link to="/despachos/nuevo" className={cn(buttonVariants())}>
               <Plus className="mr-2 h-4 w-4" />
@@ -666,7 +666,7 @@ export function DespachoListPage() {
                   <TableHead className="w-[14rem]">Despacho</TableHead>
                   <TableHead className="hidden w-[10rem] lg:table-cell">Tipo</TableHead>
                   <TableHead className="min-w-[14rem]">Destino</TableHead>
-                  <TableHead className="min-w-[12rem]">Distribuidor</TableHead>
+                  <TableHead className="min-w-[12rem]">CourierEntrega</TableHead>
                   <TableHead className="hidden w-[8rem] md:table-cell">Sacas</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
@@ -698,7 +698,7 @@ export function DespachoListPage() {
                       <DestinoCell despacho={d} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <DistribuidorCell nombre={d.distribuidorNombre} />
+                      <CourierEntregaCell nombre={d.courierEntregaNombre} />
                     </TableCell>
                     <TableCell className="hidden align-top md:table-cell">
                       <SacasBadge total={d.sacaIds?.length ?? 0} />
@@ -879,7 +879,7 @@ function DespachoCell({ despacho }: { despacho: Despacho }) {
   );
 }
 
-function DistribuidorCell({ nombre }: { nombre?: string | null }) {
+function CourierEntregaCell({ nombre }: { nombre?: string | null }) {
   if (!nombre) {
     return <span className="text-xs italic text-muted-foreground">—</span>;
   }
@@ -895,9 +895,9 @@ function DistribuidorCell({ nombre }: { nombre?: string | null }) {
 
 function DestinoCell({ despacho }: { despacho: Despacho }) {
   if (despacho.tipoEntrega === 'DOMICILIO') {
-    const nombre = despacho.destinatarioNombre;
-    const direccion = despacho.destinatarioDireccion;
-    const telefono = despacho.destinatarioTelefono;
+    const nombre = despacho.consignatarioNombre;
+    const direccion = despacho.consignatarioDireccion;
+    const telefono = despacho.consignatarioTelefono;
     if (!nombre && !direccion && !telefono) {
       return <span className="text-xs italic text-muted-foreground">—</span>;
     }
@@ -925,8 +925,8 @@ function DestinoCell({ despacho }: { despacho: Despacho }) {
   }
 
   const lugar =
-    despacho.tipoEntrega === 'AGENCIA_DISTRIBUIDOR'
-      ? despacho.agenciaDistribuidorNombre
+    despacho.tipoEntrega === 'AGENCIA_COURIER_ENTREGA'
+      ? despacho.agenciaCourierEntregaNombre
       : despacho.agenciaNombre;
   if (!lugar) {
     return <span className="text-xs italic text-muted-foreground">—</span>;
@@ -1029,10 +1029,10 @@ function AplicarEstadoDialog({
     return despachosOrdenados.filter(
       (d) =>
         d.numeroGuia?.toLowerCase().includes(q) ||
-        d.distribuidorNombre?.toLowerCase().includes(q) ||
-        d.destinatarioNombre?.toLowerCase().includes(q) ||
+        d.courierEntregaNombre?.toLowerCase().includes(q) ||
+        d.consignatarioNombre?.toLowerCase().includes(q) ||
         d.agenciaNombre?.toLowerCase().includes(q) ||
-        d.agenciaDistribuidorNombre?.toLowerCase().includes(q) ||
+        d.agenciaCourierEntregaNombre?.toLowerCase().includes(q) ||
         String(d.id).includes(q),
     );
   }, [despachosOrdenados, busqueda]);
@@ -1296,7 +1296,7 @@ function AplicarEstadoDialog({
                     type="search"
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
-                    placeholder="Buscar por #, guía, distribuidor, destinatario..."
+                    placeholder="Buscar por #, guía, courier, consignatario..."
                     className="h-9 pl-8"
                   />
                 </div>
@@ -1381,9 +1381,9 @@ function AplicarEstadoDialog({
                                 )}
                               </div>
                               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                                {d.distribuidorNombre && (
+                                {d.courierEntregaNombre && (
                                   <span className="truncate">
-                                    {d.distribuidorNombre}
+                                    {d.courierEntregaNombre}
                                   </span>
                                 )}
                                 <Badge
@@ -1539,7 +1539,7 @@ function WhatsAppDespachoDialog({ despacho, onClose }: WhatsAppDespachoDialogPro
 
   if (!despacho) return null;
 
-  const telefono = despacho.destinatarioTelefono;
+  const telefono = despacho.consignatarioTelefono;
   const wa = normalizarTelefonoWA(telefono);
 
   const mensaje = (texto ?? '').trim();

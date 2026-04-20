@@ -47,7 +47,7 @@ En la misma página de Rastreo, el bloque **Progreso y plazos** puede mostrar in
 
 ### Cuándo **sí** hay plazo y cuenta regresiva
 
-El sistema solo puede calcular **días máximos de retiro** cuando el paquete **ya va asociado a un despacho** (tiene saca y despacho) y ese despacho tiene definido un **tipo de entrega** (por ejemplo domicilio, agencia o agencia distribuidor). Según ese tipo, el plazo sale de los datos del **distribuidor**, la **agencia** o la **agencia distribuidor** que correspondan.
+El sistema solo puede calcular **días máximos de retiro** cuando el paquete **ya va asociado a un despacho** (tiene saca y despacho) y ese despacho tiene definido un **tipo de entrega** (por ejemplo domicilio, agencia ECUBOX o punto de entrega del courier). Según ese tipo, el plazo sale de los datos del **courier de entrega**, la **agencia** o el **punto de entrega** que correspondan.
 
 A partir de ahí:
 

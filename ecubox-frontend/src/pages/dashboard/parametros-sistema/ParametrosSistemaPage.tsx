@@ -268,8 +268,8 @@ export function ParametrosSistemaPage() {
       },
       {
         key: 'mensaje-agencia-eeuu',
-        label: 'Agencia en Estados Unidos',
-        shortLabel: 'Agencia USA',
+        label: 'Casillero',
+        shortLabel: 'Casillero',
         description: 'Dirección, horarios e instrucciones que ven los clientes.',
         icon: MapPin,
         visible: true,
@@ -356,7 +356,7 @@ export function ParametrosSistemaPage() {
   const handleGuardarAgencia = async () => {
     try {
       await updateAgenciaMutation.mutateAsync({ mensaje: mensajeAgenciaLocal });
-      toast.success('Mensaje de agencia USA guardado');
+      toast.success('Mensaje del casillero guardado');
     } catch (err) {
       toast.error(getApiErrorMessage(err) ?? 'Error al guardar el mensaje');
       throw err;
@@ -772,7 +772,7 @@ function WhatsAppDespachoPanel({
             onChange={(e) => setPlantillaLocal(e.target.value)}
             className="min-h-[220px] font-mono text-sm leading-relaxed"
             rows={9}
-            placeholder="Hola {{destinatarioNombre}}, tu envío {{numeroGuia}} está en camino..."
+            placeholder="Hola {{consignatarioNombre}}, tu envío {{numeroGuia}} está en camino..."
           />
 
           {unknown.length > 0 && (
@@ -937,14 +937,14 @@ function AgenciaEeuuPanel({
       <div aria-busy="true" aria-live="polite" className="space-y-4">
         <SurfaceCardSkeleton bodyLines={2} />
         <FormSkeleton fields={2} withTextarea withFooter />
-        <span className="sr-only">Cargando mensaje de agencia USA...</span>
+        <span className="sr-only">Cargando mensaje del casillero...</span>
       </div>
     );
   }
   if (error)
     return (
       <div className="ui-alert ui-alert-error">
-        Error al cargar el mensaje de agencia USA.
+        Error al cargar el mensaje del casillero.
       </div>
     );
 
@@ -1005,7 +1005,7 @@ function AgenciaEeuuPanel({
             onChange={(e) => setMensajeLocal(e.target.value)}
             className="min-h-[260px] font-mono text-sm leading-relaxed"
             rows={12}
-            placeholder={'Agencia USA:\n\nDirección completa…\n\nHorarios e indicaciones…'}
+            placeholder={'Casillero:\n\nDirección completa…\n\nHorarios e indicaciones…'}
           />
 
           <FormatHelp />
@@ -1059,7 +1059,7 @@ function AgenciaEeuuPanel({
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Dirección de envío
                   </p>
-                  <p className="text-sm font-semibold text-foreground">Agencia en EE.UU.</p>
+                  <p className="text-sm font-semibold text-foreground">Casillero en EE.UU.</p>
                 </div>
               </header>
               <div className="px-4 py-3">
@@ -1113,15 +1113,15 @@ function TarifaCalculadoraPanel() {
             </p>
             <ul className="space-y-1 text-[11px] text-foreground">
               <li className="flex items-center justify-between rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1">
-                <span className="text-muted-foreground">5 lb</span>
+                <span className="text-muted-foreground">5 lbs</span>
                 <span className="font-mono font-semibold">$12.50</span>
               </li>
               <li className="flex items-center justify-between rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1">
-                <span className="text-muted-foreground">10 lb</span>
+                <span className="text-muted-foreground">10 lbs</span>
                 <span className="font-mono font-semibold">$25.00</span>
               </li>
               <li className="flex items-center justify-between rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1">
-                <span className="text-muted-foreground">25 lb</span>
+                <span className="text-muted-foreground">25 lbs</span>
                 <span className="font-mono font-semibold">$62.50</span>
               </li>
             </ul>

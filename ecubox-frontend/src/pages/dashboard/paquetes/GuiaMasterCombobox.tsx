@@ -17,7 +17,7 @@ interface Props {
 
 /**
  * Combobox con búsqueda para seleccionar una guía master. Filtra por
- * `trackingBase` y `destinatarioNombre` (case-insensitive).
+ * `trackingBase` y `consignatarioNombre` (case-insensitive).
  *
  * Implementado sobre Radix Popover, lo que permite que funcione correctamente
  * incluso cuando el combobox vive dentro de un Radix Dialog (el Popover
@@ -50,7 +50,7 @@ export function GuiaMasterCombobox({
     if (!q) return options;
     return options.filter((o) => {
       const a = o.trackingBase?.toLowerCase() ?? '';
-      const b = o.destinatarioNombre?.toLowerCase() ?? '';
+      const b = o.consignatarioNombre?.toLowerCase() ?? '';
       return a.includes(q) || b.includes(q);
     });
   }, [options, query]);
@@ -182,7 +182,7 @@ export function GuiaMasterCombobox({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKey}
-                placeholder="Buscar por guía o destinatario..."
+                placeholder="Buscar por guía o consignatario..."
                 className="h-8 pl-8 pr-2 text-sm"
               />
             </div>
@@ -231,9 +231,9 @@ export function GuiaMasterCombobox({
                           piezas
                         </span>
                       </div>
-                      {opt.destinatarioNombre && (
+                      {opt.consignatarioNombre && (
                         <div className="truncate text-xs text-[var(--color-muted-foreground)]">
-                          {opt.destinatarioNombre}
+                          {opt.consignatarioNombre}
                         </div>
                       )}
                     </div>
@@ -256,9 +256,9 @@ function SelectedLabel({ gm }: { gm: GuiaMaster }) {
     <span className="flex items-center gap-2">
       <span className="font-mono">{gm.trackingBase}</span>
       <span className="text-xs text-[var(--color-muted-foreground)]">({piezas})</span>
-      {gm.destinatarioNombre && (
+      {gm.consignatarioNombre && (
         <span className="truncate text-xs text-[var(--color-muted-foreground)]">
-          — {gm.destinatarioNombre}
+          — {gm.consignatarioNombre}
         </span>
       )}
     </span>

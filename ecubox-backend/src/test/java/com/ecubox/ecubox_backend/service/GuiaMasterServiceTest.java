@@ -4,7 +4,7 @@ import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.GuiaMasterUpdateRequest;
 import com.ecubox.ecubox_backend.dto.MiInicioDashboardDTO;
 import com.ecubox.ecubox_backend.entity.Despacho;
-import com.ecubox.ecubox_backend.entity.DestinatarioFinal;
+import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -16,7 +16,7 @@ import com.ecubox.ecubox_backend.enums.EstadoGuiaMaster;
 import com.ecubox.ecubox_backend.enums.TipoCierreGuiaMaster;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ConflictException;
-import com.ecubox.ecubox_backend.repository.DestinatarioFinalRepository;
+import com.ecubox.ecubox_backend.repository.ConsignatarioRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterEstadoHistorialRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
 import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
@@ -63,7 +63,7 @@ class GuiaMasterServiceTest {
     @Mock
     private OutboxEventRepository outboxEventRepository;
     @Mock
-    private DestinatarioFinalRepository destinatarioFinalRepository;
+    private ConsignatarioRepository consignatarioRepository;
     @Mock
     private UsuarioRepository usuarioRepository;
     @Mock
@@ -71,7 +71,7 @@ class GuiaMasterServiceTest {
     @Mock
     private GuiaMasterEstadoHistorialRepository historialRepository;
     @Mock
-    private DestinatarioVersionService destinatarioVersionService;
+    private ConsignatarioVersionService consignatarioVersionService;
     @Mock
     private CodigoSecuenciaService codigoSecuenciaService;
 
@@ -84,8 +84,8 @@ class GuiaMasterServiceTest {
     @BeforeEach
     public void setUp() {
         service = new GuiaMasterService(guiaMasterRepository, paqueteRepository, parametroSistemaService,
-                estadoRastreoService, outboxEventRepository, destinatarioFinalRepository, usuarioRepository,
-                paqueteEstadoEventoRepository, historialRepository, destinatarioVersionService,
+                estadoRastreoService, outboxEventRepository, consignatarioRepository, usuarioRepository,
+                paqueteEstadoEventoRepository, historialRepository, consignatarioVersionService,
                 codigoSecuenciaService);
         registrado = EstadoRastreo.builder().id(1L).codigo("REGISTRADO").orden(1).build();
         enLote = EstadoRastreo.builder().id(2L).codigo("EN_LOTE").orden(2).build();
@@ -283,9 +283,9 @@ class GuiaMasterServiceTest {
     @Test
     void createForCliente_guardaConClienteYDestinatarioPropio() {
         Usuario cliente = Usuario.builder().id(7L).username("ana").build();
-        DestinatarioFinal dest = DestinatarioFinal.builder().id(20L).nombre("Maria").usuario(cliente).build();
+        Consignatario dest = Consignatario.builder().id(20L).nombre("Maria").usuario(cliente).build();
         when(guiaMasterRepository.existsByTrackingBaseIgnoreCase("TRK-1")).thenReturn(false);
-        when(destinatarioFinalRepository.findById(20L)).thenReturn(Optional.of(dest));
+        when(consignatarioRepository.findById(20L)).thenReturn(Optional.of(dest));
         when(usuarioRepository.findById(7L)).thenReturn(Optional.of(cliente));
         when(guiaMasterRepository.save(any(GuiaMaster.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -296,7 +296,7 @@ class GuiaMasterServiceTest {
         GuiaMaster saved = captor.getValue();
         assertEquals("TRK-1", saved.getTrackingBase());
         assertEquals(EstadoGuiaMaster.EN_ESPERA_RECEPCION, saved.getEstadoGlobal());
-        assertSame(dest, saved.getDestinatarioFinal());
+        assertSame(dest, saved.getConsignatario());
         assertSame(cliente, saved.getClienteUsuario());
         assertEquals(null, saved.getTotalPiezasEsperadas());
         assertSame(saved, gm);
@@ -305,9 +305,9 @@ class GuiaMasterServiceTest {
     @Test
     void createForCliente_fallaSiDestinatarioEsAjeno() {
         Usuario otro = Usuario.builder().id(99L).username("otro").build();
-        DestinatarioFinal dest = DestinatarioFinal.builder().id(20L).nombre("Maria").usuario(otro).build();
+        Consignatario dest = Consignatario.builder().id(20L).nombre("Maria").usuario(otro).build();
         when(guiaMasterRepository.existsByTrackingBaseIgnoreCase("TRK-1")).thenReturn(false);
-        when(destinatarioFinalRepository.findById(20L)).thenReturn(Optional.of(dest));
+        when(consignatarioRepository.findById(20L)).thenReturn(Optional.of(dest));
 
         var ex = assertThrows(BadRequestException.class, () -> service.createForCliente("TRK-1", 20L, 7L));
         assertNotNull(ex);
@@ -323,21 +323,21 @@ class GuiaMasterServiceTest {
     @Test
     void update_actualizaTotalYDestinatario() {
         Usuario cliente = Usuario.builder().id(5L).username("cli").build();
-        DestinatarioFinal dest = DestinatarioFinal.builder().id(30L).nombre("Pedro").usuario(cliente).build();
+        Consignatario dest = Consignatario.builder().id(30L).nombre("Pedro").usuario(cliente).build();
         GuiaMaster gm = GuiaMaster.builder().id(1L).trackingBase("X").estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
         when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of());
-        when(destinatarioFinalRepository.findById(30L)).thenReturn(Optional.of(dest));
+        when(consignatarioRepository.findById(30L)).thenReturn(Optional.of(dest));
         when(guiaMasterRepository.save(any(GuiaMaster.class))).thenAnswer(inv -> inv.getArgument(0));
 
         GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder()
                 .totalPiezasEsperadas(4)
-                .destinatarioFinalId(30L)
+                .consignatarioId(30L)
                 .build();
         service.update(1L, req);
 
         assertEquals(4, gm.getTotalPiezasEsperadas());
-        assertSame(dest, gm.getDestinatarioFinal());
+        assertSame(dest, gm.getConsignatario());
         assertSame(cliente, gm.getClienteUsuario());
     }
 
@@ -380,7 +380,7 @@ class GuiaMasterServiceTest {
         Paquete p3b = Paquete.builder().id(31L).estadoRastreo(enDespacho).saca(sacaConDespacho()).build();
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(3L)).thenReturn(List.of(p3a, p3b));
         when(parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial()).thenReturn(1);
-        when(destinatarioFinalRepository.countByUsuarioId(clienteId)).thenReturn(4L);
+        when(consignatarioRepository.countByUsuarioId(clienteId)).thenReturn(4L);
 
         MiInicioDashboardDTO dto = service.dashboardForCliente(clienteId);
 
@@ -405,7 +405,7 @@ class GuiaMasterServiceTest {
     void dashboardForCliente_sinGuiasDevuelveCerosYConteosInicializados() {
         Long clienteId = 9L;
         when(guiaMasterRepository.findByClienteUsuarioId(clienteId)).thenReturn(List.of());
-        when(destinatarioFinalRepository.countByUsuarioId(clienteId)).thenReturn(0L);
+        when(consignatarioRepository.countByUsuarioId(clienteId)).thenReturn(0L);
 
         MiInicioDashboardDTO dto = service.dashboardForCliente(clienteId);
 
@@ -445,13 +445,13 @@ class GuiaMasterServiceTest {
     @Test
     void findByTrackingBaseForTracking_devuelveContadoresYPiezasMapeadas() {
         stubConfigEstados();
-        DestinatarioFinal dest = DestinatarioFinal.builder().id(50L).nombre("Maria").build();
+        Consignatario dest = Consignatario.builder().id(50L).nombre("Maria").build();
         GuiaMaster gm = GuiaMaster.builder()
                 .id(99L)
                 .trackingBase("TRK-PUB-1")
                 .totalPiezasEsperadas(3)
                 .estadoGlobal(EstadoGuiaMaster.DESPACHO_PARCIAL)
-                .destinatarioFinal(dest)
+                .consignatario(dest)
                 .createdAt(LocalDateTime.now().minusDays(2))
                 .fechaPrimeraRecepcion(LocalDateTime.now().minusDays(1))
                 .build();
@@ -477,7 +477,7 @@ class GuiaMasterServiceTest {
         assertEquals(2, dto.getPiezasRecibidas()); // EN_LOTE + EN_DESPACHO
         assertEquals(1, dto.getPiezasDespachadas()); // p1 con saca/despacho
         assertEquals(EstadoGuiaMaster.DESPACHO_PARCIAL, dto.getEstadoGlobal());
-        assertEquals("Maria", dto.getDestinatario().getNombre());
+        assertEquals("Maria", dto.getConsignatario().getNombre());
         assertEquals(3, dto.getPiezas().size());
         assertEquals("TRK-PUB-1 1/3", dto.getPiezas().get(0).getNumeroGuia());
         assertEquals("EN_DESPACHO", dto.getPiezas().get(0).getEstadoActualCodigo());
@@ -500,39 +500,39 @@ class GuiaMasterServiceTest {
     @Test
     void update_cambioDeDestinatario_propagaACadaPiezaConRefRegenerado() {
         Usuario cliente = Usuario.builder().id(5L).username("cli").build();
-        DestinatarioFinal destAnterior = DestinatarioFinal.builder()
+        Consignatario destAnterior = Consignatario.builder()
                 .id(18L).codigo("ECU-CV01").usuario(cliente).build();
-        DestinatarioFinal destNuevo = DestinatarioFinal.builder()
+        Consignatario destNuevo = Consignatario.builder()
                 .id(20L).codigo("ECU-KZ66").usuario(cliente).build();
         GuiaMaster gm = GuiaMaster.builder()
                 .id(99L).trackingBase("X")
-                .destinatarioFinal(destAnterior)
+                .consignatario(destAnterior)
                 .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
                 .build();
         Paquete p1 = Paquete.builder().id(1L).piezaNumero(1).piezaTotal(2)
-                .destinatarioFinal(destAnterior).ref("ECU-CV01-17")
+                .consignatario(destAnterior).ref("ECU-CV01-17")
                 .estadoRastreo(registrado).build();
         Paquete p2 = Paquete.builder().id(2L).piezaNumero(2).piezaTotal(2)
-                .destinatarioFinal(destAnterior).ref("ECU-CV01-18")
+                .consignatario(destAnterior).ref("ECU-CV01-18")
                 .estadoRastreo(registrado).build();
 
         stubConfigEstados();
         when(guiaMasterRepository.findById(99L)).thenReturn(Optional.of(gm));
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(99L))
                 .thenReturn(List.of(p1, p2));
-        when(destinatarioFinalRepository.findById(20L)).thenReturn(Optional.of(destNuevo));
+        when(consignatarioRepository.findById(20L)).thenReturn(Optional.of(destNuevo));
         when(guiaMasterRepository.save(any(GuiaMaster.class))).thenAnswer(inv -> inv.getArgument(0));
         when(codigoSecuenciaService.nextRefPaquete(eq(20L), eq("ECU-KZ66")))
                 .thenReturn("ECU-KZ66-1", "ECU-KZ66-2");
 
         GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder()
-                .destinatarioFinalId(20L)
+                .consignatarioId(20L)
                 .build();
         service.update(99L, req);
 
-        assertSame(destNuevo, gm.getDestinatarioFinal());
-        assertSame(destNuevo, p1.getDestinatarioFinal());
-        assertSame(destNuevo, p2.getDestinatarioFinal());
+        assertSame(destNuevo, gm.getConsignatario());
+        assertSame(destNuevo, p1.getConsignatario());
+        assertSame(destNuevo, p2.getConsignatario());
         assertEquals("ECU-KZ66-1", p1.getRef());
         assertEquals("ECU-KZ66-2", p2.getRef());
         verify(paqueteRepository).saveAll(org.mockito.ArgumentMatchers.<Iterable<Paquete>>any());
@@ -541,32 +541,32 @@ class GuiaMasterServiceTest {
     @Test
     void update_cambioDeDestinatario_bloqueaSiAlgunaPiezaYaRecibida() {
         Usuario cliente = Usuario.builder().id(5L).username("cli").build();
-        DestinatarioFinal destAnterior = DestinatarioFinal.builder()
+        Consignatario destAnterior = Consignatario.builder()
                 .id(18L).codigo("ECU-CV01").usuario(cliente).build();
-        DestinatarioFinal destNuevo = DestinatarioFinal.builder()
+        Consignatario destNuevo = Consignatario.builder()
                 .id(20L).codigo("ECU-KZ66").usuario(cliente).build();
         GuiaMaster gm = GuiaMaster.builder()
                 .id(99L).trackingBase("X")
-                .destinatarioFinal(destAnterior)
+                .consignatario(destAnterior)
                 .estadoGlobal(EstadoGuiaMaster.RECEPCION_PARCIAL)
                 .build();
         Paquete recibida = Paquete.builder().id(1L).piezaNumero(1).piezaTotal(2)
-                .destinatarioFinal(destAnterior).ref("ECU-CV01-17")
+                .consignatario(destAnterior).ref("ECU-CV01-17")
                 .estadoRastreo(enLote).build();
         Paquete pendiente = Paquete.builder().id(2L).piezaNumero(2).piezaTotal(2)
-                .destinatarioFinal(destAnterior).ref("ECU-CV01-18")
+                .consignatario(destAnterior).ref("ECU-CV01-18")
                 .estadoRastreo(registrado).build();
 
         stubConfigEstados();
         when(guiaMasterRepository.findById(99L)).thenReturn(Optional.of(gm));
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(99L))
                 .thenReturn(List.of(recibida, pendiente));
-        when(destinatarioFinalRepository.findById(20L)).thenReturn(Optional.of(destNuevo));
+        when(consignatarioRepository.findById(20L)).thenReturn(Optional.of(destNuevo));
         lenient().when(guiaMasterRepository.save(any(GuiaMaster.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
         GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder()
-                .destinatarioFinalId(20L)
+                .consignatarioId(20L)
                 .build();
 
         var ex = assertThrows(ConflictException.class, () -> service.update(99L, req));
@@ -577,7 +577,7 @@ class GuiaMasterServiceTest {
     @Test
     void toDTO_fallbackAlDestinatarioDeLaPrimeraPiezaCuandoGuiaNoTieneDestinatario() {
         Usuario cliente = Usuario.builder().id(5L).username("cli").build();
-        DestinatarioFinal kevin = DestinatarioFinal.builder()
+        Consignatario kevin = Consignatario.builder()
                 .id(20L).codigo("ECU-KZ66").nombre("Kevin Zuniga")
                 .telefono("0999")
                 .direccion("Av X")
@@ -585,11 +585,11 @@ class GuiaMasterServiceTest {
                 .usuario(cliente).build();
         GuiaMaster gm = GuiaMaster.builder()
                 .id(99L).trackingBase("AUTO-1")
-                .destinatarioFinal(null)
+                .consignatario(null)
                 .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
                 .build();
         Paquete pieza = Paquete.builder().id(1L).piezaNumero(1).piezaTotal(1)
-                .destinatarioFinal(kevin).ref("ECU-KZ66-1").build();
+                .consignatario(kevin).ref("ECU-KZ66-1").build();
 
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(99L))
                 .thenReturn(List.of(pieza));
@@ -597,23 +597,23 @@ class GuiaMasterServiceTest {
 
         var dto = service.toDTO(gm, List.of());
 
-        assertEquals("Kevin Zuniga", dto.getDestinatarioNombre());
-        assertEquals("0999", dto.getDestinatarioTelefono());
-        assertEquals("Av X", dto.getDestinatarioDireccion());
-        assertEquals(20L, dto.getDestinatarioFinalId());
-        assertTrue(Boolean.TRUE.equals(dto.getDestinatarioInferido()),
-                "destinatarioInferido debe quedar TRUE cuando los datos vienen del fallback");
+        assertEquals("Kevin Zuniga", dto.getConsignatarioNombre());
+        assertEquals("0999", dto.getConsignatarioTelefono());
+        assertEquals("Av X", dto.getConsignatarioDireccion());
+        assertEquals(20L, dto.getConsignatarioId());
+        assertTrue(Boolean.TRUE.equals(dto.getConsignatarioInferido()),
+                "consignatarioInferido debe quedar TRUE cuando los datos vienen del fallback");
     }
 
     @Test
     void toDTO_noMarcaInferidoCuandoElDestinatarioVienePropioDeLaGuia() {
         Usuario cliente = Usuario.builder().id(5L).username("cli").build();
-        DestinatarioFinal kevin = DestinatarioFinal.builder()
+        Consignatario kevin = Consignatario.builder()
                 .id(20L).codigo("ECU-KZ66").nombre("Kevin Zuniga")
                 .usuario(cliente).build();
         GuiaMaster gm = GuiaMaster.builder()
                 .id(99L).trackingBase("X")
-                .destinatarioFinal(kevin)
+                .consignatario(kevin)
                 .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
                 .build();
 
@@ -623,9 +623,9 @@ class GuiaMasterServiceTest {
 
         var dto = service.toDTO(gm, List.of());
 
-        assertEquals("Kevin Zuniga", dto.getDestinatarioNombre());
-        assertEquals(20L, dto.getDestinatarioFinalId());
-        assertFalse(Boolean.TRUE.equals(dto.getDestinatarioInferido()));
+        assertEquals("Kevin Zuniga", dto.getConsignatarioNombre());
+        assertEquals(20L, dto.getConsignatarioId());
+        assertFalse(Boolean.TRUE.equals(dto.getConsignatarioInferido()));
     }
 
     @Test

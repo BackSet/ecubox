@@ -22,27 +22,27 @@ public class DespachoDTO {
     private Long operarioId;
     private String operarioNombre;
     private LocalDateTime fechaHora;
-    private Long distribuidorId;
-    private String distribuidorNombre;
+    private Long courierEntregaId;
+    private String courierEntregaNombre;
     private TipoEntrega tipoEntrega;
-    private Long destinatarioFinalId;
-    private String destinatarioNombre;
-    private String destinatarioDireccion;
-    private String destinatarioTelefono;
+    private Long consignatarioId;
+    private String consignatarioNombre;
+    private String consignatarioDireccion;
+    private String consignatarioTelefono;
     private Long agenciaId;
     private String agenciaNombre;
-    private Long agenciaDistribuidorId;
-    private String agenciaDistribuidorNombre;
+    private Long agenciaCourierEntregaId;
+    private String agenciaCourierEntregaNombre;
     private List<Long> sacaIds;
     /** Sacas con paquetes (solo poblado en GET por id). */
     private List<SacaDTO> sacas;
 
     /** SCD2: id de la version inmutable del destinatario congelada en el despacho. */
-    private Long destinatarioVersionId;
+    private Long consignatarioVersionId;
     /** SCD2: id de la version inmutable de la agencia congelada en el despacho. */
     private Long agenciaVersionId;
-    /** SCD2: id de la version inmutable de la agencia de distribuidor congelada en el despacho. */
-    private Long agenciaDistribuidorVersionId;
+    /** SCD2: id de la version inmutable de la agencia de courierEntrega congelada en el despacho. */
+    private Long agenciaCourierEntregaVersionId;
     /** Cuando el despacho fijo el snapshot del destino. */
     private LocalDateTime destinoCongeladoEn;
 }

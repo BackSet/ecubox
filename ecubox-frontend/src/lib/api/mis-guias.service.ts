@@ -25,19 +25,19 @@ export async function registrarMiGuia(body: MiGuiaCreateRequest): Promise<GuiaMa
   return data;
 }
 
-export async function actualizarMiGuiaDestinatario(
+export async function actualizarMiGuiaConsignatario(
   id: number,
-  destinatarioFinalId: number
+  consignatarioId: number
 ): Promise<GuiaMaster> {
-  const { data } = await apiClient.put<GuiaMaster>(`${BASE}/${id}/destinatario`, {
-    destinatarioFinalId,
+  const { data } = await apiClient.put<GuiaMaster>(`${BASE}/${id}/consignatario`, {
+    consignatarioId,
   });
   return data;
 }
 
 export interface MiGuiaUpdateBody {
   trackingBase?: string;
-  destinatarioFinalId: number;
+  consignatarioId: number;
 }
 
 export async function actualizarMiGuia(
