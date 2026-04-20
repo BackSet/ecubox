@@ -12,9 +12,7 @@ import com.ecubox.ecubox_backend.security.CurrentUserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.text.Normalizer;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class DestinatarioFinalService {
@@ -25,19 +23,22 @@ public class DestinatarioFinalService {
     private final PaqueteService paqueteService;
     private final DestinatarioVersionService destinatarioVersionService;
     private final CurrentUserService currentUserService;
+    private final CodigoSecuenciaService codigoSecuenciaService;
 
     public DestinatarioFinalService(DestinatarioFinalRepository destinatarioFinalRepository,
                                     UsuarioRepository usuarioRepository,
                                     PaqueteRepository paqueteRepository,
                                     PaqueteService paqueteService,
                                     DestinatarioVersionService destinatarioVersionService,
-                                    CurrentUserService currentUserService) {
+                                    CurrentUserService currentUserService,
+                                    CodigoSecuenciaService codigoSecuenciaService) {
         this.destinatarioFinalRepository = destinatarioFinalRepository;
         this.usuarioRepository = usuarioRepository;
         this.paqueteRepository = paqueteRepository;
         this.paqueteService = paqueteService;
         this.destinatarioVersionService = destinatarioVersionService;
         this.currentUserService = currentUserService;
+        this.codigoSecuenciaService = codigoSecuenciaService;
     }
 
     @Transactional(readOnly = true)
@@ -156,53 +157,19 @@ public class DestinatarioFinalService {
     }
 
     /**
-     * Sugiere un código único global con formato ECU-{4 dígitos}.
-     * Corto, aleatorio, único (ej. ECU-3842). Primero intenta 2 letras + 2 dígitos (descriptivo); si hay colisiones, 4 dígitos.
+     * Sugiere un código único global con formato {@code ECU-NNNN}, generado
+     * de forma atómica por {@link CodigoSecuenciaService}. Reemplaza el
+     * antiguo bucle de candidatos aleatorios; el número entregado es único
+     * incluso bajo concurrencia.
+     *
+     * <p>Los parámetros {@code usuarioId}, {@code nombre}, {@code canton}
+     * y {@code excludeDestinatarioId} se conservan por compatibilidad con
+     * el endpoint público pero ya no influyen en el código generado: la
+     * secuencia es global y arranca por encima del espacio histórico
+     * aleatorio (10001+).</p>
      */
-    @Transactional(readOnly = true)
     public String sugerirCodigo(Long usuarioId, String nombre, String canton, Long excludeDestinatarioId) {
-        String abrev = abrevNombre2(nombre);
-        for (int i = 0; i < 100; i++) {
-            int d1 = ThreadLocalRandom.current().nextInt(0, 10);
-            int d2 = ThreadLocalRandom.current().nextInt(0, 10);
-            String candidate = "ECU-" + abrev + d1 + d2;
-            boolean exists = excludeDestinatarioId == null
-                    ? destinatarioFinalRepository.existsByCodigo(candidate)
-                    : destinatarioFinalRepository.existsByCodigoAndIdNot(candidate, excludeDestinatarioId);
-            if (!exists) {
-                return candidate;
-            }
-        }
-        for (int i = 0; i < 100; i++) {
-            String candidate = "ECU-" + String.format("%04d", ThreadLocalRandom.current().nextInt(0, 10000));
-            boolean exists = excludeDestinatarioId == null
-                    ? destinatarioFinalRepository.existsByCodigo(candidate)
-                    : destinatarioFinalRepository.existsByCodigoAndIdNot(candidate, excludeDestinatarioId);
-            if (!exists) {
-                return candidate;
-            }
-        }
-        return "ECU-" + String.format("%04d", (int) (System.currentTimeMillis() % 10000));
-    }
-
-    /** 2 letras mayúsculas a partir del nombre (iniciales o primeras letras). */
-    private static String abrevNombre2(String value) {
-        if (value == null || value.isBlank()) {
-            return "DF";
-        }
-        String normalized = Normalizer.normalize(value.trim(), Normalizer.Form.NFD).replaceAll("\\p{M}", "");
-        String[] words = normalized.split("\\s+");
-        StringBuilder sb = new StringBuilder();
-        for (String w : words) {
-            String letters = w.replaceAll("[^\\p{IsAlphabetic}]", "");
-            if (!letters.isEmpty()) {
-                sb.append(Character.toUpperCase(letters.charAt(0)));
-                if (sb.length() >= 2) break;
-            }
-        }
-        if (sb.length() == 0) return "DF";
-        if (sb.length() == 1) return sb.toString() + "X";
-        return sb.toString();
+        return codigoSecuenciaService.nextCodigoDestinatario();
     }
 
     /**

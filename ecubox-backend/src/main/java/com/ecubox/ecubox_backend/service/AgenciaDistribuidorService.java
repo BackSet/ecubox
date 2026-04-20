@@ -28,15 +28,18 @@ public class AgenciaDistribuidorService {
     private final DistribuidorRepository distribuidorRepository;
     private final AgenciaDistribuidorVersionService versionService;
     private final CurrentUserService currentUserService;
+    private final CodigoSecuenciaService codigoSecuenciaService;
 
     public AgenciaDistribuidorService(AgenciaDistribuidorRepository agenciaDistribuidorRepository,
                                       DistribuidorRepository distribuidorRepository,
                                       AgenciaDistribuidorVersionService versionService,
-                                      CurrentUserService currentUserService) {
+                                      CurrentUserService currentUserService,
+                                      CodigoSecuenciaService codigoSecuenciaService) {
         this.agenciaDistribuidorRepository = agenciaDistribuidorRepository;
         this.distribuidorRepository = distribuidorRepository;
         this.versionService = versionService;
         this.currentUserService = currentUserService;
+        this.codigoSecuenciaService = codigoSecuenciaService;
     }
 
     @Transactional(readOnly = true)
@@ -104,9 +107,7 @@ public class AgenciaDistribuidorService {
     }
 
     private String generarCodigo(Long distribuidorId) {
-        long count = agenciaDistribuidorRepository.countByDistribuidorId(distribuidorId);
-        String seq = String.format("AD-%03d", count + 1);
-        return distribuidorId + "-" + seq;
+        return codigoSecuenciaService.nextCodigoAgencia(distribuidorId);
     }
 
     @Transactional

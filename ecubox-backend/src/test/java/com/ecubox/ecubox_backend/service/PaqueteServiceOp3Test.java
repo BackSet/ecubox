@@ -68,6 +68,8 @@ class PaqueteServiceOp3Test {
     private GuiaMasterRepository guiaMasterRepository;
     @Mock
     private GuiaMasterService guiaMasterService;
+    @Mock
+    private CodigoSecuenciaService codigoSecuenciaService;
 
     private PaqueteService createPaqueteService(boolean useEventTimeline) {
         return new PaqueteService(
@@ -84,6 +86,7 @@ class PaqueteServiceOp3Test {
                 guiaMasterService,
                 new OwnershipValidator(),
                 new SacaEnDespachoValidator(),
+                codigoSecuenciaService,
                 useEventTimeline
         );
     }
@@ -409,7 +412,7 @@ class PaqueteServiceOp3Test {
                 .id(99L).trackingBase("1Z52159R0379385035").totalPiezasEsperadas(3).build();
 
         when(destinatarioFinalRepository.findById(50L)).thenReturn(Optional.of(destinatario));
-        when(paqueteRepository.countByDestinatarioFinalId(50L)).thenReturn(0L);
+        when(codigoSecuenciaService.nextRefPaquete(50L, "D50")).thenReturn("D50-1");
         when(parametroSistemaService.getEstadosRastreoPorPunto())
                 .thenReturn(EstadosRastreoPorPuntoDTO.builder().estadoRastreoRegistroPaqueteId(1L).build());
         when(estadoRastreoService.findEntityById(1L)).thenReturn(registrado);

@@ -18,22 +18,24 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class ManifiestoService {
 
     private final ManifiestoRepository manifiestoRepository;
     private final DespachoRepository despachoRepository;
+    private final CodigoSecuenciaService codigoSecuenciaService;
 
-    public ManifiestoService(ManifiestoRepository manifiestoRepository, DespachoRepository despachoRepository) {
+    public ManifiestoService(ManifiestoRepository manifiestoRepository,
+                             DespachoRepository despachoRepository,
+                             CodigoSecuenciaService codigoSecuenciaService) {
         this.manifiestoRepository = manifiestoRepository;
         this.despachoRepository = despachoRepository;
+        this.codigoSecuenciaService = codigoSecuenciaService;
     }
 
     @Transactional(readOnly = true)
@@ -200,15 +202,7 @@ public class ManifiestoService {
     }
 
     private String generarCodigoManifiesto() {
-        String base = "MAN-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        for (int i = 0; i < 20; i++) {
-            int sufijo = ThreadLocalRandom.current().nextInt(1000, 10000);
-            String candidate = base + "-" + sufijo;
-            if (!manifiestoRepository.existsByCodigo(candidate)) {
-                return candidate;
-            }
-        }
-        throw new BadRequestException("No fue posible generar un código único de manifiesto. Intente nuevamente.");
+        return codigoSecuenciaService.nextCodigoManifiesto(java.time.LocalDate.now());
     }
 
     private List<Despacho> findDespachosCandidatosEntities(Manifiesto m) {

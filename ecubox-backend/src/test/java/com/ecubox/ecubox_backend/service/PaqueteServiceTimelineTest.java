@@ -53,6 +53,7 @@ class PaqueteServiceTimelineTest {
     @Mock private TrackingEventService trackingEventService;
     @Mock private GuiaMasterRepository guiaMasterRepository;
     @Mock private GuiaMasterService guiaMasterService;
+    @Mock private CodigoSecuenciaService codigoSecuenciaService;
 
     private PaqueteService service;
 
@@ -64,6 +65,7 @@ class PaqueteServiceTimelineTest {
                 parametroSistemaService, estadoRastreoService, trackingEventService,
                 guiaMasterRepository, guiaMasterService,
                 new OwnershipValidator(), new SacaEnDespachoValidator(),
+                codigoSecuenciaService,
                 true);
         lenient().when(parametroSistemaService.getEstadosRastreoPorPunto())
                 .thenReturn(EstadosRastreoPorPuntoDTO.builder().build());

@@ -141,8 +141,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
         Throwable cause = ex.getCause();
-        String message = cause != null ? cause.getMessage() : ex.getMessage();
-        if (message != null && message.length() > 200) {
+        String rawMessage = cause != null ? cause.getMessage() : ex.getMessage();
+        String constraint = extractConstraintName(rawMessage);
+        String friendly = friendlyMessageForConstraint(constraint);
+        String message;
+        if (friendly != null) {
+            message = friendly;
+        } else if (rawMessage != null && rawMessage.length() <= 200) {
+            message = rawMessage;
+        } else {
             message = "Conflicto de datos (duplicado o restricción de integridad)";
         }
         return ResponseEntity
@@ -154,6 +161,59 @@ public class GlobalExceptionHandler {
                         message,
                         null
                 ));
+    }
+
+    /**
+     * Extrae el nombre del constraint del mensaje crudo de PostgreSQL,
+     * que tiene la forma {@code ... violates unique constraint "<nombre>" ...}.
+     * Devuelve {@code null} si no se reconoce el patrón.
+     */
+    private static String extractConstraintName(String rawMessage) {
+        if (rawMessage == null) return null;
+        java.util.regex.Matcher m = CONSTRAINT_NAME_PATTERN.matcher(rawMessage);
+        return m.find() ? m.group(1) : null;
+    }
+
+    private static final java.util.regex.Pattern CONSTRAINT_NAME_PATTERN =
+            java.util.regex.Pattern.compile("constraint \"([^\"]+)\"");
+
+    /**
+     * Mapea constraints conocidos a mensajes accionables para el usuario.
+     * Devuelve {@code null} si el constraint no esta mapeado, en cuyo caso
+     * el handler devolvera el mensaje crudo (si es razonablemente corto).
+     */
+    private static String friendlyMessageForConstraint(String constraint) {
+        if (constraint == null) return null;
+        return switch (constraint) {
+            case "idx_paquete_ref" ->
+                    "Ya existe otro paquete con esa referencia";
+            case "paquete_numero_guia_key" ->
+                    "Ya existe otro paquete con ese número de guía";
+            case "idx_paquete_guia_master_pieza_uk", "idx_paquete_master_pieza_uk" ->
+                    "Esa pieza ya está asignada en la guía master";
+            case "guia_master_tracking_base_key" ->
+                    "Ya existe una guía master con ese tracking base";
+            case "manifiesto_codigo_key" ->
+                    "Ya existe un manifiesto con ese código";
+            case "uq_agencia_distribuidor_distribuidor_codigo",
+                 "uq_agencia_distribuidor_distribuidor_codigo_vivos" ->
+                    "Ya existe una agencia con ese código para el distribuidor";
+            case "uq_destinatario_final_codigo_vivos" ->
+                    "Ya existe un destinatario con ese código";
+            case "uq_agencia_codigo_vivos" ->
+                    "Ya existe una agencia con ese código";
+            case "distribuidor_codigo_key" ->
+                    "Ya existe un distribuidor con ese código";
+            case "agencia_codigo_key" ->
+                    "Ya existe una agencia con ese código";
+            case "destinatario_final_codigo_key" ->
+                    "Ya existe un destinatario con ese código";
+            case "idx_lote_recepcion_guia_uk" ->
+                    "Ese número de guía ya está en el lote de recepción";
+            case "ux_tracking_view_paquete_numero_guia" ->
+                    "Conflicto en la vista de tracking del paquete";
+            default -> null;
+        };
     }
 
     /**

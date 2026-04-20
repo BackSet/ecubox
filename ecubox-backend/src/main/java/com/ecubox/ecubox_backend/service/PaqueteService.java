@@ -79,6 +79,7 @@ public class PaqueteService {
     private final GuiaMasterService guiaMasterService;
     private final OwnershipValidator ownershipValidator;
     private final SacaEnDespachoValidator sacaEnDespachoValidator;
+    private final CodigoSecuenciaService codigoSecuenciaService;
     private final boolean useEventTimeline;
 
     public PaqueteService(PaqueteRepository paqueteRepository,
@@ -94,6 +95,7 @@ public class PaqueteService {
                           GuiaMasterService guiaMasterService,
                           OwnershipValidator ownershipValidator,
                           SacaEnDespachoValidator sacaEnDespachoValidator,
+                          CodigoSecuenciaService codigoSecuenciaService,
                           @Value("${tracking.timeline.use-events:true}") boolean useEventTimeline) {
         this.paqueteRepository = paqueteRepository;
         this.destinatarioFinalRepository = destinatarioFinalRepository;
@@ -108,6 +110,7 @@ public class PaqueteService {
         this.guiaMasterService = guiaMasterService;
         this.ownershipValidator = ownershipValidator;
         this.sacaEnDespachoValidator = sacaEnDespachoValidator;
+        this.codigoSecuenciaService = codigoSecuenciaService;
         this.useEventTimeline = useEventTimeline;
     }
 
@@ -222,8 +225,7 @@ public class PaqueteService {
         String codigoBase = (dest.getCodigo() != null && !dest.getCodigo().isBlank())
                 ? dest.getCodigo().trim()
                 : ("D" + dest.getId());
-        long next = paqueteRepository.countByDestinatarioFinalId(dest.getId()) + 1;
-        String ref = codigoBase + "-" + next;
+        String ref = codigoSecuenciaService.nextRefPaquete(dest.getId(), codigoBase);
         boolean omitOperarioFields = contenidoObligatorio;
         BigDecimal pesoLbs = null;
         if (!omitOperarioFields) {
@@ -236,8 +238,7 @@ public class PaqueteService {
         EstadoRastreo estadoInicial = getEstadoRegistroPaquete();
         GuiaMasterAsignacion asignacion = resolverGuiaMasterParaCreacion(
                 omitOperarioFields ? null : request.getGuiaMasterId(),
-                omitOperarioFields ? null : request.getPiezaNumero(),
-                ref);
+                omitOperarioFields ? null : request.getPiezaNumero());
         String numeroGuiaCompuesto = GuiaMasterService.componerNumeroGuia(
                 asignacion.guiaMaster(), asignacion.piezaNumero());
         if (numeroGuiaCompuesto == null || paqueteRepository.existsByNumeroGuia(numeroGuiaCompuesto)) {
@@ -277,14 +278,14 @@ public class PaqueteService {
      * - si viene guiaMasterId, valida y reserva el piezaNumero (o el siguiente disponible).
      * - si no viene, se crea una guía master individual (AUTO-...) con total 1 y pieza 1/1.
      */
-    private GuiaMasterAsignacion resolverGuiaMasterParaCreacion(Long guiaMasterId, Integer piezaNumero, String refFallback) {
+    private GuiaMasterAsignacion resolverGuiaMasterParaCreacion(Long guiaMasterId, Integer piezaNumero) {
         if (guiaMasterId != null) {
             GuiaMaster gm = guiaMasterRepository.findById(guiaMasterId)
                     .orElseThrow(() -> new ResourceNotFoundException("Guía master", guiaMasterId));
             int[] asignado = guiaMasterService.validarYAsignarPieza(gm, piezaNumero);
             return new GuiaMasterAsignacion(gm, asignado[0], asignado[1]);
         }
-        String trackingBase = "AUTO-" + (refFallback != null ? refFallback : System.currentTimeMillis());
+        String trackingBase = codigoSecuenciaService.nextTrackingBaseAuto();
         GuiaMaster gm = guiaMasterService.create(trackingBase, 1, null);
         return new GuiaMasterAsignacion(gm, 1, 1);
     }
@@ -321,7 +322,10 @@ public class PaqueteService {
 
     /**
      * Sugiere una ref única para un destinatario (formato codigoBase-n).
-     * Si excludePaqueteId no es null, la ref actual de ese paquete se considera válida.
+     * Solo orientativo para la UI: el numero real se asigna al guardar
+     * via {@link CodigoSecuenciaService#nextRefPaquete}. Si {@code
+     * excludePaqueteId} corresponde a un paquete del mismo destinatario,
+     * se devuelve la ref actual de ese paquete (sin avanzar el contador).
      */
     @Transactional(readOnly = true)
     public String sugerirRef(Long destinatarioFinalId, Long excludePaqueteId) {
@@ -330,19 +334,19 @@ public class PaqueteService {
         String codigoBase = (dest.getCodigo() != null && !dest.getCodigo().isBlank())
                 ? dest.getCodigo().trim()
                 : ("D" + dest.getId());
-        for (long n = 1; n <= 10_000; n++) {
-            String candidate = codigoBase + "-" + n;
-            if (!paqueteRepository.existsByRef(candidate)) {
-                return candidate;
-            }
-            if (excludePaqueteId != null) {
-                var existing = paqueteRepository.findByRef(candidate);
-                if (existing.isPresent() && existing.get().getId().equals(excludePaqueteId)) {
-                    return candidate;
-                }
+        if (excludePaqueteId != null) {
+            var existing = paqueteRepository.findById(excludePaqueteId);
+            if (existing.isPresent() && existing.get().getDestinatarioFinal() != null
+                    && Objects.equals(existing.get().getDestinatarioFinal().getId(), destinatarioFinalId)
+                    && existing.get().getRef() != null) {
+                return existing.get().getRef();
             }
         }
-        return codigoBase + "-" + System.currentTimeMillis();
+        long n = codigoSecuenciaService.peek(
+                CodigoSecuenciaService.ENTITY_PAQUETE_REF,
+                String.valueOf(destinatarioFinalId),
+                0L);
+        return codigoBase + "-" + n;
     }
 
     /** Busca paquetes por lista de numeroGuia (trim, sin vacíos, sin duplicados). */
@@ -574,8 +578,7 @@ public class PaqueteService {
             String codigoBase = (newDest.getCodigo() != null && !newDest.getCodigo().isBlank())
                     ? newDest.getCodigo().trim()
                     : ("D" + newDest.getId());
-            long next = paqueteRepository.countByDestinatarioFinalId(newDest.getId()) + 1;
-            p.setRef(codigoBase + "-" + next);
+            p.setRef(codigoSecuenciaService.nextRefPaquete(newDest.getId(), codigoBase));
         }
         if (request.getContenido() != null) {
             p.setContenido(request.getContenido().trim().isEmpty() ? null : request.getContenido().trim());
