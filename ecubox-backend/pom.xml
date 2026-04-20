@@ -29,12 +29,14 @@
 	<properties>
 		<java.version>25</java.version>
 		<jjwt.version>0.13.0</jjwt.version>
-		<springdoc.version>3.0.2</springdoc.version>
+		<springdoc.version>3.0.3</springdoc.version>
 		<!-- Flyway 11.14 (Spring Boot default) no reconoce PostgreSQL 18; usar 12.x -->
-		<flyway.version>12.2.0</flyway.version>
+		<flyway.version>12.4.0</flyway.version>
 		<lombok.version>1.18.44</lombok.version>
 		<mapstruct.version>1.6.3</mapstruct.version>
 		<lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+		<!-- Version de byte-buddy alineada con la transitiva de Mockito (Spring Boot BOM). -->
+		<byte-buddy.version>1.17.8</byte-buddy.version>
 		<!-- Credenciales Flyway tomadas del entorno para evitar secretos hardcodeados -->
 		<flyway.url>${env.FLYWAY_URL}</flyway.url>
 		<flyway.user>${env.FLYWAY_USER}</flyway.user>
@@ -126,7 +128,7 @@
 		<dependency>
 			<groupId>com.bucket4j</groupId>
 			<artifactId>bucket4j_jdk17-core</artifactId>
-			<version>8.17.0</version>
+			<version>8.18.0</version>
 		</dependency>
 
 		<!-- Metricas (proyector de tracking, observabilidad) -->
@@ -139,17 +141,29 @@
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
-			<version>3.0.5</version>
+			<version>3.0.7</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
-			<version>5.4.1</version>
+			<version>5.5.1</version>
 		</dependency>
 	</dependencies>
 
 	<build>
 		<plugins>
+			<!--
+				Mockito agente: a partir de JDK 24+ el self-attaching dinamico de
+				agents Java esta deprecado y sera bloqueado. Se carga byte-buddy-agent
+				explicitamente para evitar el warning y futuras rupturas.
+			-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${byte-buddy.version}/byte-buddy-agent-${byte-buddy.version}.jar</argLine>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
