@@ -78,6 +78,7 @@ public class GuiaMasterService {
     private final PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
     private final GuiaMasterEstadoHistorialRepository historialRepository;
     private final DestinatarioVersionService destinatarioVersionService;
+    private final CodigoSecuenciaService codigoSecuenciaService;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public GuiaMasterService(GuiaMasterRepository guiaMasterRepository,
@@ -89,7 +90,8 @@ public class GuiaMasterService {
                              UsuarioRepository usuarioRepository,
                              PaqueteEstadoEventoRepository paqueteEstadoEventoRepository,
                              GuiaMasterEstadoHistorialRepository historialRepository,
-                             DestinatarioVersionService destinatarioVersionService) {
+                             DestinatarioVersionService destinatarioVersionService,
+                             CodigoSecuenciaService codigoSecuenciaService) {
         this.guiaMasterRepository = guiaMasterRepository;
         this.paqueteRepository = paqueteRepository;
         this.parametroSistemaService = parametroSistemaService;
@@ -100,6 +102,7 @@ public class GuiaMasterService {
         this.paqueteEstadoEventoRepository = paqueteEstadoEventoRepository;
         this.historialRepository = historialRepository;
         this.destinatarioVersionService = destinatarioVersionService;
+        this.codigoSecuenciaService = codigoSecuenciaService;
     }
 
     /**
@@ -226,8 +229,12 @@ public class GuiaMasterService {
             }
             DestinatarioFinal dest = destinatarioFinalRepository.findById(req.getDestinatarioFinalId())
                     .orElseThrow(() -> new BadRequestException("El destinatario indicado no existe"));
+            boolean cambioDestinatario = !req.getDestinatarioFinalId().equals(actualId);
             gm.setDestinatarioFinal(dest);
             gm.setClienteUsuario(dest.getUsuario());
+            if (cambioDestinatario) {
+                propagarDestinatarioAPiezas(gm, dest);
+            }
         }
         GuiaMaster saved = guiaMasterRepository.save(gm);
         recomputarEstado(saved.getId());
@@ -283,8 +290,14 @@ public class GuiaMasterService {
         if (dest.getUsuario() == null || !clienteUsuarioId.equals(dest.getUsuario().getId())) {
             throw new BadRequestException("Solo puedes asociar destinatarios propios");
         }
+        Long actualId = gm.getDestinatarioFinal() != null ? gm.getDestinatarioFinal().getId() : null;
+        boolean cambioDestinatario = !destinatarioFinalId.equals(actualId);
         gm.setDestinatarioFinal(dest);
-        return guiaMasterRepository.save(gm);
+        GuiaMaster saved = guiaMasterRepository.save(gm);
+        if (cambioDestinatario) {
+            propagarDestinatarioAPiezas(saved, dest);
+        }
+        return saved;
     }
 
     /**
@@ -316,16 +329,25 @@ public class GuiaMasterService {
             }
         }
 
+        boolean cambioDestinatario = false;
+        DestinatarioFinal nuevoDest = null;
         if (destinatarioFinalId != null) {
             DestinatarioFinal dest = destinatarioFinalRepository.findById(destinatarioFinalId)
                     .orElseThrow(() -> new BadRequestException("El destinatario indicado no existe"));
             if (dest.getUsuario() == null || !clienteUsuarioId.equals(dest.getUsuario().getId())) {
                 throw new BadRequestException("Solo puedes asociar destinatarios propios");
             }
+            Long actualId = gm.getDestinatarioFinal() != null ? gm.getDestinatarioFinal().getId() : null;
+            cambioDestinatario = !destinatarioFinalId.equals(actualId);
             gm.setDestinatarioFinal(dest);
+            nuevoDest = dest;
         }
 
-        return guiaMasterRepository.save(gm);
+        GuiaMaster saved = guiaMasterRepository.save(gm);
+        if (cambioDestinatario && nuevoDest != null) {
+            propagarDestinatarioAPiezas(saved, nuevoDest);
+        }
+        return saved;
     }
 
     /**
@@ -1032,6 +1054,34 @@ public class GuiaMasterService {
      * meterlos a un lote fisico, y los lotes pueden mover paquetes que no se
      * pesaron individualmente. Mantener ambos criterios alinea backend y UI.
      */
+    /**
+     * Propaga un cambio de destinatario de la guia master a TODAS sus piezas:
+     * cambia {@code destinatarioFinal} y regenera {@code ref} con el codigoBase
+     * del nuevo destinatario via {@link CodigoSecuenciaService}.
+     *
+     * <p>Se bloquea si alguna pieza ya fue recibida o despachada para no romper
+     * la trazabilidad. La validacion SCD2 (snapshot congelado) la hace el
+     * llamador antes de invocar este metodo.
+     */
+    private void propagarDestinatarioAPiezas(GuiaMaster gm, DestinatarioFinal nuevoDest) {
+        if (gm == null || nuevoDest == null) return;
+        List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
+        if (piezas.isEmpty()) return;
+        for (Paquete p : piezas) {
+            if (piezaRecibida(p) || piezaDespachada(p)) {
+                throw new ConflictException(
+                        "No se puede cambiar el destinatario: la pieza " + p.getPiezaNumero()
+                                + "/" + p.getPiezaTotal() + " ya fue recibida o despachada.");
+            }
+        }
+        String codigoBase = PaqueteService.resolverCodigoBase(nuevoDest);
+        for (Paquete p : piezas) {
+            p.setDestinatarioFinal(nuevoDest);
+            p.setRef(codigoSecuenciaService.nextRefPaquete(nuevoDest.getId(), codigoBase));
+        }
+        paqueteRepository.saveAll(piezas);
+    }
+
     private boolean piezaRecibida(Paquete p) {
         if (p == null) return false;
         if (p.getPesoLbs() != null) return true;
@@ -1339,23 +1389,24 @@ public class GuiaMasterService {
         int minPiezas = parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial();
         boolean lista = recibidas >= minPiezas && despachadas < total;
         boolean enCurso = despachadas > 0 && despachadas < total;
-        DestinatarioFinal dest = gm.getDestinatarioFinal();
         Usuario cliente = gm.getClienteUsuario();
         Usuario cerro = gm.getCerradaPorUsuario();
         // SCD2: si la guia tiene snapshot del destinatario, leemos del snapshot
-        // (datos historicos inmutables); si no, leemos del maestro vivo.
+        // (datos historicos inmutables); si no, leemos del maestro vivo o,
+        // como ultimo fallback, del destinatario de la primera pieza.
         DestinatarioView destView = resolveDestinatario(gm);
         DestinatarioFinalVersion destVer = gm.getDestinatarioVersion();
         return GuiaMasterDTO.builder()
                 .id(gm.getId())
                 .trackingBase(gm.getTrackingBase())
                 .totalPiezasEsperadas(gm.getTotalPiezasEsperadas())
-                .destinatarioFinalId(dest != null ? dest.getId() : null)
+                .destinatarioFinalId(destView.id())
                 .destinatarioNombre(destView.nombre())
                 .destinatarioTelefono(destView.telefono())
                 .destinatarioDireccion(destView.direccion())
                 .destinatarioProvincia(destView.provincia())
                 .destinatarioCanton(destView.canton())
+                .destinatarioInferido(destView.inferido())
                 .destinatarioVersionId(destVer != null ? destVer.getId() : null)
                 .destinatarioCongeladoEn(gm.getDestinatarioCongeladoEn())
                 .clienteUsuarioId(cliente != null ? cliente.getId() : null)
@@ -1385,10 +1436,11 @@ public class GuiaMasterService {
      * tiene snapshot congelado, ese es la fuente de verdad; si no, leemos
      * del destinatario maestro vivo.
      */
-    private record DestinatarioView(String nombre, String telefono, String direccion,
-                                    String provincia, String canton, String codigo) {
+    private record DestinatarioView(Long id, String nombre, String telefono, String direccion,
+                                    String provincia, String canton, String codigo,
+                                    boolean inferido) {
         static DestinatarioView empty() {
-            return new DestinatarioView(null, null, null, null, null, null);
+            return new DestinatarioView(null, null, null, null, null, null, null, false);
         }
     }
 
@@ -1396,12 +1448,27 @@ public class GuiaMasterService {
         if (gm == null) return DestinatarioView.empty();
         DestinatarioFinalVersion v = gm.getDestinatarioVersion();
         if (v != null) {
-            return new DestinatarioView(v.getNombre(), v.getTelefono(), v.getDireccion(),
-                    v.getProvincia(), v.getCanton(), v.getCodigo());
+            DestinatarioFinal liveForId = gm.getDestinatarioFinal();
+            return new DestinatarioView(liveForId != null ? liveForId.getId() : null,
+                    v.getNombre(), v.getTelefono(), v.getDireccion(),
+                    v.getProvincia(), v.getCanton(), v.getCodigo(), false);
         }
         DestinatarioFinal d = gm.getDestinatarioFinal();
+        boolean inferido = false;
+        if (d == null) {
+            // Fallback: la guia no tiene destinatario propio (suele pasar en
+            // guias creadas via AUTO o cuando el cliente nunca asigno), pero
+            // sus piezas si tienen. Mostramos los datos derivados de la
+            // primera pieza para no presentar "Sin asignar" cuando hay info.
+            d = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId()).stream()
+                    .map(Paquete::getDestinatarioFinal)
+                    .filter(java.util.Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+            inferido = d != null;
+        }
         if (d == null) return DestinatarioView.empty();
-        return new DestinatarioView(d.getNombre(), d.getTelefono(), d.getDireccion(),
-                d.getProvincia(), d.getCanton(), d.getCodigo());
+        return new DestinatarioView(d.getId(), d.getNombre(), d.getTelefono(), d.getDireccion(),
+                d.getProvincia(), d.getCanton(), d.getCodigo(), inferido);
     }
 }

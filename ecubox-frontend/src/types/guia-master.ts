@@ -43,6 +43,14 @@ export interface GuiaMaster {
   destinatarioProvincia?: string | null;
   destinatarioCanton?: string | null;
   /**
+   * TRUE cuando los datos del destinatario provienen de un fallback
+   * (primera pieza con destinatario asignado) en vez del propio
+   * `destinatarioFinal` de la guia. Util para mostrar un badge "inferido"
+   * en lugar de "Sin asignar" cuando la guia no tiene destinatario propio
+   * pero las piezas si.
+   */
+  destinatarioInferido?: boolean | null;
+  /**
    * SCD2 (V67): id de la version inmutable del destinatario congelada en
    * la guia al primer despacho de pieza. Si tiene valor, los campos
    * destinatarioNombre/Direccion/etc. se sirven desde el snapshot historico

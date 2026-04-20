@@ -23,6 +23,13 @@ public class GuiaMasterDTO {
     private String destinatarioDireccion;
     private String destinatarioProvincia;
     private String destinatarioCanton;
+    /**
+     * TRUE cuando los datos del destinatario no provienen del propio
+     * {@code GuiaMaster.destinatarioFinal} sino de un fallback (primera pieza
+     * con destinatario asignado). Permite a la UI advertir que el dato es
+     * inferido en lugar de mostrar "Sin asignar".
+     */
+    private Boolean destinatarioInferido;
     /** Snapshot SCD2: id de la version del destinatario congelada en la guia. NULL si todavia no hay congelado. */
     private Long destinatarioVersionId;
     /** Cuando se congelaron los datos del destinatario (primer despacho). */

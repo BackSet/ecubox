@@ -214,6 +214,20 @@ public class PaqueteService {
         return spec;
     }
 
+    /**
+     * Resuelve el "codigo base" de un destinatario que se usa como prefijo en el
+     * {@code ref} de los paquetes (formato {@code <codigoBase>-<n>}). Si el
+     * destinatario tiene {@code codigo} no vacio, se usa ese; si no, se usa el
+     * fallback {@code D<id>}. Centraliza la regla para evitar drift entre
+     * create/update/sugerir y la propagacion desde guia master.
+     */
+    static String resolverCodigoBase(DestinatarioFinal dest) {
+        if (dest == null) return null;
+        return (dest.getCodigo() != null && !dest.getCodigo().isBlank())
+                ? dest.getCodigo().trim()
+                : ("D" + dest.getId());
+    }
+
     @Transactional
     public PaqueteDTO create(Long usuarioId, boolean canManageAny, boolean contenidoObligatorio, PaqueteCreateRequest request) {
         if (contenidoObligatorio && (request.getContenido() == null || request.getContenido().isBlank())) {
@@ -222,9 +236,7 @@ public class PaqueteService {
         DestinatarioFinal dest = destinatarioFinalRepository.findById(request.getDestinatarioFinalId())
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", request.getDestinatarioFinalId()));
         ownershipValidator.requireDestinatarioOwnership(dest, usuarioId, canManageAny);
-        String codigoBase = (dest.getCodigo() != null && !dest.getCodigo().isBlank())
-                ? dest.getCodigo().trim()
-                : ("D" + dest.getId());
+        String codigoBase = resolverCodigoBase(dest);
         String ref = codigoSecuenciaService.nextRefPaquete(dest.getId(), codigoBase);
         boolean omitOperarioFields = contenidoObligatorio;
         BigDecimal pesoLbs = null;
@@ -331,9 +343,7 @@ public class PaqueteService {
     public String sugerirRef(Long destinatarioFinalId, Long excludePaqueteId) {
         DestinatarioFinal dest = destinatarioFinalRepository.findById(destinatarioFinalId)
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", destinatarioFinalId));
-        String codigoBase = (dest.getCodigo() != null && !dest.getCodigo().isBlank())
-                ? dest.getCodigo().trim()
-                : ("D" + dest.getId());
+        String codigoBase = resolverCodigoBase(dest);
         if (excludePaqueteId != null) {
             var existing = paqueteRepository.findById(excludePaqueteId);
             if (existing.isPresent() && existing.get().getDestinatarioFinal() != null
@@ -570,14 +580,14 @@ public class PaqueteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
         ownershipValidator.requirePaqueteOwnership(p, currentUsuarioId, canManageAny);
         Long newDestId = request.getDestinatarioFinalId();
-        if (newDestId != null && (p.getDestinatarioFinal() == null || !p.getDestinatarioFinal().getId().equals(newDestId))) {
+        boolean destChanged = newDestId != null
+                && (p.getDestinatarioFinal() == null || !p.getDestinatarioFinal().getId().equals(newDestId));
+        if (destChanged) {
             DestinatarioFinal newDest = destinatarioFinalRepository.findById(newDestId)
                     .orElseThrow(() -> new ResourceNotFoundException("Destinatario", newDestId));
             ownershipValidator.requireDestinatarioOwnership(newDest, currentUsuarioId, canManageAny);
             p.setDestinatarioFinal(newDest);
-            String codigoBase = (newDest.getCodigo() != null && !newDest.getCodigo().isBlank())
-                    ? newDest.getCodigo().trim()
-                    : ("D" + newDest.getId());
+            String codigoBase = resolverCodigoBase(newDest);
             p.setRef(codigoSecuenciaService.nextRefPaquete(newDest.getId(), codigoBase));
         }
         if (request.getContenido() != null) {
@@ -604,7 +614,16 @@ public class PaqueteService {
             boolean tienePeso = p.getPesoLbs() != null;
             pesoCambioRecepcion = teniaPeso != tienePeso;
             String newRef = request.getRef() != null ? request.getRef().trim() : null;
-            if (newRef != null && !newRef.isEmpty()) {
+            // Si en la misma request se cambio el destinatario, ya regeneramos el
+            // ref atomicamente con el codigoBase correcto: ignoramos cualquier ref
+            // que mande el cliente para no machacarlo (bug que producia destId vs
+            // ref desincronizados, p.ej. destId KEVIN con ref ECU-CV01-...).
+            if (newRef != null && !newRef.isEmpty() && !destChanged) {
+                String codigoBaseActual = resolverCodigoBase(p.getDestinatarioFinal());
+                if (codigoBaseActual != null && !newRef.startsWith(codigoBaseActual + "-")) {
+                    throw new BadRequestException(
+                            "La referencia debe iniciar con el código del destinatario: " + codigoBaseActual);
+                }
                 if (paqueteRepository.existsByRefAndIdNot(newRef, paqueteId)) {
                     throw new ConflictException("Ya existe otro paquete con esa referencia");
                 }

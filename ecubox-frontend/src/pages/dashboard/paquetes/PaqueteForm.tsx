@@ -160,7 +160,16 @@ export function PaqueteForm({
           const kg = values.pesoKg;
           if (typeof lbs === 'number' && !Number.isNaN(lbs)) body.pesoLbs = lbs;
           if (typeof kg === 'number' && !Number.isNaN(kg)) body.pesoKg = kg;
-          body.ref = values.ref?.trim() || undefined;
+          // Solo enviar el ref si el usuario lo modifico explicitamente
+          // (p.ej. via "generar nuevo ref"). Si reenviamos el ref viejo
+          // por defecto, machacamos el ref que el backend regenera al
+          // cambiar de destinatario y rompemos la consistencia
+          // ref<->destinatario.
+          const refOriginal = (paquete?.ref ?? '').trim();
+          const refActual = values.ref?.trim() ?? '';
+          if (refActual && refActual !== refOriginal) {
+            body.ref = refActual;
+          }
         }
         await updateMutation.mutateAsync({
           id: paquete.id,

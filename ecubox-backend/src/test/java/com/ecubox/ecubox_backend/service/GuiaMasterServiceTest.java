@@ -35,11 +35,17 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -66,6 +72,8 @@ class GuiaMasterServiceTest {
     private GuiaMasterEstadoHistorialRepository historialRepository;
     @Mock
     private DestinatarioVersionService destinatarioVersionService;
+    @Mock
+    private CodigoSecuenciaService codigoSecuenciaService;
 
     private GuiaMasterService service;
 
@@ -74,10 +82,11 @@ class GuiaMasterServiceTest {
     private EstadoRastreo enDespacho;
 
     @BeforeEach
-    void setUp() {
+    public void setUp() {
         service = new GuiaMasterService(guiaMasterRepository, paqueteRepository, parametroSistemaService,
                 estadoRastreoService, outboxEventRepository, destinatarioFinalRepository, usuarioRepository,
-                paqueteEstadoEventoRepository, historialRepository, destinatarioVersionService);
+                paqueteEstadoEventoRepository, historialRepository, destinatarioVersionService,
+                codigoSecuenciaService);
         registrado = EstadoRastreo.builder().id(1L).codigo("REGISTRADO").orden(1).build();
         enLote = EstadoRastreo.builder().id(2L).codigo("EN_LOTE").orden(2).build();
         enDespacho = EstadoRastreo.builder().id(3L).codigo("EN_DESPACHO").orden(3).build();
@@ -125,13 +134,16 @@ class GuiaMasterServiceTest {
     @Test
     void create_fallaSiTrackingBaseDuplicado() {
         when(guiaMasterRepository.existsByTrackingBaseIgnoreCase("DUP")).thenReturn(true);
-        assertThrows(ConflictException.class, () -> service.create("DUP", 2, null));
+        var ex = assertThrows(ConflictException.class, () -> service.create("DUP", 2, null));
+        assertNotNull(ex);
     }
 
     @Test
     void create_fallaSiTotalInvalido() {
-        assertThrows(BadRequestException.class, () -> service.create("X", 0, null));
-        assertThrows(BadRequestException.class, () -> service.create(" ", 2, null));
+        var ex1 = assertThrows(BadRequestException.class, () -> service.create("X", 0, null));
+        var ex2 = assertThrows(BadRequestException.class, () -> service.create(" ", 2, null));
+        assertNotNull(ex1);
+        assertNotNull(ex2);
     }
 
     @Test
@@ -149,14 +161,16 @@ class GuiaMasterServiceTest {
     @Test
     void validarYAsignarPieza_fallaSiNumeroExcedeTotal() {
         GuiaMaster gm = GuiaMaster.builder().id(10L).totalPiezasEsperadas(2).build();
-        assertThrows(BadRequestException.class, () -> service.validarYAsignarPieza(gm, 5));
+        var ex = assertThrows(BadRequestException.class, () -> service.validarYAsignarPieza(gm, 5));
+        assertNotNull(ex);
     }
 
     @Test
     void validarYAsignarPieza_fallaSiPiezaYaExiste() {
         GuiaMaster gm = GuiaMaster.builder().id(10L).totalPiezasEsperadas(3).build();
         when(paqueteRepository.existsByGuiaMasterIdAndPiezaNumero(10L, 2)).thenReturn(true);
-        assertThrows(ConflictException.class, () -> service.validarYAsignarPieza(gm, 2));
+        var ex = assertThrows(ConflictException.class, () -> service.validarYAsignarPieza(gm, 2));
+        assertNotNull(ex);
     }
 
     @Test
@@ -244,8 +258,9 @@ class GuiaMasterServiceTest {
         when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of(p1));
 
-        assertThrows(BadRequestException.class,
+        var ex = assertThrows(BadRequestException.class,
                 () -> service.cerrarConFaltante(1L, "motivo", null, TipoCierreGuiaMaster.DESPACHO_INCOMPLETO_MANUAL));
+        assertNotNull(ex);
     }
 
     @Test
@@ -294,13 +309,15 @@ class GuiaMasterServiceTest {
         when(guiaMasterRepository.existsByTrackingBaseIgnoreCase("TRK-1")).thenReturn(false);
         when(destinatarioFinalRepository.findById(20L)).thenReturn(Optional.of(dest));
 
-        assertThrows(BadRequestException.class, () -> service.createForCliente("TRK-1", 20L, 7L));
+        var ex = assertThrows(BadRequestException.class, () -> service.createForCliente("TRK-1", 20L, 7L));
+        assertNotNull(ex);
     }
 
     @Test
     void createForCliente_fallaSiTrackingDuplicado() {
         when(guiaMasterRepository.existsByTrackingBaseIgnoreCase("DUP")).thenReturn(true);
-        assertThrows(ConflictException.class, () -> service.createForCliente("DUP", 20L, 7L));
+        var ex = assertThrows(ConflictException.class, () -> service.createForCliente("DUP", 20L, 7L));
+        assertNotNull(ex);
     }
 
     @Test
@@ -333,7 +350,8 @@ class GuiaMasterServiceTest {
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of(p1, p2));
 
         GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder().totalPiezasEsperadas(1).build();
-        assertThrows(BadRequestException.class, () -> service.update(1L, req));
+        var ex = assertThrows(BadRequestException.class, () -> service.update(1L, req));
+        assertNotNull(ex);
     }
 
     @Test
@@ -477,6 +495,137 @@ class GuiaMasterServiceTest {
     void findByTrackingBaseForTracking_devuelveEmptySiCodigoVacio() {
         var result = service.findByTrackingBaseForTracking("   ");
         assertEquals(true, result.isEmpty());
+    }
+
+    @Test
+    void update_cambioDeDestinatario_propagaACadaPiezaConRefRegenerado() {
+        Usuario cliente = Usuario.builder().id(5L).username("cli").build();
+        DestinatarioFinal destAnterior = DestinatarioFinal.builder()
+                .id(18L).codigo("ECU-CV01").usuario(cliente).build();
+        DestinatarioFinal destNuevo = DestinatarioFinal.builder()
+                .id(20L).codigo("ECU-KZ66").usuario(cliente).build();
+        GuiaMaster gm = GuiaMaster.builder()
+                .id(99L).trackingBase("X")
+                .destinatarioFinal(destAnterior)
+                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
+                .build();
+        Paquete p1 = Paquete.builder().id(1L).piezaNumero(1).piezaTotal(2)
+                .destinatarioFinal(destAnterior).ref("ECU-CV01-17")
+                .estadoRastreo(registrado).build();
+        Paquete p2 = Paquete.builder().id(2L).piezaNumero(2).piezaTotal(2)
+                .destinatarioFinal(destAnterior).ref("ECU-CV01-18")
+                .estadoRastreo(registrado).build();
+
+        stubConfigEstados();
+        when(guiaMasterRepository.findById(99L)).thenReturn(Optional.of(gm));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(99L))
+                .thenReturn(List.of(p1, p2));
+        when(destinatarioFinalRepository.findById(20L)).thenReturn(Optional.of(destNuevo));
+        when(guiaMasterRepository.save(any(GuiaMaster.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(codigoSecuenciaService.nextRefPaquete(eq(20L), eq("ECU-KZ66")))
+                .thenReturn("ECU-KZ66-1", "ECU-KZ66-2");
+
+        GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder()
+                .destinatarioFinalId(20L)
+                .build();
+        service.update(99L, req);
+
+        assertSame(destNuevo, gm.getDestinatarioFinal());
+        assertSame(destNuevo, p1.getDestinatarioFinal());
+        assertSame(destNuevo, p2.getDestinatarioFinal());
+        assertEquals("ECU-KZ66-1", p1.getRef());
+        assertEquals("ECU-KZ66-2", p2.getRef());
+        verify(paqueteRepository).saveAll(org.mockito.ArgumentMatchers.<Iterable<Paquete>>any());
+    }
+
+    @Test
+    void update_cambioDeDestinatario_bloqueaSiAlgunaPiezaYaRecibida() {
+        Usuario cliente = Usuario.builder().id(5L).username("cli").build();
+        DestinatarioFinal destAnterior = DestinatarioFinal.builder()
+                .id(18L).codigo("ECU-CV01").usuario(cliente).build();
+        DestinatarioFinal destNuevo = DestinatarioFinal.builder()
+                .id(20L).codigo("ECU-KZ66").usuario(cliente).build();
+        GuiaMaster gm = GuiaMaster.builder()
+                .id(99L).trackingBase("X")
+                .destinatarioFinal(destAnterior)
+                .estadoGlobal(EstadoGuiaMaster.RECEPCION_PARCIAL)
+                .build();
+        Paquete recibida = Paquete.builder().id(1L).piezaNumero(1).piezaTotal(2)
+                .destinatarioFinal(destAnterior).ref("ECU-CV01-17")
+                .estadoRastreo(enLote).build();
+        Paquete pendiente = Paquete.builder().id(2L).piezaNumero(2).piezaTotal(2)
+                .destinatarioFinal(destAnterior).ref("ECU-CV01-18")
+                .estadoRastreo(registrado).build();
+
+        stubConfigEstados();
+        when(guiaMasterRepository.findById(99L)).thenReturn(Optional.of(gm));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(99L))
+                .thenReturn(List.of(recibida, pendiente));
+        when(destinatarioFinalRepository.findById(20L)).thenReturn(Optional.of(destNuevo));
+        lenient().when(guiaMasterRepository.save(any(GuiaMaster.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder()
+                .destinatarioFinalId(20L)
+                .build();
+
+        var ex = assertThrows(ConflictException.class, () -> service.update(99L, req));
+        assertNotNull(ex);
+        verify(codigoSecuenciaService, never()).nextRefPaquete(anyLong(), anyString());
+    }
+
+    @Test
+    void toDTO_fallbackAlDestinatarioDeLaPrimeraPiezaCuandoGuiaNoTieneDestinatario() {
+        Usuario cliente = Usuario.builder().id(5L).username("cli").build();
+        DestinatarioFinal kevin = DestinatarioFinal.builder()
+                .id(20L).codigo("ECU-KZ66").nombre("Kevin Zuniga")
+                .telefono("0999")
+                .direccion("Av X")
+                .provincia("Pichincha").canton("Quito")
+                .usuario(cliente).build();
+        GuiaMaster gm = GuiaMaster.builder()
+                .id(99L).trackingBase("AUTO-1")
+                .destinatarioFinal(null)
+                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
+                .build();
+        Paquete pieza = Paquete.builder().id(1L).piezaNumero(1).piezaTotal(1)
+                .destinatarioFinal(kevin).ref("ECU-KZ66-1").build();
+
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(99L))
+                .thenReturn(List.of(pieza));
+        when(parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial()).thenReturn(1);
+
+        var dto = service.toDTO(gm, List.of());
+
+        assertEquals("Kevin Zuniga", dto.getDestinatarioNombre());
+        assertEquals("0999", dto.getDestinatarioTelefono());
+        assertEquals("Av X", dto.getDestinatarioDireccion());
+        assertEquals(20L, dto.getDestinatarioFinalId());
+        assertTrue(Boolean.TRUE.equals(dto.getDestinatarioInferido()),
+                "destinatarioInferido debe quedar TRUE cuando los datos vienen del fallback");
+    }
+
+    @Test
+    void toDTO_noMarcaInferidoCuandoElDestinatarioVienePropioDeLaGuia() {
+        Usuario cliente = Usuario.builder().id(5L).username("cli").build();
+        DestinatarioFinal kevin = DestinatarioFinal.builder()
+                .id(20L).codigo("ECU-KZ66").nombre("Kevin Zuniga")
+                .usuario(cliente).build();
+        GuiaMaster gm = GuiaMaster.builder()
+                .id(99L).trackingBase("X")
+                .destinatarioFinal(kevin)
+                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
+                .build();
+
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(99L))
+                .thenReturn(List.of());
+        when(parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial()).thenReturn(1);
+
+        var dto = service.toDTO(gm, List.of());
+
+        assertEquals("Kevin Zuniga", dto.getDestinatarioNombre());
+        assertEquals(20L, dto.getDestinatarioFinalId());
+        assertFalse(Boolean.TRUE.equals(dto.getDestinatarioInferido()));
     }
 
     @Test
