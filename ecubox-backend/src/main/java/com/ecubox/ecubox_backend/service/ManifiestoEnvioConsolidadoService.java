@@ -15,6 +15,9 @@ import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +35,10 @@ import java.util.List;
 /**
  * Genera el manifiesto del envio consolidado en PDF (PDFBox) y XLSX (Apache POI).
  *
- * <p>Formato consistente entre ambos: cabecera tipo "carta", caja de metadatos
- * en dos columnas, tabla con grilla, filas alternas, totales al final y
- * numeracion de paginas (PDF) / freeze + autofilter (XLSX). Las cantidades de
- * peso se muestran tanto en libras como en kilogramos para el operario logistico.
+ * <p>Estilo coherente con el resto del sistema (paleta morada de marca,
+ * tipografia Helvetica/Calibri y composicion en banner + caja de metadatos +
+ * tabla con grilla, totales destacados al final). La paleta debe permanecer
+ * sincronizada con {@code ecubox-frontend/src/lib/pdf/theme.ts}.
  */
 @Service
 public class ManifiestoEnvioConsolidadoService {
@@ -44,14 +47,16 @@ public class ManifiestoEnvioConsolidadoService {
     private static final DateTimeFormatter FMT_FECHA_CORTA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final BigDecimal LBS_TO_KG = WeightUtil.LBS_TO_KG;
 
-    /** Color primario corporativo (azul/morado suave) en RGB. */
-    private static final Color COLOR_PRIMARY = new Color(63, 81, 181);
-    private static final Color COLOR_PRIMARY_SOFT = new Color(232, 234, 246);
-    private static final Color COLOR_BORDER = new Color(220, 224, 232);
-    private static final Color COLOR_HEADER_BG = new Color(245, 247, 252);
-    private static final Color COLOR_ZEBRA = new Color(250, 251, 254);
-    private static final Color COLOR_TEXT = new Color(33, 37, 41);
-    private static final Color COLOR_MUTED = new Color(108, 117, 125);
+    // Paleta corporativa ECUBOX (espejo de ECUBOX_PDF_COLORS en frontend).
+    private static final Color COLOR_PRIMARY = new Color(123, 63, 228);              // #7B3FE4
+    private static final Color COLOR_PRIMARY_DARK = new Color(86, 32, 188);          // #5620BC
+    private static final Color COLOR_PRIMARY_SOFT_STROKE = new Color(203, 184, 246); // #CBB8F6
+    private static final Color COLOR_BORDER = new Color(226, 230, 237);              // #E2E6ED
+    private static final Color COLOR_BORDER_SOFT = new Color(237, 233, 250);         // #EDE9FA
+    private static final Color COLOR_HEADER_BG = new Color(244, 240, 254);           // #F4F0FE
+    private static final Color COLOR_ZEBRA = new Color(249, 247, 254);               // #F9F7FE
+    private static final Color COLOR_TEXT = new Color(10, 22, 40);                   // #0A1628
+    private static final Color COLOR_MUTED = new Color(107, 114, 128);               // #6B7280
 
     private final PaqueteRepository paqueteRepository;
 
@@ -79,16 +84,15 @@ public class ManifiestoEnvioConsolidadoService {
             float contentWidth = pageWidth - margin * 2;
             float footerY = margin + 14f;
 
-            // Columnas: # | Master | Pieza | Destinatario | Telefono | Ubicacion | Lbs | Kg
-            String[] headers = {"#", "Tracking master", "Pieza", "Destinatario", "Telefono", "Ubicacion",
+            String[] headers = {"#", "Tracking master", "Pieza", "Consignatario", "Telefono", "Ubicacion",
                     "Peso (lbs)", "Peso (kg)"};
             float[] widths = computeColumnWidths(contentWidth,
                     new float[]{0.04f, 0.18f, 0.07f, 0.22f, 0.10f, 0.21f, 0.09f, 0.09f});
             int[] aligns = {ALIGN_CENTER, ALIGN_LEFT, ALIGN_CENTER, ALIGN_LEFT, ALIGN_LEFT, ALIGN_LEFT,
                     ALIGN_RIGHT, ALIGN_RIGHT};
 
-            float headerTitleHeight = 70f;        // banda azul + datos basicos
-            float metadataBoxHeight = 80f;        // caja de metadatos
+            float headerTitleHeight = 64f;        // banda morada con marca + codigo
+            float metadataBoxHeight = 86f;        // caja de metadatos
             float tableHeaderHeight = 22f;
             float rowHeight = 18f;
 
@@ -102,12 +106,12 @@ public class ManifiestoEnvioConsolidadoService {
 
             float y = pageHeight - margin;
             y = drawHeaderBanner(cs, fontBold, fontRegular, envio, margin, y, contentWidth, headerTitleHeight);
-            y -= 14;
-            y = drawMetadataBox(cs, fontBold, fontRegular, envio, paquetes.size(), margin, y, contentWidth, metadataBoxHeight);
-            y -= 18;
-
-            drawSectionTitle(cs, fontBold, "Detalle de paquetes", margin, y);
             y -= 16;
+            y = drawMetadataBox(cs, fontBold, fontRegular, envio, paquetes.size(), margin, y, contentWidth, metadataBoxHeight);
+            y -= 16;
+
+            drawSectionTitle(cs, fontBold, "Detalle de paquetes", margin, y, contentWidth);
+            y -= 18;
             drawTableHeader(cs, fontBold, headers, widths, aligns, margin, y, tableHeaderHeight, contentWidth);
             y -= tableHeaderHeight;
 
@@ -119,8 +123,10 @@ public class ManifiestoEnvioConsolidadoService {
                     doc.addPage(page);
                     cs = new PDPageContentStream(doc, page);
                     y = pageHeight - margin;
-                    drawSectionTitle(cs, fontBold, "Detalle de paquetes (continuacion)", margin, y);
+                    y = drawHeaderBanner(cs, fontBold, fontRegular, envio, margin, y, contentWidth, headerTitleHeight);
                     y -= 16;
+                    drawSectionTitle(cs, fontBold, "Detalle de paquetes (continuacion)", margin, y, contentWidth);
+                    y -= 18;
                     drawTableHeader(cs, fontBold, headers, widths, aligns, margin, y, tableHeaderHeight, contentWidth);
                     y -= tableHeaderHeight;
                 }
@@ -163,17 +169,11 @@ public class ManifiestoEnvioConsolidadoService {
                 y = pageHeight - margin;
             }
             BigDecimal totalKg = totalLbs.multiply(LBS_TO_KG).setScale(2, RoundingMode.HALF_UP);
-            String[] totalRow = new String[]{
-                    "",
-                    "TOTAL",
-                    "",
-                    paquetes.size() + " paquete" + (paquetes.size() == 1 ? "" : "s"),
-                    "",
-                    totalConPeso + " con peso",
-                    totalLbs.setScale(2, RoundingMode.HALF_UP).toPlainString(),
-                    totalKg.toPlainString(),
-            };
-            drawTotalRow(cs, fontBold, totalRow, widths, aligns, margin, y, rowHeight, contentWidth);
+            String totalLeft = "TOTAL  ·  " + paquetes.size() + " paquete" + (paquetes.size() == 1 ? "" : "s")
+                    + "  ·  " + totalConPeso + " con peso";
+            String totalRight = totalLbs.setScale(2, RoundingMode.HALF_UP).toPlainString() + " lbs   /   "
+                    + totalKg.toPlainString() + " kg";
+            drawTotalBar(cs, fontBold, totalLeft, totalRight, margin, y, contentWidth);
 
             cs.close();
 
@@ -199,36 +199,50 @@ public class ManifiestoEnvioConsolidadoService {
     private float drawHeaderBanner(PDPageContentStream cs, PDFont fontBold, PDFont fontRegular,
                                    EnvioConsolidado envio, float x, float y, float width, float height)
             throws IOException {
-        // Banda de color primario
-        fillRect(cs, COLOR_PRIMARY, x, y - height, width, height);
+        // Banda principal
+        fillRect(cs, COLOR_PRIMARY, x - 0.01f, y - height, width + 0.02f, height);
+        // Acento inferior
+        fillRect(cs, COLOR_PRIMARY_DARK, x - 0.01f, y - height - 1.6f, width + 0.02f, 1.6f);
 
         cs.setNonStrokingColor(Color.WHITE);
+
         cs.beginText();
         cs.setFont(fontBold, 16);
-        cs.newLineAtOffset(x + 14, y - 24);
-        cs.showText("MANIFIESTO DE ENVIO CONSOLIDADO");
+        cs.newLineAtOffset(x + 14, y - 22);
+        cs.showText("ECUBOX");
         cs.endText();
 
         cs.beginText();
-        cs.setFont(fontRegular, 10);
-        cs.newLineAtOffset(x + 14, y - 40);
-        cs.showText("Documento interno de logistica - ECUBOX");
+        cs.setFont(fontRegular, 9);
+        cs.newLineAtOffset(x + 14, y - 36);
+        cs.showText("Documento interno de logistica");
+        cs.endText();
+
+        cs.beginText();
+        cs.setFont(fontBold, 11);
+        cs.newLineAtOffset(x + 14, y - 52);
+        cs.showText("MANIFIESTO DE ENVIO CONSOLIDADO");
         cs.endText();
 
         // Codigo del envio (alineado a la derecha)
         String codigo = sanitizeForPdf(envio.getCodigo());
-        float codTextWidth = stringWidth(fontBold, 14, codigo);
+        float codTextWidth = stringWidth(fontBold, 16, codigo);
         cs.beginText();
-        cs.setFont(fontBold, 14);
-        cs.newLineAtOffset(x + width - codTextWidth - 14, y - 24);
+        cs.setFont(fontBold, 16);
+        cs.newLineAtOffset(x + width - codTextWidth - 14, y - 22);
         cs.showText(codigo);
         cs.endText();
 
         String estadoTxt = envio.isCerrado() ? "CERRADO" : "ABIERTO";
-        float estTextWidth = stringWidth(fontRegular, 10, estadoTxt);
+        float estTextWidth = stringWidth(fontBold, 9, estadoTxt) + 14f;
+        // Badge de estado (pildora oscura)
+        float badgeH = 12f;
+        float badgeY = y - 50;
+        fillRect(cs, COLOR_PRIMARY_DARK, x + width - estTextWidth - 6, badgeY, estTextWidth, badgeH);
+        cs.setNonStrokingColor(Color.WHITE);
         cs.beginText();
-        cs.setFont(fontRegular, 10);
-        cs.newLineAtOffset(x + width - estTextWidth - 14, y - 40);
+        cs.setFont(fontBold, 9);
+        cs.newLineAtOffset(x + width - estTextWidth, badgeY + 3);
         cs.showText(estadoTxt);
         cs.endText();
 
@@ -239,9 +253,20 @@ public class ManifiestoEnvioConsolidadoService {
     private float drawMetadataBox(PDPageContentStream cs, PDFont fontBold, PDFont fontRegular,
                                   EnvioConsolidado envio, int totalPaquetes,
                                   float x, float y, float width, float height) throws IOException {
-        // Caja con borde
-        fillRect(cs, COLOR_HEADER_BG, x, y - height, width, height);
+        // Caja con borde sutil (fondo blanco para mantener legibilidad)
+        fillRect(cs, Color.WHITE, x, y - height, width, height);
         strokeRect(cs, COLOR_BORDER, x, y - height, width, height);
+
+        // Cabecera de la caja (banda muy clara)
+        float cabH = 18f;
+        fillRect(cs, COLOR_HEADER_BG, x + 0.5f, y - cabH, width - 1f, cabH);
+        cs.setNonStrokingColor(COLOR_PRIMARY_DARK);
+        cs.beginText();
+        cs.setFont(fontBold, 8);
+        cs.newLineAtOffset(x + 12, y - 12);
+        cs.showText(sanitizeForPdf("INFORMACION DEL ENVIO"));
+        cs.endText();
+        cs.setNonStrokingColor(COLOR_TEXT);
 
         // Dos columnas
         float colW = width / 2;
@@ -259,10 +284,9 @@ public class ManifiestoEnvioConsolidadoService {
                         + pesoKg.toPlainString() + " kg)"},
         };
 
-        float padX = 12;
-        float padY = 12;
-        float lineH = 18;
-        float startY = y - padY;
+        float padX = 14;
+        float lineH = 20;
+        float startY = y - cabH - 16;
 
         for (int i = 0; i < left.length; i++) {
             drawLabelValue(cs, fontBold, fontRegular, left[i][0], left[i][1],
@@ -279,7 +303,7 @@ public class ManifiestoEnvioConsolidadoService {
                                 String label, String value, float x, float y) throws IOException {
         cs.setNonStrokingColor(COLOR_MUTED);
         cs.beginText();
-        cs.setFont(fontBold, 8);
+        cs.setFont(fontBold, 7.5f);
         cs.newLineAtOffset(x, y);
         cs.showText(sanitizeForPdf(label).toUpperCase());
         cs.endText();
@@ -292,23 +316,32 @@ public class ManifiestoEnvioConsolidadoService {
         cs.endText();
     }
 
-    private void drawSectionTitle(PDPageContentStream cs, PDFont fontBold, String title, float x, float y)
-            throws IOException {
-        cs.setNonStrokingColor(COLOR_PRIMARY);
+    private void drawSectionTitle(PDPageContentStream cs, PDFont fontBold, String title,
+                                  float x, float y, float width) throws IOException {
+        cs.setNonStrokingColor(COLOR_PRIMARY_DARK);
         cs.beginText();
         cs.setFont(fontBold, 11);
         cs.newLineAtOffset(x, y);
         cs.showText(sanitizeForPdf(title));
         cs.endText();
+
+        // Subrayado morado claro
+        cs.setStrokingColor(COLOR_PRIMARY_SOFT_STROKE);
+        cs.setLineWidth(0.6f);
+        cs.moveTo(x, y - 4);
+        cs.lineTo(x + width, y - 4);
+        cs.stroke();
+
         cs.setNonStrokingColor(COLOR_TEXT);
+        cs.setStrokingColor(COLOR_TEXT);
     }
 
     private void drawTableHeader(PDPageContentStream cs, PDFont fontBold, String[] headers, float[] widths,
                                  int[] aligns, float x, float y, float height, float contentWidth) throws IOException {
-        fillRect(cs, COLOR_PRIMARY_SOFT, x, y - height, contentWidth, height);
-        strokeRect(cs, COLOR_BORDER, x, y - height, contentWidth, height);
+        // Encabezado morado fuerte con texto blanco
+        fillRect(cs, COLOR_PRIMARY, x, y - height, contentWidth, height);
 
-        cs.setNonStrokingColor(COLOR_PRIMARY);
+        cs.setNonStrokingColor(Color.WHITE);
         float cursor = x;
         for (int i = 0; i < headers.length; i++) {
             drawCellText(cs, fontBold, 9, headers[i], cursor, y - height, widths[i], height, aligns[i], 6);
@@ -323,7 +356,13 @@ public class ManifiestoEnvioConsolidadoService {
         if (zebra) {
             fillRect(cs, COLOR_ZEBRA, x, y - height, contentWidth, height);
         }
-        strokeRect(cs, COLOR_BORDER, x, y - height, contentWidth, height);
+        // Linea inferior delgada en color borde suave
+        cs.setStrokingColor(COLOR_BORDER_SOFT);
+        cs.setLineWidth(0.3f);
+        cs.moveTo(x, y - height);
+        cs.lineTo(x + contentWidth, y - height);
+        cs.stroke();
+        cs.setStrokingColor(COLOR_TEXT);
 
         float cursor = x;
         for (int i = 0; i < vals.length; i++) {
@@ -334,27 +373,47 @@ public class ManifiestoEnvioConsolidadoService {
         }
     }
 
-    private void drawTotalRow(PDPageContentStream cs, PDFont fontBold, String[] vals, float[] widths,
-                              int[] aligns, float x, float y, float height, float contentWidth) throws IOException {
-        fillRect(cs, COLOR_PRIMARY_SOFT, x, y - height, contentWidth, height);
-        strokeRect(cs, COLOR_PRIMARY, x, y - height, contentWidth, height);
+    /**
+     * Banda final con totales (texto a la izquierda + texto a la derecha) en
+     * color primario fuerte. Reemplaza la antigua fila tabular para evitar
+     * solapes con la grilla de columnas.
+     */
+    private void drawTotalBar(PDPageContentStream cs, PDFont fontBold, String left, String right,
+                              float x, float y, float contentWidth) throws IOException {
+        float h = 22f;
+        fillRect(cs, COLOR_PRIMARY, x, y - h, contentWidth, h);
 
-        cs.setNonStrokingColor(COLOR_PRIMARY);
-        float cursor = x;
-        for (int i = 0; i < vals.length; i++) {
-            drawCellText(cs, fontBold, 9, vals[i], cursor, y - height, widths[i], height, aligns[i], 6);
-            cursor += widths[i];
-        }
+        cs.setNonStrokingColor(Color.WHITE);
+        cs.beginText();
+        cs.setFont(fontBold, 10);
+        cs.newLineAtOffset(x + 12, y - 14);
+        cs.showText(sanitizeForPdf(left));
+        cs.endText();
+
+        float rightWidth = stringWidth(fontBold, 10, right);
+        cs.beginText();
+        cs.setFont(fontBold, 10);
+        cs.newLineAtOffset(x + contentWidth - rightWidth - 12, y - 14);
+        cs.showText(sanitizeForPdf(right));
+        cs.endText();
         cs.setNonStrokingColor(COLOR_TEXT);
     }
 
     private void drawFooter(PDPageContentStream cs, PDFont fontRegular, String codigo, String generadoEn,
                             int pageNum, int total, float x, float y, float width) throws IOException {
+        // Linea fina sobre el footer
+        cs.setStrokingColor(COLOR_BORDER_SOFT);
+        cs.setLineWidth(0.4f);
+        cs.moveTo(x, y + 8);
+        cs.lineTo(x + width, y + 8);
+        cs.stroke();
+        cs.setStrokingColor(COLOR_TEXT);
+
         cs.setNonStrokingColor(COLOR_MUTED);
         cs.beginText();
         cs.setFont(fontRegular, 8);
         cs.newLineAtOffset(x, y);
-        cs.showText(sanitizeForPdf("Manifiesto " + nullSafe(codigo) + " - generado " + nullSafe(generadoEn)));
+        cs.showText(sanitizeForPdf("ECUBOX  ·  Manifiesto " + nullSafe(codigo) + "  ·  Generado " + nullSafe(generadoEn)));
         cs.endText();
 
         String pageStr = "Pagina " + pageNum + " / " + total;
@@ -385,7 +444,7 @@ public class ManifiestoEnvioConsolidadoService {
             sheet.setColumnWidth(2, 8 * 256);    // Pieza N
             sheet.setColumnWidth(3, 8 * 256);    // Pieza Total
             sheet.setColumnWidth(4, 24 * 256);   // N. Guia pieza
-            sheet.setColumnWidth(5, 28 * 256);   // Destinatario
+            sheet.setColumnWidth(5, 28 * 256);   // Consignatario
             sheet.setColumnWidth(6, 14 * 256);   // Telefono
             sheet.setColumnWidth(7, 32 * 256);   // Direccion
             sheet.setColumnWidth(8, 18 * 256);   // Canton / Provincia
@@ -399,19 +458,23 @@ public class ManifiestoEnvioConsolidadoService {
 
             int rowIdx = 0;
 
-            // ----- Titulo -----
+            // ----- Banner (2 filas: titulo + subtitulo) -----
             Row tituloRow = sheet.createRow(rowIdx);
-            tituloRow.setHeightInPoints(28);
-            Cell titulo = tituloRow.createCell(0);
-            titulo.setCellValue("MANIFIESTO DE ENVIO CONSOLIDADO");
-            titulo.setCellStyle(s.titulo);
-            sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, totalCols - 1));
+            tituloRow.setHeightInPoints(30);
+            for (int c = 0; c < totalCols; c++) {
+                Cell cc = tituloRow.createCell(c);
+                cc.setCellStyle(s.titulo);
+            }
+            tituloRow.getCell(0).setCellValue("MANIFIESTO DE ENVIO CONSOLIDADO  ·  " + nullSafe(envio.getCodigo()));
+            sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, totalCols - 2));
+            tituloRow.getCell(totalCols - 1).setCellValue(envio.isCerrado() ? "CERRADO" : "ABIERTO");
+            tituloRow.getCell(totalCols - 1).setCellStyle(s.tituloBadge);
             rowIdx++;
 
             Row subtRow = sheet.createRow(rowIdx);
             subtRow.setHeightInPoints(16);
             Cell subt = subtRow.createCell(0);
-            subt.setCellValue("Documento interno de logistica - ECUBOX");
+            subt.setCellValue("Documento interno de logistica  ·  ECUBOX");
             subt.setCellStyle(s.subtitulo);
             sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, totalCols - 1));
             rowIdx++;
@@ -434,14 +497,13 @@ public class ManifiestoEnvioConsolidadoService {
             };
             for (String[] fila : meta) {
                 Row r = sheet.createRow(rowIdx++);
-                r.setHeightInPoints(18);
+                r.setHeightInPoints(19);
                 createCell(r, 0, fila[0], s.metaLabel);
                 createCell(r, 1, fila[1], s.metaValue);
-                createCell(r, 2, "", s.metaSpacer); // espacio
+                createCell(r, 2, "", s.metaValue);
                 createCell(r, 3, fila[2], s.metaLabel);
                 createCell(r, 4, fila[3], s.metaValue);
-                // El resto de columnas
-                for (int c = 5; c < totalCols; c++) createCell(r, c, "", s.metaSpacer);
+                for (int c = 5; c < totalCols; c++) createCell(r, c, "", s.metaValue);
                 sheet.addMergedRegion(new CellRangeAddress(r.getRowNum(), r.getRowNum(), 1, 2));
                 sheet.addMergedRegion(new CellRangeAddress(r.getRowNum(), r.getRowNum(), 4, totalCols - 1));
             }
@@ -449,12 +511,21 @@ public class ManifiestoEnvioConsolidadoService {
             // Linea en blanco
             rowIdx++;
 
+            // Titulo de seccion
+            Row sectRow = sheet.createRow(rowIdx);
+            sectRow.setHeightInPoints(22);
+            Cell sectCell = sectRow.createCell(0);
+            sectCell.setCellValue("Detalle de paquetes");
+            sectCell.setCellStyle(s.sectionTitle);
+            sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, totalCols - 1));
+            rowIdx++;
+
             // ----- Encabezado de tabla -----
             String[] headers = {"#", "Tracking master", "Pieza N", "Pieza Total", "N. Guia pieza",
-                    "Destinatario", "Telefono", "Direccion", "Canton / Provincia", "Codigo",
+                    "Consignatario", "Telefono", "Direccion", "Canton / Provincia", "Codigo",
                     "Peso (lbs)", "Peso (kg)"};
             Row header = sheet.createRow(rowIdx);
-            header.setHeightInPoints(22);
+            header.setHeightInPoints(24);
             for (int i = 0; i < headers.length; i++) {
                 Cell c = header.createCell(i);
                 c.setCellValue(headers[i]);
@@ -477,6 +548,7 @@ public class ManifiestoEnvioConsolidadoService {
                 CellStyle numC = zebra ? s.cellNumCZebra : s.cellNumC;
                 CellStyle pesoSt = zebra ? s.cellPesoZebra : s.cellPeso;
                 CellStyle dashSt = zebra ? s.cellDashZebra : s.cellDash;
+                CellStyle txtMonoL = zebra ? s.cellMonoLZebra : s.cellMonoL;
 
                 GuiaMaster gm = p.getGuiaMaster();
                 Consignatario d = p.getConsignatario();
@@ -485,10 +557,10 @@ public class ManifiestoEnvioConsolidadoService {
                         : extraerTrackingBase(p.getNumeroGuia());
 
                 createCell(r, 0, String.valueOf(idx++), txtC);
-                createCell(r, 1, nullSafe(trackingBase), txtL);
+                createCell(r, 1, nullSafe(trackingBase), txtMonoL);
                 createNumCell(r, 2, p.getPiezaNumero(), numC);
                 createNumCell(r, 3, p.getPiezaTotal(), numC);
-                createCell(r, 4, nullSafe(p.getNumeroGuia()), txtL);
+                createCell(r, 4, nullSafe(p.getNumeroGuia()), txtMonoL);
                 createCell(r, 5, d != null ? nullSafe(d.getNombre()) : "", txtL);
                 createCell(r, 6, d != null ? nullSafe(d.getTelefono()) : "", txtL);
                 createCell(r, 7, d != null ? nullSafe(d.getDireccion()) : "", txtL);
@@ -514,28 +586,17 @@ public class ManifiestoEnvioConsolidadoService {
             // ----- Fila de totales -----
             BigDecimal totalKg = totalLbs.multiply(LBS_TO_KG).setScale(2, RoundingMode.HALF_UP);
             Row totalRow = sheet.createRow(rowIdx);
-            totalRow.setHeightInPoints(22);
+            totalRow.setHeightInPoints(26);
 
-            // Etiqueta TOTAL ocupando # + Tracking master + Pieza N + Pieza Total + N. Guia pieza
             Cell tCell = totalRow.createCell(0);
-            tCell.setCellValue("TOTAL  -  " + paquetes.size() + " paquete"
+            tCell.setCellValue("TOTAL  ·  " + paquetes.size() + " paquete"
                     + (paquetes.size() == 1 ? "" : "s"));
             tCell.setCellStyle(s.totalLabel);
-            for (int i = 1; i <= 4; i++) {
+            for (int i = 1; i <= 9; i++) {
                 Cell c = totalRow.createCell(i);
                 c.setCellStyle(s.totalEmpty);
             }
-            sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 4));
-
-            // Resumen ocupando Destinatario + Telefono + Direccion + Canton/Prov + Codigo
-            Cell resumen = totalRow.createCell(5);
-            resumen.setCellValue("Total acumulado");
-            resumen.setCellStyle(s.totalLabel);
-            for (int i = 6; i <= 9; i++) {
-                Cell c = totalRow.createCell(i);
-                c.setCellStyle(s.totalEmpty);
-            }
-            sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 5, 9));
+            sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 9));
 
             Cell totLbs = totalRow.createCell(10);
             totLbs.setCellValue(totalLbs.setScale(2, RoundingMode.HALF_UP).doubleValue());
@@ -551,7 +612,7 @@ public class ManifiestoEnvioConsolidadoService {
             Row pieRow = sheet.createRow(rowIdx);
             Cell pie = pieRow.createCell(0);
             pie.setCellValue("Generado el " + LocalDateTime.now().format(FMT_FECHA)
-                    + " - Manifiesto " + nullSafe(envio.getCodigo()));
+                    + "  ·  Manifiesto " + nullSafe(envio.getCodigo()) + "  ·  ECUBOX");
             pie.setCellStyle(s.pie);
             sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, totalCols - 1));
 
@@ -582,140 +643,192 @@ public class ManifiestoEnvioConsolidadoService {
 
     /**
      * Estilos reutilizables del XLSX. Se construye una sola vez por libro porque
-     * Excel limita el numero de estilos por workbook (~64k).
+     * Excel limita el numero de estilos por workbook (~64k). Usa colores RGB
+     * exactos vía XSSFColor para mantener la paleta morada de marca, en lugar
+     * de los IndexedColors limitados de POI.
      */
     private static class EstilosXlsx {
-        final CellStyle titulo;
-        final CellStyle subtitulo;
-        final CellStyle metaLabel;
-        final CellStyle metaValue;
-        final CellStyle metaSpacer;
-        final CellStyle tableHeader;
-        final CellStyle cellTextL;
-        final CellStyle cellTextC;
-        final CellStyle cellNumC;
-        final CellStyle cellPeso;
-        final CellStyle cellDash;
-        final CellStyle cellTextLZebra;
-        final CellStyle cellTextCZebra;
-        final CellStyle cellNumCZebra;
-        final CellStyle cellPesoZebra;
-        final CellStyle cellDashZebra;
-        final CellStyle totalLabel;
-        final CellStyle totalEmpty;
-        final CellStyle totalNum;
-        final CellStyle pie;
+        final XSSFCellStyle titulo;
+        final XSSFCellStyle tituloBadge;
+        final XSSFCellStyle subtitulo;
+        final XSSFCellStyle sectionTitle;
+        final XSSFCellStyle metaLabel;
+        final XSSFCellStyle metaValue;
+        final XSSFCellStyle tableHeader;
+        final XSSFCellStyle cellTextL;
+        final XSSFCellStyle cellTextC;
+        final XSSFCellStyle cellMonoL;
+        final XSSFCellStyle cellNumC;
+        final XSSFCellStyle cellPeso;
+        final XSSFCellStyle cellDash;
+        final XSSFCellStyle cellTextLZebra;
+        final XSSFCellStyle cellTextCZebra;
+        final XSSFCellStyle cellMonoLZebra;
+        final XSSFCellStyle cellNumCZebra;
+        final XSSFCellStyle cellPesoZebra;
+        final XSSFCellStyle cellDashZebra;
+        final XSSFCellStyle totalLabel;
+        final XSSFCellStyle totalEmpty;
+        final XSSFCellStyle totalNum;
+        final XSSFCellStyle pie;
 
-        EstilosXlsx(Workbook wb) {
+        EstilosXlsx(XSSFWorkbook wb) {
             DataFormat df = wb.createDataFormat();
             short fmtPeso = df.getFormat("#,##0.00");
 
-            Font fontTitulo = wb.createFont();
+            XSSFColor primary = new XSSFColor(COLOR_PRIMARY, null);
+            XSSFColor primaryDark = new XSSFColor(COLOR_PRIMARY_DARK, null);
+            XSSFColor primarySoft = new XSSFColor(COLOR_HEADER_BG, null);
+            XSSFColor zebra = new XSSFColor(COLOR_ZEBRA, null);
+            XSSFColor border = new XSSFColor(COLOR_BORDER, null);
+            XSSFColor borderSoft = new XSSFColor(COLOR_BORDER_SOFT, null);
+
+            XSSFFont fontTitulo = wb.createFont();
+            fontTitulo.setFontName("Calibri");
             fontTitulo.setBold(true);
             fontTitulo.setFontHeightInPoints((short) 14);
-            fontTitulo.setColor(IndexedColors.WHITE.getIndex());
+            fontTitulo.setColor(new XSSFColor(Color.WHITE, null));
 
-            Font fontSub = wb.createFont();
+            XSSFFont fontSub = wb.createFont();
+            fontSub.setFontName("Calibri");
             fontSub.setItalic(true);
             fontSub.setFontHeightInPoints((short) 9);
-            fontSub.setColor(IndexedColors.GREY_50_PERCENT.getIndex());
+            fontSub.setColor(new XSSFColor(COLOR_MUTED, null));
 
-            Font fontLabel = wb.createFont();
+            XSSFFont fontSection = wb.createFont();
+            fontSection.setFontName("Calibri");
+            fontSection.setBold(true);
+            fontSection.setFontHeightInPoints((short) 12);
+            fontSection.setColor(new XSSFColor(COLOR_PRIMARY, null));
+
+            XSSFFont fontLabel = wb.createFont();
+            fontLabel.setFontName("Calibri");
             fontLabel.setBold(true);
             fontLabel.setFontHeightInPoints((short) 9);
-            fontLabel.setColor(IndexedColors.GREY_50_PERCENT.getIndex());
+            fontLabel.setColor(new XSSFColor(COLOR_MUTED, null));
 
-            Font fontValue = wb.createFont();
+            XSSFFont fontValue = wb.createFont();
+            fontValue.setFontName("Calibri");
             fontValue.setFontHeightInPoints((short) 11);
+            fontValue.setColor(new XSSFColor(COLOR_TEXT, null));
 
-            Font fontHeader = wb.createFont();
+            XSSFFont fontHeader = wb.createFont();
+            fontHeader.setFontName("Calibri");
             fontHeader.setBold(true);
             fontHeader.setFontHeightInPoints((short) 10);
-            fontHeader.setColor(IndexedColors.WHITE.getIndex());
+            fontHeader.setColor(new XSSFColor(Color.WHITE, null));
 
-            Font fontCell = wb.createFont();
+            XSSFFont fontCell = wb.createFont();
+            fontCell.setFontName("Calibri");
             fontCell.setFontHeightInPoints((short) 10);
+            fontCell.setColor(new XSSFColor(COLOR_TEXT, null));
 
-            Font fontTotal = wb.createFont();
+            XSSFFont fontMono = wb.createFont();
+            fontMono.setFontName("Consolas");
+            fontMono.setBold(true);
+            fontMono.setFontHeightInPoints((short) 10);
+            fontMono.setColor(new XSSFColor(COLOR_TEXT, null));
+
+            XSSFFont fontTotal = wb.createFont();
+            fontTotal.setFontName("Calibri");
             fontTotal.setBold(true);
-            fontTotal.setFontHeightInPoints((short) 10);
+            fontTotal.setFontHeightInPoints((short) 11);
+            fontTotal.setColor(new XSSFColor(Color.WHITE, null));
 
-            Font fontPie = wb.createFont();
+            XSSFFont fontPie = wb.createFont();
+            fontPie.setFontName("Calibri");
             fontPie.setItalic(true);
             fontPie.setFontHeightInPoints((short) 8);
-            fontPie.setColor(IndexedColors.GREY_50_PERCENT.getIndex());
+            fontPie.setColor(new XSSFColor(COLOR_MUTED, null));
 
             this.titulo = wb.createCellStyle();
             titulo.setFont(fontTitulo);
-            titulo.setAlignment(HorizontalAlignment.CENTER);
+            titulo.setAlignment(HorizontalAlignment.LEFT);
             titulo.setVerticalAlignment(VerticalAlignment.CENTER);
             titulo.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            titulo.setFillForegroundColor(IndexedColors.INDIGO.getIndex());
+            titulo.setFillForegroundColor(primary);
+            titulo.setIndention((short) 1);
+
+            this.tituloBadge = wb.createCellStyle();
+            tituloBadge.setFont(fontTitulo);
+            tituloBadge.setAlignment(HorizontalAlignment.CENTER);
+            tituloBadge.setVerticalAlignment(VerticalAlignment.CENTER);
+            tituloBadge.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            tituloBadge.setFillForegroundColor(primaryDark);
 
             this.subtitulo = wb.createCellStyle();
             subtitulo.setFont(fontSub);
-            subtitulo.setAlignment(HorizontalAlignment.CENTER);
+            subtitulo.setAlignment(HorizontalAlignment.LEFT);
             subtitulo.setVerticalAlignment(VerticalAlignment.CENTER);
+            subtitulo.setIndention((short) 1);
+
+            this.sectionTitle = wb.createCellStyle();
+            sectionTitle.setFont(fontSection);
+            sectionTitle.setAlignment(HorizontalAlignment.LEFT);
+            sectionTitle.setVerticalAlignment(VerticalAlignment.CENTER);
+            sectionTitle.setIndention((short) 1);
 
             this.metaLabel = wb.createCellStyle();
             metaLabel.setFont(fontLabel);
             metaLabel.setAlignment(HorizontalAlignment.LEFT);
             metaLabel.setVerticalAlignment(VerticalAlignment.CENTER);
             metaLabel.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            metaLabel.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            applyAllBorders(metaLabel, BorderStyle.THIN, IndexedColors.GREY_40_PERCENT.getIndex());
+            metaLabel.setFillForegroundColor(primarySoft);
+            metaLabel.setIndention((short) 1);
+            applyAllBordersXssf(metaLabel, border);
 
             this.metaValue = wb.createCellStyle();
             metaValue.setFont(fontValue);
             metaValue.setAlignment(HorizontalAlignment.LEFT);
             metaValue.setVerticalAlignment(VerticalAlignment.CENTER);
-            applyAllBorders(metaValue, BorderStyle.THIN, IndexedColors.GREY_40_PERCENT.getIndex());
-
-            this.metaSpacer = wb.createCellStyle();
-            metaSpacer.setVerticalAlignment(VerticalAlignment.CENTER);
+            applyAllBordersXssf(metaValue, border);
 
             this.tableHeader = wb.createCellStyle();
             tableHeader.setFont(fontHeader);
             tableHeader.setAlignment(HorizontalAlignment.CENTER);
             tableHeader.setVerticalAlignment(VerticalAlignment.CENTER);
+            tableHeader.setWrapText(true);
             tableHeader.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            tableHeader.setFillForegroundColor(IndexedColors.INDIGO.getIndex());
-            applyAllBorders(tableHeader, BorderStyle.THIN, IndexedColors.GREY_50_PERCENT.getIndex());
+            tableHeader.setFillForegroundColor(primary);
+            applyAllBordersXssf(tableHeader, primaryDark);
 
-            this.cellTextL = baseCell(wb, fontCell, HorizontalAlignment.LEFT, false);
-            this.cellTextC = baseCell(wb, fontCell, HorizontalAlignment.CENTER, false);
-            this.cellNumC = baseCell(wb, fontCell, HorizontalAlignment.CENTER, false);
-            this.cellPeso = baseCell(wb, fontCell, HorizontalAlignment.RIGHT, false);
+            this.cellTextL = baseCell(wb, fontCell, HorizontalAlignment.LEFT, null, borderSoft);
+            this.cellTextC = baseCell(wb, fontCell, HorizontalAlignment.CENTER, null, borderSoft);
+            this.cellMonoL = baseCell(wb, fontMono, HorizontalAlignment.LEFT, null, borderSoft);
+            this.cellNumC = baseCell(wb, fontCell, HorizontalAlignment.CENTER, null, borderSoft);
+            this.cellPeso = baseCell(wb, fontCell, HorizontalAlignment.RIGHT, null, borderSoft);
             cellPeso.setDataFormat(fmtPeso);
-            this.cellDash = baseCell(wb, fontCell, HorizontalAlignment.RIGHT, false);
+            this.cellDash = baseCell(wb, fontCell, HorizontalAlignment.RIGHT, null, borderSoft);
 
-            this.cellTextLZebra = baseCell(wb, fontCell, HorizontalAlignment.LEFT, true);
-            this.cellTextCZebra = baseCell(wb, fontCell, HorizontalAlignment.CENTER, true);
-            this.cellNumCZebra = baseCell(wb, fontCell, HorizontalAlignment.CENTER, true);
-            this.cellPesoZebra = baseCell(wb, fontCell, HorizontalAlignment.RIGHT, true);
+            this.cellTextLZebra = baseCell(wb, fontCell, HorizontalAlignment.LEFT, zebra, borderSoft);
+            this.cellTextCZebra = baseCell(wb, fontCell, HorizontalAlignment.CENTER, zebra, borderSoft);
+            this.cellMonoLZebra = baseCell(wb, fontMono, HorizontalAlignment.LEFT, zebra, borderSoft);
+            this.cellNumCZebra = baseCell(wb, fontCell, HorizontalAlignment.CENTER, zebra, borderSoft);
+            this.cellPesoZebra = baseCell(wb, fontCell, HorizontalAlignment.RIGHT, zebra, borderSoft);
             cellPesoZebra.setDataFormat(fmtPeso);
-            this.cellDashZebra = baseCell(wb, fontCell, HorizontalAlignment.RIGHT, true);
+            this.cellDashZebra = baseCell(wb, fontCell, HorizontalAlignment.RIGHT, zebra, borderSoft);
 
             this.totalLabel = wb.createCellStyle();
             totalLabel.setFont(fontTotal);
-            totalLabel.setAlignment(HorizontalAlignment.CENTER);
+            totalLabel.setAlignment(HorizontalAlignment.LEFT);
             totalLabel.setVerticalAlignment(VerticalAlignment.CENTER);
             totalLabel.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            totalLabel.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
-            applyAllBorders(totalLabel, BorderStyle.THIN, IndexedColors.GREY_50_PERCENT.getIndex());
+            totalLabel.setFillForegroundColor(primary);
+            totalLabel.setIndention((short) 1);
+            applyAllBordersXssf(totalLabel, primaryDark);
 
             this.totalEmpty = wb.createCellStyle();
             totalEmpty.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            totalEmpty.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
-            applyAllBorders(totalEmpty, BorderStyle.THIN, IndexedColors.GREY_50_PERCENT.getIndex());
+            totalEmpty.setFillForegroundColor(primary);
+            applyAllBordersXssf(totalEmpty, primaryDark);
 
             this.totalNum = wb.createCellStyle();
             totalNum.setFont(fontTotal);
             totalNum.setAlignment(HorizontalAlignment.RIGHT);
             totalNum.setVerticalAlignment(VerticalAlignment.CENTER);
             totalNum.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            totalNum.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
-            applyAllBorders(totalNum, BorderStyle.THIN, IndexedColors.GREY_50_PERCENT.getIndex());
+            totalNum.setFillForegroundColor(primary);
+            applyAllBordersXssf(totalNum, primaryDark);
             totalNum.setDataFormat(fmtPeso);
 
             this.pie = wb.createCellStyle();
@@ -723,24 +836,25 @@ public class ManifiestoEnvioConsolidadoService {
             pie.setAlignment(HorizontalAlignment.RIGHT);
         }
 
-        private static CellStyle baseCell(Workbook wb, Font font, HorizontalAlignment align, boolean zebra) {
-            CellStyle st = wb.createCellStyle();
+        private static XSSFCellStyle baseCell(XSSFWorkbook wb, XSSFFont font, HorizontalAlignment align,
+                                              XSSFColor zebra, XSSFColor border) {
+            XSSFCellStyle st = wb.createCellStyle();
             st.setFont(font);
             st.setAlignment(align);
             st.setVerticalAlignment(VerticalAlignment.CENTER);
-            applyAllBorders(st, BorderStyle.THIN, IndexedColors.GREY_25_PERCENT.getIndex());
-            if (zebra) {
+            applyAllBordersXssf(st, border);
+            if (zebra != null) {
                 st.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-                st.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+                st.setFillForegroundColor(zebra);
             }
             return st;
         }
 
-        private static void applyAllBorders(CellStyle st, BorderStyle border, short color) {
-            st.setBorderTop(border);
-            st.setBorderBottom(border);
-            st.setBorderLeft(border);
-            st.setBorderRight(border);
+        private static void applyAllBordersXssf(XSSFCellStyle st, XSSFColor color) {
+            st.setBorderTop(BorderStyle.THIN);
+            st.setBorderBottom(BorderStyle.THIN);
+            st.setBorderLeft(BorderStyle.THIN);
+            st.setBorderRight(BorderStyle.THIN);
             st.setTopBorderColor(color);
             st.setBottomBorderColor(color);
             st.setLeftBorderColor(color);
@@ -774,18 +888,11 @@ public class ManifiestoEnvioConsolidadoService {
                               float x, float y, float width, float height, int align, float padding) throws IOException {
         text = sanitizeForPdf(text);
         float textWidth = stringWidth(font, fontSize, text);
-        float drawX;
-        switch (align) {
-            case ALIGN_RIGHT:
-                drawX = x + width - textWidth - padding;
-                break;
-            case ALIGN_CENTER:
-                drawX = x + (width - textWidth) / 2f;
-                break;
-            default:
-                drawX = x + padding;
-                break;
-        }
+        float drawX = switch (align) {
+            case ALIGN_RIGHT -> x + width - textWidth - padding;
+            case ALIGN_CENTER -> x + (width - textWidth) / 2f;
+            default -> x + padding;
+        };
         float drawY = y + (height - fontSize) / 2f + 1f;
         cs.beginText();
         cs.setFont(font, fontSize);
@@ -826,33 +933,19 @@ public class ManifiestoEnvioConsolidadoService {
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             switch (c) {
-                case '\u2014': // em dash
-                case '\u2013': // en dash
-                    sb.append('-');
-                    break;
-                case '\u2018':
-                case '\u2019':
-                    sb.append('\'');
-                    break;
-                case '\u201C':
-                case '\u201D':
-                    sb.append('"');
-                    break;
-                case '\u2026':
-                    sb.append("...");
-                    break;
-                case '\u00A0':
-                    sb.append(' ');
-                    break;
-                default:
-                    // WinAnsi soporta U+0020..U+007E y la mayoria de Latin-1 (U+00A1..U+00FF).
-                    // Para todo lo demas, sustituimos por '?'.
+                case '\u2014', '\u2013' -> sb.append('-');
+                case '\u2018', '\u2019' -> sb.append('\'');
+                case '\u201C', '\u201D' -> sb.append('"');
+                case '\u2026' -> sb.append("...");
+                case '\u00A0' -> sb.append(' ');
+                case '\u00B7' -> sb.append('-');
+                default -> {
                     if (c < 0x20 || (c > 0x7E && c < 0xA1) || c > 0xFF) {
                         sb.append('?');
                     } else {
                         sb.append(c);
                     }
-                    break;
+                }
             }
         }
         return sb.toString();
@@ -876,21 +969,18 @@ public class ManifiestoEnvioConsolidadoService {
         if (gm != null && gm.getTrackingBase() != null && !gm.getTrackingBase().isBlank()) {
             return gm.getTrackingBase();
         }
-        // Fallback: extraer el tracking base del numeroGuia ("<base> <n>/<t>").
         String ng = p.getNumeroGuia();
         if (ng == null) return "";
         int sp = ng.indexOf(' ');
         return sp > 0 ? ng.substring(0, sp) : ng;
     }
 
-    /** Extrae el tracking base de un numeroGuia con formato "<base> <n>/<t>". */
     private static String extraerTrackingBase(String numeroGuia) {
         if (numeroGuia == null) return "";
         int sp = numeroGuia.indexOf(' ');
         return sp > 0 ? numeroGuia.substring(0, sp) : numeroGuia;
     }
 
-    /** "{canton}, {provincia}" / "{canton}" / "{provincia}" / "" segun datos disponibles. */
     private static String formatCantonProvincia(Consignatario d) {
         String canton = d.getCanton();
         String prov = d.getProvincia();
@@ -902,7 +992,6 @@ public class ManifiestoEnvioConsolidadoService {
         return "";
     }
 
-    /** Devuelve la fraccion de pieza "{piezaNumero}/{piezaTotal}" o vacio si no hay datos. */
     private static String formatPieza(Paquete p) {
         Integer pn = p.getPiezaNumero();
         Integer pt = p.getPiezaTotal();
@@ -910,7 +999,6 @@ public class ManifiestoEnvioConsolidadoService {
         return pn + "/" + pt;
     }
 
-    /** Devuelve "{direccion} - {canton}, {provincia}" segun los datos disponibles. */
     private static String formatUbicacion(Consignatario d) {
         if (d == null) return "";
         StringBuilder sb = new StringBuilder();
@@ -946,10 +1034,6 @@ public class ManifiestoEnvioConsolidadoService {
         return ldt.format(FMT_FECHA);
     }
 
-    /**
-     * Truncado defensivo para celdas del PDF. Mantiene la firma
-     * por compatibilidad pero valida primero.
-     */
     private static String truncate(String s, int max) {
         if (s == null) return "";
         return s.length() > max ? s.substring(0, max - 1) + "..." : s;
