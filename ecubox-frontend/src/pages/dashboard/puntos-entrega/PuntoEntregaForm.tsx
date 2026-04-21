@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { LabeledField as FormField } from '@/components/LabeledField';
+import { ProvinciaCantonSelectors } from '@/components/ProvinciaCantonSelectors';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -43,10 +44,6 @@ import {
 } from '@/hooks/usePuntosEntregaAdmin';
 import { useCouriersEntregaAdmin } from '@/hooks/useCouriersEntregaAdmin';
 import type { AgenciaCourierEntregaRequest } from '@/types/despacho';
-import {
-  PROVINCIAS_ECUADOR,
-  getCantonesByProvincia,
-} from '@/data/provincias-cantones-ecuador';
 import {
   onKeyDownNumeric,
   onKeyDownNumericDecimal,
@@ -153,16 +150,6 @@ export function PuntoEntregaForm({
     [couriersEntrega, watchedCourierEntregaId],
   );
 
-  const cantones = useMemo(
-    () => getCantonesByProvincia(watchedProvincia ?? ''),
-    [watchedProvincia],
-  );
-
-  const cantonValido = useMemo(() => {
-    if (!watchedCanton) return true;
-    return cantones.includes(watchedCanton);
-  }, [cantones, watchedCanton]);
-
   const previewVisible = Boolean(
     courierEntregaSel ||
       watchedProvincia ||
@@ -197,6 +184,8 @@ export function PuntoEntregaForm({
 
   const loading = createMutation.isPending || updateMutation.isPending;
   const errors = form.formState.errors;
+  const isDirty = form.formState.isDirty;
+  const submitDisabled = loading || (isEdit && !isDirty);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -350,77 +339,28 @@ export function PuntoEntregaForm({
             description="Provincia, cantón y dirección física del punto de entrega."
           >
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField label="Provincia" error={errors.provincia?.message}>
-                  <Select
-                    value={watchedProvincia || undefined}
-                    onValueChange={(value) => {
-                      form.setValue('provincia', value, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                      form.setValue('canton', '', {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                    }}
-                  >
-                    <SelectTrigger
-                      variant="clean"
-                      aria-invalid={Boolean(errors.provincia)}
-                    >
-                      <SelectValue placeholder="Seleccione provincia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PROVINCIAS_ECUADOR.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-
-                <FormField
-                  label="Cantón"
-                  error={errors.canton?.message}
-                  hint={
-                    !watchedProvincia
-                      ? 'Selecciona una provincia primero.'
-                      : undefined
-                  }
-                >
-                  <Select
-                    value={watchedCanton || undefined}
-                    onValueChange={(value) =>
-                      form.setValue('canton', value, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                    disabled={!watchedProvincia}
-                  >
-                    <SelectTrigger
-                      variant="clean"
-                      aria-invalid={Boolean(errors.canton)}
-                    >
-                      <SelectValue placeholder="Seleccione cantón" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cantones.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                      {watchedCanton && !cantonValido && (
-                        <SelectItem value={watchedCanton}>
-                          {watchedCanton} (personalizado)
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-              </div>
+              <ProvinciaCantonSelectors
+                provincia={watchedProvincia ?? ''}
+                canton={watchedCanton ?? ''}
+                errorProvincia={errors.provincia?.message}
+                errorCanton={errors.canton?.message}
+                onProvinciaChange={(value, cantonReset) => {
+                  form.setValue('provincia', value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                  form.setValue('canton', cantonReset, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                }}
+                onCantonChange={(value) =>
+                  form.setValue('canton', value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+              />
 
               <FormField
                 label="Dirección"
@@ -624,7 +564,13 @@ export function PuntoEntregaForm({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button
+              type="submit"
+              disabled={submitDisabled}
+              title={
+                isEdit && !isDirty ? 'No hay cambios para guardar' : undefined
+              }
+            >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

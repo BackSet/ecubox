@@ -9,7 +9,9 @@ import { getSearchShortcutLabel } from '@/lib/shortcut';
 export function MainLayout({ content }: { content?: ReactNode }) {
   const [openCommand, setOpenCommand] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [shortcutLabel, setShortcutLabel] = useState('Ctrl+K');
+  // Lazy initializer: en Mac evita el flash 'Ctrl+K' -> '⌘K' que ocurría
+  // porque el valor se calculaba en un useEffect tras el primer render.
+  const [shortcutLabel] = useState<string>(() => getSearchShortcutLabel());
 
   const openSearch = useCallback(() => {
     setOpenCommand(true);
@@ -24,10 +26,6 @@ export function MainLayout({ content }: { content?: ReactNode }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  useEffect(() => {
-    setShortcutLabel(getSearchShortcutLabel());
   }, []);
 
   return (

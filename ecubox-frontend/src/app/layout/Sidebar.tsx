@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
@@ -14,20 +14,25 @@ interface SidebarProps {
 
 const SIDEBAR_COLLAPSED_KEY = 'ecubox_sidebar_collapsed';
 
+function readCollapsedFromStorage(mobile: boolean): boolean {
+  if (mobile || typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  // Lazy initializer: lee localStorage de forma síncrona en el PRIMER render
+  // para evitar el flash visual que ocurría cuando MainLayout se remonta en
+  // cada navegación (ver routes/router.tsx -> withDashboardLayout). Sin esto,
+  // el sidebar arrancaba expandido (false) y luego se animaba a colapsado.
+  const [collapsed, setCollapsed] = useState<boolean>(() =>
+    readCollapsedFromStorage(mobile),
+  );
   const { hasPermission } = useAuthStore();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-
-  useEffect(() => {
-    if (mobile || typeof window === 'undefined') return;
-    try {
-      const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      if (stored === '1') setCollapsed(true);
-    } catch {
-      // Silent fallback: state lives in memory only.
-    }
-  }, [mobile]);
 
   const visibleGroups = getVisibleNavGroups(hasPermission);
 

@@ -15,6 +15,41 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <script>
+      // Aplica el tema (light/dark/system) ANTES del primer paint para evitar
+      // FOUC (flash de fondo blanco al cargar con tema oscuro). Debe replicar
+      // la misma lógica de src/stores/themeStore.ts (clave 'ecubox_theme' del
+      // persist de zustand). Si fallara, la app cae al default 'system'.
+      (function () {
+        try {
+          var stored = window.localStorage.getItem('ecubox_theme');
+          var theme = 'system';
+          if (stored) {
+            var parsed = JSON.parse(stored);
+            var saved = parsed && parsed.state && parsed.state.theme;
+            if (saved === 'light' || saved === 'dark' || saved === 'system') {
+              theme = saved;
+            }
+          }
+          var effective = theme;
+          if (theme === 'system') {
+            effective = window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+          }
+          var root = document.documentElement;
+          root.dataset.theme = theme;
+          root.style.colorScheme = effective;
+          if (effective === 'dark') {
+            root.classList.add('dark');
+          } else {
+            root.classList.remove('dark');
+          }
+        } catch (e) {
+          // Storage bloqueado: dejamos que React aplique el default tras montar.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

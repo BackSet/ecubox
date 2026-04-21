@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -28,24 +28,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { LabeledField as FormField } from '@/components/LabeledField';
+import { ProvinciaCantonSelectors } from '@/components/ProvinciaCantonSelectors';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   useAgencia,
   useCreateAgencia,
   useUpdateAgencia,
 } from '@/hooks/useAgencias';
 import type { AgenciaRequest } from '@/types/despacho';
-import {
-  PROVINCIAS_ECUADOR,
-  getCantonesByProvincia,
-} from '@/data/provincias-cantones-ecuador';
 import {
   onKeyDownNumeric,
   onKeyDownNumericDecimal,
@@ -171,16 +161,6 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
   const watchedDiasMax = form.watch('diasMaxRetiro');
   const watchedTarifa = form.watch('tarifaServicio');
 
-  const cantones = useMemo(
-    () => getCantonesByProvincia(watchedProvincia ?? ''),
-    [watchedProvincia],
-  );
-
-  const cantonValido = useMemo(() => {
-    if (!watchedCanton) return true;
-    return cantones.includes(watchedCanton);
-  }, [cantones, watchedCanton]);
-
   const puedeSugerirCodigo = Boolean(
     (watchedNombre?.trim()?.length ?? 0) >= 3,
   );
@@ -236,6 +216,8 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
 
   const loading = createMutation.isPending || updateMutation.isPending;
   const errors = form.formState.errors;
+  const isDirty = form.formState.isDirty;
+  const submitDisabled = loading || (isEdit && !isDirty);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -383,77 +365,28 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
             description="Provincia, cantón y dirección física de la agencia."
           >
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField label="Provincia" error={errors.provincia?.message}>
-                  <Select
-                    value={watchedProvincia || undefined}
-                    onValueChange={(value) => {
-                      form.setValue('provincia', value, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                      form.setValue('canton', '', {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                    }}
-                  >
-                    <SelectTrigger
-                      variant="clean"
-                      aria-invalid={Boolean(errors.provincia)}
-                    >
-                      <SelectValue placeholder="Seleccione provincia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PROVINCIAS_ECUADOR.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-
-                <FormField
-                  label="Cantón"
-                  error={errors.canton?.message}
-                  hint={
-                    !watchedProvincia
-                      ? 'Selecciona una provincia primero.'
-                      : undefined
-                  }
-                >
-                  <Select
-                    value={watchedCanton || undefined}
-                    onValueChange={(value) =>
-                      form.setValue('canton', value, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                    disabled={!watchedProvincia}
-                  >
-                    <SelectTrigger
-                      variant="clean"
-                      aria-invalid={Boolean(errors.canton)}
-                    >
-                      <SelectValue placeholder="Seleccione cantón" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cantones.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                      {watchedCanton && !cantonValido && (
-                        <SelectItem value={watchedCanton}>
-                          {watchedCanton} (personalizado)
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-              </div>
+              <ProvinciaCantonSelectors
+                provincia={watchedProvincia ?? ''}
+                canton={watchedCanton ?? ''}
+                errorProvincia={errors.provincia?.message}
+                errorCanton={errors.canton?.message}
+                onProvinciaChange={(value, cantonReset) => {
+                  form.setValue('provincia', value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                  form.setValue('canton', cantonReset, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                }}
+                onCantonChange={(value) =>
+                  form.setValue('canton', value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+              />
 
               <FormField
                 label="Dirección"
@@ -657,7 +590,13 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button
+              type="submit"
+              disabled={submitDisabled}
+              title={
+                isEdit && !isDirty ? 'No hay cambios para guardar' : undefined
+              }
+            >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

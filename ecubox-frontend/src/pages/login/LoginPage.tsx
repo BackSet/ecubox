@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { z } from 'zod';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -32,6 +32,15 @@ import {
 
 const REMEMBER_KEY = 'ecubox-login-remember';
 
+function readRememberedUsername(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(REMEMBER_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
 const loginSchema = z.object({
   username: z.string().min(1, 'El usuario o correo es requerido'),
   password: z.string().min(1, 'La contraseña es requerida'),
@@ -58,25 +67,15 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
-  const [remember, setRemember] = useState(false);
+  // Lectura síncrona del username recordado en el primer render para evitar
+  // que el input arranque vacío y luego "salte" al valor guardado.
+  const rememberedUsername = readRememberedUsername();
+  const [remember, setRemember] = useState<boolean>(() => Boolean(rememberedUsername));
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { username: '', password: '' },
+    defaultValues: { username: rememberedUsername, password: '' },
   });
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const saved = window.localStorage.getItem(REMEMBER_KEY);
-      if (saved) {
-        form.setValue('username', saved);
-        setRemember(true);
-      }
-    } catch {
-      // ignorar errores de storage
-    }
-  }, [form]);
 
   function detectCapsLock(e: React.KeyboardEvent<HTMLInputElement>) {
     if (typeof e.getModifierState === 'function') {

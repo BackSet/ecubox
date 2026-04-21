@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -30,14 +30,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { LabeledField as FormField } from '@/components/LabeledField';
+import { ProvinciaCantonSelectors } from '@/components/ProvinciaCantonSelectors';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   useConsignatario,
   useCreateConsignatario,
@@ -50,10 +44,6 @@ import {
 import { sugerirCodigo } from '@/lib/api/consignatarios.service';
 import { useAuthStore } from '@/stores/authStore';
 import type { ConsignatarioRequest } from '@/types/consignatario';
-import {
-  PROVINCIAS_ECUADOR,
-  getCantonesByProvincia,
-} from '@/data/provincias-cantones-ecuador';
 import { telefonoSchema } from '@/lib/validation';
 import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
 import { cn } from '@/lib/utils';
@@ -144,16 +134,6 @@ export function ConsignatarioForm({
   const watchedCanton = form.watch('canton');
   const watchedCodigo = form.watch('codigo');
 
-  const cantones = useMemo(
-    () => getCantonesByProvincia(watchedProvincia ?? ''),
-    [watchedProvincia],
-  );
-
-  const cantonValido = useMemo(() => {
-    if (!watchedCanton) return true;
-    return cantones.includes(watchedCanton);
-  }, [cantones, watchedCanton]);
-
   const puedeGenerarCodigo = Boolean(
     (watchedNombre?.trim()?.length ?? 0) >= 3 && (watchedCanton?.trim()?.length ?? 0) > 0,
   );
@@ -236,6 +216,10 @@ export function ConsignatarioForm({
     updateOperarioMutation.isPending;
 
   const errors = form.formState.errors;
+  const isDirty = form.formState.isDirty;
+  // En modo edición no se permite guardar si no hay cambios respecto al baseline
+  // que se estableció con form.reset() al cargar los datos del consignatario.
+  const submitDisabled = loading || (isEdit && !isDirty);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -349,82 +333,29 @@ export function ConsignatarioForm({
             description="Provincia, cantón y dirección detallada para la entrega."
           >
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField
-                  label="Provincia"
-                  required
-                  error={errors.provincia?.message}
-                >
-                  <Select
-                    value={watchedProvincia || undefined}
-                    onValueChange={(value) => {
-                      form.setValue('provincia', value, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                      form.setValue('canton', '', {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                    }}
-                  >
-                    <SelectTrigger
-                      variant="clean"
-                      aria-invalid={Boolean(errors.provincia)}
-                    >
-                      <SelectValue placeholder="Seleccione provincia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PROVINCIAS_ECUADOR.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-
-                <FormField
-                  label="Cantón"
-                  required
-                  error={errors.canton?.message}
-                  hint={
-                    !watchedProvincia
-                      ? 'Selecciona una provincia primero.'
-                      : undefined
-                  }
-                >
-                  <Select
-                    value={watchedCanton || undefined}
-                    onValueChange={(value) =>
-                      form.setValue('canton', value, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                    disabled={!watchedProvincia}
-                  >
-                    <SelectTrigger
-                      variant="clean"
-                      aria-invalid={Boolean(errors.canton)}
-                    >
-                      <SelectValue placeholder="Seleccione cantón" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cantones.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                      {watchedCanton && !cantonValido && (
-                        <SelectItem value={watchedCanton}>
-                          {watchedCanton} (personalizado)
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-              </div>
+              <ProvinciaCantonSelectors
+                required
+                provincia={watchedProvincia ?? ''}
+                canton={watchedCanton ?? ''}
+                errorProvincia={errors.provincia?.message}
+                errorCanton={errors.canton?.message}
+                onProvinciaChange={(value, cantonReset) => {
+                  form.setValue('provincia', value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                  form.setValue('canton', cantonReset, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                }}
+                onCantonChange={(value) =>
+                  form.setValue('canton', value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+              />
 
               <FormField
                 label="Dirección detallada"
@@ -565,7 +496,13 @@ export function ConsignatarioForm({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button
+              type="submit"
+              disabled={submitDisabled}
+              title={
+                isEdit && !isDirty ? 'No hay cambios para guardar' : undefined
+              }
+            >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
