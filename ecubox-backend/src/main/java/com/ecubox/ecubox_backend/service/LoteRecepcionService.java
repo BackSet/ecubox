@@ -101,6 +101,10 @@ public class LoteRecepcionService {
         for (String codigo : dedup) {
             String canonico = resolverCodigoCanonico(codigo);
             if (canonico == null) continue;
+            // Un envio consolidado solo puede recibirse fisicamente una vez.
+            // Si ya existe en cualquier otro lote, se omite silenciosamente
+            // para no duplicar el registro de recepcion.
+            if (loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(canonico)) continue;
             List<Paquete> paquetes = paquetesPorCodigoEnvio(canonico);
             if (paquetes.isEmpty()) continue;
             LoteRecepcionGuia guia = LoteRecepcionGuia.builder()
@@ -146,6 +150,9 @@ public class LoteRecepcionService {
             String canonico = resolverCodigoCanonico(codigo);
             if (canonico == null) continue;
             if (yaEnLote.contains(canonico.trim().toUpperCase())) continue;
+            // Si el envio ya esta en cualquier otro lote (no solo en este), se
+            // omite. La recepcion fisica ocurre una sola vez por envio.
+            if (loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(canonico)) continue;
             List<Paquete> paquetes = paquetesPorCodigoEnvio(canonico);
             if (paquetes.isEmpty()) continue;
             LoteRecepcionGuia guia = LoteRecepcionGuia.builder()

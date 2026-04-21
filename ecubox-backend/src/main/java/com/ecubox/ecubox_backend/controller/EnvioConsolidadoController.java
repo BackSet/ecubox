@@ -49,6 +49,24 @@ public class EnvioConsolidadoController {
         return ResponseEntity.ok(PageResponse.of(resultado, e -> envioConsolidadoService.toDTO(e, false)));
     }
 
+    /**
+     * Lista los envios consolidados que pueden incluirse en un nuevo lote de
+     * recepcion. A diferencia del listado general, no filtra por estado abierto
+     * ni por estado de pago: un consolidado ya liquidado (PAGADO + CERRADO)
+     * sigue siendo recepcionable mientras no haya llegado fisicamente. Los
+     * envios sin paquetes y los que ya estan en algun lote de recepcion se
+     * excluyen del resultado.
+     */
+    @GetMapping("/disponibles-recepcion")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    public ResponseEntity<PageResponse<EnvioConsolidadoDTO>> findDisponiblesParaRecepcion(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        Page<EnvioConsolidado> resultado = envioConsolidadoService.findDisponiblesParaRecepcion(q, page, size);
+        return ResponseEntity.ok(PageResponse.of(resultado, e -> envioConsolidadoService.toDTO(e, false)));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_READ')")
     public ResponseEntity<EnvioConsolidadoDTO> findById(@PathVariable Long id) {

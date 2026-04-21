@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useCreateLoteRecepcion } from '@/hooks/useLotesRecepcion';
-import { useEnviosConsolidados } from '@/hooks/useEnviosConsolidados';
+import { useEnviosDisponiblesParaRecepcion } from '@/hooks/useEnviosConsolidados';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
@@ -39,27 +39,19 @@ export function LoteRecepcionNuevoPage() {
   const [bulkText, setBulkText] = useState('');
   const [modo, setModo] = useState<'buscar' | 'lista'>('buscar');
 
-  const { data: enviosResp, isLoading: loadingEnvios } = useEnviosConsolidados({
-    estado: 'ABIERTO',
-    size: 100,
+  // El endpoint `disponibles-recepcion` devuelve ya filtrados los envios que
+  // (a) tienen al menos un paquete y (b) no estan en otro lote. Es ortogonal
+  // al estado administrativo (cerrado / pagado) porque la recepcion fisica
+  // ocurre cuando llegan a Ecuador, sin importar si ya estan liquidados.
+  const { data: enviosResp, isLoading: loadingEnvios } = useEnviosDisponiblesParaRecepcion({
+    size: 200,
   });
   const envios = enviosResp?.content ?? [];
 
-  // Solo mostramos envios que tienen al menos un paquete asociado: un envio
-  // sin paquetes no aporta nada al lote y antes generaba ruido (badge
-  // "Sin paquetes" tras seleccionarlo). Mejor filtrar de raiz.
-  const enviosConPaquetes = useMemo(
-    () => envios.filter((e) => (e.totalPaquetes ?? 0) > 0),
-    [envios],
-  );
-
   const opcionesDisponibles = useMemo(
-    () =>
-      enviosConPaquetes.filter((e) => !seleccionados.some((s) => s.id === e.id)),
-    [enviosConPaquetes, seleccionados],
+    () => envios.filter((e) => !seleccionados.some((s) => s.id === e.id)),
+    [envios, seleccionados],
   );
-
-  const enviosSinPaquetes = envios.length - enviosConPaquetes.length;
 
   const stats = useMemo(() => {
     const totalPaquetes = seleccionados.reduce(
@@ -117,7 +109,6 @@ export function LoteRecepcionNuevoPage() {
     const nuevos: EnvioConsolidado[] = [];
     const duplicados: string[] = [];
     const desconocidos: string[] = [];
-    const sinPaquetes: string[] = [];
 
     for (const codigoUpper of dedup) {
       if (yaSeleccionadosSet.has(codigoUpper)) {
@@ -127,10 +118,6 @@ export function LoteRecepcionNuevoPage() {
       const env = enviosPorCodigo.get(codigoUpper);
       if (!env) {
         desconocidos.push(codigoUpper);
-        continue;
-      }
-      if ((env.totalPaquetes ?? 0) === 0) {
-        sinPaquetes.push(env.codigo);
         continue;
       }
       nuevos.push(env);
@@ -149,25 +136,14 @@ export function LoteRecepcionNuevoPage() {
         { description: duplicados.slice(0, 5).join(', ') + (duplicados.length > 5 ? '...' : '') },
       );
     }
-    if (sinPaquetes.length > 0) {
-      toast.warning(
-        `${sinPaquetes.length} envío${sinPaquetes.length === 1 ? '' : 's'} sin paquetes (omitido${sinPaquetes.length === 1 ? '' : 's'})`,
-        {
-          description:
-            sinPaquetes.slice(0, 5).join(', ') +
-            (sinPaquetes.length > 5 ? '...' : '') +
-            ' · Solo se reciben envíos con al menos un paquete registrado.',
-        },
-      );
-    }
     if (desconocidos.length > 0) {
       toast.error(
-        `${desconocidos.length} código${desconocidos.length === 1 ? '' : 's'} no encontrado${desconocidos.length === 1 ? '' : 's'}`,
+        `${desconocidos.length} código${desconocidos.length === 1 ? '' : 's'} no disponible${desconocidos.length === 1 ? '' : 's'}`,
         {
           description:
             desconocidos.slice(0, 5).join(', ') +
             (desconocidos.length > 5 ? '...' : '') +
-            ' (revisa que estén abiertos en /envios-consolidados)',
+            ' · No existen, no tienen paquetes o ya fueron recibidos en otro lote.',
         },
       );
     }
@@ -235,8 +211,9 @@ export function LoteRecepcionNuevoPage() {
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               Marca como recibidos todos los paquetes asociados a uno o varios
-              envíos consolidados. Solo se incluirán envíos abiertos con
-              paquetes registrados.
+              envíos consolidados. Se listan tanto envíos abiertos como
+              cerrados (incluso ya liquidados): la recepción física en bodega
+              es independiente del estado administrativo.
             </p>
           </div>
         </div>
@@ -360,7 +337,7 @@ export function LoteRecepcionNuevoPage() {
                         loadingEnvios
                           ? 'Cargando envíos...'
                           : opcionesDisponibles.length === 0
-                            ? 'No hay envíos disponibles con paquetes'
+                            ? 'No hay envíos pendientes de recepción'
                             : 'Buscar por código de envío consolidado'
                       }
                       searchPlaceholder="Escribe el código..."
@@ -380,15 +357,22 @@ export function LoteRecepcionNuevoPage() {
                                 : ''}
                             </p>
                           </div>
-                          {o.cerrado ? (
-                            <Badge variant="secondary" className="font-normal">
-                              Cerrado
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20 dark:text-[var(--color-success)]">
-                              Abierto
-                            </Badge>
-                          )}
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {o.estadoPago === 'PAGADO' && (
+                              <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20">
+                                Pagado
+                              </Badge>
+                            )}
+                            {o.cerrado ? (
+                              <Badge variant="secondary" className="font-normal">
+                                Cerrado
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20">
+                                Abierto
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       )}
                       renderSelected={(o) => (
@@ -408,20 +392,10 @@ export function LoteRecepcionNuevoPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Solo se listan envíos abiertos con al menos un paquete
-                  registrado.
-                  {enviosSinPaquetes > 0 && (
-                    <>
-                      {' '}
-                      <span className="text-[var(--color-warning)]">
-                        {enviosSinPaquetes} envío
-                        {enviosSinPaquetes === 1 ? '' : 's'} sin paquetes oculto
-                        {enviosSinPaquetes === 1 ? '' : 's'}.
-                      </span>
-                    </>
-                  )}{' '}
-                  Si no aparece el código que buscas, créalo o agrégale paquetes
-                  en{' '}
+                  Se listan envíos con al menos un paquete que aún no fueron
+                  recibidos en otro lote, sin importar si están abiertos,
+                  cerrados o ya pagados. Si no aparece el código que buscas,
+                  créalo o agrégale paquetes en{' '}
                   <Link
                     to="/envios-consolidados"
                     className="text-primary underline-offset-2 hover:underline"
@@ -437,8 +411,9 @@ export function LoteRecepcionNuevoPage() {
                   Pegar varios códigos
                 </label>
                 <p className="text-xs text-muted-foreground">
-                  Separa los códigos por líneas, espacios o comas. Solo se
-                  agregarán los envíos con al menos un paquete registrado.
+                  Separa los códigos por líneas, espacios o comas. Se agregarán
+                  los envíos con paquetes que aún no estén en otro lote, sin
+                  importar si están cerrados o ya pagados.
                 </p>
                 <textarea
                   value={bulkText}
@@ -523,9 +498,21 @@ export function LoteRecepcionNuevoPage() {
                           <PackageCheck className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate font-mono text-sm font-medium">
-                            {env.codigo}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="truncate font-mono text-sm font-medium">
+                              {env.codigo}
+                            </p>
+                            {env.estadoPago === 'PAGADO' && (
+                              <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20">
+                                Pagado
+                              </Badge>
+                            )}
+                            {env.cerrado && (
+                              <Badge variant="secondary" className="font-normal">
+                                Cerrado
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {env.totalPaquetes ?? 0} paquete
                             {env.totalPaquetes === 1 ? '' : 's'}

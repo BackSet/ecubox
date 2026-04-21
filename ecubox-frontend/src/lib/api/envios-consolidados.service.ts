@@ -36,6 +36,32 @@ export async function listarEnviosConsolidados(
   return data;
 }
 
+export interface ListarDisponiblesRecepcionParams {
+  /** Búsqueda libre sobre el código del envío. */
+  q?: string;
+  page?: number;
+  size?: number;
+}
+
+/**
+ * Lista los envíos consolidados que pueden registrarse en un nuevo lote de
+ * recepción. A diferencia del listado general, este endpoint es ortogonal a
+ * `cerrado` y `estadoPago`: incluye envíos ya liquidados y pagados, porque
+ * el flujo físico USA → Ecuador es independiente del flujo administrativo.
+ *
+ * El backend excluye automáticamente los envíos sin paquetes y los que ya
+ * están en algún otro lote de recepción.
+ */
+export async function listarEnviosDisponiblesParaRecepcion(
+  params: ListarDisponiblesRecepcionParams = {}
+): Promise<PageResponse<EnvioConsolidado>> {
+  const { data } = await apiClient.get<PageResponse<EnvioConsolidado>>(
+    `${BASE}/disponibles-recepcion`,
+    { params }
+  );
+  return data;
+}
+
 export async function obtenerEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
   const { data } = await apiClient.get<EnvioConsolidado>(`${BASE}/${id}`);
   return data;

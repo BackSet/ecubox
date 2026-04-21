@@ -69,6 +69,21 @@ public class EnvioConsolidadoService {
     }
 
     /**
+     * Lista los envios consolidados que pueden incluirse en un nuevo lote de
+     * recepcion. Ortogonal a los flags {@code cerrado} / {@code estadoPago}:
+     * un consolidado liquidado y pagado sigue siendo recepcionable mientras
+     * no haya sido recibido fisicamente.
+     */
+    @Transactional(readOnly = true)
+    public Page<EnvioConsolidado> findDisponiblesParaRecepcion(String q, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)));
+        String search = Strings.trimOrNull(q);
+        return envioConsolidadoRepository.findDisponiblesParaRecepcion(
+                search != null ? search : "",
+                pageable);
+    }
+
+    /**
      * Lista envios paginados con búsqueda libre opcional sobre el código.
      *
      * @param cerrado    {@code null} -> todos; {@code true} -> solo cerrados; {@code false} -> solo abiertos.

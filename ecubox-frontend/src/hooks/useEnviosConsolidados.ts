@@ -7,9 +7,11 @@ import {
   descargarManifiestoXlsx,
   eliminarEnvioConsolidado,
   listarEnviosConsolidados,
+  listarEnviosDisponiblesParaRecepcion,
   obtenerEnvioConsolidado,
   reabrirEnvioConsolidado,
   removerPaquetesEnvioConsolidado,
+  type ListarDisponiblesRecepcionParams,
   type ListarEnviosParams,
 } from '@/lib/api/envios-consolidados.service';
 import type {
@@ -26,6 +28,24 @@ export function useEnviosConsolidados(
   return useQuery({
     queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'list', params],
     queryFn: () => listarEnviosConsolidados(params),
+    enabled,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * Lista los envíos consolidados elegibles para crearse o agregarse a un lote
+ * de recepción. Incluye envíos cerrados y/o pagados (la recepción física es
+ * ortogonal al estado administrativo). El backend excluye los que ya están
+ * en otro lote y los que no tienen paquetes.
+ */
+export function useEnviosDisponiblesParaRecepcion(
+  params: ListarDisponiblesRecepcionParams = {},
+  enabled = true
+) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'disponibles-recepcion', params],
+    queryFn: () => listarEnviosDisponiblesParaRecepcion(params),
     enabled,
     placeholderData: keepPreviousData,
   });

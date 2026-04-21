@@ -13,6 +13,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -197,6 +202,35 @@ class EnvioConsolidadoServiceTest {
         ConflictException ex = assertThrows(ConflictException.class,
                 () -> service.agregarPaquetes(1L, List.of(10L)));
         assertNotNull(ex);
+    }
+
+    @Test
+    void findDisponiblesParaRecepcion_delegaAlRepositorioConPageableYTrim() {
+        EnvioConsolidado a = EnvioConsolidado.builder().id(1L).codigo("ENV-A").build();
+        EnvioConsolidado b = EnvioConsolidado.builder().id(2L).codigo("ENV-B")
+                .fechaCerrado(LocalDateTime.now()).build();
+        Pageable expectedPageable = PageRequest.of(0, 50);
+        Page<EnvioConsolidado> page = new PageImpl<>(List.of(a, b), expectedPageable, 2L);
+        when(envioRepository.findDisponiblesParaRecepcion("env", expectedPageable)).thenReturn(page);
+
+        Page<EnvioConsolidado> res = service.findDisponiblesParaRecepcion("  env  ", 0, 50);
+
+        assertEquals(2, res.getContent().size());
+        assertSame(a, res.getContent().get(0));
+        assertSame(b, res.getContent().get(1), "el filtro debe ser ortogonal a cerrado");
+    }
+
+    @Test
+    void findDisponiblesParaRecepcion_qNuloOEnBlanco_pasaCadenaVacia() {
+        Pageable expectedPageable = PageRequest.of(0, 50);
+        when(envioRepository.findDisponiblesParaRecepcion("", expectedPageable))
+                .thenReturn(new PageImpl<>(List.of(), expectedPageable, 0L));
+
+        service.findDisponiblesParaRecepcion(null, 0, 50);
+        service.findDisponiblesParaRecepcion("   ", 0, 50);
+
+        verify(envioRepository, org.mockito.Mockito.times(2))
+                .findDisponiblesParaRecepcion("", expectedPageable);
     }
 
     @Test

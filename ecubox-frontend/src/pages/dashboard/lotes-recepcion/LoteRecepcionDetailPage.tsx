@@ -5,7 +5,7 @@ import {
   useAddGuiasToLoteRecepcion,
   useDeleteLoteRecepcion,
 } from '@/hooks/useLotesRecepcion';
-import { useEnviosConsolidados } from '@/hooks/useEnviosConsolidados';
+import { useEnviosDisponiblesParaRecepcion } from '@/hooks/useEnviosConsolidados';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
@@ -716,8 +716,11 @@ function AgregarEnviosDialog({
   const [comboValue, setComboValue] = useState<number | undefined>(undefined);
   const [bulkText, setBulkText] = useState('');
 
-  const { data: enviosResp, isLoading } = useEnviosConsolidados(
-    { estado: 'ABIERTO', size: 100 },
+  // Listamos los envios disponibles para recepcion: incluye cerrados y
+  // pagados (la recepcion fisica es ortogonal al estado administrativo) y
+  // excluye los que ya estan en otro lote.
+  const { data: enviosResp, isLoading } = useEnviosDisponiblesParaRecepcion(
+    { size: 200 },
     open,
   );
   const envios = enviosResp?.content ?? [];
@@ -816,8 +819,9 @@ function AgregarEnviosDialog({
         <DialogHeader>
           <DialogTitle>Agregar envíos consolidados al lote</DialogTitle>
           <DialogDescription>
-            Selecciona uno o más envíos consolidados abiertos. Sus paquetes
-            quedarán incluidos automáticamente en este lote.
+            Selecciona uno o más envíos consolidados con paquetes pendientes
+            de recepción. Aparecen tanto envíos abiertos como cerrados o ya
+            liquidados; lo importante es que aún no estén en otro lote.
           </DialogDescription>
         </DialogHeader>
 
@@ -854,7 +858,22 @@ function AgregarEnviosDialog({
                         <p className="text-xs text-muted-foreground">
                           {o.totalPaquetes ?? 0} paquete
                           {o.totalPaquetes === 1 ? '' : 's'}
+                          {o.pesoTotalLbs != null
+                            ? ` · ${o.pesoTotalLbs.toFixed(2)} lbs`
+                            : ''}
                         </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {o.estadoPago === 'PAGADO' && (
+                          <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20">
+                            Pagado
+                          </Badge>
+                        )}
+                        {o.cerrado && (
+                          <Badge variant="secondary" className="font-normal">
+                            Cerrado
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   )}
@@ -942,12 +961,27 @@ function AgregarEnviosDialog({
                     <div className="flex min-w-0 items-center gap-3">
                       <PackageCheck className="h-4 w-4 text-primary" />
                       <div className="min-w-0">
-                        <p className="truncate font-mono text-sm font-medium">
-                          {env.codigo}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="truncate font-mono text-sm font-medium">
+                            {env.codigo}
+                          </p>
+                          {env.estadoPago === 'PAGADO' && (
+                            <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20">
+                              Pagado
+                            </Badge>
+                          )}
+                          {env.cerrado && (
+                            <Badge variant="secondary" className="font-normal">
+                              Cerrado
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {env.totalPaquetes ?? 0} paquete
                           {env.totalPaquetes === 1 ? '' : 's'}
+                          {env.pesoTotalLbs != null
+                            ? ` · ${env.pesoTotalLbs.toFixed(2)} lbs`
+                            : ''}
                         </p>
                       </div>
                     </div>

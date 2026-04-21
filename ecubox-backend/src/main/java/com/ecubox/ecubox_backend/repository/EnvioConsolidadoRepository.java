@@ -39,4 +39,37 @@ public interface EnvioConsolidadoRepository
             """)
     Page<EnvioConsolidado> findDisponiblesParaLiquidacion(
             @Param("q") String q, Pageable pageable);
+
+    /**
+     * Envios consolidados candidatos para registrarse en un lote de recepcion.
+     *
+     * <p>El concepto operativo de "estar disponible para recepcion" es
+     * <em>ortogonal</em> a los flags {@code cerrado} y {@code estadoPago}: un
+     * envio puede estar ya cerrado y/o ya liquidado (PAGADO) y aun asi estar
+     * fisicamente en USA esperando llegar a Ecuador, donde se recibe en
+     * bodega. Por eso este filtro <strong>no</strong> mira esos campos.
+     *
+     * <p>Reglas:
+     * <ul>
+     *   <li>Debe tener al menos un {@link Paquete} asociado (un envio vacio
+     *       no aporta nada al lote).</li>
+     *   <li>No puede estar ya incluido en otro {@link com.ecubox.ecubox_backend.entity.LoteRecepcionGuia}
+     *       (la recepcion fisica ocurre una sola vez por envio).</li>
+     *   <li>Filtro libre opcional sobre el {@code codigo}.</li>
+     * </ul>
+     */
+    @Query("""
+            SELECT e FROM EnvioConsolidado e
+            WHERE EXISTS (
+              SELECT 1 FROM Paquete p WHERE p.envioConsolidado = e
+            )
+              AND NOT EXISTS (
+                SELECT 1 FROM LoteRecepcionGuia g
+                WHERE LOWER(g.numeroGuiaEnvio) = LOWER(e.codigo)
+              )
+              AND LOWER(e.codigo) LIKE LOWER(CONCAT('%', :q, '%'))
+            ORDER BY e.createdAt DESC
+            """)
+    Page<EnvioConsolidado> findDisponiblesParaRecepcion(
+            @Param("q") String q, Pageable pageable);
 }
