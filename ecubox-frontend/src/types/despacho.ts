@@ -13,7 +13,6 @@ export interface AgenciaCourierEntrega {
   direccion?: string;
   horarioAtencion?: string;
   diasMaxRetiro?: number;
-  tarifa: number;
 }
 
 export interface AgenciaCourierEntregaRequest {
@@ -24,7 +23,6 @@ export interface AgenciaCourierEntregaRequest {
   direccion?: string;
   horarioAtencion?: string;
   diasMaxRetiro?: number;
-  tarifa: number;
 }
 
 export type TamanioSaca = 'INDIVIDUAL' | 'PEQUENO' | 'MEDIANO' | 'GRANDE';
@@ -34,7 +32,6 @@ export interface CourierEntrega {
   nombre: string;
   codigo: string;
   email?: string;
-  tarifaEnvio?: number;
   horarioReparto?: string;
   paginaTracking?: string;
   diasMaxRetiroDomicilio?: number;
@@ -44,7 +41,6 @@ export interface CourierEntregaRequest {
   nombre: string;
   codigo: string;
   email?: string;
-  tarifaEnvio: number;
   horarioReparto?: string;
   paginaTracking?: string;
   diasMaxRetiroDomicilio?: number;
@@ -60,7 +56,6 @@ export interface Agencia {
   canton?: string;
   horarioAtencion?: string;
   diasMaxRetiro?: number;
-  tarifaServicio?: number;
 }
 
 export interface AgenciaRequest {
@@ -72,7 +67,6 @@ export interface AgenciaRequest {
   canton?: string;
   horarioAtencion?: string;
   diasMaxRetiro?: number;
-  tarifaServicio: number;
 }
 
 export interface Saca {

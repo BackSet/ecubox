@@ -139,7 +139,6 @@ public class AgenciaCourierEntregaService {
                 .direccion(r.getDireccion() != null ? r.getDireccion().trim() : null)
                 .horarioAtencion(r.getHorarioAtencion() != null ? r.getHorarioAtencion().trim() : null)
                 .diasMaxRetiro(r.getDiasMaxRetiro())
-                .tarifa(r.getTarifa() != null ? r.getTarifa() : java.math.BigDecimal.ZERO)
                 .build();
     }
 
@@ -150,7 +149,6 @@ public class AgenciaCourierEntregaService {
         ent.setDireccion(r.getDireccion() != null ? r.getDireccion().trim() : null);
         ent.setHorarioAtencion(r.getHorarioAtencion() != null ? r.getHorarioAtencion().trim() : null);
         ent.setDiasMaxRetiro(r.getDiasMaxRetiro());
-        ent.setTarifa(r.getTarifa() != null ? r.getTarifa() : java.math.BigDecimal.ZERO);
     }
 
     private static String buildEtiqueta(AgenciaCourierEntrega a) {
@@ -196,7 +194,6 @@ public class AgenciaCourierEntregaService {
                 .direccion(a.getDireccion())
                 .horarioAtencion(a.getHorarioAtencion())
                 .diasMaxRetiro(a.getDiasMaxRetiro())
-                .tarifa(a.getTarifa())
                 .build();
     }
 }

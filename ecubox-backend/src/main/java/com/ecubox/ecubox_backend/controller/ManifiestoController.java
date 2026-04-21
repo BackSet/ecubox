@@ -1,7 +1,6 @@
 package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.dto.AsignarDespachosRequest;
-import com.ecubox.ecubox_backend.dto.CambiarEstadoManifiestoRequest;
 import com.ecubox.ecubox_backend.dto.ManifiestoDTO;
 import com.ecubox.ecubox_backend.dto.ManifiestoDespachoCandidatoDTO;
 import com.ecubox.ecubox_backend.dto.ManifiestoRequest;
@@ -14,6 +13,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * API REST del manifiesto como agrupador logistico de despachos.
+ *
+ * <p>Las operaciones monetarias y de estado de pago migraron al modulo de
+ * Liquidaciones; aqui solo quedan CRUD basico, asignacion de despachos al
+ * documento y consulta de candidatos por periodo.
+ */
 @RestController
 @RequestMapping("/api/manifiestos")
 public class ManifiestoController {
@@ -44,7 +50,8 @@ public class ManifiestoController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('MANIFIESTOS_WRITE')")
-    public ResponseEntity<ManifiestoDTO> update(@PathVariable Long id, @Valid @RequestBody ManifiestoRequest request) {
+    public ResponseEntity<ManifiestoDTO> update(@PathVariable Long id,
+                                                @Valid @RequestBody ManifiestoRequest request) {
         return ResponseEntity.ok(manifiestoService.update(id, request));
     }
 
@@ -57,25 +64,16 @@ public class ManifiestoController {
 
     @PostMapping("/{id}/asignar-despachos")
     @PreAuthorize("hasAuthority('MANIFIESTOS_WRITE')")
-    public ResponseEntity<ManifiestoDTO> asignarDespachos(@PathVariable Long id, @Valid @RequestBody AsignarDespachosRequest request) {
+    public ResponseEntity<ManifiestoDTO> asignarDespachos(
+            @PathVariable Long id,
+            @Valid @RequestBody AsignarDespachosRequest request) {
         return ResponseEntity.ok(manifiestoService.asignarDespachos(id, request.getDespachoIds()));
     }
 
     @GetMapping("/{id}/despachos-candidatos")
     @PreAuthorize("hasAuthority('MANIFIESTOS_READ')")
-    public ResponseEntity<List<ManifiestoDespachoCandidatoDTO>> despachosCandidatos(@PathVariable Long id) {
+    public ResponseEntity<List<ManifiestoDespachoCandidatoDTO>> despachosCandidatos(
+            @PathVariable Long id) {
         return ResponseEntity.ok(manifiestoService.findDespachosCandidatos(id));
-    }
-
-    @PostMapping("/{id}/recalcular")
-    @PreAuthorize("hasAuthority('MANIFIESTOS_WRITE')")
-    public ResponseEntity<ManifiestoDTO> recalcularTotales(@PathVariable Long id) {
-        return ResponseEntity.ok(manifiestoService.recalcularTotales(id));
-    }
-
-    @PatchMapping("/{id}/estado")
-    @PreAuthorize("hasAuthority('MANIFIESTOS_WRITE')")
-    public ResponseEntity<ManifiestoDTO> cambiarEstado(@PathVariable Long id, @Valid @RequestBody CambiarEstadoManifiestoRequest request) {
-        return ResponseEntity.ok(manifiestoService.cambiarEstado(id, request.getEstado()));
     }
 }

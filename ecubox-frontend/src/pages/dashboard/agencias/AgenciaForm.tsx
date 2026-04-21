@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import {
   Building2,
   CalendarClock,
   Clock,
-  DollarSign,
   Hash,
   Info,
   Loader2,
@@ -36,12 +35,7 @@ import {
   useUpdateAgencia,
 } from '@/hooks/useAgencias';
 import type { AgenciaRequest } from '@/types/despacho';
-import {
-  onKeyDownNumeric,
-  onKeyDownNumericDecimal,
-  sanitizeNumeric,
-  sanitizeNumericDecimal,
-} from '@/lib/inputFilters';
+import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
@@ -65,10 +59,6 @@ const formSchema = z.object({
     .union([z.number().int().min(0, 'Debe ser mayor o igual a 0').max(365, 'Máximo 365 días'), z.nan()])
     .transform((n) => (Number.isNaN(n) ? undefined : n))
     .optional(),
-  tarifaServicio: z
-    .union([z.number(), z.nan()])
-    .transform((n) => (Number.isNaN(n) ? 0 : n))
-    .pipe(z.number().min(0, 'La tarifa debe ser mayor o igual a 0').max(99999, 'Tarifa fuera de rango')),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -87,11 +77,6 @@ const HORARIOS_PRESET: Array<{ label: string; value: string }> = [
 ];
 
 const RETIRO_PRESETS = [3, 5, 7, 15, 30];
-
-function fmtMoneda(n: number): string {
-  if (!Number.isFinite(n)) return '$0,00';
-  return `$${n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function slugCodigo(nombre: string, canton: string): string {
   const base = (nombre || '').trim().toLowerCase();
@@ -114,7 +99,6 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
   const { data: agencia } = useAgencia(id);
   const createMutation = useCreateAgencia();
   const updateMutation = useUpdateAgencia();
-  const [tarifaServicioInput, setTarifaServicioInput] = useState('0');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -128,7 +112,6 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
       canton: '',
       horarioAtencion: '',
       diasMaxRetiro: undefined,
-      tarifaServicio: 0,
     },
   });
 
@@ -143,11 +126,7 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
         canton: agencia.canton ?? '',
         horarioAtencion: agencia.horarioAtencion ?? '',
         diasMaxRetiro: agencia.diasMaxRetiro ?? undefined,
-        tarifaServicio: agencia.tarifaServicio ?? 0,
       });
-      setTarifaServicioInput(String(agencia.tarifaServicio ?? 0));
-    } else if (!isEdit) {
-      setTarifaServicioInput('0');
     }
   }, [isEdit, agencia, form]);
 
@@ -159,7 +138,6 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
   const watchedDireccion = form.watch('direccion');
   const watchedHorario = form.watch('horarioAtencion');
   const watchedDiasMax = form.watch('diasMaxRetiro');
-  const watchedTarifa = form.watch('tarifaServicio');
 
   const puedeSugerirCodigo = Boolean(
     (watchedNombre?.trim()?.length ?? 0) >= 3,
@@ -198,7 +176,6 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
       canton: values.canton?.trim() || undefined,
       horarioAtencion: values.horarioAtencion?.trim() || undefined,
       diasMaxRetiro: values.diasMaxRetiro,
-      tarifaServicio: Number(values.tarifaServicio),
     };
     try {
       if (isEdit && id != null) {
@@ -237,7 +214,7 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
               </DialogTitle>
               <DialogDescription>
                 {isEdit
-                  ? 'Actualiza los datos de la agencia: ubicación, horarios, tarifa y responsable.'
+                  ? 'Actualiza los datos de la agencia: ubicación, horarios y responsable.'
                   : 'Registra una nueva agencia para usarla como punto de retiro en despachos.'}
               </DialogDescription>
               {isEdit && agencia?.codigo && (
@@ -248,14 +225,6 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
                   >
                     {agencia.codigo}
                   </Badge>
-                  {agencia.tarifaServicio != null && (
-                    <Badge
-                      variant="outline"
-                      className="h-5 rounded text-[11px] font-normal text-[var(--color-success)]"
-                    >
-                      Tarifa actual {fmtMoneda(agencia.tarifaServicio)}
-                    </Badge>
-                  )}
                 </div>
               )}
             </div>
@@ -410,7 +379,6 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
             </div>
           </FormSection>
 
-          {/* Sección: Operación */}
           <FormSection
             icon={<Clock className="h-4 w-4" />}
             title="Operación"
@@ -462,101 +430,58 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
                 </div>
               </FormField>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField
-                  label="Días máx. de retiro"
-                  error={errors.diasMaxRetiro?.message}
-                  hint="Tras este plazo el paquete se considera vencido."
-                  icon={<CalendarClock className="h-3.5 w-3.5" />}
-                >
-                  <div className="space-y-2">
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      variant="clean"
-                      placeholder="Ej: 7"
-                      value={watchedDiasMax != null ? String(watchedDiasMax) : ''}
-                      aria-invalid={Boolean(errors.diasMaxRetiro)}
-                      onKeyDown={onKeyDownNumeric}
-                      onChange={(e) => {
-                        const s = sanitizeNumeric(e.target.value);
-                        form.setValue(
-                          'diasMaxRetiro',
-                          s === '' ? (undefined as unknown as number) : Number(s),
-                          { shouldValidate: true, shouldDirty: true },
-                        );
-                      }}
-                    />
-                    <div className="flex flex-wrap gap-1.5">
-                      {RETIRO_PRESETS.map((d) => {
-                        const active = watchedDiasMax === d;
-                        return (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() =>
-                              form.setValue('diasMaxRetiro', d, {
-                                shouldValidate: true,
-                                shouldDirty: true,
-                              })
-                            }
-                            className={cn(
-                              'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] transition-colors',
-                              active
-                                ? 'border-primary/50 bg-primary/10 text-primary'
-                                : 'border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground hover:bg-[var(--color-muted)]/60',
-                            )}
-                          >
-                            {d} días
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </FormField>
-
-                <FormField
-                  label="Tarifa de servicio"
-                  required
-                  error={errors.tarifaServicio?.message}
-                  hint="Costo base por entrega en esta agencia (USD)."
-                  icon={<DollarSign className="h-3.5 w-3.5" />}
-                >
-                  <Controller
-                    control={form.control}
-                    name="tarifaServicio"
-                    render={({ field }) => (
-                      <div className="relative">
-                        <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
-                          $
-                        </span>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          name={field.name}
-                          ref={field.ref}
-                          onBlur={field.onBlur}
-                          variant="clean"
-                          value={tarifaServicioInput}
-                          placeholder="0.00"
-                          className="pl-7 text-right font-mono tabular-nums"
-                          aria-invalid={Boolean(errors.tarifaServicio)}
-                          onKeyDown={(e) =>
-                            onKeyDownNumericDecimal(e, tarifaServicioInput)
-                          }
-                          onChange={(e) => {
-                            const s = sanitizeNumericDecimal(e.target.value);
-                            setTarifaServicioInput(s);
-                            const n = s === '' || s === '.' ? NaN : Number(s);
-                            field.onChange(n);
-                          }}
-                        />
-                      </div>
-                    )}
+              <FormField
+                label="Días máx. de retiro"
+                error={errors.diasMaxRetiro?.message}
+                hint="Tras este plazo el paquete se considera vencido."
+                icon={<CalendarClock className="h-3.5 w-3.5" />}
+              >
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    variant="clean"
+                    placeholder="Ej: 7"
+                    value={watchedDiasMax != null ? String(watchedDiasMax) : ''}
+                    aria-invalid={Boolean(errors.diasMaxRetiro)}
+                    onKeyDown={onKeyDownNumeric}
+                    onChange={(e) => {
+                      const s = sanitizeNumeric(e.target.value);
+                      form.setValue(
+                        'diasMaxRetiro',
+                        s === '' ? (undefined as unknown as number) : Number(s),
+                        { shouldValidate: true, shouldDirty: true },
+                      );
+                    }}
                   />
-                </FormField>
-              </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {RETIRO_PRESETS.map((d) => {
+                      const active = watchedDiasMax === d;
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() =>
+                            form.setValue('diasMaxRetiro', d, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            })
+                          }
+                          className={cn(
+                            'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] transition-colors',
+                            active
+                              ? 'border-primary/50 bg-primary/10 text-primary'
+                              : 'border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground hover:bg-[var(--color-muted)]/60',
+                          )}
+                        >
+                          {d} días
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </FormField>
             </div>
           </FormSection>
 
@@ -576,7 +501,6 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
                 canton={watchedCanton}
                 horario={watchedHorario}
                 diasMaxRetiro={watchedDiasMax}
-                tarifa={watchedTarifa}
               />
             </div>
           )}
@@ -655,7 +579,6 @@ interface PreviewCardProps {
   canton?: string;
   horario?: string;
   diasMaxRetiro?: number;
-  tarifa?: number;
 }
 
 function PreviewCard({
@@ -667,7 +590,6 @@ function PreviewCard({
   canton,
   horario,
   diasMaxRetiro,
-  tarifa,
 }: PreviewCardProps) {
   const ubicacion = [canton?.trim(), provincia?.trim()]
     .filter((v): v is string => Boolean(v))
@@ -697,14 +619,6 @@ function PreviewCard({
                 className="h-5 rounded font-mono text-[11px] font-normal uppercase"
               >
                 {codigo.trim()}
-              </Badge>
-            )}
-            {Number.isFinite(tarifa) && (tarifa as number) > 0 && (
-              <Badge
-                variant="outline"
-                className="h-5 rounded text-[11px] font-normal text-[var(--color-success)]"
-              >
-                {fmtMoneda(tarifa as number)}
               </Badge>
             )}
           </div>

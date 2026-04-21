@@ -6,7 +6,6 @@ import {
   Check,
   Clock,
   Copy,
-  DollarSign,
   ExternalLink,
   Link2,
   Mail,
@@ -48,15 +47,6 @@ import {
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { CourierEntrega } from '@/types/despacho';
 
-function fmtMoneda(n: number | undefined | null): string {
-  const x = Number(n ?? 0);
-  if (!Number.isFinite(x)) return '$0,00';
-  return `$${x.toLocaleString('es-EC', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 export function CourierEntregaListPage() {
   const { q, setQ, page, size, setPage, setSize, resetPage } =
     useSearchPagination({ initialSize: 25 });
@@ -73,7 +63,7 @@ export function CourierEntregaListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [chipActivo, setChipActivo] = useState<
-    'todos' | 'con_tracking' | 'sin_tracking' | 'sin_tarifa' | 'sin_agencias'
+    'todos' | 'con_tracking' | 'sin_tracking' | 'sin_agencias'
   >('todos');
 
   const all = useMemo<CourierEntrega[]>(() => data?.content ?? [], [data]);
@@ -101,17 +91,14 @@ export function CourierEntregaListPage() {
   const chipCounts = useMemo(() => {
     let conTracking = 0;
     let sinTracking = 0;
-    let sinTarifa = 0;
     let sinAgencias = 0;
     for (const d of baseList) {
       if (tieneTrackingValido(d)) conTracking += 1;
       else sinTracking += 1;
-      const t = Number(d.tarifaEnvio ?? 0);
-      if (!Number.isFinite(t) || t <= 0) sinTarifa += 1;
       const ag = agenciasPorCourierEntrega.get(d.id) ?? 0;
       if (ag === 0) sinAgencias += 1;
     }
-    return { todos: baseList.length, conTracking, sinTracking, sinTarifa, sinAgencias };
+    return { todos: baseList.length, conTracking, sinTracking, sinAgencias };
   }, [baseList, agenciasPorCourierEntrega, tieneTrackingValido]);
 
   const list = useMemo(() => {
@@ -119,10 +106,6 @@ export function CourierEntregaListPage() {
     return baseList.filter((d) => {
       if (chipActivo === 'con_tracking') return tieneTrackingValido(d);
       if (chipActivo === 'sin_tracking') return !tieneTrackingValido(d);
-      if (chipActivo === 'sin_tarifa') {
-        const t = Number(d.tarifaEnvio ?? 0);
-        return !Number.isFinite(t) || t <= 0;
-      }
       if (chipActivo === 'sin_agencias')
         return (agenciasPorCourierEntrega.get(d.id) ?? 0) === 0;
       return true;
@@ -141,15 +124,9 @@ export function CourierEntregaListPage() {
     const conTracking = all.filter(
       (d) => d.paginaTracking && /^https?:\/\//i.test(d.paginaTracking),
     ).length;
-    const tarifas = all
-      .map((d) => Number(d.tarifaEnvio ?? 0))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    const promedio =
-      tarifas.length > 0
-        ? tarifas.reduce((acc, n) => acc + n, 0) / tarifas.length
-        : 0;
+    const conHorario = all.filter((d) => Boolean(d.horarioReparto?.trim())).length;
     const totalAgencias = agenciasDist.length;
-    return { total, conTracking, promedio, totalAgencias };
+    return { total, conTracking, conHorario, totalAgencias };
   }, [all, agenciasDist, totalElements]);
 
   if (error && !data) {
@@ -216,11 +193,11 @@ export function CourierEntregaListPage() {
             hint={`${stats.total - stats.conTracking} sin URL configurada`}
           />
           <KpiCard
-            icon={<DollarSign className="h-4 w-4" />}
-            label="Tarifa promedio"
-            value={fmtMoneda(stats.promedio)}
-            tone="success"
-            hint="Solo couriers de entrega con tarifa > 0"
+            icon={<Clock className="h-4 w-4" />}
+            label="Con horario"
+            value={stats.conHorario}
+            tone="neutral"
+            hint={`${stats.total - stats.conHorario} sin horario definido`}
           />
         </div>
         )
@@ -267,17 +244,6 @@ export function CourierEntregaListPage() {
                 hideWhenZero
               />
               <ChipFiltro
-                label="Sin tarifa"
-                count={chipCounts.sinTarifa}
-                active={chipActivo === 'sin_tarifa'}
-                tone="neutral"
-                onClick={() => {
-                  setChipActivo('sin_tarifa');
-                  resetPage();
-                }}
-                hideWhenZero
-              />
-              <ChipFiltro
                 label="Sin puntos de entrega"
                 count={chipCounts.sinAgencias}
                 active={chipActivo === 'sin_agencias'}
@@ -296,12 +262,11 @@ export function CourierEntregaListPage() {
 
       {isLoading ? (
         <ListTableShell>
-          <Table className="min-w-[1000px]">
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[20rem]">Courier de entrega</TableHead>
                 <TableHead className="hidden min-w-[14rem] xl:table-cell">Operación</TableHead>
-                <TableHead className="text-right">Tarifa</TableHead>
                 <TableHead className="min-w-[14rem]">Contacto</TableHead>
                 <TableHead className="hidden min-w-[16rem] lg:table-cell">Tracking</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
@@ -309,10 +274,10 @@ export function CourierEntregaListPage() {
             </TableHeader>
             <TableBody>
               <TableRowsSkeleton
-                columns={6}
+                columns={5}
                 columnClasses={{
                   1: 'hidden xl:table-cell',
-                  4: 'hidden lg:table-cell',
+                  3: 'hidden lg:table-cell',
                 }}
               />
             </TableBody>
@@ -348,7 +313,6 @@ export function CourierEntregaListPage() {
               <TableRow>
                 <TableHead className="w-[20rem]">Courier de entrega</TableHead>
                 <TableHead className="hidden min-w-[14rem] xl:table-cell">Operación</TableHead>
-                <TableHead className="text-right">Tarifa</TableHead>
                 <TableHead className="min-w-[14rem]">Contacto</TableHead>
                 <TableHead className="hidden min-w-[16rem] lg:table-cell">Tracking</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
@@ -368,9 +332,6 @@ export function CourierEntregaListPage() {
                       horario={d.horarioReparto}
                       diasMaxRetiroDomicilio={d.diasMaxRetiroDomicilio}
                     />
-                  </TableCell>
-                  <TableCell className="align-top text-right">
-                    <TarifaCell tarifa={d.tarifaEnvio} />
                   </TableCell>
                   <TableCell className="align-top">
                     <ContactoCell email={d.email} />
@@ -625,25 +586,3 @@ function TrackingCell({ url }: { url?: string | null }) {
   );
 }
 
-function TarifaCell({ tarifa }: { tarifa?: number | null }) {
-  const n =
-    tarifa != null && Number.isFinite(Number(tarifa)) ? Number(tarifa) : null;
-  if (n == null) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
-  if (n === 0) {
-    return (
-      <Badge
-        variant="outline"
-        className="rounded font-mono text-[11px] font-normal text-muted-foreground"
-      >
-        Sin costo
-      </Badge>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 font-mono text-sm tabular-nums text-[var(--color-success)]">
-      {fmtMoneda(n)}
-    </span>
-  );
-}

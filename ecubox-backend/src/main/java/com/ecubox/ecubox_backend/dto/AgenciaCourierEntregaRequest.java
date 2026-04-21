@@ -1,6 +1,5 @@
 package com.ecubox.ecubox_backend.dto;
 
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -8,8 +7,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
+/**
+ * Request de creacion/actualizacion del punto de entrega/oficina de un
+ * courier como catalogo logistico. No incluye tarifas: los costos los
+ * calcula el modulo de Liquidaciones.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,10 +28,7 @@ public class AgenciaCourierEntregaRequest {
     private String canton;
     private String direccion;
     private String horarioAtencion;
+
     @Min(value = 0, message = "Los días máximos de retiro deben ser mayor o igual a 0")
     private Integer diasMaxRetiro;
-
-    @NotNull(message = "La tarifa es obligatoria")
-    @DecimalMin(value = "0", inclusive = true, message = "La tarifa debe ser mayor o igual a 0")
-    private BigDecimal tarifa;
 }

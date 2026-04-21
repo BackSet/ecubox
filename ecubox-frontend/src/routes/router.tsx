@@ -19,6 +19,8 @@ import { MisGuiasListPage } from '@/pages/dashboard/mis-guias/MisGuiasListPage';
 import { MiGuiaDetailPage } from '@/pages/dashboard/mis-guias/MiGuiaDetailPage';
 import { EnviosConsolidadosListPage } from '@/pages/dashboard/envios-consolidados/EnviosConsolidadosListPage';
 import { EnvioConsolidadoDetailPage } from '@/pages/dashboard/envios-consolidados/EnvioConsolidadoDetailPage';
+import { LiquidacionesListPage } from '@/pages/dashboard/liquidaciones/LiquidacionesListPage';
+import { LiquidacionDetailPage } from '@/pages/dashboard/liquidaciones/LiquidacionDetailPage';
 import { GestionarEstadosPaquetesPage } from '@/pages/dashboard/gestionar-estados-paquetes/GestionarEstadosPaquetesPage';
 import { DespachoListPage } from '@/pages/dashboard/despachos/DespachoListPage';
 import { DespachoDetailPage } from '@/pages/dashboard/despachos/DespachoDetailPage';
@@ -260,6 +262,20 @@ const enviosConsolidadosDetailRoute = createRoute({
   component: withDashboardLayout(EnvioConsolidadoDetailPage),
 });
 
+const liquidacionesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/liquidaciones',
+  beforeLoad: requirePermission('LIQUIDACION_CONSOLIDADO_READ'),
+  component: withDashboardLayout(LiquidacionesListPage),
+});
+
+const liquidacionDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/liquidaciones/$id',
+  beforeLoad: requirePermission('LIQUIDACION_CONSOLIDADO_READ'),
+  component: withDashboardLayout(LiquidacionDetailPage),
+});
+
 const gestionarEstadosPaquetesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/gestionar-estados-paquetes',
@@ -391,6 +407,8 @@ const routeTree = rootRoute.addChildren([
   misGuiasDetailRoute,
   enviosConsolidadosRoute,
   enviosConsolidadosDetailRoute,
+  liquidacionesRoute,
+  liquidacionDetailRoute,
   gestionarEstadosPaquetesRoute,
   despachosRoute,
   despachosNuevoRoute,

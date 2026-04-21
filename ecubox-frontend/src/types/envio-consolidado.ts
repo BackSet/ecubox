@@ -6,6 +6,8 @@ import type { Paquete } from '@/types/paquete';
  * El estado se representa por `cerrado` (derivado de `fechaCerrado != null`).
  * No tiene maquina de estados ni se expone en el tracking publico.
  */
+export type EstadoPagoConsolidado = 'NO_PAGADO' | 'PAGADO';
+
 export interface EnvioConsolidado {
   id: number;
   codigo: string;
@@ -14,6 +16,8 @@ export interface EnvioConsolidado {
   fechaCerrado?: string;
   pesoTotalLbs?: number;
   totalPaquetes: number;
+  /** Estado de pago de la liquidación asociada. */
+  estadoPago?: EstadoPagoConsolidado;
   createdAt?: string;
   updatedAt?: string;
   paquetes?: Paquete[];

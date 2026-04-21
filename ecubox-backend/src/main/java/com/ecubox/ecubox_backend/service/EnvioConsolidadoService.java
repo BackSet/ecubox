@@ -4,11 +4,14 @@ import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
+import com.ecubox.ecubox_backend.entity.LiquidacionConsolidadoLinea;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
+import com.ecubox.ecubox_backend.repository.LiquidacionConsolidadoLineaRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
@@ -47,13 +50,16 @@ public class EnvioConsolidadoService {
     private final EnvioConsolidadoRepository envioConsolidadoRepository;
     private final PaqueteRepository paqueteRepository;
     private final PaqueteService paqueteService;
+    private final LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository;
 
     public EnvioConsolidadoService(EnvioConsolidadoRepository envioConsolidadoRepository,
                                    PaqueteRepository paqueteRepository,
-                                   @Lazy PaqueteService paqueteService) {
+                                   @Lazy PaqueteService paqueteService,
+                                   LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository) {
         this.envioConsolidadoRepository = envioConsolidadoRepository;
         this.paqueteRepository = paqueteRepository;
         this.paqueteService = paqueteService;
+        this.liquidacionConsolidadoLineaRepository = liquidacionConsolidadoLineaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -65,11 +71,14 @@ public class EnvioConsolidadoService {
     /**
      * Lista envios paginados con búsqueda libre opcional sobre el código.
      *
-     * @param cerrado {@code null} -> todos; {@code true} -> solo cerrados; {@code false} -> solo abiertos.
-     * @param q       texto libre (LIKE multi-token sobre {@code codigo}); ignorado si vacío.
+     * @param cerrado    {@code null} -> todos; {@code true} -> solo cerrados; {@code false} -> solo abiertos.
+     * @param estadoPago {@code null} -> todos; valor del enum -> filtra por estado de pago.
+     * @param q          texto libre (LIKE multi-token sobre {@code codigo}); ignorado si vacío.
      */
     @Transactional(readOnly = true)
-    public Page<EnvioConsolidado> findAll(Boolean cerrado, String q, int page, int size) {
+    public Page<EnvioConsolidado> findAll(Boolean cerrado,
+                                          com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado estadoPago,
+                                          String q, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)),
                 Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
@@ -79,12 +88,24 @@ public class EnvioConsolidadoService {
                     cerrado ? cb.isNotNull(root.get("fechaCerrado")) : cb.isNull(root.get("fechaCerrado"));
             spec = spec.and(estadoSpec);
         }
+        if (estadoPago != null) {
+            Specification<EnvioConsolidado> pagoSpec = (root, query, cb) ->
+                    cb.equal(root.get("estadoPago"), estadoPago);
+            spec = spec.and(pagoSpec);
+        }
         String trimmed = Strings.trimOrNull(q);
         if (trimmed != null) {
             spec = spec.and(SearchSpecifications.tokensLike(trimmed,
                     SearchSpecifications.field("codigo")));
         }
         return envioConsolidadoRepository.findAll(spec, pageable);
+    }
+
+    /** @deprecated Compat retro: usar la sobrecarga con estadoPago. */
+    @Deprecated
+    @Transactional(readOnly = true)
+    public Page<EnvioConsolidado> findAll(Boolean cerrado, String q, int page, int size) {
+        return findAll(cerrado, null, q, page, size);
     }
 
     @Transactional
@@ -210,6 +231,19 @@ public class EnvioConsolidadoService {
     /**
      * Revierte el cierre. Util para correcciones del operario; no hay validacion
      * de "ya pasado mucho tiempo" porque no hay maquina de estados.
+     *
+     * <p>Reglas de negocio asociadas:
+     * <ul>
+     *   <li>Si el consolidado pertenece a una liquidacion <strong>pagada</strong>
+     *       no se permite reabrir: el operario debe primero desmarcar el pago
+     *       de esa liquidacion (que es el documento maestro). Esto evita
+     *       inconsistencias del tipo "consolidado abierto pero su liquidacion
+     *       sigue pagada".</li>
+     *   <li>Reabrir es la operacion simetrica de "marcar liquidacion como
+     *       pagada" (que cierra y marca pagado). Por simetria, al reabrir
+     *       tambien se vuelve {@code estadoPago = NO_PAGADO} para dejar al
+     *       consolidado en su estado original.</li>
+     * </ul>
      */
     @Transactional
     public EnvioConsolidado reabrir(Long envioId) {
@@ -217,7 +251,21 @@ public class EnvioConsolidadoService {
         if (envio.isAbierto()) {
             return envio;
         }
+        // Si esta dentro de una liquidacion pagada, bloquear el reabrir.
+        liquidacionConsolidadoLineaRepository.findByEnvioConsolidadoId(envioId)
+                .map(LiquidacionConsolidadoLinea::getLiquidacion)
+                .filter(liq -> liq.getEstadoPago() == EstadoPagoConsolidado.PAGADO)
+                .ifPresent(liq -> {
+                    throw new BadRequestException(
+                            "No se puede reabrir el consolidado porque pertenece a la "
+                                    + "liquidacion " + liq.getCodigo()
+                                    + " que esta marcada como pagada. "
+                                    + "Desmarca el pago de esa liquidacion primero.");
+                });
         envio.setFechaCerrado(null);
+        if (envio.getEstadoPago() != EstadoPagoConsolidado.NO_PAGADO) {
+            envio.setEstadoPago(EstadoPagoConsolidado.NO_PAGADO);
+        }
         return envioConsolidadoRepository.save(envio);
     }
 
@@ -281,6 +329,7 @@ public class EnvioConsolidadoService {
                 .fechaCerrado(envio.getFechaCerrado())
                 .pesoTotalLbs(envio.getPesoTotalLbs())
                 .totalPaquetes(envio.getTotalPaquetes())
+                .estadoPago(envio.getEstadoPago())
                 .createdAt(envio.getCreatedAt())
                 .updatedAt(envio.getUpdatedAt())
                 .paquetes(paquetesDTO)

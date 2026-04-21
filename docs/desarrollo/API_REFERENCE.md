@@ -340,10 +340,10 @@ Base: `/api/manifiestos`
 | DELETE | `/api/manifiestos/{id}` | `MANIFIESTOS_WRITE` | Eliminar manifiesto |
 | POST | `/api/manifiestos/{id}/asignar-despachos` | `MANIFIESTOS_WRITE` | Asignar despachos al manifiesto |
 | GET | `/api/manifiestos/{id}/despachos-candidatos` | `MANIFIESTOS_READ` | Listar despachos candidatos |
-| POST | `/api/manifiestos/{id}/recalcular` | `MANIFIESTOS_WRITE` | Recalcular totales |
-| PATCH | `/api/manifiestos/{id}/estado` | `MANIFIESTOS_WRITE` | Cambiar estado del manifiesto |
 
-**Request:** `ManifiestoRequest` (CRUD), `AsignarDespachosRequest`, `CambiarEstadoManifiestoRequest`.
+> El manifiesto es un agrupador puramente logístico de despachos enviados en un período (a domicilio, agencia o punto de entrega). No lleva importes ni estado de pago: la liquidación económica vive en el módulo de Liquidaciones.
+
+**Request:** `ManifiestoRequest` (CRUD), `AsignarDespachosRequest`.
 **Response:** `ManifiestoDTO`, `ManifiestoDespachoCandidatoDTO`.
 
 ---

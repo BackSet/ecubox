@@ -5,9 +5,7 @@ import com.ecubox.ecubox_backend.dto.ManifiestoDespachoCandidatoDTO;
 import com.ecubox.ecubox_backend.dto.ManifiestoRequest;
 import com.ecubox.ecubox_backend.entity.Despacho;
 import com.ecubox.ecubox_backend.entity.Manifiesto;
-import com.ecubox.ecubox_backend.enums.EstadoManifiesto;
 import com.ecubox.ecubox_backend.enums.FiltroManifiesto;
-import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.DespachoRepository;
@@ -16,13 +14,26 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+/**
+ * Maneja el manifiesto como un <strong>agrupador logistico</strong> de
+ * despachos enviados en un periodo (a domicilio, agencia o punto de
+ * entrega). Soporta CRUD basico, asignacion/desasignacion de despachos y
+ * busqueda de candidatos por rango de fechas.
+ *
+ * <p>No realiza ningun calculo monetario ni mantiene estado de pago: esa
+ * responsabilidad pertenece al modulo de Liquidaciones. La unica
+ * "denormalizacion" que mantiene es {@code cantidadDespachos} para que los
+ * listados rapidos no tengan que consultar la tabla de despachos.
+ */
 @Service
 public class ManifiestoService {
 
@@ -55,13 +66,14 @@ public class ManifiestoService {
     @Transactional
     public ManifiestoDTO create(ManifiestoRequest request) {
         validateRequest(request);
-        String codigo = generarCodigoManifiesto();
         Manifiesto entity = toEntity(request);
-        entity.setCodigo(codigo);
+        entity.setCodigo(generarCodigoManifiesto());
         entity = manifiestoRepository.save(entity);
         List<Despacho> candidatos = findDespachosCandidatosEntities(entity);
         vincularDespachosAManifiesto(entity, candidatos);
-        return recalcularTotales(entity.getId());
+        actualizarCantidadDespachos(entity);
+        manifiestoRepository.save(entity);
+        return findById(entity.getId());
     }
 
     @Transactional
@@ -89,15 +101,18 @@ public class ManifiestoService {
     public ManifiestoDTO asignarDespachos(Long manifiestoId, List<Long> despachoIds) {
         Manifiesto m = manifiestoRepository.findById(manifiestoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Manifiesto", manifiestoId));
-        Set<Long> idsCandidatos = findDespachosCandidatosEntities(m).stream().map(Despacho::getId).collect(java.util.stream.Collectors.toSet());
+        Set<Long> idsCandidatos = findDespachosCandidatosEntities(m).stream()
+                .map(Despacho::getId)
+                .collect(Collectors.toSet());
         Set<Long> idsYaAsignados = findDespachosAsignadosEntities(manifiestoId).stream()
                 .map(Despacho::getId)
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
         List<Despacho> despachosAVincular = new ArrayList<>();
         if (despachoIds != null) {
             for (Long despachoId : despachoIds) {
                 if (!idsCandidatos.contains(despachoId) && !idsYaAsignados.contains(despachoId)) {
-                    throw new BadRequestException("El despacho " + despachoId + " no cumple los filtros del manifiesto.");
+                    throw new BadRequestException(
+                            "El despacho " + despachoId + " no cumple los filtros del manifiesto.");
                 }
                 Despacho d = despachoRepository.findById(despachoId)
                         .orElseThrow(() -> new ResourceNotFoundException("Despacho", despachoId));
@@ -105,7 +120,8 @@ public class ManifiestoService {
             }
         }
         vincularDespachosAManifiesto(m, despachosAVincular);
-        recalcularTotales(manifiestoId);
+        actualizarCantidadDespachos(m);
+        manifiestoRepository.save(m);
         return findById(manifiestoId);
     }
 
@@ -118,61 +134,12 @@ public class ManifiestoService {
                 .toList();
     }
 
-    @Transactional
-    public ManifiestoDTO recalcularTotales(Long id) {
-        Manifiesto m = manifiestoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Manifiesto", id));
-        List<Despacho> despachos = findDespachosAsignadosEntities(id);
-        BigDecimal subtotalDomicilio = BigDecimal.ZERO;
-        BigDecimal subtotalAgenciaFlete = BigDecimal.ZERO;
-        BigDecimal subtotalComisionAgencias = BigDecimal.ZERO;
-        for (Despacho d : despachos) {
-            if (d.getTipoEntrega() == TipoEntrega.DOMICILIO && d.getCourierEntrega() != null) {
-                subtotalDomicilio = subtotalDomicilio.add(
-                        d.getCourierEntrega().getTarifaEnvio() != null
-                                ? d.getCourierEntrega().getTarifaEnvio()
-                                : BigDecimal.ZERO);
-            } else if (d.getTipoEntrega() == TipoEntrega.AGENCIA) {
-                if (d.getCourierEntrega() != null && d.getCourierEntrega().getTarifaEnvio() != null) {
-                    subtotalAgenciaFlete = subtotalAgenciaFlete.add(d.getCourierEntrega().getTarifaEnvio());
-                }
-                if (d.getAgencia() != null && d.getAgencia().getTarifaServicio() != null) {
-                    subtotalComisionAgencias = subtotalComisionAgencias.add(d.getAgencia().getTarifaServicio());
-                }
-            } else if (d.getTipoEntrega() == TipoEntrega.AGENCIA_COURIER_ENTREGA) {
-                if (d.getCourierEntrega() != null && d.getCourierEntrega().getTarifaEnvio() != null) {
-                    subtotalAgenciaFlete = subtotalAgenciaFlete.add(d.getCourierEntrega().getTarifaEnvio());
-                }
-                if (d.getAgenciaCourierEntrega() != null && d.getAgenciaCourierEntrega().getTarifa() != null) {
-                    subtotalComisionAgencias = subtotalComisionAgencias.add(d.getAgenciaCourierEntrega().getTarifa());
-                }
-            }
-        }
-        BigDecimal totalPagar = subtotalDomicilio.add(subtotalAgenciaFlete).add(subtotalComisionAgencias);
-        m.setCantidadDespachos(despachos.size());
-        m.setSubtotalDomicilio(subtotalDomicilio);
-        m.setSubtotalAgenciaFlete(subtotalAgenciaFlete);
-        m.setSubtotalComisionAgencias(subtotalComisionAgencias);
-        m.setTotalPagar(totalPagar);
-        manifiestoRepository.save(m);
-        return findById(id);
-    }
-
-    @Transactional
-    public ManifiestoDTO cambiarEstado(Long id, EstadoManifiesto estado) {
-        Manifiesto m = manifiestoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Manifiesto", id));
-        m.setEstado(estado);
-        manifiestoRepository.save(m);
-        return toDTO(m);
-    }
-
     private void validateRequest(ManifiestoRequest request) {
-        if (request.getFechaFin() != null && request.getFechaInicio() != null
-                && !request.getFechaFin().isBefore(request.getFechaInicio())) {
-            // fechaFin >= fechaInicio OK
-        } else if (request.getFechaFin() != null && request.getFechaInicio() != null) {
-            throw new BadRequestException("La fecha de fin debe ser mayor o igual a la fecha de inicio");
+        LocalDate inicio = request.getFechaInicio();
+        LocalDate fin = request.getFechaFin();
+        if (inicio != null && fin != null && fin.isBefore(inicio)) {
+            throw new BadRequestException(
+                    "La fecha de fin debe ser mayor o igual a la fecha de inicio");
         }
     }
 
@@ -184,12 +151,7 @@ public class ManifiestoService {
                 .filtroTipo(FiltroManifiesto.POR_PERIODO)
                 .filtroCourierEntrega(null)
                 .filtroAgencia(null)
-                .estado(EstadoManifiesto.PENDIENTE)
                 .cantidadDespachos(0)
-                .subtotalDomicilio(BigDecimal.ZERO)
-                .subtotalAgenciaFlete(BigDecimal.ZERO)
-                .subtotalComisionAgencias(BigDecimal.ZERO)
-                .totalPagar(BigDecimal.ZERO)
                 .build();
     }
 
@@ -202,20 +164,22 @@ public class ManifiestoService {
     }
 
     private String generarCodigoManifiesto() {
-        return codigoSecuenciaService.nextCodigoManifiesto(java.time.LocalDate.now());
+        return codigoSecuenciaService.nextCodigoManifiesto(LocalDate.now());
     }
 
     private List<Despacho> findDespachosCandidatosEntities(Manifiesto m) {
         LocalDateTime desde = m.getFechaInicio().atStartOfDay();
         LocalDateTime hastaExclusivo = m.getFechaFin().plusDays(1).atStartOfDay();
-        Long courierEntregaId = m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getId() : null;
+        Long courierEntregaId = m.getFiltroCourierEntrega() != null
+                ? m.getFiltroCourierEntrega().getId() : null;
         Long agenciaId = m.getFiltroAgencia() != null ? m.getFiltroAgencia().getId() : null;
-        return despachoRepository.findCandidatosParaManifiesto(desde, hastaExclusivo, courierEntregaId, agenciaId);
+        return despachoRepository.findCandidatosParaManifiesto(
+                desde, hastaExclusivo, courierEntregaId, agenciaId);
     }
 
     private void vincularDespachosAManifiesto(Manifiesto manifiesto, List<Despacho> despachos) {
         if (despachos == null || despachos.isEmpty()) return;
-        Set<Long> idsEnMemoria = new java.util.HashSet<>();
+        Set<Long> idsEnMemoria = new HashSet<>();
         if (manifiesto.getDespachos() != null) {
             for (Despacho actual : manifiesto.getDespachos()) {
                 if (actual.getId() != null) {
@@ -225,7 +189,8 @@ public class ManifiestoService {
         }
         for (Despacho d : despachos) {
             d.setManifiesto(manifiesto);
-            if (manifiesto.getDespachos() != null && d.getId() != null && !idsEnMemoria.contains(d.getId())) {
+            if (manifiesto.getDespachos() != null && d.getId() != null
+                    && !idsEnMemoria.contains(d.getId())) {
                 manifiesto.getDespachos().add(d);
                 idsEnMemoria.add(d.getId());
             }
@@ -239,14 +204,26 @@ public class ManifiestoService {
                 .toList();
     }
 
+    /**
+     * Recalcula y persiste el contador denormalizado a partir de los despachos
+     * efectivamente asignados al manifiesto. Es la unica "operacion derivada"
+     * que conserva el manifiesto tras desacoplarse de la liquidacion.
+     */
+    private void actualizarCantidadDespachos(Manifiesto m) {
+        long total = despachoRepository.findByManifiestoId(m.getId()).size();
+        m.setCantidadDespachos((int) total);
+    }
+
     private ManifiestoDespachoCandidatoDTO toDespachoCandidatoDTO(Despacho d) {
         return ManifiestoDespachoCandidatoDTO.builder()
                 .id(d.getId())
                 .numeroGuia(d.getNumeroGuia())
-                .courierEntregaNombre(d.getCourierEntrega() != null ? d.getCourierEntrega().getNombre() : null)
+                .courierEntregaNombre(d.getCourierEntrega() != null
+                        ? d.getCourierEntrega().getNombre() : null)
                 .tipoEntrega(d.getTipoEntrega() != null ? d.getTipoEntrega().name() : null)
                 .agenciaNombre(d.getAgencia() != null ? d.getAgencia().getNombre() : null)
-                .consignatarioNombre(d.getConsignatario() != null ? d.getConsignatario().getNombre() : null)
+                .consignatarioNombre(d.getConsignatario() != null
+                        ? d.getConsignatario().getNombre() : null)
                 .fechaHora(d.getFechaHora())
                 .build();
     }
@@ -258,19 +235,14 @@ public class ManifiestoService {
                 .fechaInicio(m.getFechaInicio())
                 .fechaFin(m.getFechaFin())
                 .filtroTipo(m.getFiltroTipo())
-                .filtroCourierEntregaId(m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getId() : null)
-                .filtroCourierEntregaNombre(m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getNombre() : null)
+                .filtroCourierEntregaId(m.getFiltroCourierEntrega() != null
+                        ? m.getFiltroCourierEntrega().getId() : null)
+                .filtroCourierEntregaNombre(m.getFiltroCourierEntrega() != null
+                        ? m.getFiltroCourierEntrega().getNombre() : null)
                 .filtroAgenciaId(m.getFiltroAgencia() != null ? m.getFiltroAgencia().getId() : null)
-                .filtroAgenciaNombre(m.getFiltroAgencia() != null ? m.getFiltroAgencia().getNombre() : null)
+                .filtroAgenciaNombre(m.getFiltroAgencia() != null
+                        ? m.getFiltroAgencia().getNombre() : null)
                 .cantidadDespachos(m.getCantidadDespachos() != null ? m.getCantidadDespachos() : 0)
-                .subtotalDomicilio(m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
-                .subtotalAgenciaFlete(m.getSubtotalAgenciaFlete() != null ? m.getSubtotalAgenciaFlete() : BigDecimal.ZERO)
-                .subtotalComisionAgencias(m.getSubtotalComisionAgencias() != null ? m.getSubtotalComisionAgencias() : BigDecimal.ZERO)
-                .totalCourierEntrega((m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
-                        .add(m.getSubtotalAgenciaFlete() != null ? m.getSubtotalAgenciaFlete() : BigDecimal.ZERO))
-                .totalAgencia(m.getSubtotalComisionAgencias() != null ? m.getSubtotalComisionAgencias() : BigDecimal.ZERO)
-                .totalPagar(m.getTotalPagar() != null ? m.getTotalPagar() : BigDecimal.ZERO)
-                .estado(m.getEstado() != null ? m.getEstado() : EstadoManifiesto.PENDIENTE)
                 .despachos(List.of())
                 .build();
     }
@@ -287,26 +259,8 @@ public class ManifiestoService {
                     d.getConsignatario() != null ? d.getConsignatario().getNombre() : null
             ));
         }
-        return ManifiestoDTO.builder()
-                .id(m.getId())
-                .codigo(m.getCodigo())
-                .fechaInicio(m.getFechaInicio())
-                .fechaFin(m.getFechaFin())
-                .filtroTipo(m.getFiltroTipo())
-                .filtroCourierEntregaId(m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getId() : null)
-                .filtroCourierEntregaNombre(m.getFiltroCourierEntrega() != null ? m.getFiltroCourierEntrega().getNombre() : null)
-                .filtroAgenciaId(m.getFiltroAgencia() != null ? m.getFiltroAgencia().getId() : null)
-                .filtroAgenciaNombre(m.getFiltroAgencia() != null ? m.getFiltroAgencia().getNombre() : null)
-                .cantidadDespachos(m.getCantidadDespachos() != null ? m.getCantidadDespachos() : 0)
-                .subtotalDomicilio(m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
-                .subtotalAgenciaFlete(m.getSubtotalAgenciaFlete() != null ? m.getSubtotalAgenciaFlete() : BigDecimal.ZERO)
-                .subtotalComisionAgencias(m.getSubtotalComisionAgencias() != null ? m.getSubtotalComisionAgencias() : BigDecimal.ZERO)
-                .totalCourierEntrega((m.getSubtotalDomicilio() != null ? m.getSubtotalDomicilio() : BigDecimal.ZERO)
-                        .add(m.getSubtotalAgenciaFlete() != null ? m.getSubtotalAgenciaFlete() : BigDecimal.ZERO))
-                .totalAgencia(m.getSubtotalComisionAgencias() != null ? m.getSubtotalComisionAgencias() : BigDecimal.ZERO)
-                .totalPagar(m.getTotalPagar() != null ? m.getTotalPagar() : BigDecimal.ZERO)
-                .estado(m.getEstado() != null ? m.getEstado() : EstadoManifiesto.PENDIENTE)
-                .despachos(despachosList)
-                .build();
+        ManifiestoDTO dto = toDTO(m);
+        dto.setDespachos(despachosList);
+        return dto;
     }
 }

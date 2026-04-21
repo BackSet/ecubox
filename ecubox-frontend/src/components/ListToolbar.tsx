@@ -73,10 +73,20 @@ export function ListToolbar({
   }, []);
 
   return (
-    <div className={cn('flex flex-col gap-4 border-b border-[var(--color-border)] pb-4', className)}>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="truncate text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
+    <div
+      className={cn(
+        'flex flex-col gap-3 border-b border-[var(--color-border)] pb-4 sm:gap-4',
+        className,
+      )}
+    >
+      {/* Fila superior: title + actions. Title puede tener descripción
+          debajo. Actions van a la derecha en sm+. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <h1
+            className="truncate text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]"
+            title={title}
+          >
             {title}
           </h1>
           {description && (
@@ -91,8 +101,11 @@ export function ListToolbar({
           </div>
         )}
       </div>
+
+      {/* Fila de búsqueda independiente: garantiza ancho cómodo para
+          placeholders largos (no compite con title/desc/actions). */}
       {onSearchChange && (
-        <div className="relative w-full sm:max-w-[360px]">
+        <div className="relative w-full min-w-0 sm:max-w-[420px] md:max-w-[460px] lg:max-w-[520px]">
           <Search
             className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted-foreground)]"
             strokeWidth={1.75}
@@ -104,6 +117,7 @@ export function ListToolbar({
             onChange={(e) => setLocalValue(e.target.value)}
             className="pl-9 pr-8"
             aria-label={searchPlaceholder}
+            title={searchPlaceholder}
           />
           {localValue && (
             <Button
@@ -112,7 +126,7 @@ export function ListToolbar({
               size="icon"
               className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
               onClick={handleClear}
-              aria-label="Limpiar busqueda"
+              aria-label="Limpiar búsqueda"
             >
               <X className="h-4 w-4" strokeWidth={1.75} />
             </Button>

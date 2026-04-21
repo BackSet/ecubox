@@ -46,7 +46,10 @@ export function MainLayout({ content }: { content?: ReactNode }) {
         </main>
       </div>
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-        <SheetContent side="left" className="w-[86vw] max-w-[320px] p-0 lg:hidden">
+        <SheetContent
+          side="left"
+          className="w-[86vw] max-w-[320px] p-0 sm:max-w-[320px] lg:hidden"
+        >
           <SheetTitle className="sr-only">Navegación principal</SheetTitle>
           <Sidebar mobile onNavigate={() => setMobileSidebarOpen(false)} />
         </SheetContent>

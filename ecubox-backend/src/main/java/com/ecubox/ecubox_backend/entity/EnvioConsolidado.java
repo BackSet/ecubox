@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.entity;
 
+import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -41,6 +42,17 @@ public class EnvioConsolidado {
     @Builder.Default
     private Integer totalPaquetes = 0;
 
+    /**
+     * Estado de pago del envío consolidado. Sincronizado por
+     * {@code LiquidacionService} cuando se marca / desmarca pagada la
+     * liquidación que contiene a este consolidado en su sección A. Se mantiene
+     * en la tabla del consolidado para listados/filtros rápidos sin JOIN.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_pago", nullable = false, length = 20)
+    @Builder.Default
+    private EstadoPagoConsolidado estadoPago = EstadoPagoConsolidado.NO_PAGADO;
+
     @Column(name = "created_by")
     private Long createdBy;
 
@@ -72,6 +84,7 @@ public class EnvioConsolidado {
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
         if (totalPaquetes == null) totalPaquetes = 0;
+        if (estadoPago == null) estadoPago = EstadoPagoConsolidado.NO_PAGADO;
     }
 
     @PreUpdate

@@ -161,7 +161,7 @@ const DOMAIN_TONE_MAP: Record<string, StatusTone> = {
   // Despacho
   PREPARADO: 'info',
   EN_RUTA: 'info',
-  // Manifiesto
+  // Estados genéricos de "generado"
   GENERADO: 'success',
   // Lote
   ABIERTO_RECEPCION: 'info',

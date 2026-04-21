@@ -6,7 +6,6 @@ import {
   Check,
   Clock,
   Copy,
-  DollarSign,
   MapPin,
   Pencil,
   Plus,
@@ -47,15 +46,6 @@ import {
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { AgenciaCourierEntrega } from '@/types/despacho';
 
-function fmtMoneda(n: number | undefined | null): string {
-  const x = Number(n ?? 0);
-  if (!Number.isFinite(x)) return '$0,00';
-  return `$${x.toLocaleString('es-EC', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 export function PuntoEntregaListPage() {
   const { q, setQ, page, size, setPage, setSize, resetPage } =
     useSearchPagination({ initialSize: 25 });
@@ -78,7 +68,7 @@ export function PuntoEntregaListPage() {
     undefined,
   );
   const [chipActivo, setChipActivo] = useState<
-    'todos' | 'sin_tarifa' | 'con_tarifa' | 'sin_horario' | 'sin_courier_entrega'
+    'todos' | 'sin_horario' | 'sin_courier_entrega' | 'sin_direccion'
   >('todos');
 
   const all = useMemo<AgenciaCourierEntrega[]>(() => data?.content ?? [], [data]);
@@ -116,34 +106,28 @@ export function PuntoEntregaListPage() {
   }, [all, provinciaFiltro, courierEntregaFiltro]);
 
   const chipCounts = useMemo(() => {
-    let conTarifa = 0;
-    let sinTarifa = 0;
     let sinHorario = 0;
     let sinCourierEntrega = 0;
+    let sinDireccion = 0;
     for (const a of baseList) {
-      const t = Number(a.tarifa ?? 0);
-      if (Number.isFinite(t) && t > 0) conTarifa += 1;
-      else sinTarifa += 1;
       if (!a.horarioAtencion?.trim()) sinHorario += 1;
       if (!a.courierEntregaId) sinCourierEntrega += 1;
+      if (!a.direccion?.trim()) sinDireccion += 1;
     }
     return {
       todos: baseList.length,
-      conTarifa,
-      sinTarifa,
       sinHorario,
       sinCourierEntrega,
+      sinDireccion,
     };
   }, [baseList]);
 
   const list = useMemo(() => {
     if (chipActivo === 'todos') return baseList;
     return baseList.filter((a) => {
-      const t = Number(a.tarifa ?? 0);
-      if (chipActivo === 'con_tarifa') return Number.isFinite(t) && t > 0;
-      if (chipActivo === 'sin_tarifa') return !Number.isFinite(t) || t <= 0;
       if (chipActivo === 'sin_horario') return !a.horarioAtencion?.trim();
       if (chipActivo === 'sin_courier_entrega') return !a.courierEntregaId;
+      if (chipActivo === 'sin_direccion') return !a.direccion?.trim();
       return true;
     });
   }, [baseList, chipActivo]);
@@ -165,14 +149,8 @@ export function PuntoEntregaListPage() {
     const total = totalElements;
     const distribs = couriersEntregaEnUso.length;
     const provs = provincias.length;
-    const tarifas = all
-      .map((a) => Number(a.tarifa ?? 0))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    const promedio =
-      tarifas.length > 0
-        ? tarifas.reduce((acc, n) => acc + n, 0) / tarifas.length
-        : 0;
-    return { total, distribs, provs, promedio };
+    const conHorario = all.filter((a) => Boolean(a.horarioAtencion?.trim())).length;
+    return { total, distribs, provs, conHorario };
   }, [all, couriersEntregaEnUso, provincias, totalElements]);
 
   if (error && !data) {
@@ -239,11 +217,11 @@ export function PuntoEntregaListPage() {
             hint={stats.provs === 0 ? 'Sin provincia asignada' : undefined}
           />
           <KpiCard
-            icon={<DollarSign className="h-4 w-4" />}
-            label="Tarifa promedio"
-            value={fmtMoneda(stats.promedio)}
+            icon={<Clock className="h-4 w-4" />}
+            label="Con horario"
+            value={stats.conHorario}
             tone="success"
-            hint="Solo puntos de entrega con tarifa > 0"
+            hint={`${stats.total - stats.conHorario} sin horario definido`}
           />
         </div>
         )
@@ -268,23 +246,12 @@ export function PuntoEntregaListPage() {
                 }}
               />
               <ChipFiltro
-                label="Con tarifa"
-                count={chipCounts.conTarifa}
-                active={chipActivo === 'con_tarifa'}
-                tone="success"
+                label="Sin dirección"
+                count={chipCounts.sinDireccion}
+                active={chipActivo === 'sin_direccion'}
+                tone="warning"
                 onClick={() => {
-                  setChipActivo('con_tarifa');
-                  resetPage();
-                }}
-                hideWhenZero
-              />
-              <ChipFiltro
-                label="Sin tarifa"
-                count={chipCounts.sinTarifa}
-                active={chipActivo === 'sin_tarifa'}
-                tone="neutral"
-                onClick={() => {
-                  setChipActivo('sin_tarifa');
+                  setChipActivo('sin_direccion');
                   resetPage();
                 }}
                 hideWhenZero
@@ -363,23 +330,21 @@ export function PuntoEntregaListPage() {
 
       {isLoading ? (
         <ListTableShell>
-          <Table className="min-w-[1000px]">
+          <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[20rem]">Punto de entrega</TableHead>
                 <TableHead className="min-w-[14rem]">Courier de entrega</TableHead>
                 <TableHead className="min-w-[18rem]">Ubicación</TableHead>
                 <TableHead className="hidden min-w-[14rem] md:table-cell">Operación</TableHead>
-                <TableHead className="hidden text-right lg:table-cell">Tarifa</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRowsSkeleton
-                columns={6}
+                columns={5}
                 columnClasses={{
                   3: 'hidden md:table-cell',
-                  4: 'hidden lg:table-cell',
                 }}
               />
             </TableBody>
@@ -408,14 +373,13 @@ export function PuntoEntregaListPage() {
         />
       ) : (
         <ListTableShell>
-          <Table className="min-w-[1000px]">
+          <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[20rem]">Punto de entrega</TableHead>
                 <TableHead className="min-w-[14rem]">Courier de entrega</TableHead>
                 <TableHead className="min-w-[18rem]">Ubicación</TableHead>
                 <TableHead className="hidden min-w-[14rem] md:table-cell">Operación</TableHead>
-                <TableHead className="hidden text-right lg:table-cell">Tarifa</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -440,9 +404,6 @@ export function PuntoEntregaListPage() {
                       horario={a.horarioAtencion}
                       diasMaxRetiro={a.diasMaxRetiro}
                     />
-                  </TableCell>
-                  <TableCell className="hidden align-top text-right lg:table-cell">
-                    <TarifaCell tarifa={a.tarifa} />
                   </TableCell>
                   <TableCell className="align-top text-right">
                     <RowActionsMenu
@@ -675,28 +636,5 @@ function OperacionCell({
         </div>
       )}
     </div>
-  );
-}
-
-function TarifaCell({ tarifa }: { tarifa?: number | null }) {
-  const n =
-    tarifa != null && Number.isFinite(Number(tarifa)) ? Number(tarifa) : null;
-  if (n == null) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
-  if (n === 0) {
-    return (
-      <Badge
-        variant="outline"
-        className="rounded font-mono text-[11px] font-normal text-muted-foreground"
-      >
-        Sin costo
-      </Badge>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 font-mono text-sm tabular-nums text-[var(--color-success)]">
-      {fmtMoneda(n)}
-    </span>
   );
 }

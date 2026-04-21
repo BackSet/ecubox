@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
+import com.ecubox.ecubox_backend.repository.LiquidacionConsolidadoLineaRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,12 +39,21 @@ class EnvioConsolidadoServiceTest {
     @Mock private EnvioConsolidadoRepository envioRepository;
     @Mock private PaqueteRepository paqueteRepository;
     @Mock private PaqueteService paqueteService;
+    @Mock private LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository;
 
     private EnvioConsolidadoService service;
 
+    // public + nombre estandar JUnit: algunos analizadores estaticos no
+    // detectan @BeforeEach en metodos package-private y reportan setUp()
+    // como "unused". Hacerlo public satisface al inspector sin afectar
+    // el comportamiento de JUnit.
     @BeforeEach
-    void setUp() {
-        service = new EnvioConsolidadoService(envioRepository, paqueteRepository, paqueteService);
+    public void setUp() {
+        service = new EnvioConsolidadoService(
+                envioRepository,
+                paqueteRepository,
+                paqueteService,
+                liquidacionConsolidadoLineaRepository);
         lenient().when(envioRepository.save(any(EnvioConsolidado.class)))
                 .thenAnswer(inv -> {
                     EnvioConsolidado e = inv.getArgument(0);
@@ -109,8 +119,9 @@ class EnvioConsolidadoServiceTest {
     void crearConGuias_codigoDuplicado_lanzaConflictYNoBuscaPaquetes() {
         when(envioRepository.existsByCodigoIgnoreCase("DUP")).thenReturn(true);
 
-        assertThrows(ConflictException.class,
+        ConflictException ex = assertThrows(ConflictException.class,
                 () -> service.crearConGuias("DUP", List.of("X"), 1L));
+        assertNotNull(ex);
         verify(paqueteRepository, never()).findByNumeroGuiaInIgnoreCase(anyList());
     }
 
@@ -120,8 +131,9 @@ class EnvioConsolidadoServiceTest {
                 .id(1L).codigo("X").fechaCerrado(LocalDateTime.now()).build();
         when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
 
-        assertThrows(ConflictException.class,
+        ConflictException ex = assertThrows(ConflictException.class,
                 () -> service.agregarPaquetes(1L, List.of(10L)));
+        assertNotNull(ex);
     }
 
     @Test
@@ -130,8 +142,9 @@ class EnvioConsolidadoServiceTest {
                 .id(1L).codigo("X").fechaCerrado(LocalDateTime.now()).build();
         when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
 
-        assertThrows(ConflictException.class,
+        ConflictException ex = assertThrows(ConflictException.class,
                 () -> service.removerPaquetes(1L, List.of(10L)));
+        assertNotNull(ex);
     }
 
     @Test
@@ -181,8 +194,9 @@ class EnvioConsolidadoServiceTest {
         when(envioRepository.findById(1L)).thenReturn(Optional.of(destino));
         when(paqueteRepository.findAllById(any())).thenReturn(List.of(p));
 
-        assertThrows(ConflictException.class,
+        ConflictException ex = assertThrows(ConflictException.class,
                 () -> service.agregarPaquetes(1L, List.of(10L)));
+        assertNotNull(ex);
     }
 
     @Test

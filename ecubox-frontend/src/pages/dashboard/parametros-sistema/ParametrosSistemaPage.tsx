@@ -112,6 +112,7 @@ import {
 } from './VARIABLES_DESPACHO';
 import { parseWhatsAppPreviewToReact } from './whatsappFormatPreview';
 import { TarifaCalculadoraForm } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraForm';
+import { TarifaDistribucionForm } from '@/pages/dashboard/parametros-sistema/TarifaDistribucionForm';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/api/error-message';
@@ -125,6 +126,7 @@ type OpcionActiva =
   | 'mensaje-whatsapp-despacho'
   | 'mensaje-agencia-eeuu'
   | 'tarifa-calculadora'
+  | 'tarifa-distribucion'
   | 'estados-rastreo'
   | 'estados-rastreo-por-punto';
 
@@ -253,6 +255,9 @@ export function ParametrosSistemaPage() {
   const canSeeTarifaCalculadora =
     hasPermission('TARIFA_CALCULADORA_READ') || hasRole('ADMIN') || hasRole('OPERARIO');
 
+  const canSeeTarifaDistribucion =
+    hasPermission('CONFIG_TARIFA_DISTRIBUCION_WRITE') || hasRole('ADMIN') || hasRole('OPERARIO');
+
   const canSeeEstadosRastreo =
     hasPermission('ESTADOS_RASTREO_READ') || hasRole('ADMIN') || hasRole('OPERARIO');
 
@@ -283,6 +288,14 @@ export function ParametrosSistemaPage() {
         visible: canSeeTarifaCalculadora,
       },
       {
+        key: 'tarifa-distribucion',
+        label: 'Tarifa de distribución',
+        shortLabel: 'Distribución',
+        description: 'Tarifa por defecto del courier de entrega usada en la liquidación.',
+        icon: Truck,
+        visible: canSeeTarifaDistribucion,
+      },
+      {
         key: 'estados-rastreo',
         label: 'Estados de rastreo',
         shortLabel: 'Estados',
@@ -299,7 +312,7 @@ export function ParametrosSistemaPage() {
         visible: canSeeEstadosRastreo,
       },
     ],
-    [canSeeEstadosRastreo, canSeeTarifaCalculadora],
+    [canSeeEstadosRastreo, canSeeTarifaCalculadora, canSeeTarifaDistribucion],
   );
 
   const visibleTabs = useMemo(() => tabs.filter((t) => t.visible), [tabs]);
@@ -378,6 +391,7 @@ export function ParametrosSistemaPage() {
     'mensaje-whatsapp-despacho': whatsappDirty,
     'mensaje-agencia-eeuu': agenciaDirty,
     'tarifa-calculadora': false,
+    'tarifa-distribucion': false,
     'estados-rastreo': false,
     'estados-rastreo-por-punto': false,
   };
@@ -555,6 +569,8 @@ export function ParametrosSistemaPage() {
           )}
 
           {opcionActiva === 'tarifa-calculadora' && <TarifaCalculadoraPanel />}
+
+          {opcionActiva === 'tarifa-distribucion' && <TarifaDistribucionPanel />}
 
           {opcionActiva === 'estados-rastreo' && <EstadosRastreoView />}
 
@@ -1125,6 +1141,65 @@ function TarifaCalculadoraPanel() {
                 <span className="font-mono font-semibold">$62.50</span>
               </li>
             </ul>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Panel Tarifa de distribución
+// ============================================================================
+
+function TarifaDistribucionPanel() {
+  return (
+    <div className="page-stack">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                <Truck className="h-3.5 w-3.5" />
+              </span>
+              <h3 className="text-sm font-semibold text-foreground">
+                Tarifa por defecto del courier de entrega
+              </h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Estos valores se precargan automáticamente al agregar líneas de distribución en la
+              liquidación de un envío consolidado. El operario puede ajustarlos por línea y, al
+              guardar, los nuevos valores reemplazan estos parámetros para próximos cálculos.
+            </p>
+            <TarifaDistribucionForm />
+          </div>
+          <aside className="space-y-2 rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/15 p-3">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <Sparkles className="h-3 w-3" />
+              Cómo se calcula
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Si <span className="font-mono text-foreground">kg incluidos = 2</span>,{' '}
+              <span className="font-mono text-foreground">precio fijo = $2.75</span> y{' '}
+              <span className="font-mono text-foreground">kg adicional = $0.50</span>:
+            </p>
+            <ul className="space-y-1 text-[11px] text-foreground">
+              <li className="flex items-center justify-between rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1">
+                <span className="text-muted-foreground">1.5 kg</span>
+                <span className="font-mono font-semibold">$2.75</span>
+              </li>
+              <li className="flex items-center justify-between rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1">
+                <span className="text-muted-foreground">2 kg</span>
+                <span className="font-mono font-semibold">$2.75</span>
+              </li>
+              <li className="flex items-center justify-between rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1">
+                <span className="text-muted-foreground">5 kg</span>
+                <span className="font-mono font-semibold">$4.25</span>
+              </li>
+            </ul>
+            <p className="text-[10px] leading-relaxed text-muted-foreground">
+              Fórmula: precio fijo + máx(0, peso − kg incluidos) × precio por kg adicional.
+            </p>
           </aside>
         </div>
       </div>

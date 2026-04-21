@@ -1,4 +1,11 @@
-export type EstadoManifiesto = 'PENDIENTE' | 'PAGADO' | 'ANULADO';
+/**
+ * Tipos del modulo de Manifiestos.
+ *
+ * El manifiesto es un agrupador logistico de los despachos enviados en un
+ * periodo (a domicilio, agencia o punto de entrega del consignatario).
+ * No lleva importes ni estado de pago: esa informacion vive en el modulo
+ * de Liquidaciones.
+ */
 
 export type FiltroManifiesto = 'POR_PERIODO' | 'POR_COURIER_ENTREGA' | 'POR_AGENCIA';
 
@@ -32,13 +39,6 @@ export interface Manifiesto {
   filtroAgenciaId: number | null;
   filtroAgenciaNombre: string | null;
   cantidadDespachos: number;
-  subtotalDomicilio: number;
-  subtotalAgenciaFlete: number;
-  subtotalComisionAgencias: number;
-  totalCourierEntrega: number;
-  totalAgencia: number;
-  totalPagar: number;
-  estado: EstadoManifiesto;
   despachos?: DespachoEnManifiesto[];
 }
 

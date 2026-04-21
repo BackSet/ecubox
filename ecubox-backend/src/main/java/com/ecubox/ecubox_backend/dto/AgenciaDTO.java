@@ -5,8 +5,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
+/**
+ * Vista de la agencia como catalogo logistico. No incluye tarifas: los
+ * costos los calcula el modulo de Liquidaciones.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,5 +24,4 @@ public class AgenciaDTO {
     private String canton;
     private String horarioAtencion;
     private Integer diasMaxRetiro;
-    private BigDecimal tarifaServicio;
 }

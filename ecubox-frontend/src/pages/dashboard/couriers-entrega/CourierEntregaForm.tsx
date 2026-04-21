@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import {
   CalendarClock,
   Clock,
-  DollarSign,
   ExternalLink,
   Hash,
   Info,
@@ -36,18 +35,8 @@ import {
 } from '@/hooks/useCouriersEntregaAdmin';
 import type { CourierEntregaRequest } from '@/types/despacho';
 import { emailOpcionalSchema } from '@/lib/validation';
-import {
-  onKeyDownNumeric,
-  onKeyDownNumericDecimal,
-  sanitizeNumeric,
-  sanitizeNumericDecimal,
-} from '@/lib/inputFilters';
+import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
 import { cn } from '@/lib/utils';
-
-const tarifaSchema = z
-  .union([z.number(), z.nan()])
-  .transform((n) => (Number.isNaN(n) ? 0 : n))
-  .pipe(z.number().min(0, 'La tarifa debe ser mayor o igual a 0').max(99999, 'Tarifa fuera de rango'));
 
 const formSchema = z.object({
   nombre: z
@@ -74,7 +63,6 @@ const formSchema = z.object({
     .union([z.number().int().min(0, 'Debe ser mayor o igual a 0').max(365, 'Máximo 365 días'), z.nan()])
     .transform((n) => (Number.isNaN(n) ? undefined : n))
     .optional(),
-  tarifaEnvio: tarifaSchema,
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -94,15 +82,6 @@ const HORARIOS_PRESET: Array<{ label: string; value: string }> = [
 
 const RETIRO_PRESETS = [1, 2, 3, 5, 7];
 
-function fmtMoneda(n: number | undefined | null): string {
-  const x = Number(n ?? 0);
-  if (!Number.isFinite(x)) return '$0,00';
-  return `$${x.toLocaleString('es-EC', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 function slugCodigo(nombre: string): string {
   const base = (nombre || '').trim().toLowerCase();
   if (!base) return '';
@@ -120,7 +99,6 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
   const { data: courierEntrega } = useCourierEntregaAdmin(id);
   const createMutation = useCreateCourierEntrega();
   const updateMutation = useUpdateCourierEntrega();
-  const [tarifaEnvioInput, setTarifaEnvioInput] = useState('0');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -132,7 +110,6 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
       horarioReparto: '',
       paginaTracking: '',
       diasMaxRetiroDomicilio: undefined,
-      tarifaEnvio: 0,
     },
   });
 
@@ -145,11 +122,7 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
         horarioReparto: courierEntrega.horarioReparto ?? '',
         paginaTracking: courierEntrega.paginaTracking ?? '',
         diasMaxRetiroDomicilio: courierEntrega.diasMaxRetiroDomicilio ?? undefined,
-        tarifaEnvio: courierEntrega.tarifaEnvio ?? 0,
       });
-      setTarifaEnvioInput(String(courierEntrega.tarifaEnvio ?? 0));
-    } else if (!isEdit) {
-      setTarifaEnvioInput('0');
     }
   }, [isEdit, courierEntrega, form]);
 
@@ -159,7 +132,6 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
   const watchedHorario = form.watch('horarioReparto');
   const watchedTracking = form.watch('paginaTracking');
   const watchedDiasMax = form.watch('diasMaxRetiroDomicilio');
-  const watchedTarifa = form.watch('tarifaEnvio');
 
   const puedeSugerirCodigo = (watchedNombre?.trim()?.length ?? 0) >= 3;
 
@@ -199,7 +171,6 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
       horarioReparto: values.horarioReparto?.trim() || undefined,
       paginaTracking: values.paginaTracking?.trim() || undefined,
       diasMaxRetiroDomicilio: values.diasMaxRetiroDomicilio,
-      tarifaEnvio: Number(values.tarifaEnvio),
     };
     try {
       if (isEdit && id != null) {
@@ -232,7 +203,7 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
               </DialogTitle>
               <DialogDescription>
                 {isEdit
-                  ? 'Actualiza los datos del courier de entrega: contacto, operación, tarifa y tracking.'
+                  ? 'Actualiza los datos del courier de entrega: contacto, operación y tracking.'
                   : 'Registra un nuevo courier de entrega para asignarlo a despachos y puntos de entrega.'}
               </DialogDescription>
               {isEdit && courierEntrega?.codigo && (
@@ -243,14 +214,6 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
                   >
                     {courierEntrega.codigo}
                   </Badge>
-                  {courierEntrega.tarifaEnvio != null && (
-                    <Badge
-                      variant="outline"
-                      className="h-5 rounded text-[11px] font-normal text-[var(--color-success)]"
-                    >
-                      Tarifa actual {fmtMoneda(courierEntrega.tarifaEnvio)}
-                    </Badge>
-                  )}
                 </div>
               )}
             </div>
@@ -347,7 +310,7 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
           <FormSection
             icon={<Clock className="h-4 w-4" />}
             title="Operación"
-            description="Horario de reparto, plazo de retiro a domicilio y tarifa de envío."
+            description="Horario de reparto y plazo de retiro a domicilio."
           >
             <div className="space-y-4">
               <FormField
@@ -395,101 +358,58 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
                 </div>
               </FormField>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField
-                  label="Días máx. de retiro a domicilio"
-                  error={errors.diasMaxRetiroDomicilio?.message}
-                  hint="Tiempo máximo del courier de entrega para entregar a domicilio."
-                  icon={<CalendarClock className="h-3.5 w-3.5" />}
-                >
-                  <div className="space-y-2">
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      variant="clean"
-                      placeholder="Ej: 3"
-                      value={watchedDiasMax != null ? String(watchedDiasMax) : ''}
-                      aria-invalid={Boolean(errors.diasMaxRetiroDomicilio)}
-                      onKeyDown={onKeyDownNumeric}
-                      onChange={(e) => {
-                        const s = sanitizeNumeric(e.target.value);
-                        form.setValue(
-                          'diasMaxRetiroDomicilio',
-                          s === '' ? (undefined as unknown as number) : Number(s),
-                          { shouldValidate: true, shouldDirty: true },
-                        );
-                      }}
-                    />
-                    <div className="flex flex-wrap gap-1.5">
-                      {RETIRO_PRESETS.map((d) => {
-                        const active = watchedDiasMax === d;
-                        return (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() =>
-                              form.setValue('diasMaxRetiroDomicilio', d, {
-                                shouldValidate: true,
-                                shouldDirty: true,
-                              })
-                            }
-                            className={cn(
-                              'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] transition-colors',
-                              active
-                                ? 'border-primary/50 bg-primary/10 text-primary'
-                                : 'border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground hover:bg-[var(--color-muted)]/60',
-                            )}
-                          >
-                            {d} día{d === 1 ? '' : 's'}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </FormField>
-
-                <FormField
-                  label="Tarifa de envío"
-                  required
-                  error={errors.tarifaEnvio?.message}
-                  hint="Costo base por envío con este courier de entrega (USD)."
-                  icon={<DollarSign className="h-3.5 w-3.5" />}
-                >
-                  <Controller
-                    control={form.control}
-                    name="tarifaEnvio"
-                    render={({ field }) => (
-                      <div className="relative">
-                        <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
-                          $
-                        </span>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          name={field.name}
-                          ref={field.ref}
-                          onBlur={field.onBlur}
-                          variant="clean"
-                          value={tarifaEnvioInput}
-                          placeholder="0.00"
-                          className="pl-7 text-right font-mono tabular-nums"
-                          aria-invalid={Boolean(errors.tarifaEnvio)}
-                          onKeyDown={(e) =>
-                            onKeyDownNumericDecimal(e, tarifaEnvioInput)
-                          }
-                          onChange={(e) => {
-                            const s = sanitizeNumericDecimal(e.target.value);
-                            setTarifaEnvioInput(s);
-                            const n = s === '' || s === '.' ? NaN : Number(s);
-                            field.onChange(n);
-                          }}
-                        />
-                      </div>
-                    )}
+              <FormField
+                label="Días máx. de retiro a domicilio"
+                error={errors.diasMaxRetiroDomicilio?.message}
+                hint="Tiempo máximo del courier de entrega para entregar a domicilio."
+                icon={<CalendarClock className="h-3.5 w-3.5" />}
+              >
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    variant="clean"
+                    placeholder="Ej: 3"
+                    value={watchedDiasMax != null ? String(watchedDiasMax) : ''}
+                    aria-invalid={Boolean(errors.diasMaxRetiroDomicilio)}
+                    onKeyDown={onKeyDownNumeric}
+                    onChange={(e) => {
+                      const s = sanitizeNumeric(e.target.value);
+                      form.setValue(
+                        'diasMaxRetiroDomicilio',
+                        s === '' ? (undefined as unknown as number) : Number(s),
+                        { shouldValidate: true, shouldDirty: true },
+                      );
+                    }}
                   />
-                </FormField>
-              </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {RETIRO_PRESETS.map((d) => {
+                      const active = watchedDiasMax === d;
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() =>
+                            form.setValue('diasMaxRetiroDomicilio', d, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            })
+                          }
+                          className={cn(
+                            'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] transition-colors',
+                            active
+                              ? 'border-primary/50 bg-primary/10 text-primary'
+                              : 'border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground hover:bg-[var(--color-muted)]/60',
+                          )}
+                        >
+                          {d} día{d === 1 ? '' : 's'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </FormField>
             </div>
           </FormSection>
 
@@ -544,7 +464,6 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
                 horario={watchedHorario}
                 tracking={watchedTracking}
                 diasMaxRetiroDomicilio={watchedDiasMax}
-                tarifa={watchedTarifa}
               />
             </div>
           )}
@@ -615,7 +534,6 @@ interface PreviewCardProps {
   horario?: string;
   tracking?: string;
   diasMaxRetiroDomicilio?: number;
-  tarifa?: number;
 }
 
 function PreviewCard({
@@ -625,7 +543,6 @@ function PreviewCard({
   horario,
   tracking,
   diasMaxRetiroDomicilio,
-  tarifa,
 }: PreviewCardProps) {
   const sinNombre = !nombre?.trim();
   const trackingValido = tracking && /^https?:\/\/.+/i.test(tracking.trim());
@@ -652,14 +569,6 @@ function PreviewCard({
                 className="h-5 rounded font-mono text-[11px] font-normal uppercase"
               >
                 {codigo.trim()}
-              </Badge>
-            )}
-            {Number.isFinite(tarifa) && (tarifa as number) > 0 && (
-              <Badge
-                variant="outline"
-                className="h-5 rounded text-[11px] font-normal text-[var(--color-success)]"
-              >
-                {fmtMoneda(tarifa as number)}
               </Badge>
             )}
           </div>

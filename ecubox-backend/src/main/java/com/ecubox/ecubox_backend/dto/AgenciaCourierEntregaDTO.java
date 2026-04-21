@@ -5,8 +5,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
+/**
+ * Vista del punto de entrega/oficina de un courier como catalogo
+ * logistico. No incluye tarifas: los costos los calcula el modulo de
+ * Liquidaciones.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,5 +27,4 @@ public class AgenciaCourierEntregaDTO {
     private String direccion;
     private String horarioAtencion;
     private Integer diasMaxRetiro;
-    private BigDecimal tarifa;
 }

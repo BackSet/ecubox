@@ -1,28 +1,28 @@
 import { jsPDF } from 'jspdf';
 import type { DespachoEnManifiesto, Manifiesto } from '@/types/manifiesto';
-import { ECUBOX_PDF_COLORS, type PdfRgb } from '@/lib/pdf/theme';
 import {
   createDocCtx,
   drawDocFooter,
   drawDocHeader,
   drawFirmas,
-  drawInlineMetrics,
   drawKpiRow,
   drawMetaRow,
   drawSectionTitle,
   drawTable,
   drawTotalBar,
   fmtFechaCorta,
-  fmtMoneda,
   safeStr,
   type ColumnDef,
 } from '@/lib/pdf/builders/internal-doc';
 
 /**
- * Construye el PDF del manifiesto de liquidación con la identidad visual de
- * ECUBOX (paleta morada, tipografía limpia, layout estructurado en cards y
- * tabla con repetición de cabecera). Toda la composición delega en los
- * helpers de `internal-doc.ts` para evitar superposiciones.
+ * PDF del manifiesto como <strong>listado logistico</strong> de despachos
+ * enviados en un periodo (a domicilio, agencia o punto de entrega).
+ *
+ * <p>No incluye importes, subtotales ni totales monetarios: la liquidacion
+ * economica vive en el modulo de Liquidaciones. Aqui se prioriza una
+ * vista clara para el responsable que entrega los paquetes (couriers,
+ * agencias, consignatarios) con conteos por tipo de entrega.
  */
 
 const TIPO_LABELS: Record<string, string> = {
@@ -31,10 +31,10 @@ const TIPO_LABELS: Record<string, string> = {
   AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
 };
 
-const ESTADO_LABELS: Record<string, string> = {
-  PENDIENTE: 'Pendiente',
-  PAGADO: 'Pagado',
-  ANULADO: 'Anulado',
+const FILTRO_LABELS: Record<string, string> = {
+  POR_PERIODO: 'Por período',
+  POR_COURIER_ENTREGA: 'Por courier de entrega',
+  POR_AGENCIA: 'Por agencia',
 };
 
 function diasEntre(inicio?: string | null, fin?: string | null): number | null {
@@ -45,27 +45,6 @@ function diasEntre(inicio?: string | null, fin?: string | null): number | null {
   const ms = b.getTime() - a.getTime();
   if (ms < 0) return null;
   return Math.round(ms / (1000 * 60 * 60 * 24)) + 1;
-}
-
-function badgeForEstado(estado?: string | null): {
-  text: string;
-  bg: PdfRgb;
-  fg: PdfRgb;
-} {
-  const text = (ESTADO_LABELS[estado ?? 'PENDIENTE'] ?? estado ?? 'Pendiente').toUpperCase();
-  switch (estado) {
-    case 'PAGADO':
-      return { text, bg: ECUBOX_PDF_COLORS.successFill, fg: ECUBOX_PDF_COLORS.success };
-    case 'ANULADO':
-      return {
-        text,
-        bg: ECUBOX_PDF_COLORS.destructiveFill,
-        fg: ECUBOX_PDF_COLORS.destructive,
-      };
-    case 'PENDIENTE':
-    default:
-      return { text, bg: ECUBOX_PDF_COLORS.warningFill, fg: ECUBOX_PDF_COLORS.warning };
-  }
 }
 
 export interface BuildManifiestoPdfInput {
@@ -83,16 +62,28 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
   const codigo =
     safeStr(manifiesto.codigo) === '-' ? `#${manifiesto.id}` : safeStr(manifiesto.codigo);
   const dias = diasEntre(manifiesto.fechaInicio, manifiesto.fechaFin);
-  const estadoLabel = ESTADO_LABELS[manifiesto.estado] ?? manifiesto.estado ?? 'Pendiente';
-  const badge = badgeForEstado(manifiesto.estado);
+
+  // Conteos por tipo de entrega para los KPIs y la barra de total.
+  let domicilio = 0;
+  let agencia = 0;
+  let agenciaPunto = 0;
+  const couriersSet = new Set<string>();
+  const agenciasSet = new Set<string>();
+  for (const d of despachos) {
+    if (d.tipoEntrega === 'DOMICILIO') domicilio += 1;
+    else if (d.tipoEntrega === 'AGENCIA') agencia += 1;
+    else if (d.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') agenciaPunto += 1;
+    if (d.courierEntregaNombre) couriersSet.add(d.courierEntregaNombre);
+    if (d.agenciaNombre) agenciasSet.add(d.agenciaNombre);
+  }
+  const totalAgencia = agencia + agenciaPunto;
 
   const header = () =>
     drawDocHeader(ctx, {
-      titulo: 'Manifiesto de liquidación',
-      subtitulo: 'Documento contable de ECUBOX',
+      titulo: 'Manifiesto de despachos',
+      subtitulo: 'Documento logístico de ECUBOX',
       codigo,
       meta: `ID ${manifiesto.id} · ${despachos.length} despacho${despachos.length === 1 ? '' : 's'}`,
-      badge,
     });
 
   ctx.onPageBreak = () => {
@@ -107,7 +98,10 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
       titulo: 'Manifiesto',
       filas: [
         { label: 'Código', value: codigo, bold: true },
-        { label: 'Estado', value: estadoLabel },
+        {
+          label: 'Tipo de filtro',
+          value: FILTRO_LABELS[manifiesto.filtroTipo] ?? safeStr(manifiesto.filtroTipo),
+        },
         {
           label: 'Generado',
           value: new Date().toLocaleDateString('es-EC', {
@@ -151,29 +145,12 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
     },
   ]);
 
-  // KPI cards
+  // KPI cards orientados a logística (sin importes).
   drawKpiRow(ctx, [
-    { label: 'Despachos', value: String(despachos.length) },
-    {
-      label: 'Total courier de entrega',
-      value: fmtMoneda(manifiesto.totalCourierEntrega),
-    },
-    { label: 'Total agencia', value: fmtMoneda(manifiesto.totalAgencia) },
-    {
-      label: 'Total a pagar',
-      value: fmtMoneda(manifiesto.totalPagar),
-      highlight: true,
-    },
-  ]);
-
-  // Subtotales en línea
-  drawInlineMetrics(ctx, 'Subtotales', [
-    { label: 'Domicilio', value: fmtMoneda(manifiesto.subtotalDomicilio) },
-    { label: 'Agencia (flete)', value: fmtMoneda(manifiesto.subtotalAgenciaFlete) },
-    {
-      label: 'Comisión agencias',
-      value: fmtMoneda(manifiesto.subtotalComisionAgencias),
-    },
+    { label: 'Despachos', value: String(despachos.length), highlight: true },
+    { label: 'Domicilio', value: String(domicilio) },
+    { label: 'Agencia / Punto', value: String(totalAgencia) },
+    { label: 'Couriers', value: String(couriersSet.size) },
   ]);
 
   // Sección + tabla de despachos
@@ -190,17 +167,10 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
     {
       key: 'guia',
       label: 'GUÍA',
-      weight: 0.14,
+      weight: 0.15,
       align: 'left',
       render: (d) => safeStr(d.numeroGuia),
       mono: true,
-    },
-    {
-      key: 'courierEntrega',
-      label: 'COURIER DE ENTREGA',
-      weight: 0.22,
-      align: 'left',
-      render: (d) => safeStr(d.courierEntregaNombre),
     },
     {
       key: 'tipo',
@@ -210,18 +180,25 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
       render: (d) => TIPO_LABELS[d.tipoEntrega] ?? safeStr(d.tipoEntrega),
     },
     {
+      key: 'consignatario',
+      label: 'CONSIGNATARIO',
+      weight: 0.26,
+      align: 'left',
+      render: (d) => safeStr(d.consignatarioNombre),
+    },
+    {
+      key: 'courierEntrega',
+      label: 'COURIER DE ENTREGA',
+      weight: 0.22,
+      align: 'left',
+      render: (d) => safeStr(d.courierEntregaNombre),
+    },
+    {
       key: 'agencia',
-      label: 'AGENCIA',
+      label: 'AGENCIA / PUNTO',
       weight: 0.20,
       align: 'left',
       render: (d) => safeStr(d.agenciaNombre),
-    },
-    {
-      key: 'consignatario',
-      label: 'CONSIGNATARIO',
-      weight: 0.27,
-      align: 'left',
-      render: (d) => safeStr(d.consignatarioNombre),
     },
   ];
 
@@ -234,12 +211,12 @@ export function buildManifiestoPdf(input: BuildManifiestoPdfInput): jsPDF {
   if (despachos.length > 0) {
     drawTotalBar(ctx, {
       left: `TOTAL · ${despachos.length} despacho${despachos.length === 1 ? '' : 's'}`,
-      right: `TOTAL A PAGAR  ${fmtMoneda(manifiesto.totalPagar)}`,
+      right: `${domicilio} domicilio · ${totalAgencia} agencia/punto · ${couriersSet.size} courier${couriersSet.size === 1 ? '' : 's'} · ${agenciasSet.size} agencia${agenciasSet.size === 1 ? '' : 's'}`,
     });
 
     drawFirmas(ctx, [
-      { titulo: 'Aprobación', subtitulo: 'ECUBOX' },
-      { titulo: 'Conformidad', subtitulo: 'Courier de entrega / Agencia' },
+      { titulo: 'Responsable de envío', subtitulo: 'ECUBOX' },
+      { titulo: 'Recibido conforme', subtitulo: 'Courier de entrega / Agencia' },
     ]);
   }
 

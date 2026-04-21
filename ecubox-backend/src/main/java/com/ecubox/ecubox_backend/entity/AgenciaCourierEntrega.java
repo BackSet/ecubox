@@ -5,9 +5,14 @@ import lombok.*;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * Punto de entrega/oficina de un courier. Es un <strong>catalogo
+ * logistico</strong>: no lleva tarifas. El costo del servicio lo
+ * calcula el modulo de Liquidaciones a partir de
+ * {@code ConfigTarifaDistribucion} y de las lineas de cada documento.
+ */
 @Entity
 @Table(name = "agencia_courier_entrega")
 @Getter
@@ -44,10 +49,6 @@ public class AgenciaCourierEntrega {
 
     @Column(name = "dias_max_retiro")
     private Integer diasMaxRetiro;
-
-    @Column(nullable = false, precision = 19, scale = 4)
-    @Builder.Default
-    private BigDecimal tarifa = BigDecimal.ZERO;
 
     /**
      * Soft-delete (V67): si es NOT NULL la agencia esta dada de baja.

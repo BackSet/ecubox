@@ -5,6 +5,7 @@ import {
   Boxes,
   Check,
   CheckCircle2,
+  CircleDollarSign,
   Eraser,
   Eye,
   Lock,
@@ -59,7 +60,8 @@ import {
 } from '@/hooks/useEnviosConsolidados';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import type { EstadoFiltro } from '@/lib/api/envios-consolidados.service';
+import type { EstadoFiltro, EstadoPagoFiltro } from '@/lib/api/envios-consolidados.service';
+import type { EstadoPagoConsolidado } from '@/types/envio-consolidado';
 import { useAuthStore } from '@/stores/authStore';
 import { EnvioConsolidadoBadge } from './EnvioConsolidadoBadge';
 
@@ -71,6 +73,7 @@ export function EnviosConsolidadosListPage() {
     initialSize: 20,
   });
   const [estadoFilter, setEstadoFilter] = useState<EstadoFiltro>('TODOS');
+  const [estadoPagoFilter, setEstadoPagoFilter] = useState<EstadoPagoFiltro>('TODOS');
   const [createOpen, setCreateOpen] = useState(false);
   const [confirmCerrar, setConfirmCerrar] = useState<{ id: number; codigo: string } | null>(null);
   const [confirmReabrir, setConfirmReabrir] = useState<{ id: number; codigo: string } | null>(null);
@@ -89,6 +92,7 @@ export function EnviosConsolidadosListPage() {
 
   const { data, isLoading, isFetching, error, refetch } = useEnviosConsolidados({
     estado: estadoFilter,
+    estadoPago: estadoPagoFilter,
     q: q.trim() || undefined,
     page,
     size,
@@ -155,11 +159,15 @@ export function EnviosConsolidadosListPage() {
     const all = dataTodos?.content ?? [];
     let abiertos = 0;
     let cerrados = 0;
+    let pagados = 0;
+    let noPagados = 0;
     let paquetes = 0;
     let pesoLbs = 0;
     for (const e of all) {
       if (e.cerrado) cerrados += 1;
       else abiertos += 1;
+      if (e.estadoPago === 'PAGADO') pagados += 1;
+      else noPagados += 1;
       paquetes += e.totalPaquetes ?? 0;
       pesoLbs += Number(e.pesoTotalLbs ?? 0);
     }
@@ -167,6 +175,8 @@ export function EnviosConsolidadosListPage() {
       total: dataTodos?.totalElements ?? all.length,
       abiertos,
       cerrados,
+      pagados,
+      noPagados,
       paquetes,
       pesoLbs,
       pesoKg: pesoLbs * LBS_TO_KG,
@@ -227,9 +237,10 @@ export function EnviosConsolidadosListPage() {
       </div>
 
       <FiltrosBar
-        hayFiltrosActivos={estadoFilter !== 'TODOS'}
+        hayFiltrosActivos={estadoFilter !== 'TODOS' || estadoPagoFilter !== 'TODOS'}
         onLimpiar={() => {
           setEstadoFilter('TODOS');
+          setEstadoPagoFilter('TODOS');
           resetPage();
         }}
         chips={
@@ -260,6 +271,27 @@ export function EnviosConsolidadosListPage() {
               tone="success"
               onClick={() => {
                 setEstadoFilter('CERRADO');
+                resetPage();
+              }}
+            />
+            <span className="mx-1 hidden h-5 w-px bg-[var(--color-border)] md:inline-block" />
+            <ChipFiltro
+              label="No pagados"
+              count={stats.noPagados}
+              active={estadoPagoFilter === 'NO_PAGADO'}
+              tone="warning"
+              onClick={() => {
+                setEstadoPagoFilter(estadoPagoFilter === 'NO_PAGADO' ? 'TODOS' : 'NO_PAGADO');
+                resetPage();
+              }}
+            />
+            <ChipFiltro
+              label="Pagados"
+              count={stats.pagados}
+              active={estadoPagoFilter === 'PAGADO'}
+              tone="success"
+              onClick={() => {
+                setEstadoPagoFilter(estadoPagoFilter === 'PAGADO' ? 'TODOS' : 'PAGADO');
                 resetPage();
               }}
             />
@@ -317,6 +349,7 @@ export function EnviosConsolidadosListPage() {
                 <TableRow>
                   <TableHead>Código</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Pago</TableHead>
                   <TableHead className="text-center">Paquetes</TableHead>
                   <TableHead>Peso</TableHead>
                   <TableHead>Creado</TableHead>
@@ -327,8 +360,8 @@ export function EnviosConsolidadosListPage() {
               <TableBody>
                 {isLoading && (
                   <TableRowsSkeleton
-                    columns={7}
-                    columnClasses={{ 5: 'hidden md:table-cell' }}
+                    columns={8}
+                    columnClasses={{ 6: 'hidden md:table-cell' }}
                   />
                 )}
                 {items.map((e) => (
@@ -350,6 +383,9 @@ export function EnviosConsolidadosListPage() {
                     </TableCell>
                     <TableCell>
                       <EnvioConsolidadoBadge cerrado={e.cerrado} />
+                    </TableCell>
+                    <TableCell>
+                      <PagoBadge estado={e.estadoPago} />
                     </TableCell>
                     <TableCell className="text-center">
                       <PaquetesBadge total={e.totalPaquetes ?? 0} />
@@ -589,6 +625,23 @@ function EliminarEnvioDialog({ target, loading, onClose, onConfirm }: EliminarEn
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PagoBadge({ estado }: { estado?: EstadoPagoConsolidado }) {
+  const isPagado = estado === 'PAGADO';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
+        isPagado
+          ? 'border-[var(--color-success)]/30 bg-[var(--color-success)]/10 text-[var(--color-success)]'
+          : 'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
+      )}
+    >
+      <CircleDollarSign className="h-3 w-3" />
+      {isPagado ? 'Pagado' : 'No pagado'}
+    </span>
   );
 }
 

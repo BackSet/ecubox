@@ -10,14 +10,11 @@ import {
   updateManifiesto,
   deleteManifiesto,
   asignarDespachos,
-  recalcularTotales,
-  cambiarEstadoManifiesto,
   getDespachosCandidatosManifiesto,
 } from '@/lib/api/manifiestos.service';
 import type {
   ManifiestoRequest,
   AsignarDespachosRequest,
-  EstadoManifiesto,
 } from '@/types/manifiesto';
 
 export const MANIFIESTOS_QUERY_KEY = ['manifiestos'] as const;
@@ -53,7 +50,9 @@ export function useUpdateManifiesto() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: MANIFIESTOS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: [...MANIFIESTOS_QUERY_KEY, id] });
-      qc.invalidateQueries({ queryKey: [...MANIFIESTOS_QUERY_KEY, id, 'despachos-candidatos'] });
+      qc.invalidateQueries({
+        queryKey: [...MANIFIESTOS_QUERY_KEY, id, 'despachos-candidatos'],
+      });
     },
   });
 }
@@ -78,29 +77,6 @@ export function useAsignarDespachos() {
   });
 }
 
-export function useRecalcularTotales() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => recalcularTotales(id),
-    onSuccess: (_, id) => {
-      qc.invalidateQueries({ queryKey: MANIFIESTOS_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: [...MANIFIESTOS_QUERY_KEY, id] });
-    },
-  });
-}
-
-export function useCambiarEstadoManifiesto() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, estado }: { id: number; estado: EstadoManifiesto }) =>
-      cambiarEstadoManifiesto(id, estado),
-    onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: MANIFIESTOS_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: [...MANIFIESTOS_QUERY_KEY, id] });
-    },
-  });
-}
-
 export function useDespachosCandidatosManifiesto(id: number | undefined | null) {
   return useQuery({
     queryKey: [...MANIFIESTOS_QUERY_KEY, id, 'despachos-candidatos'],
@@ -108,4 +84,3 @@ export function useDespachosCandidatosManifiesto(id: number | undefined | null) 
     enabled: id != null,
   });
 }
-

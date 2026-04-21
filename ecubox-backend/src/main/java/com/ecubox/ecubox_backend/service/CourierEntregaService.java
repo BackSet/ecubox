@@ -99,7 +99,6 @@ public class CourierEntregaService {
                 .nombre(r.getNombre().trim())
                 .codigo(r.getCodigo().trim())
                 .email(r.getEmail() != null ? r.getEmail().trim() : null)
-                .tarifaEnvio(r.getTarifaEnvio() != null ? r.getTarifaEnvio() : java.math.BigDecimal.ZERO)
                 .horarioReparto(r.getHorarioReparto() != null ? r.getHorarioReparto().trim() : null)
                 .paginaTracking(r.getPaginaTracking() != null ? r.getPaginaTracking().trim() : null)
                 .diasMaxRetiroDomicilio(r.getDiasMaxRetiroDomicilio())
@@ -110,7 +109,6 @@ public class CourierEntregaService {
         entity.setNombre(r.getNombre().trim());
         entity.setCodigo(r.getCodigo().trim());
         entity.setEmail(r.getEmail() != null ? r.getEmail().trim() : null);
-        entity.setTarifaEnvio(r.getTarifaEnvio() != null ? r.getTarifaEnvio() : java.math.BigDecimal.ZERO);
         entity.setHorarioReparto(r.getHorarioReparto() != null ? r.getHorarioReparto().trim() : null);
         entity.setPaginaTracking(r.getPaginaTracking() != null ? r.getPaginaTracking().trim() : null);
         entity.setDiasMaxRetiroDomicilio(r.getDiasMaxRetiroDomicilio());

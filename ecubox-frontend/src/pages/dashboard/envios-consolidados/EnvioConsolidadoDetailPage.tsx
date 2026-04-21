@@ -20,6 +20,7 @@ import {
   Search,
   Trash2,
   Unlock,
+  Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { notify } from '@/lib/notify';
@@ -66,6 +67,7 @@ import {
   ConsignatarioCell,
 } from '@/pages/dashboard/paquetes/PaqueteCells';
 import { EnvioConsolidadoBadge } from './EnvioConsolidadoBadge';
+import { useAuthStore } from '@/stores/authStore';
 
 const LBS_TO_KG = 0.45359237;
 
@@ -94,6 +96,9 @@ export function EnvioConsolidadoDetailPage() {
   const reabrir = useReabrirEnvioConsolidado();
   const remover = useRemoverPaquetesEnvioConsolidado();
   const manifiestos = useDescargarManifiesto();
+  const hasLiquidacionRead = useAuthStore((s) =>
+    s.hasPermission('LIQUIDACION_CONSOLIDADO_READ'),
+  );
 
   const paquetes = envio?.paquetes ?? [];
   const paquetesFiltrados = useMemo(() => {
@@ -236,6 +241,16 @@ export function EnvioConsolidadoDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {hasLiquidacionRead && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate({ to: '/liquidaciones' })}
+              >
+                <Wallet className="mr-1.5 h-4 w-4" />
+                Liquidaciones
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -416,7 +431,30 @@ export function EnvioConsolidadoDetailPage() {
         loading={reabrir.isPending}
         onConfirm={handleReabrir}
       />
-      
+
+      {hasLiquidacionRead && (
+        <SurfaceCard className="p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                <Wallet className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-foreground">Liquidaciones</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Las liquidaciones ahora son documentos periódicos independientes. Crea o
+                  abre una liquidación desde el módulo dedicado para incluir este
+                  consolidado entre las líneas de costo al proveedor.
+                </p>
+              </div>
+            </div>
+            <Button size="sm" onClick={() => navigate({ to: '/liquidaciones' })}>
+              <Wallet className="mr-1.5 h-4 w-4" />
+              Ir a liquidaciones
+            </Button>
+          </div>
+        </SurfaceCard>
+      )}
     </div>
   );
 }

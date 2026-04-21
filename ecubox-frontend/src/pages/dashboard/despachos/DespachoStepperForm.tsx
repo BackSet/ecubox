@@ -58,7 +58,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { PROVINCIAS_ECUADOR, getCantonesByProvincia } from '@/data/provincias-cantones-ecuador';
-import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { AgregarPaquetesSacaDialog } from './AgregarPaquetesSacaDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -258,7 +257,6 @@ export function DespachoStepperForm({
     direccion: '',
     horarioAtencion: '',
     diasMaxRetiro: '',
-    tarifa: '0',
   });
   const sectionSacasRef = useRef<HTMLDivElement>(null);
   const prevCourierEntregaIdRef = useRef<number | null>(null);
@@ -527,7 +525,6 @@ export function DespachoStepperForm({
       direccion: '',
       horarioAtencion: '',
       diasMaxRetiro: '',
-      tarifa: '0',
     });
     setCrearAgenciaCourierEntregaModalOpen(true);
   }
@@ -545,10 +542,6 @@ export function DespachoStepperForm({
         direccion: modalCrearAgencia.direccion?.trim() || undefined,
         horarioAtencion: modalCrearAgencia.horarioAtencion?.trim() || undefined,
         diasMaxRetiro: modalCrearAgencia.diasMaxRetiro === '' ? undefined : Number(modalCrearAgencia.diasMaxRetiro),
-        tarifa:
-          modalCrearAgencia.tarifa === '' || modalCrearAgencia.tarifa === '.'
-            ? 0
-            : Number(modalCrearAgencia.tarifa),
       });
       form.setValue('agenciaCourierEntregaId', created.id);
       setCrearAgenciaCourierEntregaModalOpen(false);
@@ -1785,9 +1778,6 @@ export function DespachoStepperForm({
                           <div className="truncate font-medium">{d.nombre}</div>
                           <div className="text-xs text-muted-foreground">
                             Código: {d.codigo}
-                            {d.tarifaEnvio != null
-                              ? ` · Tarifa: $${d.tarifaEnvio}`
-                              : ''}
                           </div>
                         </div>
                       )}
@@ -2169,21 +2159,6 @@ export function DespachoStepperForm({
                 placeholder="Ej: 7"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">Tarifa *</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={modalCrearAgencia.tarifa}
-                onKeyDown={(e) => onKeyDownNumericDecimal(e, modalCrearAgencia.tarifa)}
-                onChange={(e) => {
-                  const s = sanitizeNumericDecimal(e.target.value);
-                  setModalCrearAgencia((prev) => ({ ...prev, tarifa: s }));
-                }}
-                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                placeholder="0.00"
-              />
-            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setCrearAgenciaCourierEntregaModalOpen(false)}>
@@ -2191,7 +2166,7 @@ export function DespachoStepperForm({
             </Button>
             <Button
               type="button"
-              disabled={createAgenciaCourierEntregaOperarioMutation.isPending || Number(modalCrearAgencia.tarifa || 0) < 0}
+              disabled={createAgenciaCourierEntregaOperarioMutation.isPending}
               onClick={submitCrearAgenciaCourierEntrega}
             >
               {createAgenciaCourierEntregaOperarioMutation.isPending ? 'Creando...' : 'Crear punto de entrega'}

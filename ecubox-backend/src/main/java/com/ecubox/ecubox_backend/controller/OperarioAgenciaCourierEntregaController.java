@@ -41,7 +41,6 @@ public class OperarioAgenciaCourierEntregaController {
                 .direccion(body.getDireccion())
                 .horarioAtencion(body.getHorarioAtencion())
                 .diasMaxRetiro(body.getDiasMaxRetiro())
-                .tarifa(body.getTarifa())
                 .build();
         AgenciaCourierEntregaDTO created = agenciaCourierEntregaService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);

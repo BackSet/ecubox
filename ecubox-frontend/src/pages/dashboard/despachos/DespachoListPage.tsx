@@ -612,7 +612,7 @@ export function DespachoListPage() {
                 <TableHead className="w-[14rem]">Despacho</TableHead>
                 <TableHead className="hidden w-[10rem] lg:table-cell">Tipo</TableHead>
                 <TableHead className="min-w-[14rem]">Destino</TableHead>
-                <TableHead className="min-w-[12rem]">CourierEntrega</TableHead>
+                <TableHead className="min-w-[12rem]">Courier de entrega</TableHead>
                 <TableHead className="hidden w-[8rem] md:table-cell">Sacas</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
@@ -666,7 +666,7 @@ export function DespachoListPage() {
                   <TableHead className="w-[14rem]">Despacho</TableHead>
                   <TableHead className="hidden w-[10rem] lg:table-cell">Tipo</TableHead>
                   <TableHead className="min-w-[14rem]">Destino</TableHead>
-                  <TableHead className="min-w-[12rem]">CourierEntrega</TableHead>
+                  <TableHead className="min-w-[12rem]">Courier de entrega</TableHead>
                   <TableHead className="hidden w-[8rem] md:table-cell">Sacas</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>

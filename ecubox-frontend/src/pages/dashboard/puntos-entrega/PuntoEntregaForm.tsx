@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import {
   Building2,
   CalendarClock,
   Clock,
-  DollarSign,
   Hash,
   Info,
   Loader2,
@@ -44,12 +43,7 @@ import {
 } from '@/hooks/usePuntosEntregaAdmin';
 import { useCouriersEntregaAdmin } from '@/hooks/useCouriersEntregaAdmin';
 import type { AgenciaCourierEntregaRequest } from '@/types/despacho';
-import {
-  onKeyDownNumeric,
-  onKeyDownNumericDecimal,
-  sanitizeNumeric,
-  sanitizeNumericDecimal,
-} from '@/lib/inputFilters';
+import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
@@ -62,10 +56,6 @@ const formSchema = z.object({
     .union([z.number().int().min(0, 'Debe ser mayor o igual a 0').max(365, 'Máximo 365 días'), z.nan()])
     .transform((n) => (Number.isNaN(n) ? undefined : n))
     .optional(),
-  tarifa: z
-    .union([z.number(), z.nan()])
-    .transform((n) => (Number.isNaN(n) ? 0 : n))
-    .pipe(z.number().min(0, 'La tarifa debe ser mayor o igual a 0').max(99999, 'Tarifa fuera de rango')),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -85,15 +75,6 @@ const HORARIOS_PRESET: Array<{ label: string; value: string }> = [
 
 const RETIRO_PRESETS = [3, 5, 7, 15, 30];
 
-function fmtMoneda(n: number | undefined | null): string {
-  const x = Number(n ?? 0);
-  if (!Number.isFinite(x)) return '$0,00';
-  return `$${x.toLocaleString('es-EC', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 export function PuntoEntregaForm({
   id,
   onClose,
@@ -104,7 +85,6 @@ export function PuntoEntregaForm({
   const { data: couriersEntrega = [] } = useCouriersEntregaAdmin();
   const createMutation = useCreateAgenciaCourierEntrega();
   const updateMutation = useUpdateAgenciaCourierEntrega();
-  const [tarifaInput, setTarifaInput] = useState('0');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -116,7 +96,6 @@ export function PuntoEntregaForm({
       canton: '',
       horarioAtencion: '',
       diasMaxRetiro: undefined,
-      tarifa: 0,
     },
   });
 
@@ -129,11 +108,7 @@ export function PuntoEntregaForm({
         canton: agencia.canton ?? '',
         horarioAtencion: agencia.horarioAtencion ?? '',
         diasMaxRetiro: agencia.diasMaxRetiro ?? undefined,
-        tarifa: agencia.tarifa ?? 0,
       });
-      setTarifaInput(String(agencia.tarifa ?? 0));
-    } else if (!isEdit) {
-      setTarifaInput('0');
     }
   }, [isEdit, agencia, form]);
 
@@ -143,7 +118,6 @@ export function PuntoEntregaForm({
   const watchedDireccion = form.watch('direccion');
   const watchedHorario = form.watch('horarioAtencion');
   const watchedDiasMax = form.watch('diasMaxRetiro');
-  const watchedTarifa = form.watch('tarifa');
 
   const courierEntregaSel = useMemo(
     () => couriersEntrega.find((d) => d.id === watchedCourierEntregaId) ?? null,
@@ -166,7 +140,6 @@ export function PuntoEntregaForm({
       canton: values.canton?.trim() || undefined,
       horarioAtencion: values.horarioAtencion?.trim() || undefined,
       diasMaxRetiro: values.diasMaxRetiro,
-      tarifa: Number(values.tarifa),
     };
     try {
       if (isEdit && id != null) {
@@ -207,7 +180,7 @@ export function PuntoEntregaForm({
               </DialogTitle>
               <DialogDescription>
                 {isEdit
-                  ? 'Actualiza la ubicación, horarios y tarifa de este punto de entrega perteneciente a un courier.'
+                  ? 'Actualiza la ubicación y horarios de este punto de entrega perteneciente a un courier.'
                   : 'Registra un punto de entrega que pertenece a un courier para usarlo en despachos tipo "Punto de entrega".'}
               </DialogDescription>
               {isEdit && agencia?.codigo && (
@@ -218,14 +191,6 @@ export function PuntoEntregaForm({
                   >
                     {agencia.codigo}
                   </Badge>
-                  {agencia.tarifa != null && (
-                    <Badge
-                      variant="outline"
-                      className="h-5 rounded text-[11px] font-normal text-[var(--color-success)]"
-                    >
-                      Tarifa actual {fmtMoneda(agencia.tarifa)}
-                    </Badge>
-                  )}
                 </div>
               )}
             </div>
@@ -304,14 +269,6 @@ export function PuntoEntregaForm({
                       </Badge>
                     )}
                   </div>
-                  {courierEntregaSel.tarifaEnvio != null && (
-                    <p className="text-muted-foreground">
-                      Tarifa de envío base:{' '}
-                      <span className="font-mono text-[var(--color-success)]">
-                        {fmtMoneda(courierEntregaSel.tarifaEnvio)}
-                      </span>
-                    </p>
-                  )}
                 </div>
               </div>
             )}
@@ -388,7 +345,7 @@ export function PuntoEntregaForm({
           <FormSection
             icon={<Clock className="h-4 w-4" />}
             title="Operación"
-            description="Horario de atención, tiempo máximo de retiro y tarifa por entrega."
+            description="Horario de atención y tiempo máximo de retiro."
           >
             <div className="space-y-4">
               <FormField
@@ -436,101 +393,58 @@ export function PuntoEntregaForm({
                 </div>
               </FormField>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField
-                  label="Días máx. de retiro"
-                  error={errors.diasMaxRetiro?.message}
-                  hint="Tras este plazo el paquete se considera vencido."
-                  icon={<CalendarClock className="h-3.5 w-3.5" />}
-                >
-                  <div className="space-y-2">
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      variant="clean"
-                      placeholder="Ej: 7"
-                      value={watchedDiasMax != null ? String(watchedDiasMax) : ''}
-                      aria-invalid={Boolean(errors.diasMaxRetiro)}
-                      onKeyDown={onKeyDownNumeric}
-                      onChange={(e) => {
-                        const s = sanitizeNumeric(e.target.value);
-                        form.setValue(
-                          'diasMaxRetiro',
-                          s === '' ? (undefined as unknown as number) : Number(s),
-                          { shouldValidate: true, shouldDirty: true },
-                        );
-                      }}
-                    />
-                    <div className="flex flex-wrap gap-1.5">
-                      {RETIRO_PRESETS.map((d) => {
-                        const active = watchedDiasMax === d;
-                        return (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() =>
-                              form.setValue('diasMaxRetiro', d, {
-                                shouldValidate: true,
-                                shouldDirty: true,
-                              })
-                            }
-                            className={cn(
-                              'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] transition-colors',
-                              active
-                                ? 'border-primary/50 bg-primary/10 text-primary'
-                                : 'border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground hover:bg-[var(--color-muted)]/60',
-                            )}
-                          >
-                            {d} días
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </FormField>
-
-                <FormField
-                  label="Tarifa"
-                  required
-                  error={errors.tarifa?.message}
-                  hint="Costo base por entrega en este punto (USD)."
-                  icon={<DollarSign className="h-3.5 w-3.5" />}
-                >
-                  <Controller
-                    control={form.control}
-                    name="tarifa"
-                    render={({ field }) => (
-                      <div className="relative">
-                        <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
-                          $
-                        </span>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          name={field.name}
-                          ref={field.ref}
-                          onBlur={field.onBlur}
-                          variant="clean"
-                          value={tarifaInput}
-                          placeholder="0.00"
-                          className="pl-7 text-right font-mono tabular-nums"
-                          aria-invalid={Boolean(errors.tarifa)}
-                          onKeyDown={(e) =>
-                            onKeyDownNumericDecimal(e, tarifaInput)
-                          }
-                          onChange={(e) => {
-                            const s = sanitizeNumericDecimal(e.target.value);
-                            setTarifaInput(s);
-                            const n = s === '' || s === '.' ? NaN : Number(s);
-                            field.onChange(n);
-                          }}
-                        />
-                      </div>
-                    )}
+              <FormField
+                label="Días máx. de retiro"
+                error={errors.diasMaxRetiro?.message}
+                hint="Tras este plazo el paquete se considera vencido."
+                icon={<CalendarClock className="h-3.5 w-3.5" />}
+              >
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    variant="clean"
+                    placeholder="Ej: 7"
+                    value={watchedDiasMax != null ? String(watchedDiasMax) : ''}
+                    aria-invalid={Boolean(errors.diasMaxRetiro)}
+                    onKeyDown={onKeyDownNumeric}
+                    onChange={(e) => {
+                      const s = sanitizeNumeric(e.target.value);
+                      form.setValue(
+                        'diasMaxRetiro',
+                        s === '' ? (undefined as unknown as number) : Number(s),
+                        { shouldValidate: true, shouldDirty: true },
+                      );
+                    }}
                   />
-                </FormField>
-              </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {RETIRO_PRESETS.map((d) => {
+                      const active = watchedDiasMax === d;
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() =>
+                            form.setValue('diasMaxRetiro', d, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            })
+                          }
+                          className={cn(
+                            'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] transition-colors',
+                            active
+                              ? 'border-primary/50 bg-primary/10 text-primary'
+                              : 'border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground hover:bg-[var(--color-muted)]/60',
+                          )}
+                        >
+                          {d} días
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </FormField>
             </div>
           </FormSection>
 
@@ -550,7 +464,6 @@ export function PuntoEntregaForm({
                 canton={watchedCanton}
                 horario={watchedHorario}
                 diasMaxRetiro={watchedDiasMax}
-                tarifa={watchedTarifa}
               />
             </div>
           )}
@@ -629,7 +542,6 @@ interface PreviewCardProps {
   canton?: string;
   horario?: string;
   diasMaxRetiro?: number;
-  tarifa?: number;
 }
 
 function PreviewCard({
@@ -641,7 +553,6 @@ function PreviewCard({
   canton,
   horario,
   diasMaxRetiro,
-  tarifa,
 }: PreviewCardProps) {
   const ubicacion = [canton?.trim(), provincia?.trim()]
     .filter((v): v is string => Boolean(v))
@@ -677,14 +588,6 @@ function PreviewCard({
                 className="h-5 rounded font-mono text-[11px] font-normal uppercase"
               >
                 {codigo}
-              </Badge>
-            )}
-            {Number.isFinite(tarifa) && (tarifa as number) > 0 && (
-              <Badge
-                variant="outline"
-                className="h-5 rounded text-[11px] font-normal text-[var(--color-success)]"
-              >
-                {fmtMoneda(tarifa as number)}
               </Badge>
             )}
           </div>

@@ -8,7 +8,6 @@ import com.ecubox.ecubox_backend.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Optional;
@@ -55,7 +54,6 @@ public class AgenciaVersionService {
                 .canton(maestro.getCanton())
                 .horarioAtencion(maestro.getHorarioAtencion())
                 .diasMaxRetiro(maestro.getDiasMaxRetiro())
-                .tarifaServicio(maestro.getTarifaServicio() != null ? maestro.getTarifaServicio() : BigDecimal.ZERO)
                 .validFrom(now)
                 .validTo(null)
                 .createdByUsuario(actor)
@@ -77,14 +75,7 @@ public class AgenciaVersionService {
                 && Objects.equals(v.getProvincia(), m.getProvincia())
                 && Objects.equals(v.getCanton(), m.getCanton())
                 && Objects.equals(v.getHorarioAtencion(), m.getHorarioAtencion())
-                && Objects.equals(v.getDiasMaxRetiro(), m.getDiasMaxRetiro())
-                && comparaBigDecimal(v.getTarifaServicio(), m.getTarifaServicio());
-    }
-
-    private static boolean comparaBigDecimal(BigDecimal a, BigDecimal b) {
-        if (a == null && b == null) return true;
-        if (a == null || b == null) return false;
-        return a.compareTo(b) == 0;
+                && Objects.equals(v.getDiasMaxRetiro(), m.getDiasMaxRetiro());
     }
 
     private Usuario resolverUsuario(Long actorUsuarioId) {

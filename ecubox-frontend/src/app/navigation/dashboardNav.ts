@@ -18,6 +18,7 @@ import {
   Boxes,
   Plane,
   Contact,
+  Wallet,
 } from 'lucide-react';
 
 export type NavItem = {
@@ -164,6 +165,22 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         icon: FileText,
         permission: 'MANIFIESTOS_READ',
         keywords: ['manifiesto', 'carga'],
+      },
+      {
+        to: '/liquidaciones',
+        label: 'Liquidaciones',
+        icon: Wallet,
+        permission: 'LIQUIDACION_CONSOLIDADO_READ',
+        keywords: [
+          'liquidacion',
+          'pago',
+          'cobro',
+          'margen',
+          'ingreso',
+          'distribucion',
+          'tarifa',
+          'finanzas',
+        ],
       },
     ],
   },

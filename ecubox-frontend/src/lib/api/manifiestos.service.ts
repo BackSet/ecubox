@@ -4,7 +4,6 @@ import type {
   Manifiesto,
   ManifiestoRequest,
   AsignarDespachosRequest,
-  EstadoManifiesto,
   ManifiestoDespachoCandidato,
 } from '@/types/manifiesto';
 
@@ -45,21 +44,11 @@ export async function asignarDespachos(
   return data;
 }
 
-export async function recalcularTotales(id: number): Promise<Manifiesto> {
-  const { data } = await apiClient.post<Manifiesto>(`${BASE}/${id}/recalcular`);
-  return data;
-}
-
-export async function cambiarEstadoManifiesto(
+export async function getDespachosCandidatosManifiesto(
   id: number,
-  estado: EstadoManifiesto
-): Promise<Manifiesto> {
-  const { data } = await apiClient.patch<Manifiesto>(`${BASE}/${id}/estado`, { estado });
+): Promise<ManifiestoDespachoCandidato[]> {
+  const { data } = await apiClient.get<ManifiestoDespachoCandidato[]>(
+    `${BASE}/${id}/despachos-candidatos`,
+  );
   return data;
 }
-
-export async function getDespachosCandidatosManifiesto(id: number): Promise<ManifiestoDespachoCandidato[]> {
-  const { data } = await apiClient.get<ManifiestoDespachoCandidato[]>(`${BASE}/${id}/despachos-candidatos`);
-  return data;
-}
-

@@ -36,14 +36,16 @@ export async function getAgenciasCourierEntrega(courierEntregaId: number): Promi
   return data;
 }
 
-/** Crear agencia de courierEntrega desde flujo operario (sin nombre ni código; provincia/cantón opcionales). */
+/**
+ * Crear punto de entrega de un courier desde el flujo operario.
+ * Sin nombre, sin código y sin tarifa: el costo lo maneja Liquidaciones.
+ */
 export interface CreateAgenciaCourierEntregaOperarioBody {
   provincia?: string;
   canton?: string;
   direccion?: string;
   horarioAtencion?: string;
   diasMaxRetiro?: number;
-  tarifa: number;
 }
 
 export async function createAgenciaCourierEntregaOperario(

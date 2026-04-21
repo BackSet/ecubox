@@ -1,15 +1,21 @@
 package com.ecubox.ecubox_backend.entity;
 
-import com.ecubox.ecubox_backend.enums.EstadoManifiesto;
 import com.ecubox.ecubox_backend.enums.FiltroManifiesto;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Documento que agrupa los despachos enviados en un periodo (a domicilio,
+ * agencia o punto de entrega del consignatario).
+ *
+ * <p>Es estrictamente un agrupador logistico/operativo: <strong>no</strong>
+ * lleva importes ni estado de pago. Los costos y la liquidacion economica
+ * los maneja el modulo de Liquidaciones (ver entidad {@code Liquidacion}).
+ */
 @Entity
 @Table(name = "manifiesto")
 @Getter
@@ -44,30 +50,14 @@ public class Manifiesto {
     @JoinColumn(name = "filtro_agencia_id")
     private Agencia filtroAgencia;
 
+    /**
+     * Conteo denormalizado de despachos asignados, mantenido por el servicio
+     * al asignar/desasignar. Sirve para listados rapidos sin consultar la
+     * tabla de despachos.
+     */
     @Column(name = "cantidad_despachos", nullable = false)
     @Builder.Default
     private Integer cantidadDespachos = 0;
-
-    @Column(name = "subtotal_domicilio", nullable = false, precision = 19, scale = 4)
-    @Builder.Default
-    private BigDecimal subtotalDomicilio = BigDecimal.ZERO;
-
-    @Column(name = "subtotal_agencia_flete", nullable = false, precision = 19, scale = 4)
-    @Builder.Default
-    private BigDecimal subtotalAgenciaFlete = BigDecimal.ZERO;
-
-    @Column(name = "subtotal_comision_agencias", nullable = false, precision = 19, scale = 4)
-    @Builder.Default
-    private BigDecimal subtotalComisionAgencias = BigDecimal.ZERO;
-
-    @Column(name = "total_pagar", nullable = false, precision = 19, scale = 4)
-    @Builder.Default
-    private BigDecimal totalPagar = BigDecimal.ZERO;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
-    @Builder.Default
-    private EstadoManifiesto estado = EstadoManifiesto.PENDIENTE;
 
     @OneToMany(mappedBy = "manifiesto", fetch = FetchType.LAZY)
     @Builder.Default

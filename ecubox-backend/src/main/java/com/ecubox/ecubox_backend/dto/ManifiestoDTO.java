@@ -1,16 +1,18 @@
 package com.ecubox.ecubox_backend.dto;
 
-import com.ecubox.ecubox_backend.enums.EstadoManifiesto;
 import com.ecubox.ecubox_backend.enums.FiltroManifiesto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Vista del manifiesto como agrupador logistico de despachos. Sin importes
+ * ni estado de pago: esa logica vive en el modulo de Liquidaciones.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,13 +29,6 @@ public class ManifiestoDTO {
     private Long filtroAgenciaId;
     private String filtroAgenciaNombre;
     private Integer cantidadDespachos;
-    private BigDecimal subtotalDomicilio;
-    private BigDecimal subtotalAgenciaFlete;
-    private BigDecimal subtotalComisionAgencias;
-    private BigDecimal totalCourierEntrega;
-    private BigDecimal totalAgencia;
-    private BigDecimal totalPagar;
-    private EstadoManifiesto estado;
 
     /** Lista de despachos del manifiesto (poblada solo en detalle). */
     @Builder.Default

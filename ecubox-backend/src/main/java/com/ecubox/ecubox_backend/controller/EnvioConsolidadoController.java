@@ -39,11 +39,13 @@ public class EnvioConsolidadoController {
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_READ')")
     public ResponseEntity<PageResponse<EnvioConsolidadoDTO>> findAll(
             @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String estadoPago,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Boolean cerradoFilter = parseEstadoFilter(estado);
-        Page<EnvioConsolidado> resultado = envioConsolidadoService.findAll(cerradoFilter, q, page, size);
+        com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado pagoFilter = parseEstadoPagoFilter(estadoPago);
+        Page<EnvioConsolidado> resultado = envioConsolidadoService.findAll(cerradoFilter, pagoFilter, q, page, size);
         return ResponseEntity.ok(PageResponse.of(resultado, e -> envioConsolidadoService.toDTO(e, false)));
     }
 
@@ -145,6 +147,19 @@ public class EnvioConsolidadoController {
             case "CERRADO", "CERRADOS", "CERRADA" -> Boolean.TRUE;
             default -> throw new BadRequestException("Filtro no válido: " + estado
                     + ". Use TODOS, ABIERTO o CERRADO.");
+        };
+    }
+
+    private com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado parseEstadoPagoFilter(String estadoPago) {
+        if (estadoPago == null || estadoPago.isBlank()) return null;
+        String e = estadoPago.trim().toUpperCase();
+        return switch (e) {
+            case "TODOS", "TODO" -> null;
+            case "PAGADO", "PAGADOS" -> com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado.PAGADO;
+            case "NO_PAGADO", "NOPAGADO", "PENDIENTE" ->
+                    com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado.NO_PAGADO;
+            default -> throw new BadRequestException("Filtro de pago no válido: " + estadoPago
+                    + ". Use TODOS, PAGADO o NO_PAGADO.");
         };
     }
 }

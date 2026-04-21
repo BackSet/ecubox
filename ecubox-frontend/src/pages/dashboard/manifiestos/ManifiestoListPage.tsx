@@ -4,9 +4,6 @@ import { useNavigate } from '@tanstack/react-router';
 import {
   Building2,
   CalendarRange,
-  CheckCircle2,
-  Clock,
-  DollarSign,
   Eye,
   FileDown,
   FileSpreadsheet,
@@ -16,7 +13,6 @@ import {
   Printer,
   Trash2,
   Truck,
-  XCircle,
 } from 'lucide-react';
 import { notify } from '@/lib/notify';
 import { useManifiestos, useDeleteManifiesto } from '@/hooks/useManifiestos';
@@ -50,48 +46,13 @@ import {
 import { cn } from '@/lib/utils';
 import { buildManifiestoPdf } from '@/lib/pdf/builders/manifiestoPdf';
 import { runJsPdfAction } from '@/lib/pdf/actions';
-import type {
-  EstadoManifiesto,
-  FiltroManifiesto,
-  Manifiesto,
-} from '@/types/manifiesto';
-
-const SIN_FILTRO = '__all__';
-
-const ESTADO_LABELS: Record<EstadoManifiesto, string> = {
-  PENDIENTE: 'Pendiente',
-  PAGADO: 'Pagado',
-  ANULADO: 'Anulado',
-};
-
-const ESTADO_BADGE: Record<EstadoManifiesto, string> = {
-  PENDIENTE:
-    'border-[color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-warning)_15%,transparent)] text-[color-mix(in_oklab,var(--color-warning)_75%,var(--color-foreground))]',
-  PAGADO:
-    'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
-  ANULADO:
-    'border-[color-mix(in_oklab,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-destructive)_15%,transparent)] text-[color-mix(in_oklab,var(--color-destructive)_75%,var(--color-foreground))]',
-};
+import type { FiltroManifiesto, Manifiesto } from '@/types/manifiesto';
 
 const FILTRO_LABELS: Record<FiltroManifiesto, string> = {
   POR_PERIODO: 'Por período',
   POR_COURIER_ENTREGA: 'Por courier de entrega',
   POR_AGENCIA: 'Por agencia',
 };
-
-const ESTADO_ORDER: EstadoManifiesto[] = ['PENDIENTE', 'PAGADO', 'ANULADO'];
-
-function fmtMoneda(value?: number | null): string {
-  if (value == null) return '—';
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('es-EC', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
 
 function fmtFechaCorta(s?: string | null): string {
   if (!s) return '—';
@@ -123,16 +84,12 @@ export function ManifiestoListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [search, setSearchRaw] = useState('');
-  const [estadoFilter, setEstadoFilterRaw] = useState<EstadoManifiesto | typeof SIN_FILTRO>(
-    SIN_FILTRO,
-  );
   const [filtroTipoFilter, setFiltroTipoFilterRaw] = useState<FiltroManifiesto | undefined>(
     undefined,
   );
   const [page, setPage] = useState(0);
   const [size, setSizeRaw] = useState(25);
   const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
-  const setEstadoFilter = (v: EstadoManifiesto | typeof SIN_FILTRO) => { setEstadoFilterRaw(v); setPage(0); };
   const setFiltroTipoFilter = (v: FiltroManifiesto | undefined) => { setFiltroTipoFilterRaw(v); setPage(0); };
   const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
   const [exporting, setExporting] = useState<{
@@ -144,22 +101,18 @@ export function ManifiestoListPage() {
 
   const stats = useMemo(() => {
     let total = 0;
-    let pendientes = 0;
-    let pagados = 0;
-    let anulados = 0;
-    let totalPagar = 0;
     let totalDespachos = 0;
+    let porPeriodo = 0;
+    let porCourier = 0;
+    let porAgencia = 0;
     for (const m of allManifiestos) {
       total += 1;
-      if (m.estado === 'PENDIENTE') pendientes += 1;
-      else if (m.estado === 'PAGADO') pagados += 1;
-      else if (m.estado === 'ANULADO') anulados += 1;
-      if (m.estado !== 'ANULADO') {
-        totalPagar += Number(m.totalPagar ?? 0);
-      }
       totalDespachos += Number(m.cantidadDespachos ?? 0);
+      if (m.filtroTipo === 'POR_PERIODO') porPeriodo += 1;
+      else if (m.filtroTipo === 'POR_COURIER_ENTREGA') porCourier += 1;
+      else if (m.filtroTipo === 'POR_AGENCIA') porAgencia += 1;
     }
-    return { total, pendientes, pagados, anulados, totalPagar, totalDespachos };
+    return { total, totalDespachos, porPeriodo, porCourier, porAgencia };
   }, [allManifiestos]);
 
   const tiposPresentes = useMemo(() => {
@@ -170,9 +123,6 @@ export function ManifiestoListPage() {
 
   const list = useMemo(() => {
     let raw = allManifiestos;
-    if (estadoFilter !== SIN_FILTRO) {
-      raw = raw.filter((m) => m.estado === estadoFilter);
-    }
     if (filtroTipoFilter) {
       raw = raw.filter((m) => m.filtroTipo === filtroTipoFilter);
     }
@@ -185,11 +135,10 @@ export function ManifiestoListPage() {
         m.filtroAgenciaNombre?.toLowerCase().includes(q) ||
         String(m.id).includes(q),
     );
-  }, [allManifiestos, estadoFilter, filtroTipoFilter, search]);
+  }, [allManifiestos, filtroTipoFilter, search]);
 
-  const tieneFiltros = estadoFilter !== SIN_FILTRO || filtroTipoFilter != null;
+  const tieneFiltros = filtroTipoFilter != null;
   const limpiarFiltros = () => {
-    setEstadoFilter(SIN_FILTRO);
     setFiltroTipoFilter(undefined);
   };
 
@@ -275,10 +224,10 @@ export function ManifiestoListPage() {
       />
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} withHint />
+        <KpiCardsGridSkeleton count={3} withHint />
       ) : (
         allManifiestos.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <KpiCard
             icon={<FileText className="h-5 w-5" />}
             label="Total manifiestos"
@@ -287,106 +236,64 @@ export function ManifiestoListPage() {
             hint={
               stats.totalDespachos > 0
                 ? `${stats.totalDespachos} despachos en total`
-                : undefined
+                : 'Sin despachos asignados'
             }
           />
           <KpiCard
-            icon={<Clock className="h-5 w-5" />}
-            label="Pendientes"
-            value={stats.pendientes}
-            tone={stats.pendientes > 0 ? 'warning' : 'neutral'}
-            hint={stats.pendientes > 0 ? 'Por liquidar' : 'Sin pendientes'}
+            icon={<Truck className="h-5 w-5" />}
+            label="Despachos agrupados"
+            value={stats.totalDespachos}
+            tone={stats.totalDespachos > 0 ? 'success' : 'neutral'}
+            hint="Suma de despachos en todos los manifiestos"
           />
           <KpiCard
-            icon={<CheckCircle2 className="h-5 w-5" />}
-            label="Pagados"
-            value={stats.pagados}
-            tone={stats.pagados > 0 ? 'success' : 'neutral'}
-            hint={stats.anulados > 0 ? `${stats.anulados} anulado(s)` : undefined}
-          />
-          <KpiCard
-            icon={<DollarSign className="h-5 w-5" />}
-            label="A pagar"
-            value={fmtMoneda(stats.totalPagar)}
+            icon={<CalendarRange className="h-5 w-5" />}
+            label="Por período"
+            value={stats.porPeriodo}
             tone="neutral"
-            hint="Suma de manifiestos no anulados"
+            hint={
+              stats.porCourier > 0 || stats.porAgencia > 0
+                ? `${stats.porCourier} courier · ${stats.porAgencia} agencia`
+                : undefined
+            }
           />
         </div>
         )
       )}
 
       {isLoading ? (
-        <FiltrosBarSkeleton chips={4} filters={1} />
+        <FiltrosBarSkeleton chips={0} filters={1} />
       ) : (
-        allManifiestos.length > 0 && (
+        allManifiestos.length > 0 && tiposPresentes.length > 1 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
           chips={
-            <>
-              <ChipFiltro
-                label="Todos"
-                count={stats.total}
-                active={estadoFilter === SIN_FILTRO}
-                onClick={() => setEstadoFilter(SIN_FILTRO)}
-              />
-              {ESTADO_ORDER.map((estado) => {
-                const count =
-                  estado === 'PENDIENTE'
-                    ? stats.pendientes
-                    : estado === 'PAGADO'
-                      ? stats.pagados
-                      : stats.anulados;
-                const active = estadoFilter === estado;
-                const tone =
-                  estado === 'PENDIENTE'
-                    ? ('warning' as const)
-                    : estado === 'PAGADO'
-                      ? ('success' as const)
-                      : ('danger' as const);
-                const Icon =
-                  estado === 'PENDIENTE'
-                    ? Clock
-                    : estado === 'PAGADO'
-                      ? CheckCircle2
-                      : XCircle;
-                return (
-                  <ChipFiltro
-                    key={estado}
-                    label={ESTADO_LABELS[estado]}
-                    count={count}
-                    active={active}
-                    tone={tone}
-                    icon={<Icon className="h-3.5 w-3.5" />}
-                    onClick={() =>
-                      setEstadoFilter(active ? SIN_FILTRO : estado)
-                    }
-                    hideWhenZero
-                  />
-                );
-              })}
-            </>
+            <ChipFiltro
+              label="Todos"
+              count={stats.total}
+              active={filtroTipoFilter == null}
+              onClick={() => setFiltroTipoFilter(undefined)}
+            />
           }
           filtros={
-            tiposPresentes.length > 1 && (
-              <FiltroCampo label="Tipo de filtro">
-                <SearchableCombobox<FiltroManifiesto>
-                  value={filtroTipoFilter}
-                  onChange={(v) =>
-                    setFiltroTipoFilter(
-                      v == null ? undefined : (v as FiltroManifiesto),
-                    )
-                  }
-                  options={tiposPresentes}
-                  getKey={(t) => t}
-                  getLabel={(t) => FILTRO_LABELS[t]}
-                  placeholder="Todos los tipos"
-                  searchPlaceholder="Buscar tipo..."
-                  emptyMessage="Sin tipos"
-                  className="h-9 w-full"
-                />
-              </FiltroCampo>
-            )
+            <FiltroCampo label="Tipo de filtro">
+              <SearchableCombobox<FiltroManifiesto>
+                value={filtroTipoFilter}
+                onChange={(v) =>
+                  setFiltroTipoFilter(
+                    v == null ? undefined : (v as FiltroManifiesto),
+                  )
+                }
+                options={tiposPresentes}
+                getKey={(t) => t}
+                getLabel={(t) => FILTRO_LABELS[t]}
+                placeholder="Todos los tipos"
+                searchPlaceholder="Buscar tipo..."
+                emptyMessage="Sin tipos"
+                className="h-9 w-full"
+              />
+            </FiltroCampo>
           }
         />
         )
@@ -398,23 +305,18 @@ export function ManifiestoListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[14rem]">Manifiesto</TableHead>
-                <TableHead className="w-[6rem]">Estado</TableHead>
-                <TableHead className="w-[9rem] text-right">Total a pagar</TableHead>
-                <TableHead className="hidden w-[12rem] md:table-cell">Periodo</TableHead>
-                <TableHead className="hidden min-w-[12rem] lg:table-cell">Filtro</TableHead>
-                <TableHead className="hidden w-[7rem] text-center xl:table-cell">Despachos</TableHead>
-                <TableHead className="w-[8rem] text-right">CourierEntrega</TableHead>
-                <TableHead className="w-[8rem] text-right">Agencia</TableHead>
+                <TableHead className="hidden w-[14rem] md:table-cell">Periodo</TableHead>
+                <TableHead className="hidden min-w-[14rem] lg:table-cell">Filtro</TableHead>
+                <TableHead className="w-[7rem] text-center">Despachos</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRowsSkeleton
-                columns={9}
+                columns={5}
                 columnClasses={{
-                  3: 'hidden md:table-cell',
-                  4: 'hidden lg:table-cell',
-                  5: 'hidden xl:table-cell',
+                  1: 'hidden md:table-cell',
+                  2: 'hidden lg:table-cell',
                 }}
               />
             </TableBody>
@@ -424,7 +326,7 @@ export function ManifiestoListPage() {
         <EmptyState
           icon={FileText}
           title="No hay manifiestos"
-          description="Crea un manifiesto para liquidar despachos por periodo, courier de entrega o agencia."
+          description="Crea un manifiesto para registrar los despachos enviados en un periodo (a domicilio, agencia o punto de entrega)."
           action={
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
@@ -451,13 +353,9 @@ export function ManifiestoListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[14rem]">Manifiesto</TableHead>
-                  <TableHead className="w-[6rem]">Estado</TableHead>
-                  <TableHead className="w-[9rem] text-right">Total a pagar</TableHead>
-                  <TableHead className="hidden w-[12rem] md:table-cell">Periodo</TableHead>
-                  <TableHead className="hidden min-w-[12rem] lg:table-cell">Filtro</TableHead>
-                  <TableHead className="hidden w-[7rem] text-center xl:table-cell">Despachos</TableHead>
-                  <TableHead className="w-[8rem] text-right">CourierEntrega</TableHead>
-                  <TableHead className="w-[8rem] text-right">Agencia</TableHead>
+                  <TableHead className="hidden w-[14rem] md:table-cell">Periodo</TableHead>
+                  <TableHead className="hidden min-w-[14rem] lg:table-cell">Filtro</TableHead>
+                  <TableHead className="w-[7rem] text-center">Despachos</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
@@ -479,47 +377,14 @@ export function ManifiestoListPage() {
                         <PeriodoCell inicio={m.fechaInicio} fin={m.fechaFin} compact />
                       </div>
                     </TableCell>
-                    <TableCell className="align-top">
-                      <Badge
-                        variant="outline"
-                        className={cn(ESTADO_BADGE[m.estado], 'font-normal')}
-                      >
-                        {m.estado === 'PAGADO' && (
-                          <CheckCircle2 className="mr-1 h-3 w-3" />
-                        )}
-                        {m.estado === 'ANULADO' && (
-                          <XCircle className="mr-1 h-3 w-3" />
-                        )}
-                        {m.estado === 'PENDIENTE' && (
-                          <Clock className="mr-1 h-3 w-3" />
-                        )}
-                        {ESTADO_LABELS[m.estado]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right align-top">
-                      <span
-                        className={cn(
-                          'font-mono text-sm font-semibold tabular-nums',
-                          m.estado === 'ANULADO' && 'text-muted-foreground line-through',
-                        )}
-                      >
-                        {fmtMoneda(m.totalPagar)}
-                      </span>
-                    </TableCell>
                     <TableCell className="hidden align-top md:table-cell">
                       <PeriodoCell inicio={m.fechaInicio} fin={m.fechaFin} />
                     </TableCell>
                     <TableCell className="hidden align-top lg:table-cell">
                       <FiltroCell manifiesto={m} />
                     </TableCell>
-                    <TableCell className="hidden text-center align-top xl:table-cell">
+                    <TableCell className="text-center align-top">
                       <DespachosBadge total={m.cantidadDespachos ?? 0} />
-                    </TableCell>
-                    <TableCell className="text-right align-top">
-                      <MoneyCell value={m.totalCourierEntrega} />
-                    </TableCell>
-                    <TableCell className="text-right align-top">
-                      <MoneyCell value={m.totalAgencia} />
                     </TableCell>
                     <TableCell
                       className="text-right align-top"
@@ -646,7 +511,6 @@ function PeriodoCell({
 }: {
   inicio?: string | null;
   fin?: string | null;
-  /** Variante de una sola línea para usar como sub-título dentro de otra celda. */
   compact?: boolean;
 }) {
   if (!inicio && !fin) {
@@ -686,7 +550,7 @@ function FiltroCell({ manifiesto: m }: { manifiesto: Manifiesto }) {
     return (
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          CourierEntrega
+          Courier de entrega
         </span>
         <span className="inline-flex items-center gap-1.5 text-sm">
           <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -739,24 +603,5 @@ function DespachosBadge({ total }: { total: number }) {
       <Truck className="h-3 w-3" />
       {total}
     </Badge>
-  );
-}
-
-function MoneyCell({ value }: { value?: number | null }) {
-  if (value == null) {
-    return <span className="text-xs italic text-muted-foreground">—</span>;
-  }
-  const n = Number(value);
-  if (!Number.isFinite(n) || n === 0) {
-    return (
-      <span className="font-mono text-xs tabular-nums text-muted-foreground">
-        {fmtMoneda(0)}
-      </span>
-    );
-  }
-  return (
-    <span className="font-mono text-sm tabular-nums text-foreground">
-      {fmtMoneda(n)}
-    </span>
   );
 }

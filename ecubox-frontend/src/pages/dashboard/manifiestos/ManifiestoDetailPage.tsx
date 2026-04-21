@@ -3,16 +3,13 @@ import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import {
   ArrowLeft,
   Building2,
-  Calculator,
   CalendarRange,
   Check,
-  CheckCircle2,
   CheckSquare,
   ChevronDown,
   ChevronUp,
-  Clock,
   Copy,
-  DollarSign,
+  Eraser,
   Eye,
   FileDown,
   FileSpreadsheet,
@@ -21,25 +18,23 @@ import {
   Home,
   Info,
   Loader2,
+  MapPin,
+  Package as PackageIcon,
   Pencil,
   PlusCircle,
   Printer,
-  RefreshCw,
   Search,
   Square,
   Trash2,
   Truck,
   Users,
   Warehouse,
-  XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { notify } from '@/lib/notify';
 import {
   useManifiesto,
-  useRecalcularTotales,
   useAsignarDespachos,
-  useCambiarEstadoManifiesto,
   useDeleteManifiesto,
   useDespachosCandidatosManifiesto,
 } from '@/hooks/useManifiestos';
@@ -89,33 +84,8 @@ import { downloadManifiestoXlsx } from '@/lib/xlsx/manifiestoXlsx';
 import { ManifiestoForm } from './ManifiestoForm';
 import type {
   DespachoEnManifiesto,
-  EstadoManifiesto,
   FiltroManifiesto,
 } from '@/types/manifiesto';
-
-const ESTADO_LABELS: Record<EstadoManifiesto, string> = {
-  PENDIENTE: 'Pendiente',
-  PAGADO: 'Pagado',
-  ANULADO: 'Anulado',
-};
-
-const ESTADO_BADGE: Record<EstadoManifiesto, string> = {
-  PENDIENTE:
-    'border-[color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-warning)_15%,transparent)] text-[color-mix(in_oklab,var(--color-warning)_75%,var(--color-foreground))]',
-  PAGADO:
-    'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
-  ANULADO:
-    'border-[color-mix(in_oklab,var(--color-destructive)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-destructive)_15%,transparent)] text-[color-mix(in_oklab,var(--color-destructive)_75%,var(--color-foreground))]',
-};
-
-const ESTADO_ICON: Record<
-  EstadoManifiesto,
-  React.ComponentType<{ className?: string }>
-> = {
-  PENDIENTE: Clock,
-  PAGADO: CheckCircle2,
-  ANULADO: XCircle,
-};
 
 const FILTRO_LABELS: Record<FiltroManifiesto, string> = {
   POR_PERIODO: 'Por período',
@@ -138,19 +108,25 @@ const TIPO_BADGE: Record<string, string> = {
     'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
 };
 
-const SIN_FILTRO = '__all__';
+const FILTRO_BADGE: Record<FiltroManifiesto, string> = {
+  POR_PERIODO:
+    'border-[var(--color-primary)]/30 bg-[var(--color-muted)] text-[var(--color-primary)]',
+  POR_COURIER_ENTREGA:
+    'border-[var(--color-info)]/30 bg-[var(--color-info)]/10 text-[var(--color-info)]',
+  POR_AGENCIA:
+    'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
+};
 
-function fmtMoneda(value?: number | null): string {
-  if (value == null) return '$0.00';
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '$0.00';
-  return new Intl.NumberFormat('es-EC', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
+type TipoExportFilter = 'TODOS' | 'DOMICILIO' | 'AGENCIA' | 'AGENCIA_COURIER_ENTREGA';
+
+const TIPO_EXPORT_OPTIONS: Array<{ value: TipoExportFilter; label: string }> = [
+  { value: 'TODOS', label: 'Todos los tipos' },
+  { value: 'DOMICILIO', label: 'Solo domicilio' },
+  { value: 'AGENCIA', label: 'Solo agencia' },
+  { value: 'AGENCIA_COURIER_ENTREGA', label: 'Solo punto de entrega' },
+];
+
+const SIN_FILTRO = '__all__';
 
 function fmtFechaCorta(s?: string | null): string {
   if (!s) return '—';
@@ -183,16 +159,14 @@ export function ManifiestoDetailPage() {
   const { data: agencias = [] } = useAgencias();
   const { data: couriersEntrega = [] } = useCouriersEntregaAdmin();
 
-  const recalcular = useRecalcularTotales();
-  const cambiarEstado = useCambiarEstadoManifiesto();
   const deleteMutation = useDeleteManifiesto();
 
   const [editOpen, setEditOpen] = useState(false);
   const [asignarOpen, setAsignarOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmAnular, setConfirmAnular] = useState(false);
   const [search, setSearch] = useState('');
   const [tipoFilter, setTipoFilter] = useState<string>(SIN_FILTRO);
+  const [pdfTipoEntrega, setPdfTipoEntrega] = useState<TipoExportFilter>('TODOS');
   const [pdfAgenciaId, setPdfAgenciaId] = useState<number>(0);
   const [pdfCourierEntregaId, setPdfCourierEntregaId] = useState<number>(0);
   const [exporting, setExporting] = useState<'pdf' | 'print' | 'xlsx' | null>(null);
@@ -202,17 +176,17 @@ export function ManifiestoDetailPage() {
   if (isLoading) {
     return (
       <div className="page-stack" aria-busy="true" aria-live="polite">
-        <DetailHeaderSkeleton badges={3} metaLines={2} />
-        <KpiCardsGridSkeleton count={4} />
+        <DetailHeaderSkeleton badges={2} metaLines={2} />
+        <KpiCardsGridSkeleton count={3} />
         <SurfaceCardSkeleton bodyLines={4} />
         <ListTableShell>
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Despacho</TableHead>
-                <TableHead className="hidden md:table-cell">CourierEntrega</TableHead>
+                <TableHead className="hidden md:table-cell">Courier de entrega</TableHead>
                 <TableHead className="hidden lg:table-cell">Agencia</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Consignatario</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -235,25 +209,26 @@ export function ManifiestoDetailPage() {
   const m = manifiesto;
   const despachos = m.despachos ?? [];
   const dias = diasEntre(m.fechaInicio, m.fechaFin);
-  const estadoLabel = ESTADO_LABELS[m.estado] ?? m.estado;
-  const EstadoIcon = ESTADO_ICON[m.estado] ?? Clock;
 
   const stats = (() => {
     let domicilio = 0;
     let agencia = 0;
     let agenciaDist = 0;
     const couriersEntregaSet = new Set<string>();
+    const agenciasSet = new Set<string>();
     for (const d of despachos) {
       if (d.tipoEntrega === 'DOMICILIO') domicilio += 1;
       else if (d.tipoEntrega === 'AGENCIA') agencia += 1;
       else if (d.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') agenciaDist += 1;
       if (d.courierEntregaNombre) couriersEntregaSet.add(d.courierEntregaNombre);
+      if (d.agenciaNombre) agenciasSet.add(d.agenciaNombre);
     }
     return {
       domicilio,
       agencia,
       agenciaDist,
       couriersEntrega: couriersEntregaSet.size,
+      agencias: agenciasSet.size,
     };
   })();
 
@@ -268,6 +243,9 @@ export function ManifiestoDetailPage() {
 
   const filtrarDespachos = (lista: DespachoEnManifiesto[]) => {
     let raw = lista;
+    if (pdfTipoEntrega !== 'TODOS') {
+      raw = raw.filter((d) => d.tipoEntrega === pdfTipoEntrega);
+    }
     if (courierEntregaSeleccionado) {
       raw = raw.filter((d) => d.courierEntregaNombre === courierEntregaSeleccionado.nombre);
     }
@@ -295,35 +273,6 @@ export function ManifiestoDetailPage() {
     );
   })();
 
-  async function handleRecalcular() {
-    try {
-      await notify.run(recalcular.mutateAsync(m.id), {
-        loading: 'Recalculando totales...',
-        success: 'Totales recalculados',
-        error: 'No se pudieron recalcular los totales',
-      });
-    } catch {
-      // notificado por notify.run
-    }
-  }
-
-  async function handleCambiarEstado(estado: EstadoManifiesto) {
-    if (estado === m.estado) return;
-    if (estado === 'ANULADO') {
-      setConfirmAnular(true);
-      return;
-    }
-    try {
-      await notify.run(cambiarEstado.mutateAsync({ id: m.id, estado }), {
-        loading: `Cambiando estado a ${ESTADO_LABELS[estado]}...`,
-        success: `Estado cambiado a ${ESTADO_LABELS[estado]}`,
-        error: 'No se pudo cambiar el estado',
-      });
-    } catch {
-      // notificado por notify.run
-    }
-  }
-
   async function handlePdfManifiesto(mode: 'download' | 'print') {
     if (exporting) return;
     setExporting(mode === 'download' ? 'pdf' : 'print');
@@ -342,7 +291,7 @@ export function ManifiestoDetailPage() {
           });
           runJsPdfAction(doc, {
             mode,
-            filename: `manifiesto-${m.codigo ?? m.id}.pdf`,
+            filename: `manifiesto-${(m.codigo && m.codigo.trim() !== '' ? m.codigo : String(m.id)).replace(/[^a-zA-Z0-9_-]+/g, '_')}.pdf`,
             printMode: 'popup',
           });
         })(),
@@ -379,47 +328,55 @@ export function ManifiestoDetailPage() {
     }
   }
 
-  const hayFiltrosExport = pdfCourierEntregaId !== 0 || pdfAgenciaId !== 0;
+  const hayFiltrosExport =
+    pdfCourierEntregaId !== 0 || pdfAgenciaId !== 0 || pdfTipoEntrega !== 'TODOS';
   const hayFiltrosTabla = tipoFilter !== SIN_FILTRO || search.trim() !== '';
+  const codigoVisible = m.codigo && m.codigo.trim() !== '' ? m.codigo : `#${m.id}`;
 
   return (
     <div className="page-stack">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate({ to: '/manifiestos' })}
+        className="-ml-2"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Volver a manifiestos
+      </Button>
+
       {/* ===== HEADER CARD ===== */}
-      <SurfaceCard className="p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <SurfaceCard className="p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
-            <Link to="/manifiestos">
-              <Button variant="ghost" size="icon" aria-label="Volver">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div
+            <span
               className={cn(
-                'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg',
-                'bg-[var(--color-muted)] text-[var(--color-primary)]',
+                'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md',
+                'bg-[var(--color-primary)]/10 text-[var(--color-primary)]',
               )}
             >
               <FileText className="h-6 w-6" />
-            </div>
+            </span>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="break-all font-mono text-[18px] font-semibold tracking-tight text-foreground">
-                  {m.codigo ?? `#${m.id}`}
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Manifiesto · #{m.id}
+              </p>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                <h1
+                  className="break-all font-mono text-xl font-semibold leading-tight text-foreground"
+                  title={codigoVisible}
+                >
+                  {codigoVisible}
                 </h1>
-                <CopyButton value={m.codigo ?? String(m.id)} title="Copiar código" />
+                <CopyButton value={codigoVisible} title="Copiar código del manifiesto" />
                 <Badge
                   variant="outline"
-                  className={cn(ESTADO_BADGE[m.estado], 'gap-1 font-normal')}
+                  className={cn(FILTRO_BADGE[m.filtroTipo] ?? '', 'font-normal')}
                 >
-                  <EstadoIcon className="h-3 w-3" />
-                  {estadoLabel}
+                  {FILTRO_LABELS[m.filtroTipo] ?? m.filtroTipo}
                 </Badge>
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <FileText className="h-3 w-3" />
-                  ID #{m.id}
-                </span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <CalendarRange className="h-3 w-3" />
                   {fmtFechaCorta(m.fechaInicio)} → {fmtFechaCorta(m.fechaFin)}
@@ -433,20 +390,36 @@ export function ManifiestoDetailPage() {
                   <Truck className="h-3 w-3" />
                   {despachos.length} despacho{despachos.length === 1 ? '' : 's'}
                 </span>
+                {m.filtroCourierEntregaNombre && (
+                  <span className="inline-flex items-center gap-1">
+                    <Building2 className="h-3 w-3" />
+                    {m.filtroCourierEntregaNombre}
+                  </span>
+                )}
+                {m.filtroAgenciaNombre && (
+                  <span className="inline-flex items-center gap-1">
+                    <Warehouse className="h-3 w-3" />
+                    {m.filtroAgenciaNombre}
+                  </span>
+                )}
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditOpen(true)}
+              className="gap-1.5"
+            >
               <Pencil className="h-4 w-4" />
               Editar
             </Button>
             <Button
-              variant="outline"
               size="sm"
-              onClick={() => handlePdfManifiesto('print')}
+              className="gap-1.5"
               disabled={!!exporting}
-              className="gap-2"
+              onClick={() => handlePdfManifiesto('print')}
             >
               {exporting === 'print' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -460,7 +433,7 @@ export function ManifiestoDetailPage() {
               size="sm"
               onClick={() => handlePdfManifiesto('download')}
               disabled={!!exporting}
-              className="gap-2 text-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              className="gap-1.5"
             >
               {exporting === 'pdf' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -474,7 +447,7 @@ export function ManifiestoDetailPage() {
               size="sm"
               onClick={handleExcel}
               disabled={!!exporting}
-              className="gap-2 text-[var(--color-success)] hover:text-[var(--color-success)]"
+              className="gap-1.5 text-[var(--color-success)] hover:text-[var(--color-success)] dark:text-[var(--color-success)] dark:hover:text-[var(--color-success)]"
             >
               {exporting === 'xlsx' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -485,26 +458,13 @@ export function ManifiestoDetailPage() {
             </Button>
             <Button
               variant="outline"
-              size="sm"
-              onClick={handleRecalcular}
-              disabled={recalcular.isPending}
-              className="gap-2"
-            >
-              {recalcular.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Calculator className="h-4 w-4" />
-              )}
-              Recalcular
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
+              size="icon"
+              className="text-[var(--color-destructive)] hover:text-[var(--color-destructive)]"
+              aria-label="Eliminar manifiesto"
+              title="Eliminar manifiesto"
               onClick={() => setConfirmDelete(true)}
-              className="gap-2 text-[var(--color-destructive)] hover:text-[var(--color-destructive)]"
             >
               <Trash2 className="h-4 w-4" />
-              Eliminar
             </Button>
           </div>
         </div>
@@ -518,134 +478,73 @@ export function ManifiestoDetailPage() {
           value={despachos.length}
           tone="primary"
           hint={
-            stats.domicilio + stats.agencia + stats.agenciaDist > 0
-              ? `${stats.domicilio} dom · ${stats.agencia + stats.agenciaDist} ag.`
-              : undefined
+            despachos.length === 0
+              ? 'Sin despachos asignados'
+              : `${despachos.length} en el período`
+          }
+        />
+        <KpiCard
+          icon={<Home className="h-5 w-5" />}
+          label="A domicilio"
+          value={stats.domicilio}
+          tone={stats.domicilio > 0 ? 'success' : 'neutral'}
+          hint={
+            stats.domicilio === 0
+              ? 'Sin entregas a domicilio'
+              : `${stats.domicilio} ${stats.domicilio === 1 ? 'entrega' : 'entregas'}`
+          }
+        />
+        <KpiCard
+          icon={<MapPin className="h-5 w-5" />}
+          label="Agencia / Punto"
+          value={stats.agencia + stats.agenciaDist}
+          tone={stats.agencia + stats.agenciaDist > 0 ? 'primary' : 'neutral'}
+          hint={
+            stats.agencia + stats.agenciaDist === 0
+              ? 'Sin agencia ni punto'
+              : `${stats.agencia} ag · ${stats.agenciaDist} pto`
           }
         />
         <KpiCard
           icon={<Building2 className="h-5 w-5" />}
-          label="Total courier de entrega"
-          value={fmtMoneda(m.totalCourierEntrega)}
+          label="Couriers / Agencias"
+          value={stats.couriersEntrega + stats.agencias}
           tone="neutral"
           hint={
-            stats.couriersEntrega > 0
-              ? `${stats.couriersEntrega} courier${stats.couriersEntrega === 1 ? '' : 's'} de entrega`
-              : undefined
+            stats.couriersEntrega + stats.agencias === 0
+              ? 'Sin destinos asignados'
+              : `${stats.couriersEntrega} courier${stats.couriersEntrega === 1 ? '' : 's'} · ${stats.agencias} agencia${stats.agencias === 1 ? '' : 's'}`
           }
         />
-        <KpiCard
-          icon={<Warehouse className="h-5 w-5" />}
-          label="Total agencia"
-          value={fmtMoneda(m.totalAgencia)}
-          tone="neutral"
-          hint={`Flete ${fmtMoneda(m.subtotalAgenciaFlete)}`}
-        />
-        <KpiCard
-          icon={<DollarSign className="h-5 w-5" />}
-          label="Total a pagar"
-          value={fmtMoneda(m.totalPagar)}
-          tone={m.estado === 'ANULADO' ? 'neutral' : 'primary'}
-          hint={m.estado === 'ANULADO' ? 'Manifiesto anulado' : 'Suma final'}
-        />
       </div>
 
-      {/* ===== INFORMACIÓN + RESUMEN FINANCIERO ===== */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <InfoCard title="Información del manifiesto" icon={<Info className="h-4 w-4" />}>
-          <InfoRow label="Código" value={m.codigo ?? `#${m.id}`} mono valueExtra={<CopyButton value={m.codigo ?? String(m.id)} small />} />
-          <InfoRow label="ID interno" value={`#${m.id}`} mono />
-          <InfoRow
-            label="Periodo"
-            value={`${fmtFechaCorta(m.fechaInicio)} → ${fmtFechaCorta(m.fechaFin)}`}
-          />
-          <InfoRow
-            label="Duración"
-            value={dias != null ? `${dias} ${dias === 1 ? 'día' : 'días'}` : '—'}
-          />
-          <InfoRow label="Tipo de filtro" value={FILTRO_LABELS[m.filtroTipo] ?? m.filtroTipo} />
-          {m.filtroCourierEntregaNombre && (
-            <InfoRow label="Courier de entrega" value={m.filtroCourierEntregaNombre} />
-          )}
-          {m.filtroAgenciaNombre && <InfoRow label="Agencia" value={m.filtroAgenciaNombre} />}
-
-          {/* Cambio de estado */}
-          <div className="pt-2">
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Cambiar estado
-            </p>
-            <div className="inline-flex rounded-md border border-border bg-card p-0.5">
-              {(['PENDIENTE', 'PAGADO', 'ANULADO'] as EstadoManifiesto[]).map((est) => {
-                const Ic = ESTADO_ICON[est];
-                const active = m.estado === est;
-                return (
-                  <button
-                    key={est}
-                    type="button"
-                    onClick={() => handleCambiarEstado(est)}
-                    disabled={cambiarEstado.isPending || active}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-[5px] px-2.5 py-1 text-xs font-medium transition disabled:cursor-default',
-                      active
-                        ? est === 'PAGADO'
-                          ? 'bg-[var(--color-success)] text-white shadow-sm'
-                          : est === 'ANULADO'
-                            ? 'bg-[var(--color-destructive)] text-white shadow-sm'
-                            : 'bg-[var(--color-warning)] text-white shadow-sm'
-                        : 'text-muted-foreground hover:bg-[var(--color-muted)] hover:text-foreground',
-                    )}
-                  >
-                    <Ic className="h-3 w-3" />
-                    {ESTADO_LABELS[est]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </InfoCard>
-
-        <InfoCard title="Resumen financiero" icon={<DollarSign className="h-4 w-4" />}>
-          <InfoRow
-            label="Subtotal domicilio"
-            value={fmtMoneda(m.subtotalDomicilio)}
-            valueClassName="font-mono text-sm tabular-nums"
-          />
-          <InfoRow
-            label="Subtotal agencia (flete)"
-            value={fmtMoneda(m.subtotalAgenciaFlete)}
-            valueClassName="font-mono text-sm tabular-nums"
-          />
-          <InfoRow
-            label="Subtotal comisión agencias"
-            value={fmtMoneda(m.subtotalComisionAgencias)}
-            valueClassName="font-mono text-sm tabular-nums"
-          />
-          <div className="my-1 border-t border-dashed border-border" />
-          <InfoRow
-            label="Total courier de entrega"
-            value={fmtMoneda(m.totalCourierEntrega)}
-            valueClassName="font-mono text-sm font-semibold tabular-nums"
-          />
-          <InfoRow
-            label="Total agencia"
-            value={fmtMoneda(m.totalAgencia)}
-            valueClassName="font-mono text-sm font-semibold tabular-nums"
-          />
-          <div className="mt-2 flex items-center justify-between rounded-md border border-[var(--color-primary)]/30 bg-[var(--color-muted)] px-3 py-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">
-              Total a pagar
-            </span>
-            <span
-              className={cn(
-                'font-mono text-lg font-bold tabular-nums text-[var(--color-primary)]',
-                m.estado === 'ANULADO' && 'line-through opacity-60',
-              )}
-            >
-              {fmtMoneda(m.totalPagar)}
-            </span>
-          </div>
-        </InfoCard>
-      </div>
+      {/* ===== INFORMACIÓN ===== */}
+      <InfoCard title="Información del manifiesto" icon={<Info className="h-4 w-4" />}>
+        <InfoRow
+          label="Código"
+          value={codigoVisible}
+          mono
+          valueExtra={<CopyButton value={codigoVisible} small />}
+        />
+        <InfoRow label="ID interno" value={`#${m.id}`} mono />
+        <InfoRow
+          label="Período"
+          value={`${fmtFechaCorta(m.fechaInicio)} → ${fmtFechaCorta(m.fechaFin)}`}
+        />
+        <InfoRow
+          label="Duración"
+          value={dias != null ? `${dias} ${dias === 1 ? 'día' : 'días'}` : '—'}
+        />
+        <InfoRow label="Tipo de filtro" value={FILTRO_LABELS[m.filtroTipo] ?? m.filtroTipo} />
+        {m.filtroCourierEntregaNombre && (
+          <InfoRow label="Courier de entrega" value={m.filtroCourierEntregaNombre} />
+        )}
+        {m.filtroAgenciaNombre && <InfoRow label="Agencia" value={m.filtroAgenciaNombre} />}
+        <InfoRow
+          label="Despachos asignados"
+          value={`${despachos.length} despacho${despachos.length === 1 ? '' : 's'}`}
+        />
+      </InfoCard>
 
       {/* ===== FILTROS DE EXPORTACIÓN (colapsables) ===== */}
       <SurfaceCard className="overflow-hidden">
@@ -653,12 +552,17 @@ export function ManifiestoDetailPage() {
           type="button"
           onClick={() => setExportFiltersOpen((v) => !v)}
           className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition hover:bg-[var(--color-muted)]/50"
+          aria-expanded={exportFiltersOpen}
+          aria-controls="export-filters-panel"
         >
           <div className="flex items-center gap-2">
             <FilterIcon className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Filtros de exportación</span>
             {hayFiltrosExport ? (
-              <Badge variant="outline" className="border-[var(--color-primary)]/40 bg-[var(--color-muted)] text-[var(--color-primary)]">
+              <Badge
+                variant="outline"
+                className="border-[var(--color-primary)]/40 bg-[var(--color-muted)] text-[var(--color-primary)] font-normal"
+              >
                 {despachosFiltradosExport.length} de {despachos.length}
               </Badge>
             ) : (
@@ -672,11 +576,31 @@ export function ManifiestoDetailPage() {
           )}
         </button>
         {exportFiltersOpen && (
-          <div className="border-t border-border px-4 py-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div id="export-filters-panel" className="border-t border-border px-4 py-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  CourierEntrega
+                  Tipo de entrega
+                </label>
+                <Select
+                  value={pdfTipoEntrega}
+                  onValueChange={(v) => setPdfTipoEntrega(v as TipoExportFilter)}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPO_EXPORT_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Courier de entrega
                 </label>
                 <Select
                   value={String(pdfCourierEntregaId)}
@@ -686,7 +610,7 @@ export function ManifiestoDetailPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">Todos los couriersEntrega</SelectItem>
+                    <SelectItem value="0">Todos los couriers</SelectItem>
                     {couriersEntrega.map((d) => (
                       <SelectItem key={d.id} value={String(d.id)}>
                         {d.nombre} ({d.codigo})
@@ -717,7 +641,7 @@ export function ManifiestoDetailPage() {
                 </Select>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
                 Estos filtros se aplican al imprimir, descargar PDF o Excel.
               </p>
@@ -726,50 +650,74 @@ export function ManifiestoDetailPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
+                    setPdfTipoEntrega('TODOS');
                     setPdfCourierEntregaId(0);
                     setPdfAgenciaId(0);
                   }}
-                  className="gap-1.5 text-xs"
+                  className="h-8 gap-1.5 text-xs"
                 >
-                  <RefreshCw className="h-3 w-3" />
+                  <Eraser className="h-3 w-3" />
                   Limpiar
                 </Button>
               )}
             </div>
+            {hayFiltrosExport && despachosFiltradosExport.length === 0 && (
+              <div className="mt-3 rounded-md border border-dashed border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 px-3 py-2 text-xs text-[var(--color-warning)]">
+                Con estos filtros no quedará ningún despacho en el documento exportado.
+              </div>
+            )}
           </div>
         )}
       </SurfaceCard>
 
       {/* ===== DESPACHOS DEL MANIFIESTO ===== */}
-      <SurfaceCard className="overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Truck className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold text-foreground">
+      <SurfaceCard className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="inline-flex items-center gap-2 text-base font-semibold">
+              <Truck className="h-4 w-4 text-[var(--color-primary)]" />
               Despachos en el manifiesto
+              <span className="rounded bg-[var(--color-muted)] px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                {despachosVisibles.length}
+                {hayFiltrosTabla && despachosVisibles.length !== despachos.length
+                  ? ` de ${despachos.length}`
+                  : ''}
+              </span>
             </h2>
-            <Badge variant="outline" className="font-normal">
-              {despachosVisibles.length}
-              {hayFiltrosTabla && despachosVisibles.length !== despachos.length
-                ? ` de ${despachos.length}`
-                : ''}
-            </Badge>
+            {hayFiltrosTabla && despachosVisibles.length !== despachos.length && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Mostrando {despachosVisibles.length} de {despachos.length} despacho
+                {despachos.length === 1 ? '' : 's'} con los filtros aplicados.
+              </p>
+            )}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-1 flex-wrap items-center gap-2 sm:max-w-2xl sm:justify-end">
             {despachos.length > 0 && (
               <>
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative w-full sm:max-w-[280px]">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
+                    type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Buscar guía, consignatario..."
-                    className="h-8 w-[16rem] pl-8 text-xs"
+                    className="h-8 pl-7 pr-7 text-sm"
                   />
+                  {search.trim() !== '' && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-[var(--color-muted)] hover:text-foreground"
+                      aria-label="Limpiar búsqueda"
+                      title="Limpiar"
+                    >
+                      <Eraser className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
                 {tiposPresentes.length > 1 && (
                   <Select value={tipoFilter} onValueChange={setTipoFilter}>
-                    <SelectTrigger className="h-8 w-[10rem] text-xs">
+                    <SelectTrigger className="h-8 w-[11rem] text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -792,17 +740,13 @@ export function ManifiestoDetailPage() {
                     }}
                     className="h-8 gap-1.5 text-xs"
                   >
-                    <RefreshCw className="h-3 w-3" />
+                    <Eraser className="h-3 w-3" />
                     Limpiar
                   </Button>
                 )}
               </>
             )}
-            <Button
-              size="sm"
-              onClick={() => setAsignarOpen(true)}
-              className="h-8 gap-1.5"
-            >
+            <Button size="sm" onClick={() => setAsignarOpen(true)} className="h-8 gap-1.5">
               <PlusCircle className="h-4 w-4" />
               Agregar despachos
             </Button>
@@ -810,26 +754,31 @@ export function ManifiestoDetailPage() {
         </div>
 
         {despachos.length === 0 ? (
-          <div className="p-2">
-            <EmptyState
-              icon={Truck}
-              title="No hay despachos asignados"
-              description="Agrega despachos manualmente desde el botón superior, o usa los sugeridos por el período."
-              action={
-                <Button onClick={() => setAsignarOpen(true)} className="gap-2">
-                  <PlusCircle className="h-4 w-4" />
-                  Asignar despachos
-                </Button>
-              }
-            />
-          </div>
+          <EmptyState
+            icon={PackageIcon}
+            title="No hay despachos asignados"
+            description="Agrega despachos manualmente desde el botón superior, o usa los sugeridos por el período."
+            action={
+              <Button onClick={() => setAsignarOpen(true)} className="gap-2">
+                <PlusCircle className="h-4 w-4" />
+                Asignar despachos
+              </Button>
+            }
+          />
         ) : despachosVisibles.length === 0 ? (
-          <div className="p-2">
-            <EmptyState
-              icon={Search}
-              title="Sin resultados"
-              description="No hay despachos que coincidan con los filtros aplicados."
-            />
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-[var(--color-muted)]/20 px-4 py-3 text-sm text-muted-foreground">
+            <span>Sin coincidencias para los filtros aplicados.</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearch('');
+                setTipoFilter(SIN_FILTRO);
+              }}
+            >
+              <Eraser className="mr-1 h-3.5 w-3.5" />
+              Limpiar
+            </Button>
           </div>
         ) : (
           <ListTableShell>
@@ -862,22 +811,25 @@ export function ManifiestoDetailPage() {
                     <TableCell className="hidden align-top md:table-cell">
                       <Badge
                         variant="outline"
-                        className={cn(
-                          TIPO_BADGE[d.tipoEntrega] ?? '',
-                          'font-normal',
-                        )}
+                        className={cn(TIPO_BADGE[d.tipoEntrega] ?? '', 'font-normal')}
                       >
                         {TIPO_LABELS[d.tipoEntrega] ?? d.tipoEntrega ?? '—'}
                       </Badge>
                     </TableCell>
                     <TableCell className="align-top text-sm">
-                      {d.consignatarioNombre ?? <span className="italic text-muted-foreground">—</span>}
+                      {d.consignatarioNombre ?? (
+                        <span className="italic text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="align-top text-sm">
-                      {d.courierEntregaNombre ?? <span className="italic text-muted-foreground">—</span>}
+                      {d.courierEntregaNombre ?? (
+                        <span className="italic text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="align-top text-sm">
-                      {d.agenciaNombre ?? <span className="italic text-muted-foreground">—</span>}
+                      {d.agenciaNombre ?? (
+                        <span className="italic text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right align-top">
                       <Button
@@ -918,23 +870,6 @@ export function ManifiestoDetailPage() {
         onClose={() => setAsignarOpen(false)}
         manifiestoId={m.id}
         yaAsignadosIds={despachos.map((d) => d.id)}
-      />
-
-      <ConfirmDialog
-        open={confirmAnular}
-        onOpenChange={setConfirmAnular}
-        title="¿Anular este manifiesto?"
-        description="El manifiesto quedará marcado como anulado y dejará de contar para los totales pendientes. Puedes revertir el cambio cambiándolo a otro estado."
-        confirmLabel="Sí, anular"
-        variant="destructive"
-        loading={cambiarEstado.isPending}
-        onConfirm={async () => {
-          await notify.run(cambiarEstado.mutateAsync({ id: m.id, estado: 'ANULADO' }), {
-            loading: 'Anulando manifiesto...',
-            success: 'Manifiesto anulado',
-            error: 'No se pudo anular el manifiesto',
-          });
-        }}
       />
 
       <ConfirmDialog

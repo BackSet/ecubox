@@ -270,8 +270,8 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
               </DialogTitle>
               <DialogDescription className="mt-0.5">
                 {isEdit
-                  ? 'Ajusta el período del manifiesto. Los despachos se recalculan automáticamente.'
-                  : 'Selecciona el período de despachos para liquidar. Se autoasignarán los despachos del rango al guardar.'}
+                  ? 'Ajusta el período del manifiesto. Los despachos asignados se mantienen.'
+                  : 'Selecciona el período de despachos a registrar. Se autoasignarán los despachos del rango al guardar.'}
               </DialogDescription>
             </div>
           </div>

@@ -6,7 +6,6 @@ import {
   Check,
   Clock,
   Copy,
-  DollarSign,
   MapPin,
   Pencil,
   Plus,
@@ -43,14 +42,6 @@ import {
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { Agencia } from '@/types/despacho';
 
-function fmtMoneda(n: number | undefined | null): string {
-  if (n == null || !Number.isFinite(Number(n))) return '$0,00';
-  return `$${Number(n).toLocaleString('es-EC', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 export function AgenciaListPage() {
   const { q, setQ, page, size, setPage, setSize, resetPage } =
     useSearchPagination({ initialSize: 25 });
@@ -70,7 +61,7 @@ export function AgenciaListPage() {
   );
   // Chip rapido segun caracteristicas operativas mas consultadas.
   const [chipActivo, setChipActivo] = useState<
-    'todos' | 'sin_tarifa' | 'con_tarifa' | 'sin_horario' | 'sin_encargado'
+    'todos' | 'sin_horario' | 'sin_encargado' | 'sin_direccion'
   >('todos');
 
   const allAgencias = useMemo<Agencia[]>(() => data?.content ?? [], [data]);
@@ -94,28 +85,23 @@ export function AgenciaListPage() {
   }, [allAgencias, provinciaFiltro]);
 
   const chipCounts = useMemo(() => {
-    let conTarifa = 0;
-    let sinTarifa = 0;
     let sinHorario = 0;
     let sinEncargado = 0;
+    let sinDireccion = 0;
     for (const a of baseList) {
-      const t = Number(a.tarifaServicio ?? 0);
-      if (Number.isFinite(t) && t > 0) conTarifa += 1;
-      else sinTarifa += 1;
       if (!a.horarioAtencion?.trim()) sinHorario += 1;
       if (!a.encargado?.trim()) sinEncargado += 1;
+      if (!a.direccion?.trim()) sinDireccion += 1;
     }
-    return { todos: baseList.length, conTarifa, sinTarifa, sinHorario, sinEncargado };
+    return { todos: baseList.length, sinHorario, sinEncargado, sinDireccion };
   }, [baseList]);
 
   const list = useMemo(() => {
     if (chipActivo === 'todos') return baseList;
     return baseList.filter((a) => {
-      const t = Number(a.tarifaServicio ?? 0);
-      if (chipActivo === 'con_tarifa') return Number.isFinite(t) && t > 0;
-      if (chipActivo === 'sin_tarifa') return !Number.isFinite(t) || t <= 0;
       if (chipActivo === 'sin_horario') return !a.horarioAtencion?.trim();
       if (chipActivo === 'sin_encargado') return !a.encargado?.trim();
+      if (chipActivo === 'sin_direccion') return !a.direccion?.trim();
       return true;
     });
   }, [baseList, chipActivo]);
@@ -132,16 +118,13 @@ export function AgenciaListPage() {
   const stats = useMemo(() => {
     const total = totalElements;
     const provs = provincias.length;
-    const tarifas = allAgencias
-      .map((a) => Number(a.tarifaServicio ?? 0))
-      .filter((n) => Number.isFinite(n));
-    const conTarifa = tarifas.filter((n) => n > 0);
-    const promedio =
-      conTarifa.length > 0
-        ? conTarifa.reduce((acc, n) => acc + n, 0) / conTarifa.length
-        : 0;
-    const maxima = conTarifa.length > 0 ? Math.max(...conTarifa) : 0;
-    return { total, provs, promedio, maxima };
+    const cantones = new Set(
+      allAgencias
+        .map((a) => a.canton?.trim())
+        .filter((v): v is string => Boolean(v)),
+    ).size;
+    const conHorario = allAgencias.filter((a) => Boolean(a.horarioAtencion?.trim())).length;
+    return { total, provs, cantones, conHorario };
   }, [allAgencias, provincias, totalElements]);
 
   // Si no hay datos en cache y la petición falló, fallback al banner.
@@ -202,17 +185,18 @@ export function AgenciaListPage() {
               hint={stats.provs === 0 ? 'Sin provincia asignada' : undefined}
             />
             <KpiCard
-              icon={<DollarSign className="h-4 w-4" />}
-              label="Tarifa promedio"
-              value={fmtMoneda(stats.promedio)}
-              tone="success"
-              hint="Solo agencias con tarifa > 0"
+              icon={<MapPin className="h-4 w-4" />}
+              label="Cantones cubiertos"
+              value={stats.cantones}
+              tone="neutral"
+              hint={stats.cantones === 0 ? 'Sin cantón asignado' : undefined}
             />
             <KpiCard
-              icon={<DollarSign className="h-4 w-4" />}
-              label="Tarifa máxima"
-              value={fmtMoneda(stats.maxima)}
-              tone="warning"
+              icon={<Clock className="h-4 w-4" />}
+              label="Con horario"
+              value={stats.conHorario}
+              tone="success"
+              hint={`${stats.total - stats.conHorario} sin horario definido`}
             />
           </div>
         )
@@ -237,23 +221,12 @@ export function AgenciaListPage() {
                 }}
               />
               <ChipFiltro
-                label="Con tarifa"
-                count={chipCounts.conTarifa}
-                active={chipActivo === 'con_tarifa'}
-                tone="success"
+                label="Sin dirección"
+                count={chipCounts.sinDireccion}
+                active={chipActivo === 'sin_direccion'}
+                tone="warning"
                 onClick={() => {
-                  setChipActivo('con_tarifa');
-                  resetPage();
-                }}
-                hideWhenZero
-              />
-              <ChipFiltro
-                label="Sin tarifa"
-                count={chipCounts.sinTarifa}
-                active={chipActivo === 'sin_tarifa'}
-                tone="neutral"
-                onClick={() => {
-                  setChipActivo('sin_tarifa');
+                  setChipActivo('sin_direccion');
                   resetPage();
                 }}
                 hideWhenZero
@@ -308,23 +281,22 @@ export function AgenciaListPage() {
 
       {isLoading ? (
         <ListTableShell>
-          <Table className="min-w-[1000px]">
+          <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[20rem]">Agencia</TableHead>
                 <TableHead className="min-w-[18rem]">Ubicación</TableHead>
                 <TableHead className="hidden min-w-[14rem] lg:table-cell">Operación</TableHead>
-                <TableHead className="text-right">Tarifa</TableHead>
                 <TableHead className="hidden min-w-[12rem] md:table-cell">Encargado</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRowsSkeleton
-                columns={6}
+                columns={5}
                 columnClasses={{
                   2: 'hidden lg:table-cell',
-                  4: 'hidden md:table-cell',
+                  3: 'hidden md:table-cell',
                 }}
               />
             </TableBody>
@@ -353,13 +325,12 @@ export function AgenciaListPage() {
         />
       ) : (
         <ListTableShell>
-          <Table className="min-w-[1000px]">
+          <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[20rem]">Agencia</TableHead>
                 <TableHead className="min-w-[18rem]">Ubicación</TableHead>
                 <TableHead className="hidden min-w-[14rem] lg:table-cell">Operación</TableHead>
-                <TableHead className="text-right">Tarifa</TableHead>
                 <TableHead className="hidden min-w-[12rem] md:table-cell">Encargado</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
@@ -382,9 +353,6 @@ export function AgenciaListPage() {
                       horario={a.horarioAtencion}
                       diasMaxRetiro={a.diasMaxRetiro}
                     />
-                  </TableCell>
-                  <TableCell className="align-top text-right">
-                    <TarifaCell tarifa={a.tarifaServicio} />
                   </TableCell>
                   <TableCell className="hidden align-top md:table-cell">
                     <EncargadoCell encargado={a.encargado} />
@@ -612,27 +580,5 @@ function OperacionCell({
         </div>
       )}
     </div>
-  );
-}
-
-function TarifaCell({ tarifa }: { tarifa?: number | null }) {
-  const n = tarifa != null && Number.isFinite(Number(tarifa)) ? Number(tarifa) : null;
-  if (n == null) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
-  if (n === 0) {
-    return (
-      <Badge
-        variant="outline"
-        className="rounded font-mono text-[11px] font-normal text-muted-foreground"
-      >
-        Sin costo
-      </Badge>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 font-mono text-sm tabular-nums text-[var(--color-success)]">
-      {fmtMoneda(n)}
-    </span>
   );
 }

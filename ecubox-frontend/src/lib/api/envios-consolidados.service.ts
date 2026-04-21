@@ -18,9 +18,11 @@ const BASE = API_ENDPOINTS.enviosConsolidados;
  * fue eliminada.
  */
 export type EstadoFiltro = 'TODOS' | 'ABIERTO' | 'CERRADO';
+export type EstadoPagoFiltro = 'TODOS' | 'PAGADO' | 'NO_PAGADO';
 
 export interface ListarEnviosParams {
   estado?: EstadoFiltro;
+  estadoPago?: EstadoPagoFiltro;
   /** Búsqueda libre (LIKE multi-token) sobre el código del envío. */
   q?: string;
   page?: number;

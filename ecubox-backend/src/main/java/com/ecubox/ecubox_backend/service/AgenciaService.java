@@ -115,7 +115,6 @@ public class AgenciaService {
                 .canton(r.getCanton() != null ? r.getCanton().trim() : null)
                 .horarioAtencion(r.getHorarioAtencion() != null ? r.getHorarioAtencion().trim() : null)
                 .diasMaxRetiro(r.getDiasMaxRetiro())
-                .tarifaServicio(r.getTarifaServicio() != null ? r.getTarifaServicio() : java.math.BigDecimal.ZERO)
                 .build();
     }
 
@@ -128,7 +127,6 @@ public class AgenciaService {
         entity.setCanton(r.getCanton() != null ? r.getCanton().trim() : null);
         entity.setHorarioAtencion(r.getHorarioAtencion() != null ? r.getHorarioAtencion().trim() : null);
         entity.setDiasMaxRetiro(r.getDiasMaxRetiro());
-        entity.setTarifaServicio(r.getTarifaServicio() != null ? r.getTarifaServicio() : java.math.BigDecimal.ZERO);
     }
 
     private AgenciaDTO toDTO(Agencia a) {

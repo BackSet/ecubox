@@ -3,12 +3,15 @@ package com.ecubox.ecubox_backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
  * Snapshot inmutable de una {@link AgenciaCourierEntrega} (SCD Tipo 2).
  * Ver {@link ConsignatarioVersion} para la semantica completa.
+ *
+ * <p>No incluye tarifas: la liquidacion economica vive en el modulo
+ * de Liquidaciones y no depende de los snapshots tarifarios del
+ * catalogo de puntos de entrega.
  */
 @Entity
 @Table(name = "agencia_courier_entrega_version")
@@ -47,10 +50,6 @@ public class AgenciaCourierEntregaVersion {
 
     @Column(name = "dias_max_retiro")
     private Integer diasMaxRetiro;
-
-    @Column(nullable = false, precision = 19, scale = 4)
-    @Builder.Default
-    private BigDecimal tarifa = BigDecimal.ZERO;
 
     @Column(name = "valid_from", nullable = false)
     private LocalDateTime validFrom;

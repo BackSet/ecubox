@@ -530,7 +530,7 @@ export function DespachoDetailPage() {
           <InfoRow label="Fecha y hora">
             <span className="text-sm">{fmtFechaCompleta(d.fechaHora)}</span>
           </InfoRow>
-          <InfoRow label="CourierEntrega">
+          <InfoRow label="Courier de entrega">
             <span className="text-sm font-medium">{d.courierEntregaNombre ?? '—'}</span>
           </InfoRow>
           <InfoRow label="Tipo de entrega">
