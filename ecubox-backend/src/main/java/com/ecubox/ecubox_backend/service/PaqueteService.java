@@ -432,13 +432,19 @@ public class PaqueteService {
                 TrackingEventType.ESTADO_APLICADO_DESPACHO, "DESPACHO_AUTO", "despacho");
     }
 
-    /** Aplica el estado configurado "en lote recepción" a los paquetes indicados. Usado desde LoteRecepcionService. */
+    /**
+     * Aplica el estado configurado "en lote recepción" a los paquetes indicados.
+     *
+     * @param fechaRecepcionLote fecha/hora de la recepción (la misma que el lote); si es {@code null}
+     *                           se usa el instante actual (compatibilidad).
+     */
     @Transactional
-    public void aplicarEstadoEnLoteRecepcion(List<Long> paqueteIds) {
+    public void aplicarEstadoEnLoteRecepcion(List<Long> paqueteIds, LocalDateTime fechaRecepcionLote) {
         Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnLoteRecepcionId();
         if (estadoId == null) return;
         aplicarEstadoEnConjunto(paqueteIds, estadoId,
-                TrackingEventType.ESTADO_APLICADO_LOTE_RECEPCION, "LOTE_RECEPCION_AUTO", "lote-recepcion");
+                TrackingEventType.ESTADO_APLICADO_LOTE_RECEPCION, "LOTE_RECEPCION_AUTO", "lote-recepcion",
+                fechaRecepcionLote);
     }
 
     /**
@@ -454,7 +460,21 @@ public class PaqueteService {
                                          TrackingEventType eventType,
                                          String eventSource,
                                          String idempotencyPrefix) {
+        aplicarEstadoEnConjunto(paqueteIds, estadoDestinoId, eventType, eventSource, idempotencyPrefix, null);
+    }
+
+    /**
+     * @param fechaEfectivaOrNull instante único para todos los paquetes del lote (fecha del lote de recepción);
+     *                            si es null se usa {@link LocalDateTime#now()} una sola vez por operación.
+     */
+    private void aplicarEstadoEnConjunto(List<Long> paqueteIds,
+                                         Long estadoDestinoId,
+                                         TrackingEventType eventType,
+                                         String eventSource,
+                                         String idempotencyPrefix,
+                                         LocalDateTime fechaEfectivaOrNull) {
         if (paqueteIds == null || paqueteIds.isEmpty()) return;
+        LocalDateTime fechaEfectiva = fechaEfectivaOrNull != null ? fechaEfectivaOrNull : LocalDateTime.now();
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoDestinoId);
         List<Paquete> paquetes = paqueteRepository.findAllById(paqueteIds);
         if (paquetes.isEmpty()) return;
@@ -462,7 +482,7 @@ public class PaqueteService {
         List<TrackingEventService.PendingTransicion> pendientes = new ArrayList<>(paquetes.size());
         for (Paquete p : paquetes) {
             EstadoRastreo origen = p.getEstadoRastreo();
-            aplicarEstadoConReglas(p, estado, null);
+            aplicarEstadoConReglas(p, estado, null, fechaEfectiva);
             pendientes.add(new TrackingEventService.PendingTransicion(p, origen));
             if (p.getGuiaMaster() != null) {
                 guiasAfectadas.add(p.getGuiaMaster().getId());
@@ -480,8 +500,8 @@ public class PaqueteService {
                     eventSource,
                     p.getMotivoAlterno(),
                     null,
-                    buildIdempotencyKey(idempotencyPrefix, p.getId(), origen != null ? origen.getId() : null, estado.getId())
-            );
+                    buildIdempotencyKey(idempotencyPrefix, p.getId(), origen != null ? origen.getId() : null, estado.getId()),
+                    fechaEfectiva);
         }
         for (Long gmId : guiasAfectadas) {
             guiaMasterService.recomputarEstado(gmId);
@@ -1335,12 +1355,17 @@ public class PaqueteService {
     }
 
     private void aplicarEstadoConReglas(Paquete paquete, EstadoRastreo estadoDestino, String motivoAlterno) {
+        aplicarEstadoConReglas(paquete, estadoDestino, motivoAlterno, LocalDateTime.now());
+    }
+
+    private void aplicarEstadoConReglas(Paquete paquete, EstadoRastreo estadoDestino, String motivoAlterno,
+                                       LocalDateTime fechaEstadoDesde) {
         EstadoRastreo estadoOrigen = paquete.getEstadoRastreo();
         if (estadoOrigen != null) {
             validarTransicion(estadoOrigen, estadoDestino);
         }
         paquete.setEstadoRastreo(estadoDestino);
-        paquete.setFechaEstadoActualDesde(LocalDateTime.now());
+        paquete.setFechaEstadoActualDesde(fechaEstadoDesde);
 
         if (estadoDestino.getTipoFlujo() == TipoFlujoEstado.ALTERNO) {
             paquete.setEnFlujoAlterno(true);

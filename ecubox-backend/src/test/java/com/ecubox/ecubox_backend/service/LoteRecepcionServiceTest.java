@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -102,7 +103,7 @@ class LoteRecepcionServiceTest {
         assertNotNull(dto);
         assertEquals(List.of("ENV-1"), dto.getNumeroGuiasEnvio(),
                 "el envio cerrado y pagado debe registrarse igual en el lote");
-        verify(paqueteService).aplicarEstadoEnLoteRecepcion(List.of(100L));
+        verify(paqueteService).aplicarEstadoEnLoteRecepcion(eq(List.of(100L)), any());
     }
 
     @Test
@@ -120,7 +121,7 @@ class LoteRecepcionServiceTest {
         assertTrue(dto.getNumeroGuiasEnvio() == null || dto.getNumeroGuiasEnvio().isEmpty(),
                 "no debe registrarse un envio que ya esta en otro lote");
         verify(loteRecepcionGuiaRepository, never()).save(any());
-        verify(paqueteService, never()).aplicarEstadoEnLoteRecepcion(anyList());
+        verify(paqueteService, never()).aplicarEstadoEnLoteRecepcion(anyList(), any());
     }
 
     @Test
@@ -154,6 +155,6 @@ class LoteRecepcionServiceTest {
         service.agregarGuias(7L, List.of("ENV-PAGADO", "YA-EN-LOTE", "ENV-OTRO"));
 
         verify(loteRecepcionGuiaRepository, times(1)).save(any(LoteRecepcionGuia.class));
-        verify(paqueteService).aplicarEstadoEnLoteRecepcion(List.of(200L));
+        verify(paqueteService).aplicarEstadoEnLoteRecepcion(eq(List.of(200L)), any());
     }
 }

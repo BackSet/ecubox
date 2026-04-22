@@ -19,6 +19,7 @@ import {
   Trash2,
   Truck,
 } from 'lucide-react';
+import { localDateTimeInputToApi } from '@/lib/datetime-local';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { EnvioConsolidado } from '@/types/envio-consolidado';
@@ -158,7 +159,7 @@ export function LoteRecepcionNuevoPage() {
       return;
     }
     const numeroGuiasEnvio = seleccionados.map((e) => e.codigo);
-    const fecha = fechaRecepcion ? new Date(fechaRecepcion).toISOString() : undefined;
+    const fecha = localDateTimeInputToApi(fechaRecepcion);
     createMutation.mutate(
       {
         fechaRecepcion: fecha,

@@ -33,6 +33,9 @@ public class TrackingEventService {
         this.outboxEventRepository = outboxEventRepository;
     }
 
+    /**
+     * Registra la transición usando {@link LocalDateTime#now()} como instante del evento.
+     */
     @Transactional
     public void registrarTransicion(Paquete paquete,
                                     EstadoRastreo estadoOrigen,
@@ -42,7 +45,26 @@ public class TrackingEventService {
                                     String motivoAlterno,
                                     Long actorUsuarioId,
                                     String idempotencyKey) {
-        LocalDateTime now = LocalDateTime.now();
+        registrarTransicion(paquete, estadoOrigen, estadoDestino, eventType, eventSource,
+                motivoAlterno, actorUsuarioId, idempotencyKey, null);
+    }
+
+    /**
+     * @param occurredAtOrNull si no es null, se usa como {@code occurredAt} / {@code createdAt}
+     *                           del evento y del outbox (p. ej. fecha de recepción del lote);
+     *                           si es null, se usa {@link LocalDateTime#now()}.
+     */
+    @Transactional
+    public void registrarTransicion(Paquete paquete,
+                                    EstadoRastreo estadoOrigen,
+                                    EstadoRastreo estadoDestino,
+                                    TrackingEventType eventType,
+                                    String eventSource,
+                                    String motivoAlterno,
+                                    Long actorUsuarioId,
+                                    String idempotencyKey,
+                                    LocalDateTime occurredAtOrNull) {
+        LocalDateTime now = occurredAtOrNull != null ? occurredAtOrNull : LocalDateTime.now();
         UUID eventId = UUID.randomUUID();
         Usuario actor = actorUsuarioId != null ? Usuario.builder().id(actorUsuarioId).build() : null;
 

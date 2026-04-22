@@ -117,7 +117,7 @@ public class LoteRecepcionService {
         }
 
         if (!paqueteIds.isEmpty()) {
-            paqueteService.aplicarEstadoEnLoteRecepcion(new ArrayList<>(paqueteIds));
+            paqueteService.aplicarEstadoEnLoteRecepcion(new ArrayList<>(paqueteIds), fechaRecepcion);
         }
 
         return toDTO(lote, false);
@@ -164,7 +164,7 @@ public class LoteRecepcionService {
             paquetes.forEach(p -> paqueteIds.add(p.getId()));
         }
         if (!paqueteIds.isEmpty()) {
-            paqueteService.aplicarEstadoEnLoteRecepcion(new ArrayList<>(paqueteIds));
+            paqueteService.aplicarEstadoEnLoteRecepcion(new ArrayList<>(paqueteIds), lote.getFechaRecepcion());
         }
 
         loteRecepcionRepository.flush();
