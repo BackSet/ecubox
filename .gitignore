@@ -1,6 +1,5 @@
 # Editors and local tools
 .cursor/
-.vscode/
 .idea/
 *.swp
 *.swo
