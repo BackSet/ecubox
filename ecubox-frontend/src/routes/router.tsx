@@ -13,6 +13,8 @@ import { AppToaster } from '@/components/ui/sonner';
 import { HomePage } from '@/pages/home/HomePage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { RegistroSimplePage } from '@/pages/registro/RegistroSimplePage';
+import { TerminosCondicionesPage } from '@/pages/legal/TerminosCondicionesPage';
+import { PoliticaPrivacidadPage } from '@/pages/legal/PoliticaPrivacidadPage';
 import { DashboardLayout } from '@/pages/dashboard/DashboardLayout';
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { UsuarioList } from '@/pages/dashboard/usuarios/UsuarioList';
@@ -202,6 +204,32 @@ const calculadoraRoute = createRoute({
       description:
         'Cotiza el costo aproximado de tu envío desde Estados Unidos a Ecuador según peso y servicio. Sin sorpresas antes de comprar en tiendas online.',
       path: '/calculadora',
+    }) as RouteHeadResult,
+});
+
+const terminosRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/terminos',
+  component: TerminosCondicionesPage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Términos y condiciones | ECUBOX',
+      description:
+        'Condiciones de uso del casillero en USA, envíos a Ecuador, rastreo y servicios digitales ECUBOX. Aplicable al registro y a la relación con clientes.',
+      path: '/terminos',
+    }) as RouteHeadResult,
+});
+
+const privacidadRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/privacidad',
+  component: PoliticaPrivacidadPage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Política de privacidad | ECUBOX',
+      description:
+        'Cómo ECUBOX trata tus datos personales: cuenta, operación logística, derechos ARCO y seguridad, conforme a la normativa ecuatoriana.',
+      path: '/privacidad',
     }) as RouteHeadResult,
 });
 
@@ -461,6 +489,8 @@ const routeTree = rootRoute.addChildren([
   registroCompletoRoute,
   trackingRoute,
   calculadoraRoute,
+  terminosRoute,
+  privacidadRoute,
   inicioRoute,
   casilleroRoute,
   agenciaEeuuLegacyRedirect,

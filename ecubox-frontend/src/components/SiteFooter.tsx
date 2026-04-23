@@ -15,7 +15,7 @@ export function SiteFooter() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-8 sm:gap-14">
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 sm:gap-10 md:gap-14">
             <div>
               <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider landing-text-muted">Servicios</h4>
               <ul className="space-y-2 text-sm landing-text">
@@ -28,6 +28,21 @@ export function SiteFooter() {
               <ul className="space-y-2 text-sm landing-text">
                 <li><Link to="/login" className="transition hover:text-[var(--color-primary)]">Iniciar sesión</Link></li>
                 <li><Link to="/registro" className="transition hover:text-[var(--color-primary)]">Registrarse</Link></li>
+              </ul>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider landing-text-muted">Legal</h4>
+              <ul className="space-y-2 text-sm landing-text">
+                <li>
+                  <Link to="/terminos" className="transition hover:text-[var(--color-primary)]">
+                    Términos y condiciones
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/privacidad" className="transition hover:text-[var(--color-primary)]">
+                    Política de privacidad
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>

@@ -458,12 +458,23 @@ export function RegistroSimplePage() {
                       <span className="leading-snug">
                         Acepto los{' '}
                         <Link
-                          to="/"
+                          to="/terminos"
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="font-medium text-[var(--color-primary)] hover:underline"
                         >
                           términos y condiciones
                         </Link>{' '}
-                        y la política de privacidad de ECUBOX.
+                        y la{' '}
+                        <Link
+                          to="/privacidad"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-[var(--color-primary)] hover:underline"
+                        >
+                          política de privacidad
+                        </Link>{' '}
+                        de ECUBOX.
                       </span>
                     </label>
                     {errors.acceptTerms && (

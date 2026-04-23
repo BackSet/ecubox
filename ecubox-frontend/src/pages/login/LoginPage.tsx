@@ -322,7 +322,21 @@ export function LoginPage() {
             </div>
 
             <p className="mt-4 text-center text-xs landing-text-muted">
-              Al iniciar sesión aceptas nuestros términos y condiciones.
+              Al usar tu cuenta aplicas los{' '}
+              <Link
+                to="/terminos"
+                className="font-medium text-[var(--color-primary)] hover:underline"
+              >
+                términos y condiciones
+              </Link>{' '}
+              y la{' '}
+              <Link
+                to="/privacidad"
+                className="font-medium text-[var(--color-primary)] hover:underline"
+              >
+                política de privacidad
+              </Link>
+              .
             </p>
           </div>
         </div>
