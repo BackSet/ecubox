@@ -38,14 +38,15 @@ export function FAQ() {
   return (
     <section
       id="faq"
+      aria-labelledby="faq-heading"
       className="content-container mobile-safe-inline section-spacing max-w-4xl"
     >
       <div className="mb-9 text-center md:mb-12">
         <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] px-3 py-1 text-xs font-medium uppercase tracking-wider landing-text-muted">
-          <HelpCircle className="h-3 w-3 text-[var(--color-primary)]" />
+          <HelpCircle className="h-3 w-3 text-[var(--color-primary)]" aria-hidden />
           Preguntas frecuentes
         </p>
-        <h2 className="landing-text responsive-title font-bold">
+        <h2 id="faq-heading" className="landing-text responsive-title font-bold">
           Todo lo que necesitas saber
         </h2>
         <p className="landing-text-muted mt-3 text-sm sm:text-base">
@@ -73,7 +74,7 @@ export function FAQ() {
       <div className="mt-8 flex flex-col items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] p-5 text-center sm:flex-row sm:text-left">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-            <MessageCircleQuestion className="h-5 w-5" strokeWidth={1.8} />
+            <MessageCircleQuestion className="h-5 w-5" strokeWidth={1.8} aria-hidden />
           </span>
           <div>
             <p className="text-sm font-semibold landing-text">¿Tienes otra pregunta?</p>

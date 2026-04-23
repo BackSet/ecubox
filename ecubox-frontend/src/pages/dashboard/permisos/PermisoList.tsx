@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { KpiCard } from '@/components/KpiCard';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { Badge } from '@/components/ui/badge';
@@ -288,100 +289,98 @@ export function PermisoList() {
       {isLoading ? (
         <FiltrosBarSkeleton chips={0} filters={2} />
       ) : (
-      <div className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <Filter className="h-3.5 w-3.5" />
-            Filtros
-          </div>
-          <Select
-            value={moduloFiltro}
-            onValueChange={(v) => {
-              setModuloFiltro(v);
-              resetPage();
-            }}
-          >
-            <SelectTrigger className="h-9 w-full sm:w-[200px]">
-              <SelectValue placeholder="Módulo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={MODULO_TODOS}>Todos los módulos</SelectItem>
-              {modulosOptions.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {MODULO_LABELS[m] ?? m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={tipoFiltro}
-            onValueChange={(v) => {
-              setTipoFiltro(v);
-              resetPage();
-            }}
-          >
-            <SelectTrigger className="h-9 w-full sm:w-[180px]">
-              <SelectValue placeholder="Tipo de acción" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TIPO_TODOS}>Todos los tipos</SelectItem>
-              {tiposOptions.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {TIPO_META[t].label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-0.5">
-            <button
-              type="button"
-              onClick={() => setVista('tabla')}
-              className={cn(
-                'inline-flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors',
-                vista === 'tabla'
-                  ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
-                  : 'text-muted-foreground hover:bg-[var(--color-muted)]/40',
-              )}
-              title="Vista en tabla"
-            >
-              <List className="h-3.5 w-3.5" />
-              Tabla
-            </button>
-            <button
-              type="button"
-              onClick={() => setVista('modulos')}
-              className={cn(
-                'inline-flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors',
-                vista === 'modulos'
-                  ? 'bg-[var(--color-muted)] text-[var(--color-primary)]'
-                  : 'text-muted-foreground hover:bg-[var(--color-muted)]/40',
-              )}
-              title="Vista por módulos"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              Módulos
-            </button>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">{list.length}</span> de{' '}
-            {totalElements}
-          </span>
-          {filtersActive && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={clearFilters}
-            >
-              <X className="mr-1 h-3 w-3" />
-              Limpiar
-            </Button>
-          )}
-        </div>
-      </div>
+      <FiltrosBar
+        hayFiltrosActivos={filtersActive}
+        onLimpiar={clearFilters}
+        filtros={
+          <>
+            <div className="col-span-full flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
+              <div className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground sm:pb-2">
+                <Filter className="h-3.5 w-3.5" />
+                Filtros
+              </div>
+              <FiltroCampo label="Módulo" width="w-[12.5rem]">
+                <Select
+                  value={moduloFiltro}
+                  onValueChange={(v) => {
+                    setModuloFiltro(v);
+                    resetPage();
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Módulo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={MODULO_TODOS}>Todos los módulos</SelectItem>
+                    {modulosOptions.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {MODULO_LABELS[m] ?? m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FiltroCampo>
+              <FiltroCampo label="Tipo de acción" width="w-[11.25rem]">
+                <Select
+                  value={tipoFiltro}
+                  onValueChange={(v) => {
+                    setTipoFiltro(v);
+                    resetPage();
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Tipo de acción" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={TIPO_TODOS}>Todos los tipos</SelectItem>
+                    {tiposOptions.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {TIPO_META[t].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FiltroCampo>
+            </div>
+            <div className="col-span-full flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="inline-flex rounded-md border border-border bg-card p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setVista('tabla')}
+                  className={cn(
+                    'inline-flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors',
+                    vista === 'tabla'
+                      ? 'bg-muted text-primary'
+                      : 'text-muted-foreground hover:bg-muted/40',
+                  )}
+                  title="Vista en tabla"
+                >
+                  <List className="h-3.5 w-3.5" />
+                  Tabla
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVista('modulos')}
+                  className={cn(
+                    'inline-flex h-7 items-center gap-1 rounded px-2 text-xs font-medium transition-colors',
+                    vista === 'modulos'
+                      ? 'bg-muted text-primary'
+                      : 'text-muted-foreground hover:bg-muted/40',
+                  )}
+                  title="Vista por módulos"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Módulos
+                </button>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{list.length}</span> de{' '}
+                {totalElements}
+              </span>
+            </div>
+          </>
+        }
+      />
       )}
 
       {isLoading ? (

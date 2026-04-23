@@ -1,4 +1,13 @@
-import { createRootRoute, createRoute, createRouter, RouterProvider, Outlet, redirect } from '@tanstack/react-router';
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+  Outlet,
+  redirect,
+  HeadContent,
+} from '@tanstack/react-router';
+import { createPortal } from 'react-dom';
 import { useEffect, type ComponentType } from 'react';
 import { AppToaster } from '@/components/ui/sonner';
 import { HomePage } from '@/pages/home/HomePage';
@@ -42,6 +51,12 @@ import { CasilleroPage } from '@/pages/dashboard/casillero/CasilleroPage';
 import { PerfilPage } from '@/pages/perfil/PerfilPage';
 import { useAuthStore } from '@/stores/authStore';
 import { applyTheme, useThemeStore } from '@/stores/themeStore';
+import {
+  SEO_DEFAULT_DESCRIPTION,
+  SEO_DEFAULT_TITLE,
+  buildHomeJsonLd,
+  buildPublicPageHead,
+} from '@/lib/seo';
 
 function RootLayout() {
   const theme = useThemeStore((s) => s.theme);
@@ -52,6 +67,8 @@ function RootLayout() {
 
   return (
     <>
+      {typeof document !== 'undefined' &&
+        createPortal(<HeadContent />, document.head)}
       <Outlet />
       <AppToaster />
     </>
@@ -81,26 +98,67 @@ function withDashboardLayout<P extends object>(Component: ComponentType<P>) {
   };
 }
 
+/** Los tipos de `head` en createRoute exigen JSX Meta; en runtime TanStack acepta MetaDescriptor (p. ej. script:ld+json). */
+type RouteHeadResult = {
+  meta: Array<Record<string, unknown>>;
+  links?: Array<Record<string, string>>;
+};
+
 const rootRoute = createRootRoute({
   component: RootLayout,
+  head: () =>
+    ({
+      meta: [
+        { title: SEO_DEFAULT_TITLE },
+        { name: 'description', content: SEO_DEFAULT_DESCRIPTION },
+      ],
+      links: [],
+    }) as RouteHeadResult,
 });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: HomePage,
+  head: () => {
+    const { meta, links } = buildPublicPageHead({
+      title: 'ECUBOX | Casillero en USA y envíos a Ecuador con rastreo',
+      description:
+        'Casillero en New Jersey sin mensualidad, envíos a Ecuador en 8-12 días laborables, rastreo por pieza y calculadora de tarifas. ECUBOX lleva tus compras de USA a casa.',
+      path: '/',
+    });
+    const jsonLd = buildHomeJsonLd();
+    return {
+      meta: [...meta, ...jsonLd],
+      links,
+    } as RouteHeadResult;
+  },
 });
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: LoginPage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Iniciar sesión | ECUBOX',
+      description:
+        'Accede a tu cuenta ECUBOX para gestionar tu casillero, envíos, rastreo y datos de contacto de forma segura.',
+      path: '/login',
+    }) as RouteHeadResult,
 });
 
 const registroRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/registro',
   component: RegistroSimplePage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Crear cuenta y casillero gratis | ECUBOX',
+      description:
+        'Regístrate gratis en ECUBOX y obtén tu dirección en USA para compras online. Sin tarjeta ni mensualidad: solo pagas los envíos que uses.',
+      path: '/registro',
+    }) as RouteHeadResult,
 });
 
 const registroRapidoRoute = createRoute({
@@ -125,12 +183,26 @@ const trackingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/tracking',
   component: TrackingPage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Rastreo de paquetes y guías | ECUBOX',
+      description:
+        'Consulta el estado de tu envío con el número de guía o código del consolidador. ECUBOX muestra el seguimiento por pieza en tiempo real.',
+      path: '/tracking',
+    }) as RouteHeadResult,
 });
 
 const calculadoraRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/calculadora',
   component: CalculadoraPage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Calculadora de tarifas de envío USA–Ecuador | ECUBOX',
+      description:
+        'Cotiza el costo aproximado de tu envío desde Estados Unidos a Ecuador según peso y servicio. Sin sorpresas antes de comprar en tiendas online.',
+      path: '/calculadora',
+    }) as RouteHeadResult,
 });
 
 // Panel routes (flat, with layout wrapper + auth)

@@ -540,17 +540,15 @@ export function PaqueteListPage() {
 
       {isLoading ? (
         <ListTableShell>
-          <Table className="table-mobile-cards md:min-w-[860px] text-left">
+          <Table className="min-w-[920px] text-left">
             <TableHeader>
               <TableRow>
                 <TableHead>Guía master / Pieza</TableHead>
                 <TableHead>Ref</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Consignatario</TableHead>
-                {hasPesoWrite && (
-                  <TableHead className="hidden md:table-cell">Guía de envío</TableHead>
-                )}
-                <TableHead className="hidden lg:table-cell">Contenido</TableHead>
+                {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
+                <TableHead>Contenido</TableHead>
                 <TableHead>Peso</TableHead>
                 {(hasPaquetesUpdate || hasPaquetesDelete || hasGuiasMasterUpdate) && (
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
@@ -565,11 +563,6 @@ export function PaqueteListPage() {
                   1 /* contenido */ +
                   1 /* peso */ +
                   (hasPaquetesUpdate || hasPaquetesDelete || hasGuiasMasterUpdate ? 1 : 0)
-                }
-                columnClasses={
-                  hasPesoWrite
-                    ? { 4: 'hidden md:table-cell', 5: 'hidden lg:table-cell' }
-                    : { 4: 'hidden lg:table-cell' }
                 }
               />
             </TableBody>
@@ -603,18 +596,19 @@ export function PaqueteListPage() {
             {totalElements !== allPaquetes.length ? ` de ${allPaquetes.length}` : ''}
             {pageQuery.isFetching && useServerPage ? ' · cargando...' : ''}
           </p>
+          <p className="text-xs text-muted-foreground md:hidden">
+            Desliza horizontalmente para ver todas las columnas.
+          </p>
         <ListTableShell>
-            <Table className="table-mobile-cards md:min-w-[860px] text-left">
+            <Table className="min-w-[920px] text-left">
               <TableHeader>
                 <TableRow>
                   <TableHead>Guía master / Pieza</TableHead>
                   <TableHead>Ref</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Consignatario</TableHead>
-                  {hasPesoWrite && (
-                    <TableHead className="hidden md:table-cell">Guía de envío</TableHead>
-                  )}
-                  <TableHead className="hidden lg:table-cell">Contenido</TableHead>
+                  {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
+                  <TableHead>Contenido</TableHead>
                   <TableHead>Peso</TableHead>
                   {(hasPaquetesUpdate ||
                     hasPaquetesDelete ||
@@ -626,23 +620,22 @@ export function PaqueteListPage() {
               <TableBody>
                 {list.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell data-label="Guía master / Pieza" className="td-stack max-w-[14rem] align-top">
+                    <TableCell className="max-w-[14rem] min-w-0 align-top">
                       <GuiaMasterPiezaCell paquete={p} />
                     </TableCell>
-                    <TableCell data-label="Ref" className="font-mono text-xs text-muted-foreground">{p.ref ?? '—'}</TableCell>
-                    <TableCell data-label="Estado">
+                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                      {p.ref ?? '—'}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <StatusBadge tone="neutral">
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                       </StatusBadge>
                     </TableCell>
-                    <TableCell data-label="Consignatario" className="td-stack align-top">
+                    <TableCell className="min-w-[12rem] max-w-[18rem] align-top">
                       <ConsignatarioCell paquete={p} />
                     </TableCell>
                     {hasPesoWrite && (
-                      <TableCell
-                        data-label="Guía de envío"
-                        className="td-stack"
-                      >
+                      <TableCell className="min-w-0 whitespace-nowrap">
                         {p.envioConsolidadoCodigo ? (
                           <div className="flex flex-wrap items-center gap-1.5">
                             <MonoTrunc
@@ -658,13 +651,12 @@ export function PaqueteListPage() {
                         )}
                       </TableCell>
                     )}
-                    <TableCell
-                      data-label="Contenido"
-                      className="td-stack md:max-lg:hidden text-muted-foreground"
-                    >
-                      {p.contenido ?? '—'}
+                    <TableCell className="max-w-[12rem] text-muted-foreground">
+                      <span className="line-clamp-2 break-words text-sm">
+                        {p.contenido ?? '—'}
+                      </span>
                     </TableCell>
-                    <TableCell data-label="Peso">
+                    <TableCell className="whitespace-nowrap text-sm">
                       {p.pesoLbs != null || p.pesoKg != null
                         ? [p.pesoLbs != null ? `${p.pesoLbs} lbs` : null, p.pesoKg != null ? `${p.pesoKg} kg` : null]
                             .filter(Boolean)
@@ -674,7 +666,7 @@ export function PaqueteListPage() {
                     {(hasPaquetesUpdate ||
                       hasPaquetesDelete ||
                       hasGuiasMasterUpdate) && (
-                      <TableCell data-label="Acciones" className="text-right">
+                      <TableCell className="text-right">
                         <RowActionsMenu
                           items={[
                             {

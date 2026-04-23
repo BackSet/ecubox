@@ -83,15 +83,29 @@ export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
         </div>
 
         {/* Mobile toggle */}
-        <Button type="button" variant="ghost" size="icon" className="landing-text lg:hidden" onClick={() => setMobileOpen(o => !o)} aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}>
-          {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="landing-text lg:hidden"
+          onClick={() => setMobileOpen((o) => !o)}
+          aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={mobileOpen}
+          aria-controls="site-header-mobile-nav"
+        >
+          {mobileOpen ? <X className="h-6 w-6" aria-hidden /> : <Menu className="h-6 w-6" aria-hidden />}
         </Button>
       </div>
 
       {/* Mobile panel */}
       {mobileOpen && (
-        <div className="border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-4 pb-6 pt-4 lg:hidden">
-          <nav className="mb-6 flex flex-col gap-1 text-sm font-medium landing-text">
+        <div
+          id="site-header-mobile-nav"
+          className="border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-4 pb-6 pt-4 lg:hidden"
+          role="region"
+          aria-label="Navegación móvil"
+        >
+          <nav className="mb-6 flex flex-col gap-1 text-sm font-medium landing-text" aria-label="Principal">
             {showAnchors && ANCHOR_LINKS.map(l => (
               <a key={l.hash} href={l.hash} className="rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]" onClick={() => setMobileOpen(false)}>
                 {l.label}

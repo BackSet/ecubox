@@ -36,7 +36,7 @@ export function Hero() {
   }
 
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative overflow-hidden" aria-labelledby="hero-heading">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-32 right-[-10%] h-80 w-80 rounded-full bg-[var(--color-primary)]/20 blur-3xl"
@@ -49,7 +49,7 @@ export function Hero() {
       <div className="content-container mobile-safe-inline section-spacing relative">
         <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
           <div className="landing-chip mb-7 inline-flex items-center gap-2 px-4 py-2">
-            <Sparkles className="h-3.5 w-3.5 text-[var(--color-primary)]" />
+            <Sparkles className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
             <span className="rounded bg-[var(--color-primary)] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[var(--color-primary-foreground)]">
               Nuevo
             </span>
@@ -58,7 +58,7 @@ export function Hero() {
             </span>
           </div>
 
-          <h1 className="landing-text responsive-title mx-auto mb-5 max-w-4xl font-bold leading-[1.1]">
+          <h1 id="hero-heading" className="landing-text responsive-title mx-auto mb-5 max-w-4xl font-bold leading-[1.1]">
             Tu casillero en USA.{' '}
             <span className="brand-gradient-text">
               Tu paquete en Ecuador.
@@ -100,9 +100,9 @@ export function Hero() {
               className="h-11 gap-2 px-5"
             >
               {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               ) : (
-                <PackageSearch className="h-4 w-4" />
+                <PackageSearch className="h-4 w-4" aria-hidden />
               )}
               Rastrear
             </Button>
@@ -114,13 +114,13 @@ export function Hero() {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-6 py-3.5 text-sm font-semibold text-[var(--color-primary-foreground)] shadow-lg transition hover:opacity-90 sm:px-8 sm:py-4"
             >
               Empezar envío
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
             <Link
               to="/calculadora"
               className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--color-primary)]/55 px-6 py-3.5 text-sm font-semibold landing-text transition hover:bg-[var(--color-primary)]/10 sm:px-8 sm:py-4"
             >
-              <Calculator className="h-4 w-4" />
+              <Calculator className="h-4 w-4" aria-hidden />
               Cotizar envío
             </Link>
           </div>
@@ -139,15 +139,15 @@ export function Hero() {
 
           <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs landing-text-muted sm:text-sm">
             <li className="inline-flex items-center gap-1.5">
-              <Plane className="h-3.5 w-3.5 text-[var(--color-primary)]" />
+              <Plane className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
               Salidas semanales NJ → EC
             </li>
             <li className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 text-[var(--color-success)]" />
+              <ShieldCheck className="h-3.5 w-3.5 text-[var(--color-success)]" aria-hidden />
               Manejo seguro y trazable
             </li>
             <li className="inline-flex items-center gap-1.5">
-              <Globe2 className="h-3.5 w-3.5 text-[var(--color-ecubox-acento-claro)]" />
+              <Globe2 className="h-3.5 w-3.5 text-[var(--color-ecubox-acento-claro)]" aria-hidden />
               Cobertura nacional en Ecuador
             </li>
           </ul>

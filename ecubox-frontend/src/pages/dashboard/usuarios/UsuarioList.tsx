@@ -34,12 +34,12 @@ import { EmptyState } from '@/components/EmptyState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { TablePagination } from '@/components/ui/TablePagination';
-import { SurfaceCard } from '@/components/ui/surface-card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -218,13 +218,22 @@ export function UsuarioList() {
       {isLoading ? (
         <FiltrosBarSkeleton chips={4} filters={1} />
       ) : (
-      <SurfaceCard className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <Filter className="h-3.5 w-3.5" />
-            Filtros
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <FiltrosBar
+        hayFiltrosActivos={filtersActive}
+        onLimpiar={clearFilters}
+        sinSeparadorChipsFiltros
+        chipRowEnd={
+          <span className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">{list.length}</span> de{' '}
+            {totalElements}
+          </span>
+        }
+        chips={
+          <>
+            <div className="flex shrink-0 items-center gap-1.5 pr-1 text-xs font-medium text-muted-foreground md:pr-2">
+              <Filter className="h-3.5 w-3.5" />
+              Filtros
+            </div>
             <ChipFiltro
               label="Todos"
               count={stats.total}
@@ -268,47 +277,33 @@ export function UsuarioList() {
               }}
               hideWhenZero
             />
-          </div>
-          <Select
-            value={rolFiltro}
-            onValueChange={(v) => {
-              setRolFiltro(v);
-              resetPage();
-            }}
-          >
-            <SelectTrigger className="h-9 w-full sm:w-[200px]">
-              <SelectValue placeholder="Filtrar por rol" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ROL_TODOS}>Todos los roles</SelectItem>
-              <SelectItem value={ROL_SIN_ROL}>Sin rol asignado</SelectItem>
-              {rolesOptions.map((r) => (
-                <SelectItem key={r} value={r}>
-                  {r}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>
-            <span className="font-semibold text-foreground">{list.length}</span> de{' '}
-            {totalElements}
-          </span>
-          {filtersActive && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={clearFilters}
+          </>
+        }
+        filtros={
+          <FiltroCampo label="Rol" width="w-[12.5rem]">
+            <Select
+              value={rolFiltro}
+              onValueChange={(v) => {
+                setRolFiltro(v);
+                resetPage();
+              }}
             >
-              <X className="mr-1 h-3 w-3" />
-              Limpiar
-            </Button>
-          )}
-        </div>
-      </SurfaceCard>
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue placeholder="Filtrar por rol" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ROL_TODOS}>Todos los roles</SelectItem>
+                <SelectItem value={ROL_SIN_ROL}>Sin rol asignado</SelectItem>
+                {rolesOptions.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FiltroCampo>
+        }
+      />
       )}
 
       {isLoading ? (

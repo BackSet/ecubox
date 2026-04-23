@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 import { apiClient } from '@/lib/api/client';
+import { resolveApiBaseUrl } from '@/lib/api/resolve-api-base-url';
 import { clampNonNegative, roundToDecimals, toFiniteNumber } from '@/lib/utils/decimal';
 
 export interface TarifaCalculadora {
@@ -13,16 +14,14 @@ function normalizeTarifaPorLibra(value: unknown): number {
 
 /** Construye la URL absoluta del endpoint público de tarifa (sin token). */
 function getTarifaCalculadoraPublicUrl(): string {
-  const base = import.meta.env.VITE_API_URL ?? '/api';
-  const path = '/api/config/tarifa-calculadora';
-  if (typeof base === 'string' && base.startsWith('http')) {
-    const host = base.replace(/\/+$/, '');
-    return host.endsWith('/api') ? `${host}/config/tarifa-calculadora` : `${host}${path}`;
+  const base = resolveApiBaseUrl().replace(/\/+$/, '');
+  if (base.startsWith('http://') || base.startsWith('https://')) {
+    return `${base}/config/tarifa-calculadora`;
   }
-  const relative = base.startsWith('/') ? base : `/${base}`;
-  const pathFromBase = relative.endsWith('/')
-    ? 'config/tarifa-calculadora'
-    : `${relative.replace(/\/+$/, '')}/config/tarifa-calculadora`;
+  const pathFromBase = `${base.replace(/\/+$/, '')}/config/tarifa-calculadora`.replace(
+    /\/+/g,
+    '/',
+  );
   if (typeof window !== 'undefined') {
     return new URL(pathFromBase, window.location.origin).toString();
   }

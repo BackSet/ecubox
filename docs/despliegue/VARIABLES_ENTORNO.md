@@ -35,7 +35,7 @@ Vite **embebe** estas variables en el build: no pongas secretos (solo URLs públ
 
 | Variable | Requerida | Descripción | Ejemplo tentativo (desarrollo) | Ejemplo tentativo (Compose) | Ejemplo tentativo (build de producción) |
 |----------|-----------|-------------|-------------------------------|-------------------------------|----------------------------------------|
-| `VITE_API_URL` | Sí | URL base de la API **incluyendo** `/api`. | `http://localhost:8080/api` | `http://localhost:8080/api` o la URL interna que use tu red | `https://api-backend-ejemplo.invalid/api` (sustituir por tu URL real) |
+| `VITE_API_URL` | Sí | URL del backend. Puede ser **solo el origen** (p. ej. `http://localhost:8080`): el frontend añade `/api` si el path está vacío o es `/` (context path típico de Spring). Si ya pones un path que termina en `/api`, o un path distinto (gateway), se respeta. Ver [`resolveApiBaseUrl`](../../ecubox-frontend/src/lib/api/resolve-api-base-url.ts). | `http://localhost:8080` o `http://localhost:8080/api` | `http://backend:8080` (Compose; mismo criterio) | `https://api-backend-ejemplo.invalid` o `https://api-backend-ejemplo.invalid/api` |
 
 ---
 

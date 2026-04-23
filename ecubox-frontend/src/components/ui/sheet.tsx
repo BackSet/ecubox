@@ -61,6 +61,9 @@ const SheetContent = React.forwardRef<
       ref={ref}
       className={cn(sheetVariants({ side }), className)}
       {...props}
+      aria-describedby={
+        'aria-describedby' in props ? props['aria-describedby'] : undefined
+      }
     >
       {children}
       <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none">

@@ -1,0 +1,36 @@
+# ECUBOX — indexar rutas públicas; panel y APIs de gestión fuera del rastreo principal.
+User-agent: *
+Allow: /
+Allow: /tracking
+Allow: /calculadora
+Allow: /login
+Allow: /registro
+Disallow: /inicio
+Disallow: /casillero
+Disallow: /perfil
+Disallow: /usuarios
+Disallow: /roles
+Disallow: /permisos
+Disallow: /consignatarios
+Disallow: /paquetes
+Disallow: /paquetes-vencidos
+Disallow: /pesaje
+Disallow: /guias-master
+Disallow: /mis-guias
+Disallow: /envios-consolidados
+Disallow: /liquidaciones
+Disallow: /gestionar-estados-paquetes
+Disallow: /despachos
+Disallow: /lotes-recepcion
+Disallow: /agencias
+Disallow: /puntos-entrega
+Disallow: /couriers-entrega
+Disallow: /manifiestos
+Disallow: /tarifa-calculadora
+Disallow: /parametros-sistema
+Disallow: /registro/rapido
+Disallow: /registro/completo
+Disallow: /agencia-eeuu
+Disallow: /cargar-pesos
+
+Sitemap: https://ecubox.org/sitemap.xml

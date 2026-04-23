@@ -92,7 +92,7 @@ El frontend arranca en `http://localhost:5173`.
 
 | Variable | Requerida | Descripción |
 |----------|-----------|-------------|
-| `VITE_API_URL` | Sí | URL pública del backend con `/api` (sustituir por la tuya; ver ejemplos tentativos en la guía) |
+| `VITE_API_URL` | Sí | URL del backend (origen solo o con `/api`; el frontend normaliza el prefijo `/api` cuando aplica — ver guía) |
 
 Tablas ampliadas con **ejemplos** por entorno: [docs/despliegue/VARIABLES_ENTORNO.md](docs/despliegue/VARIABLES_ENTORNO.md).
 

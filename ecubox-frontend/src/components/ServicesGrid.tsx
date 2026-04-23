@@ -69,14 +69,15 @@ export function ServicesGrid() {
   return (
     <section
       id="servicios"
+      aria-labelledby="servicios-heading"
       className="content-container-wide mobile-safe-inline section-spacing"
     >
       <div className="mx-auto mb-10 max-w-2xl text-center md:mb-12">
         <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] px-3 py-1 text-xs font-medium uppercase tracking-wider landing-text-muted">
-          <Sparkles className="h-3 w-3 text-[var(--color-primary)]" />
+          <Sparkles className="h-3 w-3 text-[var(--color-primary)]" aria-hidden />
           Nuestros servicios
         </p>
-        <h2 className="landing-text responsive-title font-bold">
+        <h2 id="servicios-heading" className="landing-text responsive-title font-bold">
           Todo lo que necesitas para enviar desde USA
         </h2>
         <p className="landing-text-muted mt-3 text-sm sm:text-base">
@@ -98,11 +99,11 @@ export function ServicesGrid() {
               />
               <div className="relative flex items-center justify-between">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] text-[var(--color-primary)] shadow-sm">
-                  <Icon className="h-6 w-6" strokeWidth={1.6} />
+                  <Icon className="h-6 w-6" strokeWidth={1.6} aria-hidden />
                 </div>
                 {feature.badge ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary)]/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-primary)]">
-                    <Sparkles className="h-3 w-3" />
+                    <Sparkles className="h-3 w-3" aria-hidden />
                     {feature.badge}
                   </span>
                 ) : null}
@@ -124,6 +125,7 @@ export function ServicesGrid() {
                     <BulletIcon
                       className="mt-0.5 h-4 w-4 flex-shrink-0 text-[var(--color-primary)]"
                       strokeWidth={1.8}
+                      aria-hidden
                     />
                     <span>{text}</span>
                   </li>
@@ -135,7 +137,7 @@ export function ServicesGrid() {
                 className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-primary)] transition group-hover:gap-2.5"
               >
                 {feature.ctaLabel}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
               </Link>
             </article>
           );

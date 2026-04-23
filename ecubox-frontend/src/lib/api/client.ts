@@ -1,9 +1,10 @@
 import axios, { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
+import { resolveApiBaseUrl } from '@/lib/api/resolve-api-base-url';
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? '/api',
+  baseURL: resolveApiBaseUrl(),
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',

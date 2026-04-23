@@ -1,3 +1,5 @@
+import { resolveApiBaseUrl } from '@/lib/api/resolve-api-base-url';
+
 export interface TrackingEstadoItem {
   id: number;
   codigo: string;
@@ -170,16 +172,11 @@ export interface TrackingResolveResponse {
 
 /** Construye la URL absoluta del endpoint de tracking unificado. */
 function getTrackingV1Url(): string {
-  const base = import.meta.env.VITE_API_URL ?? '/api';
-  const path = '/api/v1/tracking';
-  if (typeof base === 'string' && base.startsWith('http')) {
-    const host = base.replace(/\/+$/, '');
-    return host.endsWith('/api') ? `${host}/v1/tracking` : `${host}${path}`;
+  const base = resolveApiBaseUrl().replace(/\/+$/, '');
+  if (base.startsWith('http://') || base.startsWith('https://')) {
+    return `${base}/v1/tracking`;
   }
-  const relative = base.startsWith('/') ? base : `/${base}`;
-  const pathFromBase = relative.endsWith('/')
-    ? 'v1/tracking'
-    : `${relative.replace(/\/+$/, '')}/v1/tracking`;
+  const pathFromBase = `${base.replace(/\/+$/, '')}/v1/tracking`.replace(/\/+/g, '/');
   if (typeof window !== 'undefined') {
     return new URL(pathFromBase, window.location.origin).toString();
   }

@@ -27,6 +27,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
+import { FiltrosBar } from '@/components/FiltrosBar';
 import { KpiCard } from '@/components/KpiCard';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
@@ -200,13 +201,21 @@ export function RolList() {
       {isLoading ? (
         <FiltrosBarSkeleton chips={3} filters={0} />
       ) : (
-      <div className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <Filter className="h-3.5 w-3.5" />
-            Filtros
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <FiltrosBar
+        hayFiltrosActivos={filtersActive}
+        onLimpiar={clearFilters}
+        chipRowEnd={
+          <span className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">{list.length}</span> de{' '}
+            {totalElements}
+          </span>
+        }
+        chips={
+          <>
+            <div className="flex shrink-0 items-center gap-1.5 pr-1 text-xs font-medium text-muted-foreground md:pr-2">
+              <Filter className="h-3.5 w-3.5" />
+              Filtros
+            </div>
             <ChipFiltro
               label="Todos"
               count={stats.total}
@@ -243,27 +252,9 @@ export function RolList() {
               }}
               hideWhenZero
             />
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>
-            <span className="font-semibold text-foreground">{list.length}</span> de{' '}
-            {totalElements}
-          </span>
-          {filtersActive && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={clearFilters}
-            >
-              <X className="mr-1 h-3 w-3" />
-              Limpiar
-            </Button>
-          )}
-        </div>
-      </div>
+          </>
+        }
+      />
       )}
 
       {isLoading ? (

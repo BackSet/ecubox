@@ -20,6 +20,7 @@ import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
@@ -285,94 +286,71 @@ export function LoteRecepcionListPage() {
         <FiltrosBarSkeleton chips={0} filters={2} />
       ) : (
         allLotes.length > 0 && (
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Operario
-            </span>
-            <SearchableCombobox<string>
-              value={operarioFiltro}
-              onChange={(v) =>
-                setOperarioFiltro(v === undefined ? undefined : String(v))
-              }
-              options={operarios}
-              getKey={(n) => n}
-              getLabel={(n) => n}
-              placeholder="Todos"
-              searchPlaceholder="Buscar operario..."
-              emptyMessage="Sin operarios"
-              className="h-9 w-[14rem]"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Período
-            </span>
-            <Select
-              value={periodo}
-              onValueChange={(v) => setPeriodo(v as Periodo)}
-            >
-              <SelectTrigger className="h-9 w-[12rem]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SIN_FILTRO}>Cualquier fecha</SelectItem>
-                <SelectItem value="hoy">Hoy</SelectItem>
-                <SelectItem value="7d">Últimos 7 días</SelectItem>
-                <SelectItem value="30d">Últimos 30 días</SelectItem>
-                <SelectItem value="mes">Este mes</SelectItem>
-                <SelectItem value="custom">Personalizado…</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {periodo === 'custom' && (
+        <FiltrosBar
+          hayFiltrosActivos={tieneFiltros}
+          onLimpiar={limpiarFiltros}
+          filtros={
             <>
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="filtro-desde"
-                  className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
-                >
-                  Desde
-                </label>
-                <Input
-                  id="filtro-desde"
-                  type="date"
-                  value={desde}
-                  onChange={(e) => setDesde(e.target.value)}
-                  max={hasta || undefined}
-                  className="h-9 w-[10rem]"
+              <FiltroCampo label="Operario" width="w-[14rem]">
+                <SearchableCombobox<string>
+                  value={operarioFiltro}
+                  onChange={(v) =>
+                    setOperarioFiltro(v === undefined ? undefined : String(v))
+                  }
+                  options={operarios}
+                  getKey={(n) => n}
+                  getLabel={(n) => n}
+                  placeholder="Todos"
+                  searchPlaceholder="Buscar operario..."
+                  emptyMessage="Sin operarios"
+                  className="h-9 w-full"
                 />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="filtro-hasta"
-                  className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+              </FiltroCampo>
+              <FiltroCampo label="Período" width="w-[12rem]">
+                <Select
+                  value={periodo}
+                  onValueChange={(v) => setPeriodo(v as Periodo)}
                 >
-                  Hasta
-                </label>
-                <Input
-                  id="filtro-hasta"
-                  type="date"
-                  value={hasta}
-                  onChange={(e) => setHasta(e.target.value)}
-                  min={desde || undefined}
-                  className="h-9 w-[10rem]"
-                />
-              </div>
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SIN_FILTRO}>Cualquier fecha</SelectItem>
+                    <SelectItem value="hoy">Hoy</SelectItem>
+                    <SelectItem value="7d">Últimos 7 días</SelectItem>
+                    <SelectItem value="30d">Últimos 30 días</SelectItem>
+                    <SelectItem value="mes">Este mes</SelectItem>
+                    <SelectItem value="custom">Personalizado…</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FiltroCampo>
+              {periodo === 'custom' && (
+                <>
+                  <FiltroCampo label="Desde" htmlFor="filtro-desde" width="w-[10rem]">
+                    <Input
+                      id="filtro-desde"
+                      type="date"
+                      value={desde}
+                      onChange={(e) => setDesde(e.target.value)}
+                      max={hasta || undefined}
+                      className="h-9 w-full"
+                    />
+                  </FiltroCampo>
+                  <FiltroCampo label="Hasta" htmlFor="filtro-hasta" width="w-[10rem]">
+                    <Input
+                      id="filtro-hasta"
+                      type="date"
+                      value={hasta}
+                      onChange={(e) => setHasta(e.target.value)}
+                      min={desde || undefined}
+                      className="h-9 w-full"
+                    />
+                  </FiltroCampo>
+                </>
+              )}
             </>
-          )}
-          {tieneFiltros && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={limpiarFiltros}
-              className="ml-auto h-9 gap-1.5 whitespace-nowrap"
-            >
-              <X className="h-3.5 w-3.5 shrink-0" />
-              <span>Limpiar filtros</span>
-            </Button>
-          )}
-        </div>
+          }
+        />
         )
       )}
 

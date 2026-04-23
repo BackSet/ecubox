@@ -48,13 +48,14 @@ export function HowItWorks() {
   return (
     <section
       id="como-funciona"
+      aria-labelledby="como-funciona-heading"
       className="content-container-wide mobile-safe-inline section-spacing"
     >
       <div className="mx-auto mb-10 max-w-2xl text-center md:mb-12">
         <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] px-3 py-1 text-xs font-medium uppercase tracking-wider landing-text-muted">
           Cómo funciona
         </p>
-        <h2 className="landing-text responsive-title font-bold">
+        <h2 id="como-funciona-heading" className="landing-text responsive-title font-bold">
           Tu envío en 4 pasos simples
         </h2>
         <p className="landing-text-muted mt-3 text-sm sm:text-base">
@@ -76,7 +77,7 @@ export function HowItWorks() {
                   {step.number}
                 </span>
                 <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-                  <Icon className="h-5 w-5" strokeWidth={1.8} />
+                  <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
                 </div>
               </div>
               <h3 className="landing-text mt-4 text-base font-semibold sm:text-lg">

@@ -85,11 +85,11 @@ Despues del primer arranque exitoso, recomendado:
 
 Configura en Railway -> servicio frontend -> `Variables`:
 
-- `VITE_API_URL=https://<backend-domain>/api`
+- `VITE_API_URL=https://<backend-domain>` (el frontend añade `/api` si el path del backend es el típico de Spring), o `https://<backend-domain>/api` si prefieres fijarlo explícito.
 
 Notas:
 
-- Debe ser URL completa HTTPS del backend publicado, incluyendo `/api`.
+- Debe ser URL completa HTTPS del backend publicado. El prefijo `/api` puede omitirse en la variable si el API vive en la raíz del host con context path `/api` (comportamiento por defecto ECUBOX).
 - No colocar secretos en variables `VITE_*` (se embeben en build).
 
 ## 7) Orden correcto de enlace entre servicios
@@ -109,7 +109,7 @@ Si usas dominio propio:
 1. Asigna dominio custom al frontend en Railway.
 2. Asigna dominio/subdominio custom al backend.
 3. Actualiza variables:
-  - Frontend: `VITE_API_URL=https://api.tudominio.com/api`
+  - Frontend: `VITE_API_URL=https://api.tudominio.com` o `https://api.tudominio.com/api`
    - Backend: `CORS_ALLOWED_ORIGINS=https://app.tudominio.com`
 4. Redeploy de ambos servicios.
 5. Verifica certificados TLS activos (Railway los gestiona automaticamente).

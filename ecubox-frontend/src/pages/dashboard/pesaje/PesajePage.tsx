@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ChipFiltro } from '@/components/ChipFiltro';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { cn } from '@/lib/utils';
 import {
@@ -491,130 +492,116 @@ export function PesajePage() {
         <FiltrosBarSkeleton chips={4} filters={3} />
       ) : (
         allPaquetes.length > 0 && (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <ChipFiltro
-              label="Todos"
-              count={chipCounts.todos}
-              active={chipActivo === 'todos'}
-              onClick={() => setChipActivo('todos')}
-            />
-            <ChipFiltro
-              label="Sin ingresar"
-              count={chipCounts.pendientes}
-              active={chipActivo === 'pendientes'}
-              tone="neutral"
-              onClick={() => setChipActivo('pendientes')}
-            />
-            <ChipFiltro
-              label="Listos para guardar"
-              count={chipCounts.listos}
-              active={chipActivo === 'listos'}
-              tone="success"
-              onClick={() => setChipActivo('listos')}
-            />
-            <ChipFiltro
-              label="Inválidos"
-              count={chipCounts.invalidos}
-              active={chipActivo === 'invalidos'}
-              tone="danger"
-              onClick={() => setChipActivo('invalidos')}
-            />
-          </div>
-          {(codigosEnvio.length > 0 ||
+        <FiltrosBar
+          hayFiltrosActivos={tieneFiltros}
+          onLimpiar={limpiarFiltros}
+          chips={
+            <>
+              <ChipFiltro
+                label="Todos"
+                count={chipCounts.todos}
+                active={chipActivo === 'todos'}
+                onClick={() => setChipActivo('todos')}
+              />
+              <ChipFiltro
+                label="Sin ingresar"
+                count={chipCounts.pendientes}
+                active={chipActivo === 'pendientes'}
+                tone="neutral"
+                onClick={() => setChipActivo('pendientes')}
+              />
+              <ChipFiltro
+                label="Listos para guardar"
+                count={chipCounts.listos}
+                active={chipActivo === 'listos'}
+                tone="success"
+                onClick={() => setChipActivo('listos')}
+              />
+              <ChipFiltro
+                label="Inválidos"
+                count={chipCounts.invalidos}
+                active={chipActivo === 'invalidos'}
+                tone="danger"
+                onClick={() => setChipActivo('invalidos')}
+              />
+            </>
+          }
+          filtros={
+            codigosEnvio.length > 0 ||
             guiasMaster.length > 0 ||
-            consignatarios.length > 0) && (
-            <div className="flex flex-wrap items-end gap-3 border-t border-border pt-3">
-              {codigosEnvio.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Envío consolidado
-                  </span>
-                  <SearchableCombobox<string>
-                    value={envioFiltro}
-                    onChange={(v) =>
-                      setEnvioFiltro(v === undefined ? undefined : String(v))
-                    }
-                    options={codigosEnvio}
-                    getKey={(c) => c}
-                    getLabel={(c) => c}
-                    renderSelected={(c) => (
-                      <span className="font-mono text-xs">{c}</span>
-                    )}
-                    renderOption={(c) => (
-                      <span className="font-mono text-xs">{c}</span>
-                    )}
-                    placeholder="Todos"
-                    searchPlaceholder="Buscar código..."
-                    emptyMessage="Sin códigos"
-                    className="h-9 w-[14rem]"
-                  />
-                </div>
-              )}
-              {guiasMaster.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Guía master
-                  </span>
-                  <SearchableCombobox<string>
-                    value={guiaMasterFiltro}
-                    onChange={(v) =>
-                      setGuiaMasterFiltro(
-                        v === undefined ? undefined : String(v),
-                      )
-                    }
-                    options={guiasMaster}
-                    getKey={(g) => g}
-                    getLabel={(g) => g}
-                    renderSelected={(g) => (
-                      <span className="font-mono text-xs">{g}</span>
-                    )}
-                    renderOption={(g) => (
-                      <span className="font-mono text-xs">{g}</span>
-                    )}
-                    placeholder="Todas"
-                    searchPlaceholder="Buscar guía..."
-                    emptyMessage="Sin guías"
-                    className="h-9 w-[14rem]"
-                  />
-                </div>
-              )}
-              {consignatarios.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Consignatario
-                  </span>
-                  <SearchableCombobox<string>
-                    value={consignatarioFiltro}
-                    onChange={(v) =>
-                      setConsignatarioFiltro(
-                        v === undefined ? undefined : String(v),
-                      )
-                    }
-                    options={consignatarios}
-                    getKey={(n) => n}
-                    getLabel={(n) => n}
-                    placeholder="Todos"
-                    searchPlaceholder="Buscar consignatario..."
-                    emptyMessage="Sin consignatarios"
-                    className="h-9 w-[16rem]"
-                  />
-                </div>
-              )}
-              {tieneFiltros && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={limpiarFiltros}
-                  className="ml-auto h-9 gap-1.5 whitespace-nowrap"
-                >
-                  <X className="h-3.5 w-3.5 shrink-0" />
-                  <span>Limpiar filtros</span>
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
+            consignatarios.length > 0 ? (
+              <>
+                {codigosEnvio.length > 0 && (
+                  <FiltroCampo label="Envío consolidado" width="w-[14rem]">
+                    <SearchableCombobox<string>
+                      value={envioFiltro}
+                      onChange={(v) =>
+                        setEnvioFiltro(v === undefined ? undefined : String(v))
+                      }
+                      options={codigosEnvio}
+                      getKey={(c) => c}
+                      getLabel={(c) => c}
+                      renderSelected={(c) => (
+                        <span className="font-mono text-xs">{c}</span>
+                      )}
+                      renderOption={(c) => (
+                        <span className="font-mono text-xs">{c}</span>
+                      )}
+                      placeholder="Todos"
+                      searchPlaceholder="Buscar código..."
+                      emptyMessage="Sin códigos"
+                      className="h-9 w-full"
+                    />
+                  </FiltroCampo>
+                )}
+                {guiasMaster.length > 0 && (
+                  <FiltroCampo label="Guía master" width="w-[14rem]">
+                    <SearchableCombobox<string>
+                      value={guiaMasterFiltro}
+                      onChange={(v) =>
+                        setGuiaMasterFiltro(
+                          v === undefined ? undefined : String(v),
+                        )
+                      }
+                      options={guiasMaster}
+                      getKey={(g) => g}
+                      getLabel={(g) => g}
+                      renderSelected={(g) => (
+                        <span className="font-mono text-xs">{g}</span>
+                      )}
+                      renderOption={(g) => (
+                        <span className="font-mono text-xs">{g}</span>
+                      )}
+                      placeholder="Todas"
+                      searchPlaceholder="Buscar guía..."
+                      emptyMessage="Sin guías"
+                      className="h-9 w-full"
+                    />
+                  </FiltroCampo>
+                )}
+                {consignatarios.length > 0 && (
+                  <FiltroCampo label="Consignatario" width="w-[16rem]">
+                    <SearchableCombobox<string>
+                      value={consignatarioFiltro}
+                      onChange={(v) =>
+                        setConsignatarioFiltro(
+                          v === undefined ? undefined : String(v),
+                        )
+                      }
+                      options={consignatarios}
+                      getKey={(n) => n}
+                      getLabel={(n) => n}
+                      placeholder="Todos"
+                      searchPlaceholder="Buscar consignatario..."
+                      emptyMessage="Sin consignatarios"
+                      className="h-9 w-full"
+                    />
+                  </FiltroCampo>
+                )}
+              </>
+            ) : undefined
+          }
+        />
         )
       )}
 
