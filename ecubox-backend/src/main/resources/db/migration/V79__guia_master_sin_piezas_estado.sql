@@ -5,8 +5,16 @@ ALTER TABLE guia_master DROP CONSTRAINT IF EXISTS chk_guia_master_estado_global;
 ALTER TABLE guia_master DROP CONSTRAINT IF EXISTS chk_guia_master_estado_requiere_total;
 
 -- 2) Backfill: guias sin paquetes asociados ------------------------------------
+-- Si la guia quedo sin piezas pero antes estaba en estado terminal (p. ej. se
+-- borraron todos los paquetes), puede seguir teniendo cerrada_en / tipo_cierre.
+-- chk_guia_master_cierre_consistente exige que fuera de estados terminales
+-- esos campos sean NULL; los limpiamos junto con el estado inicial.
 UPDATE guia_master gm
-SET estado_global = 'SIN_PIEZAS_REGISTRADAS'
+SET estado_global = 'SIN_PIEZAS_REGISTRADAS',
+    cerrada_en = NULL,
+    cerrada_por_usuario_id = NULL,
+    tipo_cierre = NULL,
+    motivo_cierre = NULL
 WHERE NOT EXISTS (SELECT 1 FROM paquete p WHERE p.guia_master_id = gm.id);
 
 -- 3) Default para nuevas filas -------------------------------------------------
