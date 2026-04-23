@@ -47,6 +47,7 @@ import { toast } from 'sonner';
 import {
   Boxes,
   Building2,
+  CalendarDays,
   Eye,
   Pencil,
   Trash2,
@@ -54,6 +55,8 @@ import {
   Clock,
   PackageCheck,
   Truck,
+  Activity,
+  Layers,
 } from 'lucide-react';
 import {
   GUIA_MASTER_ESTADO_ICONS,
@@ -128,7 +131,7 @@ export function GuiasMasterPage() {
   // para que el operario tenga un resumen accionable de un vistazo.
   const stats = useMemo(() => {
     const c = conteosPorEstado;
-    const enEspera = c.EN_ESPERA_RECEPCION ?? 0;
+    const enEspera = (c.SIN_PIEZAS_REGISTRADAS ?? 0) + (c.EN_ESPERA_RECEPCION ?? 0);
     const enRecepcion =
       (c.RECEPCION_PARCIAL ?? 0) + (c.RECEPCION_COMPLETA ?? 0);
     const enDespacho = (c.DESPACHO_PARCIAL ?? 0) + (c.EN_REVISION ?? 0);
@@ -313,15 +316,45 @@ export function GuiasMasterPage() {
           {pageQuery.isFetching ? ' · cargando...' : ''}
         </p>
         <ListTableShell>
-          <Table className="min-w-[760px]">
+          <Table className="min-w-[760px] text-sm [&_td]:py-2.5">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[14rem]">Guía</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="min-w-[14rem]">Piezas</TableHead>
-                <TableHead>Consignatario</TableHead>
-                <TableHead className="hidden md:table-cell">Cliente</TableHead>
-                <TableHead className="hidden xl:table-cell">Creada</TableHead>
+                <TableHead className="w-[14rem]">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Boxes className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Guía
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Estado
+                  </span>
+                </TableHead>
+                <TableHead className="min-w-[14rem]">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Piezas
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1.5">
+                    <UserRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Consignatario
+                  </span>
+                </TableHead>
+                <TableHead className="hidden md:table-cell">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Cliente
+                  </span>
+                </TableHead>
+                <TableHead className="hidden xl:table-cell">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Creada
+                  </span>
+                </TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -340,7 +373,7 @@ export function GuiasMasterPage() {
                 return (
                   <TableRow
                     key={g.id}
-                    className={`cursor-pointer ${totalPendiente ? 'bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] hover:bg-[color-mix(in_oklab,var(--color-warning)_16%,transparent)]' : ''}`}
+                    className={`cursor-pointer transition-colors ${totalPendiente ? 'bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] hover:bg-[color-mix(in_oklab,var(--color-warning)_16%,transparent)]' : 'hover:bg-muted/40'}`}
                     onClick={() =>
                       navigate({
                         to: '/guias-master/$id',
@@ -540,35 +573,63 @@ function PiezasProgressCell({ guia: g }: { guia: GuiaMaster }) {
         </span>
         <span className="text-muted-foreground">piezas</span>
       </div>
-      <div className="relative h-1.5 overflow-hidden rounded-full bg-[var(--color-muted)]">
+      {/*
+       * Usamos bg-muted (no la variable directa) para que el track del progreso
+       * tenga mas contraste sobre la fila y respete el modo oscuro/claro.
+       */}
+      <div
+        className="relative h-2 overflow-hidden rounded-full bg-muted"
+        role="img"
+        aria-label={`Progreso: ${registradas} registradas, ${recibidas} recibidas, ${despachadas} despachadas de ${total}`}
+      >
         <div
           className="absolute inset-y-0 left-0 bg-[var(--color-info)]/70"
           style={{ width: `${pctRegistradas}%` }}
           title={`Registradas: ${registradas}/${total}`}
         />
         <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-warning)]/80"
+          className="absolute inset-y-0 left-0 bg-[var(--color-warning)]/85"
           style={{ width: `${pctRecibidas}%` }}
           title={`Recibidas: ${recibidas}/${total}`}
         />
         <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-success)]/80"
+          className="absolute inset-y-0 left-0 bg-[var(--color-success)]/90"
           style={{ width: `${pctDespachadas}%` }}
           title={`Despachadas: ${despachadas}/${total}`}
         />
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-        <Dot color="bg-[var(--color-info)]" label={`Reg ${registradas}`} />
-        <Dot color="bg-[var(--color-warning)]" label={`Rec ${recibidas}`} />
-        <Dot color="bg-[var(--color-success)]" label={`Desp ${despachadas}`} />
+        <Dot
+          color="bg-[var(--color-info)]"
+          label={`Registradas ${registradas}`}
+          title="Piezas creadas en el sistema (no necesariamente recibidas)"
+        />
+        <Dot
+          color="bg-[var(--color-warning)]"
+          label={`Recibidas ${recibidas}`}
+          title="Piezas marcadas como recibidas en bodega"
+        />
+        <Dot
+          color="bg-[var(--color-success)]"
+          label={`Despachadas ${despachadas}`}
+          title="Piezas despachadas al destino final"
+        />
       </div>
     </div>
   );
 }
 
-function Dot({ color, label }: { color: string; label: string }) {
+function Dot({
+  color,
+  label,
+  title,
+}: {
+  color: string;
+  label: string;
+  title?: string;
+}) {
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex items-center gap-1" title={title}>
       <span className={`h-1.5 w-1.5 rounded-full ${color}`} aria-hidden />
       {label}
     </span>

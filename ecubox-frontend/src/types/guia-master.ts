@@ -6,6 +6,7 @@ import type { Paquete } from '@/types/paquete';
  * descriptivos para el operario y se agregaron CANCELADA y EN_REVISION.
  */
 export type EstadoGuiaMaster =
+  | 'SIN_PIEZAS_REGISTRADAS'
   | 'EN_ESPERA_RECEPCION'
   | 'RECEPCION_PARCIAL'
   | 'RECEPCION_COMPLETA'

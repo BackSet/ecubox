@@ -12,6 +12,7 @@ import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
 import com.ecubox.ecubox_backend.repository.LiquidacionConsolidadoLineaRepository;
+import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -40,9 +42,9 @@ import java.util.stream.Collectors;
  *   <li>Cerrar / reabrir el envio para indicar que ya no admite cambios.</li>
  * </ul>
  *
- * <p>Sin maquina de estados ni propagacion automatica al estado de rastreo de
- * los paquetes; el envio consolidado es un agrupador logico para emisiones de
- * manifiesto y referencia interna, no una entidad de tracking publico.
+ * <p>Si el consolidado ya figura en un lote de recepción, al agregar paquetes se
+ * vuelve a aplicar el estado de rastreo “en lote recepción” a esas piezas para
+ * mantener coherencia con el flujo de recepción en bodega.
  */
 @Service
 public class EnvioConsolidadoService {
@@ -51,15 +53,18 @@ public class EnvioConsolidadoService {
     private final PaqueteRepository paqueteRepository;
     private final PaqueteService paqueteService;
     private final LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository;
+    private final LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
 
     public EnvioConsolidadoService(EnvioConsolidadoRepository envioConsolidadoRepository,
                                    PaqueteRepository paqueteRepository,
                                    @Lazy PaqueteService paqueteService,
-                                   LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository) {
+                                   LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository,
+                                   LoteRecepcionGuiaRepository loteRecepcionGuiaRepository) {
         this.envioConsolidadoRepository = envioConsolidadoRepository;
         this.paqueteRepository = paqueteRepository;
         this.paqueteService = paqueteService;
         this.liquidacionConsolidadoLineaRepository = liquidacionConsolidadoLineaRepository;
+        this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -204,7 +209,16 @@ public class EnvioConsolidadoService {
         }
         paqueteRepository.saveAll(paquetes);
         recalcularTotales(envio);
-        return envioConsolidadoRepository.save(envio);
+        EnvioConsolidado guardado = envioConsolidadoRepository.save(envio);
+        String codigoConsolidado = Strings.trimOrNull(guardado.getCodigo());
+        if (codigoConsolidado != null
+                && loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(codigoConsolidado)) {
+            LocalDateTime fechaLote = loteRecepcionGuiaRepository
+                    .findMinFechaRecepcionByNumeroGuiaEnvioIgnoreCase(codigoConsolidado)
+                    .orElse(LocalDateTime.now());
+            paqueteService.aplicarEstadoEnLoteRecepcion(new ArrayList<>(ids), fechaLote);
+        }
+        return guardado;
     }
 
     @Transactional

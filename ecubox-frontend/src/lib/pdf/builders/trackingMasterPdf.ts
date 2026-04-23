@@ -11,6 +11,7 @@ const PAGE_W = 210;
 const PAGE_H = 297;
 
 const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
+  SIN_PIEZAS_REGISTRADAS: 'Sin piezas registradas',
   EN_ESPERA_RECEPCION: 'En espera de recepción',
   RECEPCION_PARCIAL: 'Recepción parcial',
   RECEPCION_COMPLETA: 'Recepción completa',
@@ -60,6 +61,7 @@ function variantFromEstado(estado?: EstadoGuiaMaster): BadgeVariant {
       return 'warning';
     case 'CANCELADA':
       return 'destructive';
+    case 'SIN_PIEZAS_REGISTRADAS':
     case 'EN_ESPERA_RECEPCION':
       return 'neutral';
     default:

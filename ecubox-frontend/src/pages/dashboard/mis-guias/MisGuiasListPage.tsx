@@ -3,6 +3,7 @@ import { TablePagination } from '@/components/ui/TablePagination';
 import { useNavigate } from '@tanstack/react-router';
 import {
   Boxes,
+  CalendarDays,
   Clock,
   Eye,
   PackageCheck,
@@ -10,10 +11,12 @@ import {
   Plus,
   Trash2,
   Truck,
+  UserRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { ListTableShell } from '@/components/ListTableShell';
@@ -63,8 +66,10 @@ const STATUS_TO_CHIP_TONE: Record<StatusTone, ChipFiltroTone> = {
   neutral: 'neutral',
 };
 
-/** Solo se permite editar/eliminar mientras la guía esté en este estado. */
-const ESTADO_EDITABLE = 'EN_ESPERA_RECEPCION' as const;
+/** Solo se permite editar/eliminar mientras la guía esté en uno de estos estados. */
+function isEstadoEditableCliente(estado: EstadoGuiaMaster): boolean {
+  return estado === 'SIN_PIEZAS_REGISTRADAS' || estado === 'EN_ESPERA_RECEPCION';
+}
 const TOOLTIP_NO_EDITABLE =
   'Ya no es posible editar esta guía porque sus piezas están en proceso. Si necesitas un cambio, contáctanos.';
 
@@ -85,6 +90,7 @@ export function MisGuiasListPage() {
 
   const conteosPorEstado = useMemo(() => {
     const conteos: Record<EstadoGuiaMaster, number> = {
+      SIN_PIEZAS_REGISTRADAS: 0,
       EN_ESPERA_RECEPCION: 0,
       RECEPCION_PARCIAL: 0,
       RECEPCION_COMPLETA: 0,
@@ -104,7 +110,7 @@ export function MisGuiasListPage() {
   // que tienen sentido para quien envia paquetes desde EE.UU.
   const stats = useMemo(() => {
     const c = conteosPorEstado;
-    const enEspera = c.EN_ESPERA_RECEPCION ?? 0;
+    const enEspera = (c.SIN_PIEZAS_REGISTRADAS ?? 0) + (c.EN_ESPERA_RECEPCION ?? 0);
     const enBodega = (c.RECEPCION_PARCIAL ?? 0) + (c.RECEPCION_COMPLETA ?? 0);
     const enCamino = c.DESPACHO_PARCIAL ?? 0;
     const entregadas =
@@ -154,12 +160,15 @@ export function MisGuiasListPage() {
       />
 
       {!isLoading && !error && guias.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        // En movil: scroll horizontal con snap para no comerse pantalla con 4
+        // tarjetas grandes apiladas; en md+ pasa a grid normal de 4 columnas.
+        <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 md:pb-0">
           <KpiCard
             icon={<Boxes className="h-5 w-5" />}
             label="Total guías"
             value={stats.total}
             tone="primary"
+            className="min-w-[14rem] shrink-0 snap-start md:min-w-0"
           />
           <KpiCard
             icon={<Clock className="h-5 w-5" />}
@@ -167,6 +176,7 @@ export function MisGuiasListPage() {
             value={stats.enEspera}
             tone={stats.enEspera > 0 ? 'warning' : 'neutral'}
             hint="Aún sin llegar a bodega"
+            className="min-w-[14rem] shrink-0 snap-start md:min-w-0"
           />
           <KpiCard
             icon={<PackageCheck className="h-5 w-5" />}
@@ -174,6 +184,7 @@ export function MisGuiasListPage() {
             value={stats.enBodega}
             tone={stats.enBodega > 0 ? 'primary' : 'neutral'}
             hint="Listas para despacho"
+            className="min-w-[14rem] shrink-0 snap-start md:min-w-0"
           />
           <KpiCard
             icon={<Truck className="h-5 w-5" />}
@@ -185,6 +196,7 @@ export function MisGuiasListPage() {
                 ? `${stats.entregadas} entregadas`
                 : `${stats.enCamino} en camino`
             }
+            className="min-w-[14rem] shrink-0 snap-start md:min-w-0"
           />
         </div>
       )}
@@ -193,6 +205,9 @@ export function MisGuiasListPage() {
         <FiltrosBar
           hayFiltrosActivos={estadoFiltro !== 'TODAS'}
           onLimpiar={() => setEstadoFiltro('TODAS')}
+          // Sticky en movil para que el cliente pueda cambiar de filtro mientras
+          // recorre tarjetas largas. En desktop se mantiene como bloque normal.
+          className="sticky top-0 z-10 -mx-4 rounded-none border-x-0 bg-card/95 px-4 backdrop-blur md:static md:mx-0 md:rounded-lg md:border-x md:bg-card md:px-3 md:backdrop-blur-none"
           chips={
             <>
               <ChipFiltro
@@ -267,35 +282,87 @@ export function MisGuiasListPage() {
           }
         />
       ) : (
-        <ListTableShell>
-          <Table className="min-w-[860px]">
+        <>
+        {/*
+         * En movil renderizamos una lista de tarjetas (mejor jerarquia visual,
+         * sin scroll horizontal). En md+ usamos la tabla habitual. Las acciones
+         * y el comportamiento de fila se mantienen identicos en ambos modos.
+         */}
+        <div className="flex flex-col gap-3 md:hidden">
+          {isLoading && (
+            <>
+              <MiGuiaCardSkeleton />
+              <MiGuiaCardSkeleton />
+              <MiGuiaCardSkeleton />
+            </>
+          )}
+          {pagedFiltered.map((g) => (
+            <MiGuiaCard
+              key={g.id}
+              guia={g}
+              editable={isEstadoEditableCliente(g.estadoGlobal)}
+              onOpen={() =>
+                navigate({
+                  to: '/mis-guias/$id',
+                  params: { id: String(g.id) },
+                })
+              }
+              onEdit={() => setEditingGuia(g)}
+              onDelete={() => setDeletingGuia(g)}
+            />
+          ))}
+        </div>
+        <ListTableShell className="hidden md:block">
+          <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[14rem]">Guía</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="min-w-[12rem]">Piezas</TableHead>
-                <TableHead className="w-[20rem]">Consignatario</TableHead>
-                <TableHead className="hidden md:table-cell">Registrada</TableHead>
+                <TableHead className="w-[14rem]">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Boxes className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Guía
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Estado
+                  </span>
+                </TableHead>
+                <TableHead className="min-w-[12rem]">
+                  <span className="inline-flex items-center gap-1.5">
+                    <PackageCheck className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Piezas
+                  </span>
+                </TableHead>
+                <TableHead className="w-[20rem]">
+                  <span className="inline-flex items-center gap-1.5">
+                    <UserRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Consignatario
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    Registrada
+                  </span>
+                </TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRowsSkeleton
-                  columns={6}
-                  columnClasses={{ 4: 'hidden md:table-cell' }}
-                />
+                <TableRowsSkeleton columns={6} />
               )}
               {pagedFiltered.map((g) => {
                 const totalPendiente = g.totalPiezasEsperadas == null;
-                const editable = g.estadoGlobal === ESTADO_EDITABLE;
+                const editable = isEstadoEditableCliente(g.estadoGlobal);
                 return (
                   <TableRow
                     key={g.id}
-                    className={`cursor-pointer ${
+                    className={`cursor-pointer transition-colors ${
                       totalPendiente
                         ? 'bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] hover:bg-[color-mix(in_oklab,var(--color-warning)_16%,transparent)]'
-                        : ''
+                        : 'hover:bg-muted/40'
                     }`}
                     onClick={() =>
                       navigate({
@@ -327,7 +394,7 @@ export function MisGuiasListPage() {
                         emptyItalic
                       />
                     </TableCell>
-                    <TableCell className="hidden align-top text-xs text-muted-foreground md:table-cell">
+                    <TableCell className="align-top text-xs text-muted-foreground">
                       <FechaCreada createdAt={g.createdAt} />
                     </TableCell>
                     <TableCell
@@ -370,6 +437,7 @@ export function MisGuiasListPage() {
             </TableBody>
           </Table>
         </ListTableShell>
+        </>
       )}
 
       {!isLoading && !error && filtered.length > 0 && (
@@ -421,6 +489,120 @@ export function MisGuiasListPage() {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Tarjeta densa para la vista mobile de "Mis guias". Reutiliza los mismos
+ * sub-componentes de la fila de tabla (badge de estado, mini-progress de
+ * piezas, info de consignatario) y expone las mismas acciones del menu.
+ */
+function MiGuiaCard({
+  guia: g,
+  editable,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  guia: GuiaMaster;
+  editable: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const totalPendiente = g.totalPiezasEsperadas == null;
+  return (
+    <SurfaceCard
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className={`cursor-pointer p-3 transition active:bg-muted/40 ${
+        totalPendiente
+          ? 'border-[color-mix(in_oklab,var(--color-warning)_30%,var(--color-border))] bg-[color-mix(in_oklab,var(--color-warning)_8%,transparent)]'
+          : ''
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <MonoTrunc
+            value={g.trackingBase}
+            className="block font-medium text-foreground"
+          />
+          <div className="mt-1">
+            <MiGuiaEstadoBadge estado={g.estadoGlobal} />
+          </div>
+        </div>
+        <div onClick={(e) => e.stopPropagation()}>
+          <RowActionsMenu
+            items={[
+              { label: 'Ver piezas', icon: Eye, onSelect: onOpen },
+              {
+                label: 'Editar guía',
+                icon: Pencil,
+                disabled: !editable,
+                title: editable ? undefined : TOOLTIP_NO_EDITABLE,
+                onSelect: () => editable && onEdit(),
+              },
+              { type: 'separator' },
+              {
+                label: 'Eliminar guía',
+                icon: Trash2,
+                destructive: true,
+                disabled: !editable,
+                title: editable ? undefined : TOOLTIP_NO_EDITABLE,
+                onSelect: () => editable && onDelete(),
+              },
+            ]}
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 border-t border-border pt-3">
+        <PiezasMiniProgress guia={g} />
+      </div>
+
+      <div className="mt-3 border-t border-border pt-3">
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          Consignatario
+        </p>
+        <ConsignatarioInfo
+          nombre={g.consignatarioNombre}
+          telefono={g.consignatarioTelefono}
+          direccion={g.consignatarioDireccion}
+          provincia={g.consignatarioProvincia}
+          canton={g.consignatarioCanton}
+          emptyLabel="Sin asignar"
+          emptyItalic
+        />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-2 text-[11px] text-muted-foreground">
+        <span className="uppercase tracking-wide">Registrada</span>
+        <FechaCreada createdAt={g.createdAt} />
+      </div>
+    </SurfaceCard>
+  );
+}
+
+function MiGuiaCardSkeleton() {
+  return (
+    <SurfaceCard className="p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+          <div className="h-5 w-24 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="h-7 w-7 animate-pulse rounded bg-muted" />
+      </div>
+      <div className="mt-3 h-12 animate-pulse rounded bg-muted/60" />
+      <div className="mt-3 h-10 animate-pulse rounded bg-muted/60" />
+    </SurfaceCard>
   );
 }
 

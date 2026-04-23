@@ -42,7 +42,7 @@ public interface GuiaMasterRepository extends JpaRepository<GuiaMaster, Long>,
      * en EN_REVISION se incluyen porque siguen abiertas operativamente.
      */
     @Query("SELECT gm FROM GuiaMaster gm " +
-           "WHERE gm.estadoGlobal IN ('EN_ESPERA_RECEPCION','RECEPCION_PARCIAL','RECEPCION_COMPLETA','DESPACHO_PARCIAL','EN_REVISION') " +
+           "WHERE gm.estadoGlobal IN ('SIN_PIEZAS_REGISTRADAS','EN_ESPERA_RECEPCION','RECEPCION_PARCIAL','RECEPCION_COMPLETA','DESPACHO_PARCIAL','EN_REVISION') " +
            "ORDER BY gm.createdAt ASC")
     List<GuiaMaster> findActivasMasAntiguas(org.springframework.data.domain.Pageable pageable);
 

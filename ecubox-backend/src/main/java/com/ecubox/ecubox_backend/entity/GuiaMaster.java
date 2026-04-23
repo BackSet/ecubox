@@ -37,7 +37,7 @@ public class GuiaMaster {
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_global", nullable = false, length = 40)
     @Builder.Default
-    private EstadoGuiaMaster estadoGlobal = EstadoGuiaMaster.EN_ESPERA_RECEPCION;
+    private EstadoGuiaMaster estadoGlobal = EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS;
 
     @Column(name = "fecha_primera_recepcion")
     private LocalDateTime fechaPrimeraRecepcion;
@@ -99,7 +99,7 @@ public class GuiaMaster {
             createdAt = LocalDateTime.now();
         }
         if (estadoGlobal == null) {
-            estadoGlobal = EstadoGuiaMaster.EN_ESPERA_RECEPCION;
+            estadoGlobal = EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS;
         }
     }
 }

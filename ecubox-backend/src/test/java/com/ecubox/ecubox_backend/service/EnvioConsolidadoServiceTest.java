@@ -6,6 +6,7 @@ import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
 import com.ecubox.ecubox_backend.repository.LiquidacionConsolidadoLineaRepository;
+import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -45,6 +48,7 @@ class EnvioConsolidadoServiceTest {
     @Mock private PaqueteRepository paqueteRepository;
     @Mock private PaqueteService paqueteService;
     @Mock private LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository;
+    @Mock private LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
 
     private EnvioConsolidadoService service;
 
@@ -58,7 +62,8 @@ class EnvioConsolidadoServiceTest {
                 envioRepository,
                 paqueteRepository,
                 paqueteService,
-                liquidacionConsolidadoLineaRepository);
+                liquidacionConsolidadoLineaRepository,
+                loteRecepcionGuiaRepository);
         lenient().when(envioRepository.save(any(EnvioConsolidado.class)))
                 .thenAnswer(inv -> {
                     EnvioConsolidado e = inv.getArgument(0);
@@ -246,5 +251,23 @@ class EnvioConsolidadoServiceTest {
 
         assertSame(destino, p.getEnvioConsolidado(), "paquete debe quedar reasignado al destino");
         assertEquals(1L, res.getId());
+    }
+
+    @Test
+    void agregarPaquetes_consolidadoEnLoteRecepcion_aplicaEstadoEnPaquetes() {
+        LocalDateTime fechaLote = LocalDateTime.now().minusDays(1);
+        EnvioConsolidado destino = EnvioConsolidado.builder().id(1L).codigo("CONS-LOTE").build();
+        Paquete p = Paquete.builder().id(10L).numeroGuia("ABC 1/1").build();
+        when(envioRepository.findById(1L)).thenReturn(Optional.of(destino));
+        when(paqueteRepository.findAllById(any())).thenReturn(List.of(p));
+        when(loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase("CONS-LOTE")).thenReturn(true);
+        when(loteRecepcionGuiaRepository.findMinFechaRecepcionByNumeroGuiaEnvioIgnoreCase("CONS-LOTE"))
+                .thenReturn(Optional.of(fechaLote));
+
+        service.agregarPaquetes(1L, List.of(10L));
+
+        verify(paqueteService).aplicarEstadoEnLoteRecepcion(
+                argThat(ids -> ids.size() == 1 && ids.contains(10L)),
+                eq(fechaLote));
     }
 }

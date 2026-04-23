@@ -62,6 +62,7 @@ import {
   useRecalcularGuiaMaster,
   useSalirGuiaMasterDeRevision,
 } from '@/hooks/useGuiasMaster';
+import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
 import type {
   GuiaMaster,
   GuiaMasterEstadoHistorial,
@@ -76,10 +77,6 @@ import {
 import { ConsignatarioInfo } from '../paquetes/PaqueteCells';
 import { EditarConsignatarioDialog } from './EditarConsignatarioDialog';
 
-function piezaRecibida(p: Paquete): boolean {
-  return p.pesoLbs != null || p.pesoKg != null;
-}
-
 function piezaDespachada(p: Paquete): boolean {
   return p.despachoId != null || (p.despachoNumeroGuia ?? '').length > 0;
 }
@@ -90,7 +87,13 @@ export function GuiaMasterDetailPage() {
   const id = Number(params.id);
   const { data: guia, isLoading, error } = useGuiaMaster(id);
   const { data: piezas, isLoading: loadingPiezas } = useGuiaMasterPiezas(id);
+  const { data: estadosPunto } = useEstadosRastreoPorPunto();
   const recalcular = useRecalcularGuiaMaster();
+  const enLoteRecepcionId = estadosPunto?.estadoRastreoEnLoteRecepcionId;
+  const piezaEnRecepcionBodega = (p: Paquete) =>
+    enLoteRecepcionId != null &&
+    p.estadoRastreoId != null &&
+    Number(p.estadoRastreoId) === Number(enLoteRecepcionId);
 
   const [cerrarOpen, setCerrarOpen] = useState(false);
   const [despachoPiezaId, setDespachoPiezaId] = useState<number | null>(null);
@@ -369,7 +372,7 @@ export function GuiaMasterDetailPage() {
                   />
                 )}
                 {(piezas ?? []).map((p) => {
-                  const recibida = piezaRecibida(p);
+                  const recibida = piezaEnRecepcionBodega(p);
                   const despachada = piezaDespachada(p);
                   const puedeDespacharParcial =
                     guia.listaParaDespachoParcial &&
@@ -387,7 +390,7 @@ export function GuiaMasterDetailPage() {
                         <PiezaGuiaCell numeroGuia={p.numeroGuia} />
                       </TableCell>
                       <TableCell className="align-top">
-                        <PiezaEstadoBadges paquete={p} />
+                        <PiezaEstadoBadges paquete={p} piezaEnRecepcionBodega={piezaEnRecepcionBodega} />
                       </TableCell>
                       <TableCell className="hidden max-w-[14rem] align-top text-xs md:table-cell">
                         {p.despachoNumeroGuia ? (
@@ -712,9 +715,15 @@ function PesoCell({ pesoLbs, pesoKg }: { pesoLbs?: number; pesoKg?: number }) {
   );
 }
 
-function PiezaEstadoBadges({ paquete: p }: { paquete: Paquete }) {
+function PiezaEstadoBadges({
+  paquete: p,
+  piezaEnRecepcionBodega,
+}: {
+  paquete: Paquete;
+  piezaEnRecepcionBodega: (q: Paquete) => boolean;
+}) {
   const estado = p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—';
-  const recibida = piezaRecibida(p);
+  const recibida = piezaEnRecepcionBodega(p);
   const despachada = piezaDespachada(p);
 
   return (

@@ -7,7 +7,8 @@ import java.util.Set;
  * Estado agregado de la guia del consolidador (guia_master).
  *
  * <p>La mayoria de las transiciones se derivan de los conteos de piezas
- * (ver {@code GuiaMasterService.calcularEstado}). Tres estados son
+ * (ver {@code GuiaMasterService.calcularEstado}), salvo
+ * {@link #SIN_PIEZAS_REGISTRADAS} cuando aun no hay piezas. Tres estados son
  * <em>terminales</em> y deben ser establecidos manualmente o por un job:
  * {@link #DESPACHO_COMPLETADO}, {@link #DESPACHO_INCOMPLETO} y
  * {@link #CANCELADA}. El estado {@link #EN_REVISION} es una pausa
@@ -15,7 +16,13 @@ import java.util.Set;
  * sobreescribe (la guia se "congela" hasta que el operario la libere).
  */
 public enum EstadoGuiaMaster {
-    /** La guia esta registrada pero aun no se ha recibido ninguna pieza fisica. */
+    /**
+     * La guia existe pero aun no tiene piezas (paquetes) asociadas en el sistema.
+     * Distinto de {@link #EN_ESPERA_RECEPCION}, donde ya hay piezas y ninguna
+     * entro a recepcion en bodega.
+     */
+    SIN_PIEZAS_REGISTRADAS,
+    /** Hay piezas registradas pero ninguna en recepcion bodega ni despachada. */
     EN_ESPERA_RECEPCION,
     /** Al menos una pieza recibida en bodega; otras siguen en camino. */
     RECEPCION_PARCIAL,

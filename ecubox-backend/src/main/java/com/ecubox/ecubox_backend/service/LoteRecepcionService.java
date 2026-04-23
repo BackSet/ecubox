@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -34,19 +35,22 @@ public class LoteRecepcionService {
     private final PaqueteService paqueteService;
     private final CurrentUserService currentUserService;
     private final EnvioConsolidadoRepository envioConsolidadoRepository;
+    private final GuiaMasterService guiaMasterService;
 
     public LoteRecepcionService(LoteRecepcionRepository loteRecepcionRepository,
                                LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
                                PaqueteRepository paqueteRepository,
                                PaqueteService paqueteService,
                                CurrentUserService currentUserService,
-                               EnvioConsolidadoRepository envioConsolidadoRepository) {
+                               EnvioConsolidadoRepository envioConsolidadoRepository,
+                               GuiaMasterService guiaMasterService) {
         this.loteRecepcionRepository = loteRecepcionRepository;
         this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
         this.paqueteRepository = paqueteRepository;
         this.paqueteService = paqueteService;
         this.currentUserService = currentUserService;
         this.envioConsolidadoRepository = envioConsolidadoRepository;
+        this.guiaMasterService = guiaMasterService;
     }
 
     /**
@@ -205,6 +209,16 @@ public class LoteRecepcionService {
                 "LOTE_RECEPCION_AUTO"
         );
         loteRecepcionRepository.delete(lote);
+        if (!paqueteIds.isEmpty()) {
+            List<Long> gmIds = paqueteRepository.findGuiaMasterIdsByPaqueteIds(new ArrayList<>(paqueteIds))
+                    .stream()
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            for (Long gmId : gmIds) {
+                guiaMasterService.recomputarEstado(gmId);
+            }
+        }
         return paquetesRevertidos;
     }
 

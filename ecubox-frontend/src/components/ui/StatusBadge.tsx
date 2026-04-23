@@ -151,6 +151,7 @@ const DOMAIN_TONE_MAP: Record<string, StatusTone> = {
   EN_DESPACHO: 'info',
   PARCIAL: 'warning',
   // Guia master v2 (CANCELADA ya está mapeada arriba como 'error')
+  SIN_PIEZAS_REGISTRADAS: 'neutral',
   EN_ESPERA_RECEPCION: 'neutral',
   RECEPCION_PARCIAL: 'warning',
   RECEPCION_COMPLETA: 'info',

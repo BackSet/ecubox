@@ -30,18 +30,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useEliminarMiGuia, useMiGuia, useMiGuiaPiezas } from '@/hooks/useMisGuias';
-import type { GuiaMaster } from '@/types/guia-master';
+import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
+import type { EstadoGuiaMaster, GuiaMaster } from '@/types/guia-master';
 import type { Paquete } from '@/types/paquete';
 import { ConsignatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
 import { EditarMiGuiaDialog } from './EditarMiGuiaDialog';
 import { MI_GUIA_ESTADO_DESCRIPCIONES, MiGuiaEstadoBadge } from './_estado-cliente';
 
-const ESTADO_EDITABLE = 'EN_ESPERA_RECEPCION' as const;
 const TOOLTIP_NO_EDITABLE =
   'Ya no es posible editar esta guía porque sus piezas están en proceso. Si necesitas un cambio, contáctanos.';
 
-function piezaRecibida(p: Paquete): boolean {
-  return p.pesoLbs != null || p.pesoKg != null;
+function isEstadoEditableCliente(estado: EstadoGuiaMaster): boolean {
+  return estado === 'SIN_PIEZAS_REGISTRADAS' || estado === 'EN_ESPERA_RECEPCION';
 }
 
 function piezaDespachada(p: Paquete): boolean {
@@ -54,7 +54,13 @@ export function MiGuiaDetailPage() {
   const id = Number(params.id);
   const { data: guia, isLoading, error } = useMiGuia(id);
   const { data: piezas, isLoading: loadingPiezas } = useMiGuiaPiezas(id);
+  const { data: estadosPunto } = useEstadosRastreoPorPunto();
   const eliminar = useEliminarMiGuia();
+  const enLoteRecepcionId = estadosPunto?.estadoRastreoEnLoteRecepcionId;
+  const piezaEnRecepcionBodega = (p: Paquete) =>
+    enLoteRecepcionId != null &&
+    p.estadoRastreoId != null &&
+    Number(p.estadoRastreoId) === Number(enLoteRecepcionId);
 
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -97,7 +103,7 @@ export function MiGuiaDetailPage() {
     );
   }
 
-  const editable = guia.estadoGlobal === ESTADO_EDITABLE;
+  const editable = isEstadoEditableCliente(guia.estadoGlobal);
   const totalPendiente = guia.totalPiezasEsperadas == null;
   const estadoDescripcion = MI_GUIA_ESTADO_DESCRIPCIONES[guia.estadoGlobal];
 
@@ -250,7 +256,7 @@ export function MiGuiaDetailPage() {
                       <PiezaGuiaCell numeroGuia={p.numeroGuia} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <PiezaEstadoBadges paquete={p} />
+                      <PiezaEstadoBadges paquete={p} piezaEnRecepcionBodega={piezaEnRecepcionBodega} />
                     </TableCell>
                     <TableCell className="align-top text-xs">
                       <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
@@ -469,9 +475,15 @@ function PesoCell({ pesoLbs, pesoKg }: { pesoLbs?: number; pesoKg?: number }) {
   );
 }
 
-function PiezaEstadoBadges({ paquete: p }: { paquete: Paquete }) {
+function PiezaEstadoBadges({
+  paquete: p,
+  piezaEnRecepcionBodega,
+}: {
+  paquete: Paquete;
+  piezaEnRecepcionBodega: (q: Paquete) => boolean;
+}) {
   const estado = p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—';
-  const recibida = piezaRecibida(p);
+  const recibida = piezaEnRecepcionBodega(p);
   const despachada = piezaDespachada(p);
 
   return (

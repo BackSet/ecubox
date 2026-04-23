@@ -540,7 +540,7 @@ export function PaqueteListPage() {
 
       {isLoading ? (
         <ListTableShell>
-          <Table className="table-mobile-cards min-w-[860px] text-left">
+          <Table className="table-mobile-cards md:min-w-[860px] text-left">
             <TableHeader>
               <TableRow>
                 <TableHead>Guía master / Pieza</TableHead>
@@ -604,7 +604,7 @@ export function PaqueteListPage() {
             {pageQuery.isFetching && useServerPage ? ' · cargando...' : ''}
           </p>
         <ListTableShell>
-            <Table className="table-mobile-cards min-w-[860px] text-left">
+            <Table className="table-mobile-cards md:min-w-[860px] text-left">
               <TableHeader>
                 <TableRow>
                   <TableHead>Guía master / Pieza</TableHead>
@@ -626,7 +626,7 @@ export function PaqueteListPage() {
               <TableBody>
                 {list.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell data-label="Guía master / Pieza" className="max-w-[14rem] align-top">
+                    <TableCell data-label="Guía master / Pieza" className="td-stack max-w-[14rem] align-top">
                       <GuiaMasterPiezaCell paquete={p} />
                     </TableCell>
                     <TableCell data-label="Ref" className="font-mono text-xs text-muted-foreground">{p.ref ?? '—'}</TableCell>
@@ -635,16 +635,16 @@ export function PaqueteListPage() {
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                       </StatusBadge>
                     </TableCell>
-                    <TableCell data-label="Consignatario" className="align-top">
+                    <TableCell data-label="Consignatario" className="td-stack align-top">
                       <ConsignatarioCell paquete={p} />
                     </TableCell>
                     {hasPesoWrite && (
                       <TableCell
                         data-label="Guía de envío"
-                        className="hidden md:table-cell"
+                        className="td-stack"
                       >
                         {p.envioConsolidadoCodigo ? (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <MonoTrunc
                               value={p.envioConsolidadoCodigo}
                               className="text-xs"
@@ -660,7 +660,7 @@ export function PaqueteListPage() {
                     )}
                     <TableCell
                       data-label="Contenido"
-                      className="hidden text-muted-foreground lg:table-cell"
+                      className="td-stack md:max-lg:hidden text-muted-foreground"
                     >
                       {p.contenido ?? '—'}
                     </TableCell>

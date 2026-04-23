@@ -29,6 +29,7 @@ import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.ConsignatarioRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterEstadoHistorialRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
+import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
@@ -39,11 +40,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,7 +72,6 @@ public class GuiaMasterService {
     private final GuiaMasterRepository guiaMasterRepository;
     private final PaqueteRepository paqueteRepository;
     private final ParametroSistemaService parametroSistemaService;
-    private final EstadoRastreoService estadoRastreoService;
     private final OutboxEventRepository outboxEventRepository;
     private final ConsignatarioRepository consignatarioRepository;
     private final UsuarioRepository usuarioRepository;
@@ -79,23 +79,25 @@ public class GuiaMasterService {
     private final GuiaMasterEstadoHistorialRepository historialRepository;
     private final ConsignatarioVersionService consignatarioVersionService;
     private final CodigoSecuenciaService codigoSecuenciaService;
+    private final LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
+    private final PaqueteService paqueteService;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public GuiaMasterService(GuiaMasterRepository guiaMasterRepository,
                              PaqueteRepository paqueteRepository,
                              ParametroSistemaService parametroSistemaService,
-                             @Lazy EstadoRastreoService estadoRastreoService,
                              OutboxEventRepository outboxEventRepository,
                              ConsignatarioRepository consignatarioRepository,
                              UsuarioRepository usuarioRepository,
                              PaqueteEstadoEventoRepository paqueteEstadoEventoRepository,
                              GuiaMasterEstadoHistorialRepository historialRepository,
                              ConsignatarioVersionService consignatarioVersionService,
-                             CodigoSecuenciaService codigoSecuenciaService) {
+                             CodigoSecuenciaService codigoSecuenciaService,
+                             LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
+                             @Lazy PaqueteService paqueteService) {
         this.guiaMasterRepository = guiaMasterRepository;
         this.paqueteRepository = paqueteRepository;
         this.parametroSistemaService = parametroSistemaService;
-        this.estadoRastreoService = estadoRastreoService;
         this.outboxEventRepository = outboxEventRepository;
         this.consignatarioRepository = consignatarioRepository;
         this.usuarioRepository = usuarioRepository;
@@ -103,6 +105,8 @@ public class GuiaMasterService {
         this.historialRepository = historialRepository;
         this.consignatarioVersionService = consignatarioVersionService;
         this.codigoSecuenciaService = codigoSecuenciaService;
+        this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
+        this.paqueteService = paqueteService;
     }
 
     /**
@@ -134,7 +138,7 @@ public class GuiaMasterService {
                 .totalPiezasEsperadas(totalPiezasEsperadas)
                 .consignatario(dest)
                 .clienteUsuario(clienteUsuario)
-                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
+                .estadoGlobal(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS)
                 .createdAt(LocalDateTime.now())
                 .build();
         GuiaMaster saved = guiaMasterRepository.save(gm);
@@ -175,7 +179,7 @@ public class GuiaMasterService {
                 .totalPiezasEsperadas(null)
                 .consignatario(dest)
                 .clienteUsuario(cliente)
-                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
+                .estadoGlobal(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS)
                 .createdAt(LocalDateTime.now())
                 .build();
         GuiaMaster saved = guiaMasterRepository.save(gm);
@@ -237,6 +241,7 @@ public class GuiaMasterService {
             }
         }
         GuiaMaster saved = guiaMasterRepository.save(gm);
+        sincronizarEstadoPaquetesSiLoteRecepcionAplica(saved.getId());
         recomputarEstado(saved.getId());
         return guiaMasterRepository.findById(saved.getId()).orElse(saved);
     }
@@ -268,6 +273,54 @@ public class GuiaMasterService {
             p.setNumeroGuia(nuevo);
         }
         paqueteRepository.saveAll(piezas);
+    }
+
+    /**
+     * Si la guía (tracking) o el consolidado de alguna pieza figuran en un lote de
+     * recepción, reaplica el estado de rastreo de recepción en bodega a las piezas
+     * afectadas (p. ej. tras renumerar por cambio de tracking).
+     */
+    private void sincronizarEstadoPaquetesSiLoteRecepcionAplica(Long guiaMasterId) {
+        if (guiaMasterId == null) {
+            return;
+        }
+        GuiaMaster gm = guiaMasterRepository.findById(guiaMasterId).orElse(null);
+        if (gm == null) {
+            return;
+        }
+        List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(guiaMasterId);
+        if (piezas.isEmpty()) {
+            return;
+        }
+        String tb = Strings.trimOrNull(gm.getTrackingBase());
+        LocalDateTime fechaLote = null;
+        List<Long> paqueteIds = new ArrayList<>();
+        if (tb != null && loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(tb)) {
+            fechaLote = loteRecepcionGuiaRepository.findMinFechaRecepcionByNumeroGuiaEnvioIgnoreCase(tb)
+                    .orElse(null);
+            for (Paquete p : piezas) {
+                paqueteIds.add(p.getId());
+            }
+        } else {
+            for (Paquete p : piezas) {
+                if (p.getEnvioConsolidado() == null) {
+                    continue;
+                }
+                String cod = Strings.trimOrNull(p.getEnvioConsolidado().getCodigo());
+                if (cod == null || !loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(cod)) {
+                    continue;
+                }
+                if (fechaLote == null) {
+                    fechaLote = loteRecepcionGuiaRepository.findMinFechaRecepcionByNumeroGuiaEnvioIgnoreCase(cod)
+                            .orElse(null);
+                }
+                paqueteIds.add(p.getId());
+            }
+        }
+        if (!paqueteIds.isEmpty()) {
+            paqueteService.aplicarEstadoEnLoteRecepcion(paqueteIds,
+                    fechaLote != null ? fechaLote : LocalDateTime.now());
+        }
     }
 
     /**
@@ -347,6 +400,8 @@ public class GuiaMasterService {
         if (cambioDestinatario && nuevoDest != null) {
             propagarDestinatarioAPiezas(saved, nuevoDest);
         }
+        sincronizarEstadoPaquetesSiLoteRecepcionAplica(saved.getId());
+        recomputarEstado(saved.getId());
         return saved;
     }
 
@@ -372,7 +427,9 @@ public class GuiaMasterService {
      */
     private void guardarSiEsEditablePorCliente(GuiaMaster gm) {
         EstadoGuiaMaster estado = gm.getEstadoGlobal();
-        if (estado != null && estado != EstadoGuiaMaster.EN_ESPERA_RECEPCION) {
+        if (estado != null
+                && estado != EstadoGuiaMaster.EN_ESPERA_RECEPCION
+                && estado != EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS) {
             throw new ConflictException(
                     "Solo puedes editar la guía mientras esté en estado inicial de registro. "
                             + "Esta guía ya tiene piezas en proceso (estado: " + estado + ").");
@@ -526,9 +583,10 @@ public class GuiaMasterService {
     @Transactional(readOnly = true)
     public TrackingMasterResponse buildTrackingMasterResponse(GuiaMaster gm, boolean incluirTimeline) {
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterTrackingBaseIgnoreCase(gm.getTrackingBase());
+        Long enLoteRecepcionId = getIdEstadoEnLoteRecepcion();
 
         int registradas = piezas.size();
-        int recibidas = (int) piezas.stream().filter(this::piezaRecibida).count();
+        int recibidas = (int) piezas.stream().filter(p -> piezaEnRecepcionBodega(p, enLoteRecepcionId)).count();
         int despachadas = (int) piezas.stream().filter(this::piezaDespachada).count();
 
         List<TrackingPiezaItem> piezasItems = piezas.stream()
@@ -686,10 +744,11 @@ public class GuiaMasterService {
             return;
         }
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
-        long recibidas = piezas.stream().filter(this::piezaRecibida).count();
+        Long enLoteRecepcionId = getIdEstadoEnLoteRecepcion();
+        long enRecepcion = piezas.stream().filter(p -> piezaEnRecepcionBodega(p, enLoteRecepcionId)).count();
         long despachadas = piezas.stream().filter(this::piezaDespachada).count();
         boolean cambios = false;
-        if (recibidas > 0 && gm.getFechaPrimeraRecepcion() == null) {
+        if (enRecepcion > 0 && gm.getFechaPrimeraRecepcion() == null) {
             gm.setFechaPrimeraRecepcion(LocalDateTime.now());
             cambios = true;
         }
@@ -986,7 +1045,8 @@ public class GuiaMasterService {
         GuiaMaster gm = findById(guiaMasterId);
         int total = Optional.ofNullable(gm.getTotalPiezasEsperadas()).orElse(0);
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
-        long recibidas = piezas.stream().filter(this::piezaRecibida).count();
+        Long enLoteRecepcionId = getIdEstadoEnLoteRecepcion();
+        long recibidas = piezas.stream().filter(p -> piezaEnRecepcionBodega(p, enLoteRecepcionId)).count();
         long despachadas = piezas.stream().filter(this::piezaDespachada).count();
         int minPiezas = parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial();
         boolean lista = recibidas >= minPiezas && despachadas < total;
@@ -999,8 +1059,13 @@ public class GuiaMasterService {
      * un estado terminal o EN_REVISION, mantiene su estado (no se
      * sobreescribe por el calculo derivado).
      *
-     * <p>Salvaguarda: si {@code totalPiezasEsperadas} es null, nunca
-     * devuelve estados de despacho/cierre (el flujo no esta completo).
+     * <p>Recepcion en bodega: pieza cuyo {@code estadoRastreo} coincide con el
+     * id configurado como "en lote de recepcion" (mismo que aplica el flujo de
+     * lote en {@link PaqueteService#aplicarEstadoEnLoteRecepcion}). Sin consultar
+     * tablas de lote en cada calculo.</p>
+     *
+     * <p>Si {@code totalPiezasEsperadas} es null, el denominador para parcial/completo
+     * es la cantidad de piezas ya registradas en la guia.</p>
      */
     EstadoGuiaMaster calcularEstado(GuiaMaster gm) {
         if (gm == null) return EstadoGuiaMaster.EN_ESPERA_RECEPCION;
@@ -1010,50 +1075,36 @@ public class GuiaMasterService {
         }
         Integer totalRaw = gm.getTotalPiezasEsperadas();
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
-        long registradas = piezas.size();
-        long recibidas = piezas.stream().filter(this::piezaRecibida).count();
+        if (piezas.isEmpty()) {
+            return EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS;
+        }
+        int registradas = piezas.size();
+        Long enLoteRecepcionId = getIdEstadoEnLoteRecepcion();
+        long enRecepcion = piezas.stream().filter(p -> piezaEnRecepcionBodega(p, enLoteRecepcionId)).count();
         long despachadas = piezas.stream().filter(this::piezaDespachada).count();
 
-        // Sin total definido todavia: nunca clasificamos como completado
-        // ni despachado (riesgo de cierres espurios). Solo refleja avance
-        // de recepcion parcial.
-        if (totalRaw == null || totalRaw < 1) {
-            if (recibidas > 0) return EstadoGuiaMaster.RECEPCION_PARCIAL;
-            return EstadoGuiaMaster.EN_ESPERA_RECEPCION;
-        }
-        int total = totalRaw;
-
-        boolean todasRegistradas = registradas >= total;
-        boolean todasRecibidas = todasRegistradas && recibidas >= total;
-        boolean todasDespachadas = todasRegistradas && despachadas >= total;
-
-        if (todasDespachadas) {
-            return EstadoGuiaMaster.DESPACHO_COMPLETADO;
-        }
+        boolean despachoCompleto = (totalRaw != null && totalRaw >= 1)
+                ? (registradas >= totalRaw && despachadas >= totalRaw)
+                : (registradas > 0 && despachadas >= registradas);
         if (despachadas > 0) {
+            if (despachoCompleto) {
+                return EstadoGuiaMaster.DESPACHO_COMPLETADO;
+            }
             return EstadoGuiaMaster.DESPACHO_PARCIAL;
         }
-        if (todasRecibidas) {
+
+        boolean recepcionCompleta = (totalRaw != null && totalRaw >= 1)
+                ? (registradas >= totalRaw && enRecepcion >= totalRaw)
+                : (registradas > 0 && enRecepcion >= registradas);
+        if (recepcionCompleta) {
             return EstadoGuiaMaster.RECEPCION_COMPLETA;
         }
-        if (recibidas > 0) {
+        if (enRecepcion > 0) {
             return EstadoGuiaMaster.RECEPCION_PARCIAL;
         }
         return EstadoGuiaMaster.EN_ESPERA_RECEPCION;
     }
 
-    /**
-     * Una pieza se considera "recibida" para efectos del estado agregado de la
-     * guia master si:
-     * <ul>
-     *   <li>Tiene peso registrado por el operario ({@code peso_lbs} no nulo), o</li>
-     *   <li>Su estado de rastreo ya supero (>=) el estado configurado como
-     *       "en lote de recepcion".</li>
-     * </ul>
-     * Se aceptan ambos caminos porque el operario puede pesar paquetes antes de
-     * meterlos a un lote fisico, y los lotes pueden mover paquetes que no se
-     * pesaron individualmente. Mantener ambos criterios alinea backend y UI.
-     */
     /**
      * Propaga un cambio de destinatario de la guia master a TODAS sus piezas:
      * cambia {@code consignatario} y regenera {@code ref} con el codigoBase
@@ -1067,8 +1118,9 @@ public class GuiaMasterService {
         if (gm == null || nuevoDest == null) return;
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
         if (piezas.isEmpty()) return;
+        Long enLoteRecepcionId = getIdEstadoEnLoteRecepcion();
         for (Paquete p : piezas) {
-            if (piezaRecibida(p) || piezaDespachada(p)) {
+            if (piezaEnRecepcionBodega(p, enLoteRecepcionId) || piezaDespachada(p)) {
                 throw new ConflictException(
                         "No se puede cambiar el destinatario: la pieza " + p.getPiezaNumero()
                                 + "/" + p.getPiezaTotal() + " ya fue recibida o despachada.");
@@ -1082,10 +1134,14 @@ public class GuiaMasterService {
         paqueteRepository.saveAll(piezas);
     }
 
-    private boolean piezaRecibida(Paquete p) {
-        if (p == null) return false;
-        if (p.getPesoLbs() != null) return true;
-        return comparaEstadoMayorOIgualQue(p, getOrdenEstado(getIdEstadoEnLoteRecepcion()));
+    /**
+     * Pieza en recepcion en bodega: coincide con el estado de rastreo configurado
+     * como "en lote de recepcion" (asignado al registrar el consolidado en lote).
+     */
+    private boolean piezaEnRecepcionBodega(Paquete p, Long estadoEnLoteRecepcionId) {
+        if (p == null || estadoEnLoteRecepcionId == null) return false;
+        EstadoRastreo er = p.getEstadoRastreo();
+        return er != null && estadoEnLoteRecepcionId.equals(er.getId());
     }
 
     /**
@@ -1099,13 +1155,6 @@ public class GuiaMasterService {
         return p.getSaca() != null && p.getSaca().getDespacho() != null;
     }
 
-    private boolean comparaEstadoMayorOIgualQue(Paquete p, Integer ordenReferencia) {
-        if (ordenReferencia == null) return false;
-        EstadoRastreo er = p.getEstadoRastreo();
-        if (er == null || er.getOrden() == null) return false;
-        return er.getOrden() >= ordenReferencia;
-    }
-
     private Long getIdEstadoEnLoteRecepcion() {
         EstadosRastreoPorPuntoDTO cfg = parametroSistemaService.getEstadosRastreoPorPunto();
         if (cfg == null) return null;
@@ -1114,10 +1163,6 @@ public class GuiaMasterService {
             return null;
         }
         return id;
-    }
-
-    private Integer getOrdenEstado(Long estadoId) {
-        return estadoRastreoService.getOrdenById(estadoId);
     }
 
     private static String normalizarTrackingBase(String s) {
@@ -1382,8 +1427,9 @@ public class GuiaMasterService {
     public GuiaMasterDTO toDTO(GuiaMaster gm, List<PaqueteDTO> piezasDTO) {
         if (gm == null) return null;
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
+        Long enLoteRecepcionId = getIdEstadoEnLoteRecepcion();
         int registradas = piezas.size();
-        int recibidas = (int) piezas.stream().filter(this::piezaRecibida).count();
+        int recibidas = (int) piezas.stream().filter(p -> piezaEnRecepcionBodega(p, enLoteRecepcionId)).count();
         int despachadas = (int) piezas.stream().filter(this::piezaDespachada).count();
         int total = Optional.ofNullable(gm.getTotalPiezasEsperadas()).orElse(0);
         int minPiezas = parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial();

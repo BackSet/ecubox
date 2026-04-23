@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.dto.GuiaMasterUpdateRequest;
 import com.ecubox.ecubox_backend.dto.MiInicioDashboardDTO;
 import com.ecubox.ecubox_backend.entity.Despacho;
 import com.ecubox.ecubox_backend.entity.Consignatario;
+import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -19,6 +20,7 @@ import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.repository.ConsignatarioRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterEstadoHistorialRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
+import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
@@ -41,8 +43,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -59,8 +63,6 @@ class GuiaMasterServiceTest {
     @Mock
     private ParametroSistemaService parametroSistemaService;
     @Mock
-    private EstadoRastreoService estadoRastreoService;
-    @Mock
     private OutboxEventRepository outboxEventRepository;
     @Mock
     private ConsignatarioRepository consignatarioRepository;
@@ -74,6 +76,10 @@ class GuiaMasterServiceTest {
     private ConsignatarioVersionService consignatarioVersionService;
     @Mock
     private CodigoSecuenciaService codigoSecuenciaService;
+    @Mock
+    private LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
+    @Mock
+    private PaqueteService paqueteService;
 
     private GuiaMasterService service;
 
@@ -84,9 +90,9 @@ class GuiaMasterServiceTest {
     @BeforeEach
     public void setUp() {
         service = new GuiaMasterService(guiaMasterRepository, paqueteRepository, parametroSistemaService,
-                estadoRastreoService, outboxEventRepository, consignatarioRepository, usuarioRepository,
+                outboxEventRepository, consignatarioRepository, usuarioRepository,
                 paqueteEstadoEventoRepository, historialRepository, consignatarioVersionService,
-                codigoSecuenciaService);
+                codigoSecuenciaService, loteRecepcionGuiaRepository, paqueteService);
         registrado = EstadoRastreo.builder().id(1L).codigo("REGISTRADO").orden(1).build();
         enLote = EstadoRastreo.builder().id(2L).codigo("EN_LOTE").orden(2).build();
         enDespacho = EstadoRastreo.builder().id(3L).codigo("EN_DESPACHO").orden(3).build();
@@ -100,10 +106,6 @@ class GuiaMasterServiceTest {
                         .estadoRastreoEnDespachoId(3L)
                         .build()
         );
-        lenient().when(estadoRastreoService.findEntityById(2L)).thenReturn(enLote);
-        lenient().when(estadoRastreoService.findEntityById(3L)).thenReturn(enDespacho);
-        lenient().when(estadoRastreoService.getOrdenById(2L)).thenReturn(enLote.getOrden());
-        lenient().when(estadoRastreoService.getOrdenById(3L)).thenReturn(enDespacho.getOrden());
     }
 
     /**
@@ -116,7 +118,7 @@ class GuiaMasterServiceTest {
     }
 
     @Test
-    void create_guardaGuiaMasterConEstadoEnEsperaRecepcion() {
+    void create_guardaGuiaMasterSinPiezasRegistradas() {
         when(guiaMasterRepository.existsByTrackingBaseIgnoreCase("184718429")).thenReturn(false);
         when(guiaMasterRepository.save(any(GuiaMaster.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -127,7 +129,7 @@ class GuiaMasterServiceTest {
         GuiaMaster saved = captor.getValue();
         assertEquals("184718429", saved.getTrackingBase());
         assertEquals(3, saved.getTotalPiezasEsperadas());
-        assertEquals(EstadoGuiaMaster.EN_ESPERA_RECEPCION, saved.getEstadoGlobal());
+        assertEquals(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS, saved.getEstadoGlobal());
         assertSame(saved, gm);
     }
 
@@ -174,12 +176,24 @@ class GuiaMasterServiceTest {
     }
 
     @Test
-    void calcularEstado_enEsperaRecepcionCuandoNoHayPiezasRegistradas() {
+    void calcularEstado_sinPiezasRegistradas() {
         stubConfigEstados();
         GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(3).estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of());
 
-        assertEquals(EstadoGuiaMaster.EN_ESPERA_RECEPCION, service.calcularEstado(gm));
+        assertEquals(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS, service.calcularEstado(gm));
+    }
+
+    @Test
+    void calcularEstado_totalNull_todasLasPiezasRegistradasEnRecepcion_esRecepcionCompleta() {
+        stubConfigEstados();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(null).estadoGlobal(EstadoGuiaMaster.RECEPCION_PARCIAL).build();
+        Paquete p1 = Paquete.builder().id(1L).estadoRastreo(enLote).build();
+        Paquete p2 = Paquete.builder().id(2L).estadoRastreo(enLote).build();
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L))
+                .thenReturn(List.of(p1, p2));
+
+        assertEquals(EstadoGuiaMaster.RECEPCION_COMPLETA, service.calcularEstado(gm));
     }
 
     @Test
@@ -295,7 +309,7 @@ class GuiaMasterServiceTest {
         verify(guiaMasterRepository).save(captor.capture());
         GuiaMaster saved = captor.getValue();
         assertEquals("TRK-1", saved.getTrackingBase());
-        assertEquals(EstadoGuiaMaster.EN_ESPERA_RECEPCION, saved.getEstadoGlobal());
+        assertEquals(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS, saved.getEstadoGlobal());
         assertSame(dest, saved.getConsignatario());
         assertSame(cliente, saved.getClienteUsuario());
         assertEquals(null, saved.getTotalPiezasEsperadas());
@@ -355,13 +369,65 @@ class GuiaMasterServiceTest {
     }
 
     @Test
+    void update_trackingRegistradoEnLote_sincronizaPaquetes() {
+        stubConfigEstados();
+        LocalDateTime fechaLote = LocalDateTime.now().minusHours(3);
+        GuiaMaster gm = GuiaMaster.builder().id(1L).trackingBase("OLD-TBK")
+                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+        Paquete p = Paquete.builder().id(100L).piezaNumero(1).piezaTotal(1).guiaMaster(gm).numeroGuia("OLD-TBK 1/1").build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of(p));
+        when(guiaMasterRepository.findByTrackingBaseIgnoreCase("NEW-TBK")).thenReturn(Optional.empty());
+        when(paqueteRepository.existsByNumeroGuiaAndIdNot(any(), anyLong())).thenReturn(false);
+        when(guiaMasterRepository.save(any(GuiaMaster.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paqueteRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        when(loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase("NEW-TBK")).thenReturn(true);
+        when(loteRecepcionGuiaRepository.findMinFechaRecepcionByNumeroGuiaEnvioIgnoreCase("NEW-TBK"))
+                .thenReturn(Optional.of(fechaLote));
+
+        service.update(1L, GuiaMasterUpdateRequest.builder().trackingBase("NEW-TBK").build());
+
+        assertEquals("NEW-TBK", gm.getTrackingBase());
+        verify(paqueteService).aplicarEstadoEnLoteRecepcion(
+                argThat(ids -> ids.size() == 1 && ids.contains(100L)),
+                eq(fechaLote));
+    }
+
+    @Test
+    void update_consolidadoEnLoteRecepcionSinTrackingEnLote_sincronizaPiezasAfectadas() {
+        stubConfigEstados();
+        LocalDateTime fechaLote = LocalDateTime.now().minusHours(1);
+        GuiaMaster gm = GuiaMaster.builder().id(1L).trackingBase("OLD2")
+                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+        EnvioConsolidado ec = EnvioConsolidado.builder().id(5L).codigo("CONS-X").build();
+        Paquete p = Paquete.builder().id(200L).piezaNumero(1).piezaTotal(1).guiaMaster(gm).envioConsolidado(ec)
+                .numeroGuia("OLD2 1/1").build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of(p));
+        when(guiaMasterRepository.findByTrackingBaseIgnoreCase("TRACK-NEW")).thenReturn(Optional.empty());
+        when(paqueteRepository.existsByNumeroGuiaAndIdNot(any(), anyLong())).thenReturn(false);
+        when(guiaMasterRepository.save(any(GuiaMaster.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paqueteRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        when(loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase("TRACK-NEW")).thenReturn(false);
+        when(loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase("CONS-X")).thenReturn(true);
+        when(loteRecepcionGuiaRepository.findMinFechaRecepcionByNumeroGuiaEnvioIgnoreCase("CONS-X"))
+                .thenReturn(Optional.of(fechaLote));
+
+        service.update(1L, GuiaMasterUpdateRequest.builder().trackingBase("TRACK-NEW").build());
+
+        verify(paqueteService).aplicarEstadoEnLoteRecepcion(
+                argThat(ids -> ids.size() == 1 && ids.contains(200L)),
+                eq(fechaLote));
+    }
+
+    @Test
     void dashboardForCliente_conteosPorEstadoYTotales() {
         stubConfigEstados();
         Long clienteId = 7L;
-        // 3 guias: una EN_ESPERA_RECEPCION sin total, una RECEPCION_PARCIAL, una DESPACHO_COMPLETADO
+        // 3 guias: una SIN_PIEZAS sin total, una RECEPCION_PARCIAL, una DESPACHO_COMPLETADO
         GuiaMaster g1 = GuiaMaster.builder()
                 .id(1L).trackingBase("A").totalPiezasEsperadas(null)
-                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
+                .estadoGlobal(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS)
                 .createdAt(LocalDateTime.now().minusDays(1)).build();
         GuiaMaster g2 = GuiaMaster.builder()
                 .id(2L).trackingBase("B").totalPiezasEsperadas(3)
@@ -389,7 +455,7 @@ class GuiaMasterServiceTest {
         assertEquals(1L, dto.getTotalGuiasCerradas());
         assertEquals(1L, dto.getTotalGuiasSinTotalDefinido());
         assertEquals(4L, dto.getTotalDestinatarios());
-        assertEquals(1L, dto.getConteosPorEstado().get("EN_ESPERA_RECEPCION"));
+        assertEquals(1L, dto.getConteosPorEstado().get("SIN_PIEZAS_REGISTRADAS"));
         assertEquals(1L, dto.getConteosPorEstado().get("RECEPCION_PARCIAL"));
         assertEquals(1L, dto.getConteosPorEstado().get("DESPACHO_COMPLETADO"));
         // piezas en transito = solo g2 contribuye (1 registrada - 0 despachadas)
@@ -474,7 +540,7 @@ class GuiaMasterServiceTest {
         assertEquals("TRK-PUB-1", dto.getTrackingBase());
         assertEquals(3, dto.getTotalPiezasEsperadas());
         assertEquals(3, dto.getPiezasRegistradas());
-        assertEquals(2, dto.getPiezasRecibidas()); // EN_LOTE + EN_DESPACHO
+        assertEquals(1, dto.getPiezasRecibidas()); // solo estado id "en lote recepcion"
         assertEquals(1, dto.getPiezasDespachadas()); // p1 con saca/despacho
         assertEquals(EstadoGuiaMaster.DESPACHO_PARCIAL, dto.getEstadoGlobal());
         assertEquals("Maria", dto.getConsignatario().getNombre());

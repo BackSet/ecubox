@@ -541,6 +541,23 @@
     color: var(--color-muted-foreground);
     letter-spacing: 0.04em;
     text-align: left;
+    flex-shrink: 0;
+  }
+  /*
+   * Variante "stack" para celdas con contenido multilinea (consignatario,
+   * guia/pieza, contenido). El layout por defecto (label izq / valor der)
+   * funciona bien para datos cortos pero rompe la legibilidad cuando el
+   * valor tiene varias lineas: el label queda arriba y el valor debajo,
+   * ocupando todo el ancho de la tarjeta y alineado a la izquierda.
+   */
+  .table-mobile-cards td.td-stack {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+    gap: 0.25rem;
+  }
+  .table-mobile-cards td.td-stack::before {
+    text-align: left;
   }
   @media (min-width: 768px) {
     .table-mobile-cards thead {
@@ -565,6 +582,11 @@
     }
     .table-mobile-cards td::before {
       content: none;
+    }
+    .table-mobile-cards td.td-stack {
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 0;
     }
   }
 

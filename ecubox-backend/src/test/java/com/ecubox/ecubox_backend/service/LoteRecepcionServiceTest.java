@@ -54,6 +54,7 @@ class LoteRecepcionServiceTest {
     @Mock private PaqueteService paqueteService;
     @Mock private CurrentUserService currentUserService;
     @Mock private EnvioConsolidadoRepository envioConsolidadoRepository;
+    @Mock private GuiaMasterService guiaMasterService;
 
     private LoteRecepcionService service;
 
@@ -65,7 +66,8 @@ class LoteRecepcionServiceTest {
                 paqueteRepository,
                 paqueteService,
                 currentUserService,
-                envioConsolidadoRepository);
+                envioConsolidadoRepository,
+                guiaMasterService);
         lenient().when(loteRecepcionRepository.save(any(LoteRecepcion.class)))
                 .thenAnswer(inv -> {
                     LoteRecepcion l = inv.getArgument(0);
@@ -156,5 +158,29 @@ class LoteRecepcionServiceTest {
 
         verify(loteRecepcionGuiaRepository, times(1)).save(any(LoteRecepcionGuia.class));
         verify(paqueteService).aplicarEstadoEnLoteRecepcion(eq(List.of(200L)), any());
+    }
+
+    @Test
+    void delete_recomputaGuiasMasterDePaquetesAfectados() {
+        EnvioConsolidado e = envio(10L, "ENV-DEL", false, EstadoPagoConsolidado.NO_PAGADO);
+        Paquete p = Paquete.builder().id(300L).numeroGuia("X 1/1").envioConsolidado(e).build();
+        LoteRecepcion lote = LoteRecepcion.builder().id(5L)
+                .guias(new ArrayList<>(List.of(
+                        LoteRecepcionGuia.builder().numeroGuiaEnvio("ENV-DEL").build()
+                )))
+                .build();
+        when(loteRecepcionRepository.findByIdWithGuias(5L)).thenReturn(Optional.of(lote));
+        when(envioConsolidadoRepository.findByCodigoIgnoreCase("ENV-DEL")).thenReturn(Optional.of(e));
+        when(paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(10L)).thenReturn(List.of(p));
+        when(paqueteService.revertirEstadoSiUltimoEventoCoincide(anyList(), eq("LOTE_RECEPCION_AUTO")))
+                .thenReturn(1);
+        when(paqueteRepository.findGuiaMasterIdsByPaqueteIds(anyList())).thenReturn(List.of(77L));
+
+        int n = service.delete(5L);
+
+        assertEquals(1, n);
+        verify(loteRecepcionRepository).delete(lote);
+        verify(paqueteRepository).findGuiaMasterIdsByPaqueteIds(anyList());
+        verify(guiaMasterService).recomputarEstado(77L);
     }
 }

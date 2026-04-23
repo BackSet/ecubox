@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock,
   Eye,
+  Package,
   PackageCheck,
   PackageOpen,
   Truck,
@@ -20,6 +21,7 @@ import { StatusBadge, type StatusTone } from '@/components/ui/StatusBadge';
  * Sincronizado con el enum del backend tras la migracion V66.
  */
 export const MI_GUIA_ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
+  SIN_PIEZAS_REGISTRADAS: 'Sin piezas registradas',
   EN_ESPERA_RECEPCION: 'En espera de recepción',
   RECEPCION_PARCIAL: 'Recibida parcialmente',
   RECEPCION_COMPLETA: 'Recibida en bodega',
@@ -31,6 +33,7 @@ export const MI_GUIA_ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
 };
 
 export const MI_GUIA_ESTADO_LABELS_CORTOS: Record<EstadoGuiaMaster, string> = {
+  SIN_PIEZAS_REGISTRADAS: 'Sin piezas',
   EN_ESPERA_RECEPCION: 'En espera',
   RECEPCION_PARCIAL: 'Parcial en bodega',
   RECEPCION_COMPLETA: 'En bodega',
@@ -42,8 +45,10 @@ export const MI_GUIA_ESTADO_LABELS_CORTOS: Record<EstadoGuiaMaster, string> = {
 };
 
 export const MI_GUIA_ESTADO_DESCRIPCIONES: Record<EstadoGuiaMaster, string> = {
+  SIN_PIEZAS_REGISTRADAS:
+    'Registraste la guía pero aún no asociaste piezas. Cuando las registres, podrás seguir su avance.',
   EN_ESPERA_RECEPCION:
-    'Aún no hemos recibido tus piezas en la bodega de EE.UU. Te avisaremos cuando lleguen.',
+    'Ya hay piezas asociadas; aún no hemos recibido ninguna en la bodega de EE.UU. Te avisaremos cuando lleguen.',
   RECEPCION_PARCIAL:
     'Algunas piezas ya llegaron a la bodega de EE.UU. y otras siguen en camino.',
   RECEPCION_COMPLETA:
@@ -61,6 +66,7 @@ export const MI_GUIA_ESTADO_DESCRIPCIONES: Record<EstadoGuiaMaster, string> = {
 };
 
 export const MI_GUIA_ESTADO_TONES: Record<EstadoGuiaMaster, StatusTone> = {
+  SIN_PIEZAS_REGISTRADAS: 'neutral',
   EN_ESPERA_RECEPCION: 'neutral',
   RECEPCION_PARCIAL: 'info',
   RECEPCION_COMPLETA: 'info',
@@ -72,6 +78,7 @@ export const MI_GUIA_ESTADO_TONES: Record<EstadoGuiaMaster, StatusTone> = {
 };
 
 export const MI_GUIA_ESTADO_ICONS: Record<EstadoGuiaMaster, LucideIcon> = {
+  SIN_PIEZAS_REGISTRADAS: Package,
   EN_ESPERA_RECEPCION: Clock,
   RECEPCION_PARCIAL: PackageOpen,
   RECEPCION_COMPLETA: PackageCheck,
@@ -87,6 +94,7 @@ export const MI_GUIA_ESTADO_ICONS: Record<EstadoGuiaMaster, LucideIcon> = {
  * EN_REVISION y CANCELADA van al final por ser excepcionales.
  */
 export const MI_GUIA_ESTADO_ORDEN: EstadoGuiaMaster[] = [
+  'SIN_PIEZAS_REGISTRADAS',
   'EN_ESPERA_RECEPCION',
   'RECEPCION_PARCIAL',
   'RECEPCION_COMPLETA',
