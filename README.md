@@ -96,6 +96,15 @@ El frontend arranca en `http://localhost:5173`.
 
 Tablas ampliadas con **ejemplos** por entorno: [docs/despliegue/VARIABLES_ENTORNO.md](docs/despliegue/VARIABLES_ENTORNO.md).
 
+## Pruebas automatizadas
+
+```bash
+cd ecubox-frontend && npm run test
+cd ecubox-backend && ./mvnw test    # o .\mvnw.cmd test en Windows
+```
+
+Detalle, variables y convenciones: [docs/PRUEBAS.md](docs/PRUEBAS.md).
+
 ## Documentación
 
 Índice completo: [docs/README.md](docs/README.md).
@@ -103,7 +112,7 @@ Tablas ampliadas con **ejemplos** por entorno: [docs/despliegue/VARIABLES_ENTORN
 | Área | Enlaces |
 |------|---------|
 | Usuario | [Manual de usuario](docs/usuario/MANUAL_USUARIO.md), [Guía de estados y seguimiento](docs/usuario/GUIA_ESTADOS_Y_SEGUIMIENTO.md) |
-| Desarrollo | [API](docs/desarrollo/API_REFERENCE.md), [TECH-STACK](docs/desarrollo/TECH-STACK.md), [Arquitectura backend](docs/desarrollo/ARQUITECTURA_BACKEND.md), [UX/UI](docs/desarrollo/UX-UI-DESIGN.md) |
+| Desarrollo | [Pruebas](docs/PRUEBAS.md), [API](docs/desarrollo/API_REFERENCE.md), [TECH-STACK](docs/desarrollo/TECH-STACK.md), [Arquitectura backend](docs/desarrollo/ARQUITECTURA_BACKEND.md), [UX/UI](docs/desarrollo/UX-UI-DESIGN.md) |
 | Despliegue | [Variables de entorno](docs/despliegue/VARIABLES_ENTORNO.md), [Railway](docs/despliegue/RAILWAY_PRODUCCION_GUIA.md) |
 | Branding | [docs/branding/ecubox-branding.html](docs/branding/ecubox-branding.html) |
 

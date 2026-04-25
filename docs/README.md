@@ -23,6 +23,7 @@ Referencias técnicas para quienes mantienen o amplían el código:
 
 | Documento | Descripción |
 |-----------|-------------|
+| [Pruebas automatizadas](PRUEBAS.md) | Vitest (frontend), Maven/JUnit (backend), CI sugerida. |
 | [TECH-STACK](desarrollo/TECH-STACK.md) | Tecnologías y versiones (backend y frontend). |
 | [Arquitectura del backend](desarrollo/ARQUITECTURA_BACKEND.md) | Capas, seguridad, dominio y despliegue. |
 | [Referencia de la API](desarrollo/API_REFERENCE.md) | Endpoints REST. |
