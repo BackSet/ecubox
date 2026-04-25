@@ -4,7 +4,7 @@ Sistema de gestión logística para envíos internacionales USA — Ecuador. Ges
 
 ## Arquitectura
 
-Monorepo con dos servicios independientes y una base de datos PostgreSQL:
+Monorepo con **dos** aplicaciones versionadas (API y SPA web) y una base de datos PostgreSQL. El antiguo cliente Flutter (`ecubox_mobile`) ya no forma parte de este repositorio.
 
 ```
 ECUBOX/
