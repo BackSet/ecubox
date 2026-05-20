@@ -205,10 +205,10 @@ export function useGuiaMasterHistorial(id: number | null | undefined) {
   });
 }
 
-export function useDashboardGuiasMaster(_topAntiguas = 10, enabled = true) {
+export function useDashboardGuiasMaster(topAntiguas = 10, enabled = true) {
   return useQuery({
-    queryKey: [...GUIAS_MASTER_QUERY_KEY, 'dashboard'],
-    queryFn: () => obtenerDashboardGuiasMaster(),
+    queryKey: [...GUIAS_MASTER_QUERY_KEY, 'dashboard', topAntiguas],
+    queryFn: () => obtenerDashboardGuiasMaster(topAntiguas),
     refetchInterval: 60_000,
     enabled,
   });

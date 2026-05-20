@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import {
-  useGuiasMaster,
+  useDashboardGuiasMaster,
   useGuiasMasterPaginadas,
   useCrearGuiaMaster,
   useActualizarGuiaMaster,
@@ -99,8 +99,8 @@ export function GuiasMasterPage() {
   const hasDelete = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_DELETE'));
   const eliminar = useEliminarGuiaMaster();
 
-  // Para los chips de filtro y los KPIs siempre necesitamos el conteo total.
-  const { data: guiasTodas = [] } = useGuiasMaster();
+  // Para chips y KPIs usamos el dashboard agregado, evitando cargar todas las guias.
+  const { data: dashGM } = useDashboardGuiasMaster(5, true);
 
   const estadosArray = useMemo(
     () => Array.from(estadosFiltro),
@@ -119,13 +119,12 @@ export function GuiasMasterPage() {
   const totalElements = pageQuery.data?.totalElements ?? 0;
   const totalPages = pageQuery.data?.totalPages ?? 0;
 
-  const conteosPorEstado = useMemo(() => {
-    const conteos = {} as Record<EstadoGuiaMaster, number>;
-    for (const g of guiasTodas) {
-      conteos[g.estadoGlobal] = (conteos[g.estadoGlobal] ?? 0) + 1;
-    }
-    return conteos;
-  }, [guiasTodas]);
+  const conteosPorEstado: Partial<Record<EstadoGuiaMaster, number>> =
+    dashGM?.conteosPorEstado ?? {};
+  const totalGuias = useMemo(
+    () => Object.values(conteosPorEstado).reduce((total, count) => total + count, 0),
+    [conteosPorEstado]
+  );
 
   // KPIs operativos: agrupamos los 8 estados en 4 etapas del ciclo de vida
   // para que el operario tenga un resumen accionable de un vistazo.
@@ -140,13 +139,13 @@ export function GuiasMasterPage() {
       (c.DESPACHO_INCOMPLETO ?? 0) +
       (c.CANCELADA ?? 0);
     return {
-      total: guiasTodas.length,
+      total: totalGuias,
       enEspera,
       enRecepcion,
       enDespacho,
       cerradas,
     };
-  }, [conteosPorEstado, guiasTodas.length]);
+  }, [conteosPorEstado, totalGuias]);
 
   // Búsqueda y filtros se aplican en servidor; usamos el resultado tal cual.
   const filtered = guias;
@@ -173,7 +172,7 @@ export function GuiasMasterPage() {
         }
       />
 
-      {guiasTodas.length > 0 && (
+      {totalGuias > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard
             icon={<Boxes className="h-5 w-5" />}
@@ -205,7 +204,7 @@ export function GuiasMasterPage() {
         </div>
       )}
 
-      {guiasTodas.length > 0 && (
+      {totalGuias > 0 && (
         <FiltrosBar
           hayFiltrosActivos={estadosFiltro.size > 0}
           onLimpiar={() => {
@@ -216,7 +215,7 @@ export function GuiasMasterPage() {
             <>
               <ChipFiltro
                 label="Todas"
-                count={guiasTodas.length}
+                count={totalGuias}
                 active={estadosFiltro.size === 0}
                 onClick={() => {
                   setEstadosFiltro(new Set());
@@ -270,7 +269,7 @@ export function GuiasMasterPage() {
         />
       ) : !isLoading && filtered.length === 0 ? (
         // Importante: `filtered` viene del endpoint /page que ya aplica `q` y
-        // `estados`. Por eso usamos `guiasTodas` + el estado de los filtros
+        // `estados`. Por eso usamos el total agregado + el estado de los filtros
         // para diferenciar:
         //   - "No hay guías registradas": no existe NINGUNA guía en el sistema
         //     y tampoco hay búsqueda/filtros aplicados.
@@ -278,7 +277,7 @@ export function GuiasMasterPage() {
         //     encuentra coincidencias.
         (() => {
           const tieneFiltros = q.trim() !== '' || estadosFiltro.size > 0;
-          const sinDatos = guiasTodas.length === 0 && !tieneFiltros;
+          const sinDatos = totalGuias === 0 && !tieneFiltros;
           return (
             <EmptyState
               icon={Boxes}
@@ -935,4 +934,3 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
     </Dialog>
   );
 }
-

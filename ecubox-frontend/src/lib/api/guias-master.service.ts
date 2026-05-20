@@ -109,8 +109,12 @@ export async function confirmarDespachoParcialGuiaMaster(
   return data;
 }
 
-export async function obtenerDashboardGuiasMaster(): Promise<GuiaMasterDashboard> {
-  const { data } = await apiClient.get<GuiaMasterDashboard>(`${BASE}/dashboard`);
+export async function obtenerDashboardGuiasMaster(
+  topAntiguas = 10
+): Promise<GuiaMasterDashboard> {
+  const { data } = await apiClient.get<GuiaMasterDashboard>(`${BASE}/dashboard`, {
+    params: { topAntiguas },
+  });
   return data;
 }
 
