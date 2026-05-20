@@ -41,6 +41,15 @@ function showThrottledToast(kind: 'network' | 'server', message: string) {
   toast.error(message);
 }
 
+function isCanceledRequest(error: AxiosError): boolean {
+  return (
+    axios.isCancel(error) ||
+    error.code === 'ERR_CANCELED' ||
+    error.name === 'CanceledError' ||
+    error.name === 'AbortError'
+  );
+}
+
 /**
  * Detecta si un error es transitorio: red caída, timeout o 5xx.
  * Útil para que la UI mantenga los datos previos en lugar de borrarlos.
@@ -48,6 +57,7 @@ function showThrottledToast(kind: 'network' | 'server', message: string) {
 export function isTransientError(error: unknown): boolean {
   const err = error as AxiosError | undefined;
   if (!err) return false;
+  if (isCanceledRequest(err)) return false;
   if (err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
     return true;
   }
@@ -58,6 +68,10 @@ export function isTransientError(error: unknown): boolean {
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
+    if (isCanceledRequest(error)) {
+      return Promise.reject(error);
+    }
+
     const status = error.response?.status;
 
     if (status === 401) {
