@@ -70,10 +70,10 @@ export function ServicesGrid() {
     <section
       id="servicios"
       aria-labelledby="servicios-heading"
-      className="content-container-wide mobile-safe-inline section-spacing"
+      className="content-container-wide mobile-safe-inline landing-services"
     >
-      <div className="mx-auto mb-10 max-w-2xl text-center md:mb-12">
-        <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] px-3 py-1 text-xs font-medium uppercase tracking-wider landing-text-muted">
+      <div className="mx-auto mb-8 max-w-2xl text-center md:mb-10">
+        <p className="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] px-3 py-1 text-xs font-medium uppercase landing-text-muted">
           <Sparkles className="h-3 w-3 text-[var(--color-primary)]" aria-hidden />
           Nuestros servicios
         </p>
@@ -85,13 +85,13 @@ export function ServicesGrid() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 xl:gap-7">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
         {FEATURES.map((feature) => {
           const Icon = feature.icon;
           return (
             <article
               key={feature.title}
-              className="landing-card group relative flex flex-col overflow-hidden p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--color-primary)]/40 hover:shadow-lg sm:p-6 lg:p-7"
+              className="landing-card group relative flex min-h-[320px] flex-col overflow-hidden p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--color-primary)]/40 hover:shadow-lg sm:p-6 lg:p-7"
             >
               <div
                 aria-hidden
@@ -120,7 +120,7 @@ export function ServicesGrid() {
                 {feature.bullets.map(({ icon: BulletIcon, text }) => (
                   <li
                     key={text}
-                    className="inline-flex items-start gap-2 text-sm landing-text"
+                    className="flex items-start gap-2 text-sm landing-text"
                   >
                     <BulletIcon
                       className="mt-0.5 h-4 w-4 flex-shrink-0 text-[var(--color-primary)]"
@@ -134,7 +134,7 @@ export function ServicesGrid() {
 
               <Link
                 to={feature.href}
-                className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-primary)] transition group-hover:gap-2.5"
+                className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-[var(--color-primary)] transition group-hover:gap-2.5"
               >
                 {feature.ctaLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
