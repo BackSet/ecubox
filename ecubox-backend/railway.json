@@ -4,6 +4,7 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
+    "multiRegionConfig": null,
     "startCommand": "java -Dspring.profiles.active=prod -jar app.jar",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
