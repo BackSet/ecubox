@@ -1,8 +1,13 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.entity.TrackingProjectorState;
 import com.ecubox.ecubox_backend.projection.TrackingViewProjector;
 import com.ecubox.ecubox_backend.repository.TrackingProjectorStateRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +24,9 @@ import java.util.Map;
  * Healthcheck del proyector de tracking (lag observable por administradores).
  * Expone {@code GET /api/admin/tracking/projector/health}.
  */
+@Tag(name = "Sistema", description = "Monitoreo del proyector de tracking")
+@OpenApiConstants.StandardApiResponses
+@SecurityRequirement(name = OpenApiConstants.BEARER_AUTH)
 @RestController
 @RequestMapping("/api/admin/tracking/projector")
 public class TrackingProjectorHealthController {
@@ -37,6 +45,9 @@ public class TrackingProjectorHealthController {
 
     @GetMapping("/health")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Estado del proyector de tracking", description = "Devuelve salud y lag del proyector de tracking")
+    @ApiResponse(responseCode = "200", description = "Proyector saludable")
+    @ApiResponse(responseCode = "503", description = "Proyector degradado")
     public ResponseEntity<Map<String, Object>> health() {
         long lag = projector.getCurrentLagSeconds();
         boolean healthy = projector.isHealthy(maxLagSeconds);

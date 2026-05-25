@@ -1,8 +1,14 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.dto.ConsignatarioDTO;
 import com.ecubox.ecubox_backend.dto.ConsignatarioRequest;
 import com.ecubox.ecubox_backend.service.ConsignatarioService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,6 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@Tag(name = "Operario", description = "Gestión operativa de consignatarios")
+@OpenApiConstants.StandardApiResponses
+@SecurityRequirement(name = OpenApiConstants.BEARER_AUTH)
 @RestController
 @RequestMapping("/api/operario/consignatarios")
 public class OperarioConsignatarioController {
@@ -29,28 +38,36 @@ public class OperarioConsignatarioController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('CONSIGNATARIOS_OPERARIO')")
+    @Operation(summary = "Listar consignatarios", description = "Obtiene consignatarios para gestión operativa")
+    @ApiResponse(responseCode = "200", description = "Listado de consignatarios")
     public ResponseEntity<List<ConsignatarioDTO>> findAll(
-            @RequestParam(required = false) String search) {
+            @Parameter(description = "Texto de búsqueda por nombre, código o documento") @RequestParam(required = false) String search) {
         return ResponseEntity.ok(consignatarioService.findAllForOperario(search));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('CONSIGNATARIOS_OPERARIO')")
-    public ResponseEntity<ConsignatarioDTO> findById(@PathVariable Long id) {
+    @Operation(summary = "Obtener consignatario por ID", description = "Consulta el detalle de un consignatario para operación")
+    @ApiResponse(responseCode = "200", description = "Consignatario encontrado")
+    public ResponseEntity<ConsignatarioDTO> findById(@Parameter(description = "ID del consignatario") @PathVariable Long id) {
         return ResponseEntity.ok(consignatarioService.findById(id));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('CONSIGNATARIOS_OPERARIO')")
+    @Operation(summary = "Actualizar consignatario", description = "Actualiza la información de un consignatario en flujo operativo")
+    @ApiResponse(responseCode = "200", description = "Consignatario actualizado")
     public ResponseEntity<ConsignatarioDTO> update(
-            @PathVariable Long id,
+            @Parameter(description = "ID del consignatario") @PathVariable Long id,
             @Valid @RequestBody ConsignatarioRequest request) {
         return ResponseEntity.ok(consignatarioService.updateByOperario(id, request));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('CONSIGNATARIOS_OPERARIO')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    @Operation(summary = "Eliminar consignatario", description = "Elimina un consignatario desde el módulo operativo")
+    @ApiResponse(responseCode = "204", description = "Consignatario eliminado")
+    public ResponseEntity<Void> delete(@Parameter(description = "ID del consignatario") @PathVariable Long id) {
         consignatarioService.deleteByOperario(id);
         return ResponseEntity.noContent().build();
     }

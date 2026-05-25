@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -7,12 +8,14 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+@Schema(description = "Información de tracking de una pieza")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class TrackingResponse {
 
+    @Schema(description = "Número de guía de la pieza", example = "ECU-123456")
     private String numeroGuia;
     private Long estadoRastreoId;
     private String estadoRastreoNombre;

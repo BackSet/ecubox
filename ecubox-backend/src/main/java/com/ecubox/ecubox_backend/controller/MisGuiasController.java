@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.dto.GuiaMasterDTO;
 import com.ecubox.ecubox_backend.dto.MiGuiaCreateRequest;
 import com.ecubox.ecubox_backend.dto.MiGuiaUpdateRequest;
@@ -10,6 +11,11 @@ import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.GuiaMasterService;
 import com.ecubox.ecubox_backend.service.PaqueteService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +28,9 @@ import java.util.List;
  * Endpoints para que el cliente final registre y consulte sus propias guías
  * (subset de la entidad {@code GuiaMaster}). El cliente solo ve las suyas.
  */
+@Tag(name = "Cliente", description = "Gestión de guías propias del cliente")
+@OpenApiConstants.StandardApiResponses
+@SecurityRequirement(name = OpenApiConstants.BEARER_AUTH)
 @RestController
 @RequestMapping("/api/mis-guias")
 public class MisGuiasController {
@@ -40,6 +49,8 @@ public class MisGuiasController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('MIS_GUIAS_CREATE')")
+    @Operation(summary = "Registrar guía", description = "Registra una nueva guía para el cliente autenticado")
+    @ApiResponse(responseCode = "201", description = "Guía registrada")
     public ResponseEntity<GuiaMasterDTO> registrar(@Valid @RequestBody MiGuiaCreateRequest request) {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         GuiaMaster gm = guiaMasterService.createForCliente(
@@ -51,6 +62,8 @@ public class MisGuiasController {
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasAuthority('MIS_GUIAS_READ')")
+    @Operation(summary = "Dashboard de mis guías", description = "Obtiene métricas y resumen de las guías del cliente")
+    @ApiResponse(responseCode = "200", description = "Resumen de guías")
     public ResponseEntity<MiInicioDashboardDTO> dashboard() {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         return ResponseEntity.ok(guiaMasterService.dashboardForCliente(clienteId));
@@ -58,6 +71,8 @@ public class MisGuiasController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('MIS_GUIAS_READ')")
+    @Operation(summary = "Listar mis guías", description = "Devuelve la lista de guías asociadas al cliente autenticado")
+    @ApiResponse(responseCode = "200", description = "Listado de guías")
     public ResponseEntity<List<GuiaMasterDTO>> listar() {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         List<GuiaMasterDTO> guias = guiaMasterService.findAllByCliente(clienteId).stream()
@@ -68,7 +83,9 @@ public class MisGuiasController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('MIS_GUIAS_READ')")
-    public ResponseEntity<GuiaMasterDTO> detalle(@PathVariable Long id) {
+    @Operation(summary = "Detalle de mi guía", description = "Obtiene el detalle de una guía del cliente")
+    @ApiResponse(responseCode = "200", description = "Detalle de guía")
+    public ResponseEntity<GuiaMasterDTO> detalle(@Parameter(description = "ID de la guía") @PathVariable Long id) {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         GuiaMaster gm = guiaMasterService.findByIdForCliente(id, clienteId);
         List<PaqueteDTO> piezasDTO = guiaMasterService.listarPiezas(gm.getId()).stream()
@@ -79,7 +96,9 @@ public class MisGuiasController {
 
     @GetMapping("/{id}/piezas")
     @PreAuthorize("hasAuthority('MIS_GUIAS_READ')")
-    public ResponseEntity<List<PaqueteDTO>> listarPiezas(@PathVariable Long id) {
+    @Operation(summary = "Listar piezas de guía", description = "Lista los paquetes asociados a una guía del cliente")
+    @ApiResponse(responseCode = "200", description = "Listado de piezas")
+    public ResponseEntity<List<PaqueteDTO>> listarPiezas(@Parameter(description = "ID de la guía") @PathVariable Long id) {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         guiaMasterService.findByIdForCliente(id, clienteId);
         List<Paquete> piezas = guiaMasterService.listarPiezas(id);
@@ -88,8 +107,10 @@ public class MisGuiasController {
 
     @PutMapping("/{id}/destinatario")
     @PreAuthorize("hasAuthority('MIS_GUIAS_CREATE')")
+    @Operation(summary = "Actualizar destinatario de guía", description = "Cambia el consignatario destino de una guía del cliente")
+    @ApiResponse(responseCode = "200", description = "Guía actualizada")
     public ResponseEntity<GuiaMasterDTO> actualizarDestinatario(
-            @PathVariable Long id,
+            @Parameter(description = "ID de la guía") @PathVariable Long id,
             @Valid @RequestBody MiGuiaUpdateRequest request) {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         GuiaMaster gm = guiaMasterService.updateDestinatarioForCliente(
@@ -103,8 +124,10 @@ public class MisGuiasController {
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('MIS_GUIAS_CREATE')")
+    @Operation(summary = "Actualizar guía completa", description = "Actualiza tracking y destinatario de una guía en estado incompleta")
+    @ApiResponse(responseCode = "200", description = "Guía actualizada")
     public ResponseEntity<GuiaMasterDTO> actualizar(
-            @PathVariable Long id,
+            @Parameter(description = "ID de la guía") @PathVariable Long id,
             @Valid @RequestBody MiGuiaUpdateRequest request) {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         GuiaMaster gm = guiaMasterService.updateForCliente(
@@ -114,7 +137,9 @@ public class MisGuiasController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('MIS_GUIAS_CREATE')")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+    @Operation(summary = "Eliminar guía", description = "Elimina una guía del cliente por su identificador")
+    @ApiResponse(responseCode = "204", description = "Guía eliminada")
+    public ResponseEntity<Void> eliminar(@Parameter(description = "ID de la guía") @PathVariable Long id) {
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         guiaMasterService.deleteForCliente(id, clienteId);
         return ResponseEntity.noContent().build();

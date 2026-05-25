@@ -1,5 +1,7 @@
 # ECUBOX — Referencia de la API
 
+> **Documentación interactiva (recomendada):** con el backend en perfil `dev`, abre [Scalar UI](http://localhost:8080/scalar) o el spec OpenAPI en `http://localhost:8080/v3/api-docs`. Esta referencia en Markdown es complementaria y puede quedar desactualizada respecto al spec generado desde el código.
+
 Documentación completa de los endpoints del backend ECUBOX (99 endpoints en 23 controllers).
 
 ---
@@ -11,7 +13,8 @@ Documentación completa de los endpoints del backend ECUBOX (99 endpoints en 23 
 | **Base URL** | `http://localhost:8080` (dev) |
 | **Formato** | JSON (`Content-Type: application/json`) |
 | **Autenticación** | JWT Bearer — header `Authorization: Bearer <token>` |
-| **Swagger UI** | `http://localhost:8080/swagger-ui.html` (solo perfil dev) |
+| **Swagger UI** | *(reemplazado por Scalar)* |
+| **Scalar UI** | `http://localhost:8080/scalar` (solo perfil dev) |
 | **OpenAPI spec** | `http://localhost:8080/v3/api-docs` |
 
 ### Estructura de errores

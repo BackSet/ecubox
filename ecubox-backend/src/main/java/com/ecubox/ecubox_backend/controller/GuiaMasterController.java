@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.dto.GuiaMasterCancelarRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterCerrarConFaltanteRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterConfirmarDespachoParcialRequest;
@@ -20,6 +21,11 @@ import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.GuiaMasterService;
 import com.ecubox.ecubox_backend.service.PaqueteService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +37,9 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
+@Tag(name = "Administración", description = "Gestión administrativa de guías master")
+@OpenApiConstants.StandardApiResponses
+@SecurityRequirement(name = OpenApiConstants.BEARER_AUTH)
 @RestController
 @RequestMapping("/api/guias-master")
 public class GuiaMasterController {
@@ -49,6 +58,8 @@ public class GuiaMasterController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('GUIAS_MASTER_CREATE')")
+    @Operation(summary = "Crear guía master", description = "Registra una nueva guía master con su tracking base")
+    @ApiResponse(responseCode = "201", description = "Guía master creada")
     public ResponseEntity<GuiaMasterDTO> create(@Valid @RequestBody GuiaMasterCreateRequest request) {
         GuiaMaster gm = guiaMasterService.create(
                 request.getTrackingBase(),
@@ -59,6 +70,8 @@ public class GuiaMasterController {
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    @Operation(summary = "Actualizar guía master", description = "Actualiza la información editable de una guía master")
+    @ApiResponse(responseCode = "200", description = "Guía master actualizada")
     public ResponseEntity<GuiaMasterDTO> update(@PathVariable Long id,
                                                 @Valid @RequestBody GuiaMasterUpdateRequest request) {
         GuiaMaster gm = guiaMasterService.update(id, request);
@@ -67,7 +80,9 @@ public class GuiaMasterController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_DELETE')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    @Operation(summary = "Eliminar guía master", description = "Elimina una guía master por su identificador")
+    @ApiResponse(responseCode = "204", description = "Guía master eliminada")
+    public ResponseEntity<Void> delete(@Parameter(description = "ID de la guía master") @PathVariable Long id) {
         guiaMasterService.delete(id);
         return ResponseEntity.noContent().build();
     }
@@ -82,6 +97,8 @@ public class GuiaMasterController {
      */
     @GetMapping
     @PreAuthorize("hasAuthority('GUIAS_MASTER_READ')")
+    @Operation(summary = "Listar guías master", description = "Consulta guías master por tracking exacto o por estados")
+    @ApiResponse(responseCode = "200", description = "Listado de guías master")
     public ResponseEntity<List<GuiaMasterDTO>> findAll(@RequestParam(required = false) String trackingBase,
                                                        @RequestParam(name = "estado", required = false) List<String> estados) {
         if (trackingBase != null && !trackingBase.isBlank()) {
@@ -107,6 +124,8 @@ public class GuiaMasterController {
      */
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_READ')")
+    @Operation(summary = "Listar guías master paginadas", description = "Consulta guías master con búsqueda libre, estados y paginación")
+    @ApiResponse(responseCode = "200", description = "Página de guías master")
     public ResponseEntity<PageResponse<GuiaMasterDTO>> findAllPage(
             @RequestParam(required = false) String q,
             @RequestParam(name = "estado", required = false) List<String> estados,
@@ -119,20 +138,26 @@ public class GuiaMasterController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_READ')")
-    public ResponseEntity<GuiaMasterDTO> findById(@PathVariable Long id) {
+    @Operation(summary = "Obtener guía master por ID", description = "Devuelve el detalle de una guía master")
+    @ApiResponse(responseCode = "200", description = "Guía master encontrada")
+    public ResponseEntity<GuiaMasterDTO> findById(@Parameter(description = "ID de la guía master") @PathVariable Long id) {
         GuiaMaster gm = guiaMasterService.findById(id);
         return ResponseEntity.ok(construirDTO(gm, true));
     }
 
     @GetMapping("/{id}/piezas")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_READ')")
-    public ResponseEntity<List<PaqueteDTO>> listarPiezas(@PathVariable Long id) {
+    @Operation(summary = "Listar piezas de guía master", description = "Obtiene las piezas asociadas a una guía master")
+    @ApiResponse(responseCode = "200", description = "Listado de piezas")
+    public ResponseEntity<List<PaqueteDTO>> listarPiezas(@Parameter(description = "ID de la guía master") @PathVariable Long id) {
         List<Paquete> piezas = guiaMasterService.listarPiezas(id);
         return ResponseEntity.ok(piezas.stream().map(paqueteService::toDTO).toList());
     }
 
     @PostMapping("/{id}/cerrar-con-faltante")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    @Operation(summary = "Cerrar guía con faltante", description = "Cierra la guía master registrando faltantes")
+    @ApiResponse(responseCode = "200", description = "Guía master cerrada")
     public ResponseEntity<GuiaMasterDTO> cerrarConFaltante(@PathVariable Long id,
                                                            @RequestBody(required = false) GuiaMasterCerrarConFaltanteRequest request) {
         String motivo = request != null ? request.getMotivo() : null;
@@ -143,6 +168,8 @@ public class GuiaMasterController {
 
     @PostMapping("/{id}/cancelar")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    @Operation(summary = "Cancelar guía master", description = "Cancela una guía master indicando motivo")
+    @ApiResponse(responseCode = "200", description = "Guía master cancelada")
     public ResponseEntity<GuiaMasterDTO> cancelar(@PathVariable Long id,
                                                   @Valid @RequestBody GuiaMasterCancelarRequest request) {
         Long actorId = actorIdSafe();
@@ -152,6 +179,8 @@ public class GuiaMasterController {
 
     @PostMapping("/{id}/marcar-en-revision")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    @Operation(summary = "Marcar guía en revisión", description = "Cambia el estado de la guía master a revisión")
+    @ApiResponse(responseCode = "200", description = "Guía master actualizada")
     public ResponseEntity<GuiaMasterDTO> marcarEnRevision(@PathVariable Long id,
                                                           @RequestBody(required = false) GuiaMasterRevisionRequest request) {
         String motivo = request != null ? request.getMotivo() : null;
@@ -162,6 +191,8 @@ public class GuiaMasterController {
 
     @PostMapping("/{id}/salir-de-revision")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    @Operation(summary = "Salir de revisión", description = "Retira una guía master del estado en revisión")
+    @ApiResponse(responseCode = "200", description = "Guía master actualizada")
     public ResponseEntity<GuiaMasterDTO> salirDeRevision(@PathVariable Long id,
                                                          @RequestBody(required = false) GuiaMasterRevisionRequest request) {
         String motivo = request != null ? request.getMotivo() : null;
@@ -172,6 +203,8 @@ public class GuiaMasterController {
 
     @PostMapping("/{id}/reabrir")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    @Operation(summary = "Reabrir guía master", description = "Reabre una guía master cerrada o cancelada")
+    @ApiResponse(responseCode = "200", description = "Guía master reabierta")
     public ResponseEntity<GuiaMasterDTO> reabrir(@PathVariable Long id,
                                                  @Valid @RequestBody GuiaMasterReabrirRequest request) {
         Long actorId = actorIdSafe();
@@ -181,7 +214,9 @@ public class GuiaMasterController {
 
     @GetMapping("/{id}/historial")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_READ')")
-    public ResponseEntity<List<GuiaMasterEstadoHistorialDTO>> historial(@PathVariable Long id) {
+    @Operation(summary = "Consultar historial de guía", description = "Obtiene el historial de cambios de estado de una guía master")
+    @ApiResponse(responseCode = "200", description = "Historial de estados")
+    public ResponseEntity<List<GuiaMasterEstadoHistorialDTO>> historial(@Parameter(description = "ID de la guía master") @PathVariable Long id) {
         return ResponseEntity.ok(guiaMasterService.listarHistorialDTO(id));
     }
 
@@ -192,7 +227,9 @@ public class GuiaMasterController {
      */
     @PostMapping("/{id}/recalcular")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
-    public ResponseEntity<GuiaMasterDTO> recalcular(@PathVariable Long id) {
+    @Operation(summary = "Recalcular estado de guía", description = "Recalcula y persiste el estado derivado de una guía master")
+    @ApiResponse(responseCode = "200", description = "Guía master recalculada")
+    public ResponseEntity<GuiaMasterDTO> recalcular(@Parameter(description = "ID de la guía master") @PathVariable Long id) {
         guiaMasterService.recomputarEstado(id);
         GuiaMaster gm = guiaMasterService.findById(id);
         return ResponseEntity.ok(construirDTO(gm, true));
@@ -200,8 +237,10 @@ public class GuiaMasterController {
 
     @PostMapping("/{id}/confirmar-despacho-parcial")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    @Operation(summary = "Confirmar despacho parcial", description = "Confirma despacho parcial de una guía master")
+    @ApiResponse(responseCode = "200", description = "Guía master actualizada")
     public ResponseEntity<GuiaMasterDTO> confirmarDespachoParcial(
-            @PathVariable Long id,
+            @Parameter(description = "ID de la guía master") @PathVariable Long id,
             @RequestBody(required = false) GuiaMasterConfirmarDespachoParcialRequest request) {
         Long actorId = currentUserService.getCurrentUsuario().getId();
         Long piezaId = request != null ? request.getPiezaId() : null;
@@ -212,6 +251,8 @@ public class GuiaMasterController {
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_READ')")
+    @Operation(summary = "Obtener dashboard de guías", description = "Devuelve métricas y panel resumido de guías master")
+    @ApiResponse(responseCode = "200", description = "Dashboard de guías")
     public ResponseEntity<GuiaMasterDashboardDTO> dashboard(
             @RequestParam(defaultValue = "10") int topAntiguas) {
         return ResponseEntity.ok(guiaMasterService.buildDashboard(topAntiguas));

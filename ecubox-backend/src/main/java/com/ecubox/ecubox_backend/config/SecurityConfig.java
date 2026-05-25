@@ -62,7 +62,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/tracking").permitAll()
                         .requestMatchers("/api/config/tarifa-calculadora").permitAll()
                         .requestMatchers("/api/config/canales-comunicacion").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/scalar/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(e -> e

@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.dto;
 
 import com.ecubox.ecubox_backend.enums.EstadoGuiaMaster;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,12 +15,15 @@ import java.util.List;
  * el {@code tracking_base} de una guia master. Provee resumen agregado y
  * la lista de piezas para drill-down.
  */
+@Schema(description = "Información de tracking de una guía master consolidada")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class TrackingMasterResponse {
+    @Schema(description = "Código base de tracking de la guía master", example = "GM-2024-001")
     private String trackingBase;
+    @Schema(description = "Estado global agregado de la guía")
     private EstadoGuiaMaster estadoGlobal;
     private Integer totalPiezasEsperadas;
     private Integer piezasRegistradas;

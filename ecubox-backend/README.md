@@ -45,7 +45,7 @@ com.ecubox.ecubox_backend/
 ├── entity/        # Entidades JPA
 │   └── enums/     # Enums de dominio
 ├── dto/           # Request/Response DTOs
-├── config/        # Security, CORS, JWT filter, Swagger
+├── config/        # Security, CORS, JWT filter, OpenAPI/Scalar
 ├── security/      # UserDetailsService
 ├── exception/     # GlobalExceptionHandler
 └── util/          # Constantes y helpers
@@ -55,13 +55,23 @@ com.ecubox.ecubox_backend/
 
 Las migraciones SQL viven en `src/main/resources/db/migration/`. Se ejecutan automáticamente al arrancar. Convención de nombres: `V{N}__{descripcion}.sql`.
 
-## API Docs (Swagger)
+## API Docs (Scalar + OpenAPI)
 
-En perfil `dev`, Swagger UI está disponible en:
-- UI: `http://localhost:8080/swagger-ui.html`
-- JSON: `http://localhost:8080/v3/api-docs`
+En perfil `dev`, la documentación interactiva está disponible en:
 
-En perfil `prod`, Swagger está desactivado.
+- **Scalar UI:** `http://localhost:8080/scalar`
+- **OpenAPI JSON:** `http://localhost:8080/v3/api-docs`
+- **Grupos:** `/v3/api-docs/public`, `/v3/api-docs/auth`, `/v3/api-docs/cliente`, `/v3/api-docs/operario`, `/v3/api-docs/admin`
+
+Autenticación en Scalar: pulsa **Authorize** e ingresa `Bearer <token>` obtenido de `POST /api/auth/login`.
+
+En perfil `prod`, Scalar y OpenAPI están desactivados.
+
+Para exportar el spec a `docs/openapi/openapi.json` con el servidor en marcha:
+
+```powershell
+.\scripts\export-openapi.ps1
+```
 
 ## Documentación detallada
 

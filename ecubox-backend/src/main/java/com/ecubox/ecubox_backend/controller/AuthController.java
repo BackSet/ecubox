@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.dto.LoginRequest;
 import com.ecubox.ecubox_backend.dto.LoginResponse;
 import com.ecubox.ecubox_backend.dto.ClienteRegisterSimpleRequest;
@@ -12,6 +13,11 @@ import com.ecubox.ecubox_backend.repository.PermisoRepository;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.JwtService;
 import com.ecubox.ecubox_backend.service.UsuarioService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,8 +34,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Tag(name = "Autenticación", description = "Login, registro y perfil de sesión")
 @RestController
 @RequestMapping("/api/auth")
+@OpenApiConstants.AuthApiResponses
 public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -52,6 +60,9 @@ public class AuthController {
         this.permisoRepository = permisoRepository;
     }
 
+    @Operation(summary = "Iniciar sesión", description = "Autentica con usuario/correo y contraseña. Devuelve JWT y permisos.")
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Login exitoso con token JWT")
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
@@ -88,12 +99,18 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Perfil actual", description = "Devuelve datos del usuario autenticado")
+    @SecurityRequirement(name = OpenApiConstants.BEARER_AUTH)
+    @ApiResponse(responseCode = "200", description = "Perfil del usuario")
     @GetMapping("/me")
     public ResponseEntity<LoginResponse> me() {
         Usuario usuario = currentUserService.getCurrentUsuario();
         return ResponseEntity.ok(buildMeResponse(usuario));
     }
 
+    @Operation(summary = "Actualizar perfil", description = "Actualiza datos del usuario autenticado")
+    @SecurityRequirement(name = OpenApiConstants.BEARER_AUTH)
+    @ApiResponse(responseCode = "200", description = "Perfil actualizado")
     @PutMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<LoginResponse> updateMe(@Valid @RequestBody MeUpdateRequest request) {
@@ -104,6 +121,9 @@ public class AuthController {
         return ResponseEntity.ok(buildMeResponse(refreshed));
     }
 
+    @Operation(summary = "Registro simple", description = "Crea cuenta de cliente con correo y contraseña")
+    @SecurityRequirements
+    @ApiResponse(responseCode = "201", description = "Cuenta creada")
     @PostMapping("/register/simple")
     public ResponseEntity<Void> registerSimple(@Valid @RequestBody ClienteRegisterSimpleRequest request) {
         usuarioService.registerClienteSimple(request);

@@ -1,9 +1,15 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.config.TrackingEtag;
 import com.ecubox.ecubox_backend.dto.TrackingResolveResponse;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.service.TrackingResolverService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
@@ -33,6 +39,8 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  */
 @RestController
+@Tag(name = "Público", description = "Rastreo público de envíos")
+@OpenApiConstants.StandardApiResponses
 public class TrackingController {
 
     private final TrackingResolverService trackingResolverService;
@@ -52,10 +60,17 @@ public class TrackingController {
      * Acepta {@code codigo} como nombre canonico y {@code numeroGuia} como alias
      * de compatibilidad para clientes existentes.
      */
+    @Operation(
+            summary = "Resolver tracking",
+            description = "Consulta el estado de una pieza o guía master por código. Soporta ETag e If-None-Match (304)."
+    )
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Información de tracking")
+    @ApiResponse(responseCode = "304", description = "Sin cambios desde la última consulta")
     @GetMapping("/api/v1/tracking")
     public ResponseEntity<TrackingResolveResponse> resolve(
-            @RequestParam(name = "codigo", required = false) String codigo,
-            @RequestParam(name = "numeroGuia", required = false) String numeroGuia,
+            @Parameter(description = "Código de pieza o guía master") @RequestParam(name = "codigo", required = false) String codigo,
+            @Parameter(description = "Alias de compatibilidad para codigo") @RequestParam(name = "numeroGuia", required = false) String numeroGuia,
             HttpServletRequest request) {
         String input = firstNonBlank(codigo, numeroGuia);
         if (input == null) {
