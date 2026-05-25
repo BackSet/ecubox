@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -44,34 +44,11 @@ import {
 import { sugerirCodigo } from '@/lib/api/consignatarios.service';
 import { useAuthStore } from '@/stores/authStore';
 import type { ConsignatarioRequest } from '@/types/consignatario';
-import { telefonoSchema } from '@/lib/validation';
+import { consignatarioFormSchema } from '@/lib/schemas/maestros';
 import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
 import { cn } from '@/lib/utils';
 
-const formSchema = z.object({
-  nombre: z
-    .string()
-    .min(1, 'El nombre es obligatorio')
-    .min(3, 'Mínimo 3 caracteres')
-    .max(120, 'Máximo 120 caracteres'),
-  telefono: telefonoSchema,
-  direccion: z
-    .string()
-    .min(1, 'La dirección es obligatoria')
-    .min(5, 'Mínimo 5 caracteres')
-    .max(255, 'Máximo 255 caracteres'),
-  provincia: z.string().min(1, 'La provincia es obligatoria'),
-  canton: z.string().min(1, 'El cantón es obligatorio'),
-  codigo: z
-    .string()
-    .optional()
-    .refine(
-      (v) => !v || v.trim().length === 0 || v.trim().length >= 5,
-      'El código debe tener al menos 5 caracteres',
-    ),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof consignatarioFormSchema>;
 
 interface ConsignatarioFormProps {
   id?: number;
@@ -102,7 +79,7 @@ export function ConsignatarioForm({
   const updateOperarioMutation = useUpdateConsignatarioOperario();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(consignatarioFormSchema),
     mode: 'onTouched',
     defaultValues: {
       nombre: '',

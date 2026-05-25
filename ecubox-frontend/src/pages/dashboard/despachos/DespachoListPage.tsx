@@ -57,7 +57,10 @@ import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
+import { QuickPresetChips } from '@/components/QuickPresetChips';
+import { DESPACHO_ESTADO_PERIOD_PRESETS } from '@/lib/constants/manifiesto-presets';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -475,32 +478,48 @@ export function DespachoListPage() {
         <KpiCardsGridSkeleton count={4} />
       ) : (
         allDespachos.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<Truck className="h-5 w-5" />}
             label="Despachos"
             value={stats.total}
             tone="primary"
+            hint={
+              stats.couriersEntrega > 0
+                ? `${stats.couriersEntrega} courier${stats.couriersEntrega === 1 ? '' : 's'} distintos`
+                : 'Registrados en el sistema'
+            }
           />
           <KpiCard
             icon={<CalendarClock className="h-5 w-5" />}
             label="Despachos hoy"
             value={stats.hoy}
             tone={stats.hoy > 0 ? 'warning' : 'neutral'}
+            hint={
+              stats.hoy > 0
+                ? `${Math.round((stats.hoy / stats.total) * 100)}% del total`
+                : 'Sin actividad en la fecha actual'
+            }
           />
           <KpiCard
             icon={<Boxes className="h-5 w-5" />}
             label="Sacas asignadas"
             value={stats.sacas}
             tone="success"
+            hint={
+              stats.total > 0
+                ? `~${(stats.sacas / stats.total).toFixed(1)} sacas por despacho`
+                : 'Total de sacas en despachos'
+            }
           />
           <KpiCard
             icon={<Users className="h-5 w-5" />}
             label="Couriers de entrega"
             value={stats.couriersEntrega}
             tone="neutral"
+            hint="Couriers con al menos un despacho"
           />
-        </div>
+        </KpiCardsGrid>
         )
       )}
 
@@ -1188,38 +1207,13 @@ function AplicarEstadoDialog({
                 <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   Atajos
                 </span>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5"
-                    onClick={() => aplicarPreset('hoy')}
-                  >
-                    <CalendarClock className="h-3.5 w-3.5" />
-                    Hoy
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5"
-                    onClick={() => aplicarPreset('7d')}
-                  >
-                    <CalendarClock className="h-3.5 w-3.5" />
-                    Últimos 7 días
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5"
-                    onClick={() => aplicarPreset('mes')}
-                  >
-                    <CalendarClock className="h-3.5 w-3.5" />
-                    Este mes
-                  </Button>
-                </div>
+                <QuickPresetChips
+                  options={DESPACHO_ESTADO_PERIOD_PRESETS.map((p) => ({
+                    label: p.label,
+                    value: p.id,
+                  }))}
+                  onSelect={(id) => aplicarPreset(id)}
+                />
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">

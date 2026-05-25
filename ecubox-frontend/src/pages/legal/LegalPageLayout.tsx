@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { Button } from '@/components/ui/button';
+import { PublicPageHero } from '@/components/public/PublicPageHero';
 
 type LegalPageLayoutProps = {
   title: string;
@@ -18,12 +19,12 @@ export function LegalPageLayout({ title, subtitle, children }: LegalPageLayoutPr
       <SiteHeader variant="tool" />
 
       <main className="relative z-10 mobile-safe-inline flex-1 py-6 sm:py-10">
-        <div className="content-container-wide w-full max-w-3xl">
+        <div className="content-container-wide w-full max-w-3xl space-y-6">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="-ml-2 mb-6 gap-1.5 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+            className="-ml-2 gap-1.5 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
             asChild
           >
             <Link to="/">
@@ -32,21 +33,16 @@ export function LegalPageLayout({ title, subtitle, children }: LegalPageLayoutPr
             </Link>
           </Button>
 
-          <header className="border-b border-[var(--color-landing-border)] pb-6">
-            <h1 className="responsive-title font-bold tracking-tight landing-text">
-              {title}
-            </h1>
-            {subtitle ? (
-              <p className="mt-2 text-sm leading-relaxed landing-text-muted sm:text-base">
-                {subtitle}
-              </p>
-            ) : null}
-            <p className="mt-3 text-xs landing-text-muted">
-              Última actualización: 23 de abril de 2026
-            </p>
-          </header>
+          <PublicPageHero
+            title={title}
+            description={subtitle ?? 'Documento legal de ECUBOX.'}
+          />
 
-          <article className="py-8 text-sm leading-relaxed sm:text-[15px]">{children}</article>
+          <p className="border-b border-[var(--color-landing-border)] pb-6 text-xs landing-text-muted">
+            Última actualización: 23 de abril de 2026
+          </p>
+
+          <article className="pb-4 text-sm leading-relaxed sm:text-[15px]">{children}</article>
         </div>
       </main>
 

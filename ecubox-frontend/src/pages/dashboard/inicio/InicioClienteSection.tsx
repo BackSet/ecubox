@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { useMiInicioDashboard } from '@/hooks/useMisGuias';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Button } from '@/components/ui/button';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
@@ -52,14 +53,14 @@ export function InicioClienteSection() {
           <Skeleton className="h-5 w-48" />
           <Skeleton className="h-3 w-64" />
         </header>
-        <KpiCardsGridSkeleton count={4} gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" />
+        <KpiCardsGridSkeleton count={4} />
         <div className="grid gap-4 lg:grid-cols-2">
           <SurfaceCard className="p-4">
-            <Skeleton className="mb-3 h-4 w-40" />
+            <Skeleton className="mb-3 h-5 w-50" />
             <ListItemsSkeleton rows={4} withTrailing />
           </SurfaceCard>
           <SurfaceCard className="p-4">
-            <Skeleton className="mb-3 h-4 w-40" />
+            <Skeleton className="mb-3 h-5 w-50" />
             <ListItemsSkeleton rows={4} withTrailing />
           </SurfaceCard>
         </div>
@@ -93,7 +94,7 @@ export function InicioClienteSection() {
         </div>
         {hasMisGuiasCreate && (
           <Button onClick={() => setRegistrarOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" strokeWidth={1.75} />
+            <Plus className="mr-2 h-5 w-5" strokeWidth={1.75} />
             Registrar guía
           </Button>
         )}
@@ -101,7 +102,7 @@ export function InicioClienteSection() {
 
       {data.totalGuiasSinTotalDefinido > 0 && (
         <div className="ui-alert ui-alert-warning">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={1.75} />
           <div className="min-w-0 flex-1">
             <p className="text-[13px] font-medium text-[var(--color-foreground)]">
               {data.totalGuiasSinTotalDefinido === 1
@@ -115,9 +116,9 @@ export function InicioClienteSection() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiCardsGrid>
         <KpiCard
-          icon={<Boxes className="h-4 w-4" strokeWidth={1.75} />}
+          icon={<Boxes className="h-5 w-5" strokeWidth={1.75} />}
           label="Total de guías"
           value={data.totalGuias}
           tone="primary"
@@ -125,39 +126,40 @@ export function InicioClienteSection() {
           hint="Toca para ver el detalle"
         />
         <KpiCard
-          icon={<Truck className="h-4 w-4" strokeWidth={1.75} />}
+          icon={<Truck className="h-5 w-5" strokeWidth={1.75} />}
           label="Activas"
           value={data.totalGuiasActivas}
           tone="neutral"
           hint={`${data.piezasEnTransito} pieza(s) en tránsito`}
         />
         <KpiCard
-          icon={<AlertCircle className="h-4 w-4" strokeWidth={1.75} />}
+          icon={<AlertCircle className="h-5 w-5" strokeWidth={1.75} />}
           label="Pendientes de revisar"
           value={data.totalGuiasSinTotalDefinido}
           tone={data.totalGuiasSinTotalDefinido > 0 ? 'warning' : 'neutral'}
           hint="A la espera del operario"
         />
         <KpiCard
-          icon={<Users className="h-4 w-4" strokeWidth={1.75} />}
+          icon={<Users className="h-5 w-5" strokeWidth={1.75} />}
           label="Consignatarios"
           value={data.totalConsignatarios}
           tone="neutral"
+          hint={`Destinatarios en ${data.totalGuias} guía(s)`}
           to="/consignatarios"
         />
-      </div>
+      </KpiCardsGrid>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ListaGuiasCard
           title="Tus guías recientes"
-          icon={<Boxes className="h-4 w-4" strokeWidth={1.75} />}
+          icon={<Boxes className="h-5 w-5" strokeWidth={1.75} />}
           emptyText="Aún no hay guías recientes."
           guias={data.guiasRecientes}
           showFecha="created"
         />
         <ListaGuiasCard
           title="Próximas a despacharse"
-          icon={<Plane className="h-4 w-4" strokeWidth={1.75} />}
+          icon={<Plane className="h-5 w-5" strokeWidth={1.75} />}
           emptyText="Cuando una guía empiece a recibirse aparecerá aquí."
           guias={data.guiasProximasACerrar}
           showFecha="recepcion"
@@ -167,7 +169,7 @@ export function InicioClienteSection() {
       <SurfaceCard className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <PackageSearch className="h-4 w-4 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
+            <PackageSearch className="h-5 w-5 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
             <p className="text-[13px] text-[var(--color-foreground)]">
               ¿Quieres rastrear una pieza específica?
             </p>

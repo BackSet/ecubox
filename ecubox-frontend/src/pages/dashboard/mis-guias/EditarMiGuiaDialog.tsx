@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { useConsignatarios } from '@/hooks/useConsignatarios';
 import { useActualizarMiGuia } from '@/hooks/useMisGuias';
+import { miGuiaSchema } from '@/lib/schemas';
 import type { GuiaMaster } from '@/types/guia-master';
 
 interface Props {
@@ -33,6 +34,7 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
     guia.consignatarioId ?? undefined,
   );
   const { data: consignatarios = [], isLoading: loadingDest } = useConsignatarios();
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const actualizar = useActualizarMiGuia();
 
   useEffect(() => {
@@ -45,22 +47,34 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
   function handleConsignatarioChange(value: string | number | undefined) {
     const did = typeof value === 'string' ? Number(value) : value;
     setConsignatarioId(did);
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.consignatarioId;
+      return next;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const tbTrim = trackingBase.trim();
-    if (!tbTrim) {
-      toast.error('Indica el número de guía');
+    const parsed = miGuiaSchema.safeParse({
+      trackingBase: trackingBase.trim(),
+      consignatarioId,
+    });
+    if (!parsed.success) {
+      const errs: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? '_form');
+        if (!errs[key]) errs[key] = issue.message;
+      }
+      setFieldErrors(errs);
+      toast.error(Object.values(errs)[0] ?? 'Revisa los datos');
       return;
     }
-    if (consignatarioId == null) {
-      toast.error('Selecciona un consignatario');
-      return;
-    }
+    setFieldErrors({});
+    const tbTrim = parsed.data.trackingBase;
 
     const tbCambio = tbTrim.toLowerCase() !== guia.trackingBase.toLowerCase();
-    const destCambio = consignatarioId !== guia.consignatarioId;
+    const destCambio = parsed.data.consignatarioId !== guia.consignatarioId;
     if (!tbCambio && !destCambio) {
       onClose();
       return;
@@ -71,7 +85,7 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
         id: guia.id,
         body: {
           ...(tbCambio ? { trackingBase: tbTrim } : {}),
-          consignatarioId: consignatarioId,
+          consignatarioId: parsed.data.consignatarioId,
         },
       });
       toast.success('Guía actualizada');
@@ -103,10 +117,21 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
             <Input
               id="mi-guia-tracking"
               value={trackingBase}
-              onChange={(e) => setTrackingBase(e.target.value)}
+              onChange={(e) => {
+                setTrackingBase(e.target.value);
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.trackingBase;
+                  return next;
+                });
+              }}
               placeholder="Ej: 1Z52159R0379385035"
               autoFocus
+              aria-invalid={!!fieldErrors.trackingBase}
             />
+            {fieldErrors.trackingBase && (
+              <p className="mt-1 text-xs text-destructive">{fieldErrors.trackingBase}</p>
+            )}
             <p className="mt-1 text-xs text-muted-foreground">
               El número que aparece en la guía del courier (UPS, FedEx, etc.).
             </p>
@@ -170,6 +195,9 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
                 </span>
               )}
             />
+            {fieldErrors.consignatarioId && (
+              <p className="mt-1 text-xs text-destructive">{fieldErrors.consignatarioId}</p>
+            )}
           </div>
 
           <DialogFooter>

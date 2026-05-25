@@ -6,13 +6,11 @@ import {
   Check,
   CheckCircle2,
   CircleDollarSign,
-  Eraser,
   Eye,
   Lock,
   Package as PackageIcon,
   Plus,
   Scale,
-  Search,
   Trash2,
   Unlock,
 } from 'lucide-react';
@@ -20,8 +18,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { BulkGuiaInputPanel } from '@/components/BulkGuiaInputPanel';
 import { buscarPaquetesPorGuias } from '@/lib/api/paquetes.service';
+import { envioConsolidadoCreateSchema, validateGuiaList } from '@/lib/schemas';
 import type { Paquete } from '@/types/paquete';
 import {
   Dialog,
@@ -41,10 +40,12 @@ import {
 } from '@/components/ui/table';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
+import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
@@ -65,7 +66,7 @@ import type { EstadoPagoConsolidado } from '@/types/envio-consolidado';
 import { useAuthStore } from '@/stores/authStore';
 import { EnvioConsolidadoBadge } from './EnvioConsolidadoBadge';
 
-const LBS_TO_KG = 0.45359237;
+import { formatWeightFromValues, formatWeightInline, LBS_TO_KG } from '@/lib/utils/weight';
 
 export function EnviosConsolidadosListPage() {
   const navigate = useNavigate();
@@ -203,12 +204,13 @@ export function EnviosConsolidadosListPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <KpiCardsGrid>
         <KpiCard
           icon={<Boxes className="h-5 w-5" />}
           label="Total de envíos"
           value={stats.total}
           tone="primary"
+          hint={`${stats.pagados} pagados · ${stats.noPagados} pendientes`}
         />
         <KpiCard
           icon={<Unlock className="h-5 w-5" />}
@@ -222,6 +224,7 @@ export function EnviosConsolidadosListPage() {
           label="Cerrados"
           value={stats.cerrados}
           tone="success"
+          hint="Manifiestos finalizados"
         />
         <KpiCard
           icon={<PackageIcon className="h-5 w-5" />}
@@ -230,11 +233,11 @@ export function EnviosConsolidadosListPage() {
           tone="neutral"
           hint={
             stats.pesoLbs > 0
-              ? `${stats.pesoLbs.toFixed(2)} lbs · ${stats.pesoKg.toFixed(2)} kg`
-              : undefined
+              ? formatWeightInline(stats.pesoLbs, stats.pesoKg)
+              : 'Sin peso registrado'
           }
         />
-      </div>
+      </KpiCardsGrid>
 
       <FiltrosBar
         hayFiltrosActivos={estadoFilter !== 'TODOS' || estadoPagoFilter !== 'TODOS'}
@@ -351,7 +354,7 @@ export function EnviosConsolidadosListPage() {
                   <TableHead>Estado</TableHead>
                   <TableHead>Pago</TableHead>
                   <TableHead className="text-center">Paquetes</TableHead>
-                  <TableHead>Peso</TableHead>
+                  <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                   <TableHead>Creado</TableHead>
                   <TableHead className="hidden md:table-cell">Cerrado</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
@@ -390,8 +393,14 @@ export function EnviosConsolidadosListPage() {
                     <TableCell className="text-center">
                       <PaquetesBadge total={e.totalPaquetes ?? 0} />
                     </TableCell>
-                    <TableCell>
-                      <PesoCell lbs={e.pesoTotalLbs} />
+                    <TableCell className={PESO_TABLE_CELL_CLASS}>
+                      <PesoCell
+                        pesoLbs={
+                          e.pesoTotalLbs != null && e.pesoTotalLbs > 0
+                            ? e.pesoTotalLbs
+                            : null
+                        }
+                      />
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       <FechaCell value={e.createdAt} />
@@ -662,20 +671,6 @@ function PaquetesBadge({ total }: { total: number }) {
   );
 }
 
-function PesoCell({ lbs }: { lbs?: number | null }) {
-  if (lbs == null || lbs === 0) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
-  const lbsNum = Number(lbs);
-  const kg = lbsNum * LBS_TO_KG;
-  return (
-    <div className="flex flex-col leading-tight">
-      <span className="text-sm font-medium text-foreground">{lbsNum.toFixed(2)} lbs</span>
-      <span className="text-[11px] text-muted-foreground">{kg.toFixed(2)} kg</span>
-    </div>
-  );
-}
-
 function FechaCell({
   value,
   mutedIfEmpty = false,
@@ -752,6 +747,8 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [paquetesPreview, setPaquetesPreview] = useState<Paquete[] | null>(null);
   const [noEncontradasPreview, setNoEncontradasPreview] = useState<string[]>([]);
+  const [codigoError, setCodigoError] = useState<string | undefined>();
+  const [guiaListError, setGuiaListError] = useState<string | undefined>();
   const crear = useCrearEnvioConsolidado();
 
   const guias = useMemo(() => parseGuias(guiasRaw), [guiasRaw]);
@@ -774,6 +771,19 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
   }, [paquetesPreview, noEncontradasPreview]);
 
   async function handlePreview() {
+    if (guiasRaw.trim()) {
+      const rawLines = guiasRaw
+        .split(/[\n,;]+/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .join('\n');
+      const listCheck = validateGuiaList(rawLines);
+      if (!listCheck.ok) {
+        setGuiaListError(listCheck.errors.join(' · '));
+        return;
+      }
+      setGuiaListError(undefined);
+    }
     if (guias.length === 0) {
       toast.error('Agrega al menos un número de guía');
       return;
@@ -800,14 +810,38 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!codigo.trim()) {
-      toast.error('Indica el código del envío');
+    if (guiasRaw.trim()) {
+      const rawLines = guiasRaw
+        .split(/[\n,;]+/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .join('\n');
+      const listCheck = validateGuiaList(rawLines);
+      if (!listCheck.ok) {
+        setGuiaListError(listCheck.errors.join(' · '));
+        return;
+      }
+      setGuiaListError(undefined);
+    }
+    const parsed = envioConsolidadoCreateSchema.safeParse({
+      codigo: codigo.trim(),
+      numerosGuia: guias.length > 0 ? guias : undefined,
+    });
+    if (!parsed.success) {
+      const codigoIssue = parsed.error.issues.find((i) => i.path[0] === 'codigo');
+      const guiaIssue = parsed.error.issues.find((i) => i.path[0] === 'numerosGuia');
+      setCodigoError(codigoIssue?.message);
+      setGuiaListError(guiaIssue?.message);
+      const first = parsed.error.issues[0]?.message;
+      if (first) toast.error(first);
       return;
     }
+    setCodigoError(undefined);
+    setGuiaListError(undefined);
     try {
       const res = await crear.mutateAsync({
-        codigo: codigo.trim(),
-        numerosGuia: guias.length > 0 ? guias : undefined,
+        codigo: parsed.data.codigo,
+        numerosGuia: parsed.data.numerosGuia,
       });
       const asociados = res.envio.totalPaquetes ?? 0;
       if (res.guiasNoEncontradas.length > 0) {
@@ -866,11 +900,18 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
               <Input
                 id="codigo"
                 value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
+                onChange={(e) => {
+                  setCodigo(e.target.value);
+                  setCodigoError(undefined);
+                }}
                 placeholder="Ej: ENV-USA-2026-001"
                 className="font-mono text-sm"
                 autoFocus
+                aria-invalid={!!codigoError}
               />
+              {codigoError && (
+                <p className="mt-1 text-xs text-destructive">{codigoError}</p>
+              )}
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Identificador único interno usado por el operario en lotes de recepción y
                 manifiestos.
@@ -878,25 +919,28 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
             </div>
 
             <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="guias" className="text-xs font-medium text-muted-foreground">
-                  Piezas asociadas (opcional)
-                </Label>
-                <span className="text-xs text-muted-foreground">
-                  {guias.length} pieza{guias.length === 1 ? '' : 's'}
-                </span>
-              </div>
-              <Textarea
-                id="guias"
-                rows={6}
-                value={guiasRaw}
-                onChange={(e) => {
-                  setGuiasRaw(e.target.value);
+              <BulkGuiaInputPanel
+                tab="lista"
+                onTabChange={() => {}}
+                listValue={guiasRaw}
+                onListChange={(value) => {
+                  setGuiasRaw(value);
                   setPaquetesPreview(null);
                   setNoEncontradasPreview([]);
+                  setGuiaListError(undefined);
                 }}
-                placeholder={'12312312312 1/2\n12312312312 2/2\nABC987 1/1'}
-                className="resize-y font-mono text-sm"
+                individualValue=""
+                onIndividualChange={() => {}}
+                onProcessList={handlePreview}
+                onProcessIndividual={() => {}}
+                procesandoLista={previewLoading}
+                showTabs={false}
+                listButtonLabel="Verificar guías"
+                listLabel="Piezas asociadas (opcional)"
+                listPlaceholder={'12312312312 1/2\n12312312312 2/2\nABC987 1/1'}
+                lineCount={guias.length}
+                guiaCount={guias.length}
+                validationError={guiaListError}
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Una línea por pieza. Formato:{' '}
@@ -904,34 +948,6 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
                 saltos de línea, comas o punto y coma. Los espacios alrededor de la barra
                 se normalizan.
               </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handlePreview}
-                disabled={previewLoading || guias.length === 0}
-              >
-                <Search className="mr-1.5 h-3.5 w-3.5" />
-                {previewLoading ? 'Buscando...' : 'Verificar guías'}
-              </Button>
-              {guiasRaw.trim() && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setGuiasRaw('');
-                    setPaquetesPreview(null);
-                    setNoEncontradasPreview([]);
-                  }}
-                >
-                  <Eraser className="mr-1.5 h-3.5 w-3.5" />
-                  Limpiar
-                </Button>
-              )}
             </div>
 
             {paquetesPreview != null && (
@@ -946,7 +962,7 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
                   {previewStats.pesoLbs > 0 && (
                     <span className="inline-flex items-center gap-1 rounded border border-border bg-[var(--color-background)] px-2 py-0.5 text-xs text-foreground">
                       <Scale className="h-3 w-3" />
-                      {previewStats.pesoLbs.toFixed(2)} lbs · {previewStats.pesoKg.toFixed(2)} kg
+                      {formatWeightInline(previewStats.pesoLbs, previewStats.pesoKg)}
                     </span>
                   )}
                   {previewStats.yaEnOtro > 0 && (
@@ -970,8 +986,7 @@ function CrearEnvioConGuiasDialog({ onClose }: { onClose: () => void }) {
                     </p>
                     <ul className="max-h-44 space-y-1 overflow-auto pr-1">
                       {paquetesPreview.map((p) => {
-                        const peso =
-                          p.pesoLbs != null ? `${Number(p.pesoLbs).toFixed(2)} lbs` : null;
+                        const peso = formatWeightFromValues(p.pesoLbs, p.pesoKg);
                         return (
                           <li
                             key={p.id}

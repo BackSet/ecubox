@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,6 +27,15 @@ import type { TipoEntrega } from '@/types/despacho';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { validateGuiaList } from '@/lib/schemas/bulk-guias';
+import { formatWeightFromValues, formatWeightInline } from '@/lib/utils/weight';
+import { DistribucionSacasPanel } from '@/components/DistribucionSacasPanel';
+import {
+  computeDistributionPreview,
+  createDefaultDistribucionSacasState,
+  resolveDistributionForSubmit,
+  type DistribucionSacasState,
+} from '@/lib/utils/saca-distribution';
 
 export interface PaqueteDisponible {
   id: number;
@@ -102,6 +111,7 @@ export function AgregarPaquetesSacaDialog({
 }: AgregarPaquetesSacaDialogProps): React.ReactElement {
   const [tab, setTab] = useState<'lista' | 'individual'>('lista');
   const [listadoGuias, setListadoGuias] = useState('');
+  const [listadoGuiasErrors, setListadoGuiasErrors] = useState<string[]>([]);
   const [procesandoLista, setProcesandoLista] = useState(false);
   const [individualGuia, setIndividualGuia] = useState('');
   const [procesandoIndividual, setProcesandoIndividual] = useState(false);
@@ -119,11 +129,9 @@ export function AgregarPaquetesSacaDialog({
 
   // Modo crearYDistribuir: lista ordenada de IDs y opciones de distribución
   const [paqueteIdsOrdenados, setPaqueteIdsOrdenados] = useState<number[]>([]);
-  const [distribucionManual, setDistribucionManual] = useState('');
-  const [distribucionTipo, setDistribucionTipo] = useState<'manual' | 'automatica'>('manual');
-  const [automaticaNumSacas, setAutomaticaNumSacas] = useState<number>(2);
-  const [automaticaTipo, setAutomaticaTipo] = useState<'numSacas' | 'maxPorSaca'>('numSacas');
-  const [automaticaMaxPorSaca, setAutomaticaMaxPorSaca] = useState<number>(5);
+  const [distribucionState, setDistribucionState] = useState<DistribucionSacasState>(() =>
+    createDefaultDistribucionSacasState(),
+  );
   const [errorDistribucion, setErrorDistribucion] = useState<string | null>(null);
 
   const norm = (s: string | undefined | null) => (s ?? '').trim().toLowerCase();
@@ -189,52 +197,19 @@ export function AgregarPaquetesSacaDialog({
     return { kg, lbs };
   }, [paquetesIngresados]);
 
-  const distribucionPreview = useMemo<number[] | null>(() => {
-    const N = paqueteIdsOrdenados.length;
-    if (N === 0) return null;
-    if (distribucionTipo === 'manual') {
-      if (!distribucionManual.trim()) return null;
-      const parts = distribucionManual
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => parseInt(s, 10));
-      if (parts.some((n) => Number.isNaN(n) || n < 1)) return null;
-      const sum = parts.reduce((a, b) => a + b, 0);
-      if (sum !== N) return null;
-      return parts;
-    }
-    const numSacas =
-      automaticaTipo === 'maxPorSaca'
-        ? Math.ceil(N / Math.max(1, automaticaMaxPorSaca))
-        : Math.max(1, Math.min(automaticaNumSacas, N));
-    const base = Math.floor(N / numSacas);
-    const rest = N % numSacas;
-    return Array.from({ length: numSacas }, (_, i) => base + (i < rest ? 1 : 0));
-  }, [
-    paqueteIdsOrdenados.length,
-    distribucionTipo,
-    distribucionManual,
-    automaticaTipo,
-    automaticaNumSacas,
-    automaticaMaxPorSaca,
-  ]);
+  const distribucionPreview = useMemo<number[] | null>(
+    () => computeDistributionPreview(paqueteIdsOrdenados.length, distribucionState),
+    [paqueteIdsOrdenados.length, distribucionState],
+  );
 
-  const distribucionPreviewDetalle = useMemo(() => {
-    if (!distribucionPreview) return null;
-    let cursor = 0;
-    return distribucionPreview.map((n) => {
-      const slice = paquetesIngresados.slice(cursor, cursor + n);
-      cursor += n;
-      let kg = 0;
-      let lbs = 0;
-      for (const p of slice) {
-        if (p.pesoKg != null) kg += p.pesoKg;
-        if (p.pesoLbs != null) lbs += p.pesoLbs;
-      }
-      return { count: n, kg, lbs };
-    });
-  }, [distribucionPreview, paquetesIngresados]);
+  const paquetesDetalleDistribucion = useMemo(
+    () =>
+      paquetesIngresados.map((p) => ({
+        kg: p.pesoKg ?? 0,
+        lbs: p.pesoLbs ?? 0,
+      })),
+    [paquetesIngresados],
+  );
 
   const quitarIngresado = (id: number) => {
     setPaqueteIdsOrdenados((prev) => prev.filter((pid) => pid !== id));
@@ -246,10 +221,13 @@ export function AgregarPaquetesSacaDialog({
   };
 
   const handleProcesarLista = async () => {
-    const lineas = listadoGuias
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
+    const validation = validateGuiaList(listadoGuias);
+    if (!validation.ok) {
+      setListadoGuiasErrors(validation.errors);
+      return;
+    }
+    setListadoGuiasErrors([]);
+    const lineas = validation.guias;
     if (lineas.length === 0) return;
     setProcesandoLista(true);
     setResultado(null);
@@ -400,16 +378,13 @@ export function AgregarPaquetesSacaDialog({
   const handleClose = (open: boolean) => {
     if (!open) {
       setListadoGuias('');
+      setListadoGuiasErrors([]);
       setIndividualGuia('');
       setResultado(null);
       setHistorial([]);
       setTab('lista');
       setPaqueteIdsOrdenados([]);
-      setDistribucionManual('');
-      setDistribucionTipo('manual');
-      setAutomaticaNumSacas(2);
-      setAutomaticaTipo('numSacas');
-      setAutomaticaMaxPorSaca(5);
+      setDistribucionState(createDefaultDistribucionSacasState());
       setErrorDistribucion(null);
     }
     onOpenChange(open);
@@ -418,41 +393,13 @@ export function AgregarPaquetesSacaDialog({
   function handleCrearSacas() {
     setErrorDistribucion(null);
     const N = paqueteIdsOrdenados.length;
-    if (N === 0) {
-      setErrorDistribucion('Agrega al menos un paquete.');
+    const result = resolveDistributionForSubmit(N, distribucionState);
+    if (!result.ok || !result.distribucion) {
+      setErrorDistribucion(result.error ?? 'Distribución inválida.');
       return;
     }
-    let distribucion: number[];
-    if (distribucionTipo === 'manual') {
-      const parts = distribucionManual
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => parseInt(s, 10));
-      if (parts.some((n) => Number.isNaN(n) || n < 1)) {
-        setErrorDistribucion('Distribución manual: solo números positivos separados por comas (ej. 1,2,4).');
-        return;
-      }
-      const sum = parts.reduce((a, b) => a + b, 0);
-      if (sum !== N) {
-        setErrorDistribucion(`La suma debe ser ${N} (paquetes ingresados).`);
-        return;
-      }
-      distribucion = parts;
-    } else {
-      const numSacas =
-        automaticaTipo === 'maxPorSaca'
-          ? Math.ceil(N / Math.max(1, automaticaMaxPorSaca))
-          : Math.max(1, Math.min(automaticaNumSacas, N));
-      const base = Math.floor(N / numSacas);
-      const rest = N % numSacas;
-      distribucion = [];
-      for (let i = 0; i < numSacas; i++) {
-        distribucion.push(base + (i < rest ? 1 : 0));
-      }
-    }
-    const tamanio: TamanioSaca | undefined = undefined; // El tamaño se configura en cada saca en la página
-    onCrearYDistribuir?.(paqueteIdsOrdenados, distribucion, tamanio);
+    const tamanio: TamanioSaca | undefined = undefined;
+    onCrearYDistribuir?.(paqueteIdsOrdenados, result.distribucion, tamanio);
     handleClose(false);
   }
 
@@ -492,10 +439,7 @@ export function AgregarPaquetesSacaDialog({
               {(pesoTotalIngresados.kg > 0 || pesoTotalIngresados.lbs > 0) && (
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-[var(--color-muted)]/30 px-2.5 py-1 text-xs font-medium text-foreground">
                   <Scale className="h-3.5 w-3.5" />
-                  {pesoTotalIngresados.kg.toFixed(2)} kg
-                  {pesoTotalIngresados.lbs > 0 && (
-                    <span className="text-muted-foreground"> · {pesoTotalIngresados.lbs.toFixed(2)} lbs</span>
-                  )}
+                  {formatWeightInline(pesoTotalIngresados.lbs, pesoTotalIngresados.kg)}
                 </span>
               )}
               {distribucionPreview && (
@@ -550,10 +494,30 @@ export function AgregarPaquetesSacaDialog({
               </div>
               <Textarea
                 value={listadoGuias}
-                onChange={(e) => setListadoGuias(e.target.value)}
+                onChange={(e) => {
+                  setListadoGuias(e.target.value);
+                  if (listadoGuiasErrors.length > 0) setListadoGuiasErrors([]);
+                }}
                 placeholder={'GU-12345\nGU-12346\nGU-12347'}
-                className="min-h-[160px] resize-y font-mono text-sm"
+                className={cn(
+                  'min-h-[160px] resize-y font-mono text-sm',
+                  listadoGuiasErrors.length > 0 && 'border-[var(--color-destructive)]'
+                )}
+                aria-invalid={listadoGuiasErrors.length > 0}
               />
+              {listadoGuiasErrors.length > 0 && (
+                <div
+                  className="flex items-start gap-2 rounded-md border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 px-3 py-2 text-sm text-[var(--color-destructive)]"
+                  role="alert"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <ul className="list-inside list-disc space-y-0.5">
+                    {listadoGuiasErrors.map((err) => (
+                      <li key={err}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
@@ -697,9 +661,14 @@ export function AgregarPaquetesSacaDialog({
                       <span className="truncate font-mono font-medium">{p.numeroGuia}</span>
                     </span>
                     <span className="inline-flex items-center gap-2">
-                      {p.pesoKg != null && (
-                        <span className="text-muted-foreground">{p.pesoKg.toFixed(2)} kg</span>
-                      )}
+                      {(() => {
+                        const pesoLabel = formatWeightFromValues(p.pesoLbs, p.pesoKg);
+                        return pesoLabel ? (
+                          <span className="whitespace-nowrap text-muted-foreground">
+                            {pesoLabel}
+                          </span>
+                        ) : null;
+                      })()}
                       <button
                         type="button"
                         onClick={() => quitarIngresado(p.id)}
@@ -717,151 +686,16 @@ export function AgregarPaquetesSacaDialog({
         </div>
 
         {modo === 'crearYDistribuir' && (
-          <div className="space-y-3 border-t border-[var(--color-border)] bg-[var(--color-muted)]/10 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                <Layers className="h-3.5 w-3.5 text-[var(--color-primary)]" />
-                Distribución en sacas
-              </span>
-              <div className="inline-flex rounded-md border border-border bg-[var(--color-background)] p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setDistribucionTipo('manual')}
-                  className={cn(
-                    'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-                    distribucionTipo === 'manual'
-                      ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  Manual
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDistribucionTipo('automatica')}
-                  className={cn(
-                    'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-                    distribucionTipo === 'automatica'
-                      ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  Automática
-                </button>
-              </div>
-            </div>
-
-            {distribucionTipo === 'manual' && (
-              <div className="space-y-1.5">
-                <Input
-                  type="text"
-                  value={distribucionManual}
-                  onChange={(e) => setDistribucionManual(e.target.value.replace(/[^0-9,]/g, ''))}
-                  placeholder="Ej. 1,2,4"
-                  className="w-full max-w-xs font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Números separados por comas. La suma debe ser{' '}
-                  <span className="font-semibold text-foreground">{paqueteIdsOrdenados.length}</span>.
-                </p>
-              </div>
-            )}
-
-            {distribucionTipo === 'automatica' && (
-              <div className="space-y-2">
-                <div className="inline-flex rounded-md border border-border bg-[var(--color-background)] p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setAutomaticaTipo('numSacas')}
-                    className={cn(
-                      'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-                      automaticaTipo === 'numSacas'
-                        ? 'bg-[var(--color-muted)] text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    Por número de sacas
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAutomaticaTipo('maxPorSaca')}
-                    className={cn(
-                      'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-                      automaticaTipo === 'maxPorSaca'
-                        ? 'bg-[var(--color-muted)] text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    Por tamaño máximo
-                  </button>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {automaticaTipo === 'numSacas' ? (
-                    <>
-                      <span className="text-muted-foreground">Repartir en</span>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={Math.max(paqueteIdsOrdenados.length, 1)}
-                        value={automaticaNumSacas}
-                        onChange={(e) => setAutomaticaNumSacas(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                        className="h-8 w-20 font-mono text-sm"
-                      />
-                      <span className="text-muted-foreground">sacas</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-muted-foreground">Máximo</span>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={automaticaMaxPorSaca}
-                        onChange={(e) => setAutomaticaMaxPorSaca(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                        className="h-8 w-20 font-mono text-sm"
-                      />
-                      <span className="text-muted-foreground">paquetes por saca</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {distribucionPreviewDetalle && distribucionPreviewDetalle.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-xs font-medium text-muted-foreground">Vista previa</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {distribucionPreviewDetalle.map((d, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-1 rounded border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 px-2 py-0.5 text-xs"
-                      title={`${d.kg.toFixed(2)} kg`}
-                    >
-                      <span className="font-semibold text-[var(--color-primary)]">Saca {i + 1}</span>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="text-foreground">{d.count} pkg</span>
-                      {d.kg > 0 && (
-                        <>
-                          <span className="text-muted-foreground">·</span>
-                          <span className="text-muted-foreground">{d.kg.toFixed(1)} kg</span>
-                        </>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {errorDistribucion && (
-              <p className="inline-flex items-center gap-1.5 text-xs text-[var(--color-destructive)]">
-                <AlertCircle className="h-3.5 w-3.5" />
-                {errorDistribucion}
-              </p>
-            )}
-
-            <p className="text-[11px] text-muted-foreground">
-              El tamaño de cada saca se configura en su tarjeta después de crearlas.
-            </p>
+          <div className="border-t border-[var(--color-border)] bg-[var(--color-muted)]/10 px-6 py-4">
+            <DistribucionSacasPanel
+              totalPaquetes={paqueteIdsOrdenados.length}
+              paquetesDetalle={paquetesDetalleDistribucion}
+              value={distribucionState}
+              onChange={setDistribucionState}
+              error={errorDistribucion}
+            />
           </div>
+
         )}
 
         <DialogFooter className="border-t border-[var(--color-border)] bg-[var(--color-background)] px-6 py-3">

@@ -3,12 +3,12 @@ import {
   Check,
   ChevronDown,
   Clipboard,
-  Copy,
   FileDown,
   FileImage,
   FileText,
   Image as ImageIcon,
   Loader2,
+  Monitor,
   Printer,
   Share2,
 } from 'lucide-react';
@@ -21,248 +21,305 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import type { TrackingPdfMode } from '@/pages/tracking/hooks/useTrackingExport';
+import { cn } from '@/lib/utils';
 
 export interface TrackingActionsBarProps {
-  onShare: () => void | Promise<void>;
-  onCopyLink: () => void | Promise<void>;
-  onPrintPdf: () => void | Promise<void>;
-  onDownloadPdf: (mode: 'estructurado' | 'snapshot') => void | Promise<void>;
+  onShare: () => Promise<'shared' | 'copied' | 'cancelled' | 'failed'>;
+  onPrintPdf: (mode: TrackingPdfMode) => void | Promise<void>;
+  onDownloadPdf: (mode: TrackingPdfMode) => void | Promise<void>;
   onDownloadImage: (format: 'png' | 'jpeg') => void | Promise<void>;
   onCopyImage: () => void | Promise<void>;
+  exportsDisabled?: boolean;
 }
 
 type Pending =
   | 'share'
-  | 'copy-link'
-  | 'print-pdf'
-  | 'download-pdf'
-  | 'download-image'
+  | 'print-estructurado'
+  | 'print-snapshot'
+  | 'pdf-estructurado'
+  | 'pdf-snapshot'
+  | 'image-png'
+  | 'image-jpeg'
   | 'copy-image'
   | null;
 
 export function TrackingActionsBar({
   onShare,
-  onCopyLink,
   onPrintPdf,
   onDownloadPdf,
   onDownloadImage,
   onCopyImage,
+  exportsDisabled = false,
 }: TrackingActionsBarProps) {
   const [pending, setPending] = useState<Pending>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<'copied' | null>(null);
 
-  const run = async (id: Exclude<Pending, null>, fn: () => void | Promise<void>) => {
-    if (pending) return;
+  const run = async (id: Pending, fn: () => void | Promise<void>) => {
+    if (pending && pending !== id) return;
     setPending(id);
     try {
       await fn();
-      if (id === 'copy-link') {
-        setLinkCopied(true);
-        window.setTimeout(() => setLinkCopied(false), 1800);
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const runShare = async () => {
+    if (pending) return;
+    setPending('share');
+    setShareFeedback(null);
+    try {
+      const result = await onShare();
+      if (result === 'copied') {
+        setShareFeedback('copied');
+        window.setTimeout(() => setShareFeedback(null), 2000);
       }
     } finally {
       setPending(null);
     }
   };
 
-  const isBusy = pending !== null;
+  const isPending = (id: Pending) => pending === id;
 
   return (
-    <section className="surface-card space-y-4 p-5 sm:p-6">
+    <section className="surface-card space-y-5 p-5 sm:p-6" data-export-exclude>
       <div className="space-y-1">
         <h3 className="text-base font-semibold text-[var(--color-foreground)]">
-          Compartir y guardar
+          Compartir y exportar
         </h3>
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          Comparte este seguimiento, imprímelo o descarga una copia para enviarla por
-          otro canal.
+          Comparte el enlace del seguimiento o guárdalo en el portapapeles.
         </p>
       </div>
 
-      <Button
-        type="button"
-        className="h-11 w-full justify-center gap-2"
-        disabled={isBusy}
-        onClick={() => void run('share', onShare)}
-      >
-        {pending === 'share' ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Share2 className="h-4 w-4" />
-        )}
-        Compartir seguimiento
-      </Button>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">
+          Compartir
+        </p>
         <Button
           type="button"
-          variant="outline"
-          className="h-10 justify-start gap-2.5"
-          disabled={isBusy}
-          onClick={() => void run('copy-link', onCopyLink)}
+          className="h-10 w-full justify-center gap-2 sm:w-auto sm:min-w-[11rem]"
+          disabled={isPending('share')}
+          onClick={() => void runShare()}
         >
-          {pending === 'copy-link' ? (
+          {isPending('share') ? (
             <Loader2 className="h-4 w-4 animate-spin" />
-          ) : linkCopied ? (
+          ) : shareFeedback === 'copied' ? (
             <Check className="h-4 w-4 text-[var(--color-success)]" />
           ) : (
-            <Copy className="h-4 w-4" />
+            <Share2 className="h-4 w-4" />
           )}
-          {linkCopied ? 'Enlace copiado' : 'Copiar enlace'}
+          {shareFeedback === 'copied' ? 'Enlace copiado' : 'Compartir enlace'}
         </Button>
+      </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 justify-start gap-2.5"
-          disabled={isBusy}
-          onClick={() => void run('print-pdf', onPrintPdf)}
-        >
-          {pending === 'print-pdf' ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Printer className="h-4 w-4" />
-          )}
-          Imprimir PDF
-        </Button>
+      <div className="space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">
+          Exportar documento
+        </p>
+        {exportsDisabled ? (
+          <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/25 px-3 py-2.5 text-xs text-[var(--color-muted-foreground)]">
+            La exportación a PDF o imagen está disponible al consultar un envío real.
+          </p>
+        ) : null}
+        <div className="grid grid-cols-1 gap-2.5">
+          <ExportTile
+            icon={<FileText className="h-4 w-4" />}
+            title="PDF"
+            subtitle="Documento o vista de pantalla"
+            disabled={exportsDisabled}
+            pending={isPending('pdf-estructurado') || isPending('pdf-snapshot')}
+            menu={
+              <>
+                <DropdownMenuLabel className="text-xs">Formato del PDF</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={exportsDisabled || Boolean(pending)}
+                  onClick={() => void run('pdf-snapshot', () => onDownloadPdf('snapshot'))}
+                  className="gap-2.5"
+                >
+                  <Monitor className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                  <div>
+                    <p className="text-sm font-medium">Como en pantalla</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                      Réplica visual del seguimiento web.
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={exportsDisabled || Boolean(pending)}
+                  onClick={() => void run('pdf-estructurado', () => onDownloadPdf('estructurado'))}
+                  className="gap-2.5"
+                >
+                  <FileText className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                  <div>
+                    <p className="text-sm font-medium">Documento</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                      Texto seleccionable, ideal para archivo.
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+              </>
+            }
+            onPrimary={() => void run('pdf-snapshot', () => onDownloadPdf('snapshot'))}
+          />
 
-        <SplitDropdownButton
-          icon={
-            pending === 'download-pdf' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <FileText className="h-4 w-4" />
-            )
-          }
-          label="Descargar PDF"
-          mainAction={() => void run('download-pdf', () => onDownloadPdf('estructurado'))}
-          disabled={isBusy}
-        >
-          <DropdownMenuLabel className="text-xs">Formato del PDF</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => void run('download-pdf', () => onDownloadPdf('estructurado'))}
-            className="gap-2"
-          >
-            <FileText className="h-4 w-4" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Estructurado</p>
-              <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                Texto seleccionable, ideal para imprimir.
-              </p>
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => void run('download-pdf', () => onDownloadPdf('snapshot'))}
-            className="gap-2"
-          >
-            <FileImage className="h-4 w-4" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Captura visual</p>
-              <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                Replica exactamente lo que ves en pantalla.
-              </p>
-            </div>
-          </DropdownMenuItem>
-        </SplitDropdownButton>
+          <ExportTile
+            icon={<ImageIcon className="h-4 w-4" />}
+            title="Imagen"
+            subtitle="PNG, JPEG o portapapeles"
+            disabled={exportsDisabled}
+            pending={
+              isPending('image-png') || isPending('image-jpeg') || isPending('copy-image')
+            }
+            menu={
+              <>
+                <DropdownMenuLabel className="text-xs">Formato de imagen</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={exportsDisabled || Boolean(pending)}
+                  onClick={() => void run('image-png', () => onDownloadImage('png'))}
+                  className="gap-2.5"
+                >
+                  <FileImage className="h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">PNG (alta calidad)</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                      Sin pérdida, ideal para web.
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={exportsDisabled || Boolean(pending)}
+                  onClick={() => void run('image-jpeg', () => onDownloadImage('jpeg'))}
+                  className="gap-2.5"
+                >
+                  <FileDown className="h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">JPEG (más liviano)</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                      Tamaño reducido para mensajería.
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={exportsDisabled || Boolean(pending)}
+                  onClick={() => void run('copy-image', onCopyImage)}
+                  className="gap-2.5"
+                >
+                  <Clipboard className="h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Copiar al portapapeles</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                      Pega la imagen donde necesites.
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+              </>
+            }
+            onPrimary={() => void run('image-png', () => onDownloadImage('png'))}
+          />
 
-        <SplitDropdownButton
-          icon={
-            pending === 'download-image' || pending === 'copy-image' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ImageIcon className="h-4 w-4" />
-            )
-          }
-          label="Descargar imagen"
-          mainAction={() => void run('download-image', () => onDownloadImage('png'))}
-          disabled={isBusy}
-        >
-          <DropdownMenuLabel className="text-xs">Formato</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => void run('download-image', () => onDownloadImage('png'))}
-            className="gap-2"
-          >
-            <FileImage className="h-4 w-4" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">PNG (alta calidad)</p>
-              <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                Sin pérdida, ideal para web o impresión.
-              </p>
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => void run('download-image', () => onDownloadImage('jpeg'))}
-            className="gap-2"
-          >
-            <FileDown className="h-4 w-4" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">JPEG (más liviano)</p>
-              <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                Tamaño reducido para enviar por mensajería.
-              </p>
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => void run('copy-image', onCopyImage)}
-            className="gap-2"
-          >
-            <Clipboard className="h-4 w-4" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Copiar al portapapeles</p>
-              <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                Pega la imagen donde necesites.
-              </p>
-            </div>
-          </DropdownMenuItem>
-        </SplitDropdownButton>
+          <ExportTile
+            icon={<Printer className="h-4 w-4" />}
+            title="Imprimir"
+            subtitle="Documento o vista de pantalla"
+            disabled={exportsDisabled}
+            pending={isPending('print-estructurado') || isPending('print-snapshot')}
+            menu={
+              <>
+                <DropdownMenuLabel className="text-xs">Modo de impresión</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={exportsDisabled || Boolean(pending)}
+                  onClick={() => void run('print-snapshot', () => onPrintPdf('snapshot'))}
+                  className="gap-2.5"
+                >
+                  <Monitor className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                  <div>
+                    <p className="text-sm font-medium">Como en pantalla</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                      Imprime lo que ves en la web.
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={exportsDisabled || Boolean(pending)}
+                  onClick={() => void run('print-estructurado', () => onPrintPdf('estructurado'))}
+                  className="gap-2.5"
+                >
+                  <FileText className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                  <div>
+                    <p className="text-sm font-medium">Documento</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                      Comprobante estructurado para archivo.
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+              </>
+            }
+            onPrimary={() => void run('print-snapshot', () => onPrintPdf('snapshot'))}
+          />
+        </div>
       </div>
     </section>
   );
 }
 
-interface SplitDropdownButtonProps {
-  icon: React.ReactNode;
-  label: string;
-  mainAction: () => void;
-  disabled: boolean;
-  children: React.ReactNode;
-}
-
-function SplitDropdownButton({
+function ExportTile({
   icon,
-  label,
-  mainAction,
+  title,
+  subtitle,
   disabled,
-  children,
-}: SplitDropdownButtonProps) {
+  pending,
+  menu,
+  onPrimary,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  disabled?: boolean;
+  pending?: boolean;
+  menu: React.ReactNode;
+  onPrimary: () => void;
+}) {
   return (
-    <div className="flex w-full overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-background)] shadow-sm transition-colors focus-within:border-[var(--color-primary)]/40">
+    <div
+      className={cn(
+        'flex overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] shadow-sm transition-colors',
+        disabled && 'opacity-55'
+      )}
+    >
       <button
         type="button"
-        onClick={mainAction}
-        disabled={disabled}
-        className="inline-flex h-10 flex-1 items-center justify-start gap-2.5 px-3 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/60 disabled:cursor-not-allowed disabled:opacity-50"
+        onClick={onPrimary}
+        disabled={disabled || pending}
+        className="inline-flex min-h-14 flex-1 items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--color-muted)]/40 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {icon}
-        <span className="truncate">{label}</span>
+        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-[var(--color-foreground)]">{title}</span>
+          <span className="block text-[11px] text-[var(--color-muted-foreground)]">{subtitle}</span>
+        </span>
       </button>
       <div className="w-px bg-[var(--color-border)]" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            disabled={disabled}
-            className="inline-flex h-10 w-9 items-center justify-center text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]/60 hover:text-[var(--color-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label={`Más opciones de ${label}`}
+            disabled={disabled || pending}
+            className="inline-flex h-full w-10 shrink-0 items-center justify-center text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]/40 hover:text-[var(--color-foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label={`Más opciones de ${title}`}
           >
             <ChevronDown className="h-4 w-4" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
-          {children}
+          {menu}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -1,5 +1,6 @@
 import { SiteHeader } from '@/components/SiteHeader';
 import { Hero } from '@/components/Hero';
+import { PublicQuickAccess } from '@/components/public/PublicQuickAccess';
 import { ServicesGrid } from '@/components/ServicesGrid';
 import { HowItWorks } from '@/components/HowItWorks';
 import { CallToActionBanner } from '@/components/CallToActionBanner';
@@ -19,6 +20,7 @@ export function HomePage() {
       <SiteHeader />
       <main id="contenido-principal" className="relative z-10 flex-1" tabIndex={-1}>
         <Hero />
+        <PublicQuickAccess />
         <ServicesGrid />
         <HowItWorks />
         <CallToActionBanner />

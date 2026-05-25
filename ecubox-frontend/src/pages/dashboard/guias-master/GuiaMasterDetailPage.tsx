@@ -22,6 +22,12 @@ import {
 } from 'lucide-react';
 import { notify } from '@/lib/notify';
 import {
+  guiaCancelarSchema,
+  guiaMotivoOptionalSchema,
+  guiaReabrirSchema,
+  MAX_MOTIVO,
+} from '@/lib/schemas';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -37,6 +43,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { ListTableShell } from '@/components/ListTableShell';
+import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
 import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
@@ -359,7 +366,7 @@ export function GuiaMasterDetailPage() {
                   <TableHead className="min-w-[14rem]">Guía ECUBOX</TableHead>
                   <TableHead className="min-w-[10rem]">Estado</TableHead>
                   <TableHead className="hidden min-w-[10rem] md:table-cell">Despacho</TableHead>
-                  <TableHead className="w-[6rem]">Peso</TableHead>
+                  <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                   <TableHead className="w-[10rem] text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -404,7 +411,7 @@ export function GuiaMasterDetailPage() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="align-top text-xs">
+                      <TableCell className={PESO_TABLE_CELL_CLASS}>
                         <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
                       </TableCell>
                       <TableCell className="align-top text-right">
@@ -699,22 +706,6 @@ function PiezaGuiaCell({ numeroGuia }: { numeroGuia: string }) {
   );
 }
 
-function PesoCell({ pesoLbs, pesoKg }: { pesoLbs?: number; pesoKg?: number }) {
-  if (pesoLbs == null && pesoKg == null) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-  return (
-    <div className="space-y-0.5">
-      {pesoLbs != null && (
-        <p className="font-medium text-foreground">{pesoLbs.toFixed(2)} lbs</p>
-      )}
-      {pesoKg != null && (
-        <p className="text-[11px] text-muted-foreground">{pesoKg.toFixed(2)} kg</p>
-      )}
-    </div>
-  );
-}
-
 function PiezaEstadoBadges({
   paquete: p,
   piezaEnRecepcionBodega,
@@ -759,14 +750,21 @@ function CerrarConFaltanteAlert({
   onClose: () => void;
 }) {
   const [motivo, setMotivo] = useState('');
+  const [motivoError, setMotivoError] = useState<string | undefined>();
   const cerrar = useCerrarGuiaMasterConFaltante();
 
   async function handleConfirm() {
+    const parsed = guiaMotivoOptionalSchema.safeParse(motivo);
+    if (!parsed.success) {
+      setMotivoError(parsed.error.issues[0]?.message);
+      return;
+    }
+    setMotivoError(undefined);
     try {
       await notify.run(
         cerrar.mutateAsync({
           id: guiaMasterId,
-          body: { motivo: motivo.trim() || undefined },
+          body: { motivo: parsed.data },
         }),
         {
           loading: 'Cerrando guía con faltante...',
@@ -797,10 +795,16 @@ function CerrarConFaltanteAlert({
           <Textarea
             id="motivo"
             rows={3}
+            maxLength={MAX_MOTIVO}
             value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
+            onChange={(e) => {
+              setMotivo(e.target.value);
+              setMotivoError(undefined);
+            }}
             placeholder="Ej: Pieza 3/3 extraviada en vuelo"
+            aria-invalid={!!motivoError}
           />
+          {motivoError && <p className="mt-1 text-xs text-destructive">{motivoError}</p>}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
@@ -834,14 +838,21 @@ function DespacharParcialAlert({
   onClose: () => void;
 }) {
   const [motivo, setMotivo] = useState('');
+  const [motivoError, setMotivoError] = useState<string | undefined>();
   const confirmar = useConfirmarDespachoParcial();
 
   async function handleConfirm() {
+    const parsed = guiaMotivoOptionalSchema.safeParse(motivo);
+    if (!parsed.success) {
+      setMotivoError(parsed.error.issues[0]?.message);
+      return;
+    }
+    setMotivoError(undefined);
     try {
       await notify.run(
         confirmar.mutateAsync({
           id: guiaMasterId,
-          body: { piezaId, motivo: motivo.trim() || undefined },
+          body: { piezaId, motivo: parsed.data },
         }),
         {
           loading: 'Confirmando despacho parcial...',
@@ -872,10 +883,16 @@ function DespacharParcialAlert({
           <Textarea
             id="motivo-parcial"
             rows={3}
+            maxLength={MAX_MOTIVO}
             value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
+            onChange={(e) => {
+              setMotivo(e.target.value);
+              setMotivoError(undefined);
+            }}
             placeholder="Ej: pieza 3/3 demorada en aduana"
+            aria-invalid={!!motivoError}
           />
+          {motivoError && <p className="mt-1 text-xs text-destructive">{motivoError}</p>}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
@@ -1037,16 +1054,21 @@ function CancelarGuiaAlert({
   onClose: () => void;
 }) {
   const [motivo, setMotivo] = useState('');
+  const [motivoError, setMotivoError] = useState<string | undefined>();
   const cancelar = useCancelarGuiaMaster();
 
   async function handleConfirm() {
-    if (!motivo.trim()) {
-      notify.warning('Debes indicar un motivo para cancelar la guía');
+    const parsed = guiaCancelarSchema.safeParse({ motivo });
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? 'Debes indicar un motivo';
+      setMotivoError(msg);
+      notify.warning(msg);
       return;
     }
+    setMotivoError(undefined);
     try {
       await notify.run(
-        cancelar.mutateAsync({ id: guiaMasterId, body: { motivo: motivo.trim() } }),
+        cancelar.mutateAsync({ id: guiaMasterId, body: { motivo: parsed.data.motivo } }),
         {
           loading: 'Cancelando guía...',
           success: 'Guía cancelada',
@@ -1076,10 +1098,16 @@ function CancelarGuiaAlert({
           <Textarea
             id="motivo-cancelar"
             rows={3}
+            maxLength={MAX_MOTIVO}
             value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
+            onChange={(e) => {
+              setMotivo(e.target.value);
+              setMotivoError(undefined);
+            }}
             placeholder="Ej: cliente solicitó anulación / error de registro"
+            aria-invalid={!!motivoError}
           />
+          {motivoError && <p className="mt-1 text-xs text-destructive">{motivoError}</p>}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
@@ -1111,12 +1139,19 @@ function MarcarRevisionAlert({
   onClose: () => void;
 }) {
   const [motivo, setMotivo] = useState('');
+  const [motivoError, setMotivoError] = useState<string | undefined>();
   const marcar = useMarcarGuiaMasterEnRevision();
 
   async function handleConfirm() {
+    const parsed = guiaMotivoOptionalSchema.safeParse(motivo);
+    if (!parsed.success) {
+      setMotivoError(parsed.error.issues[0]?.message);
+      return;
+    }
+    setMotivoError(undefined);
     try {
       await notify.run(
-        marcar.mutateAsync({ id: guiaMasterId, body: { motivo: motivo.trim() || undefined } }),
+        marcar.mutateAsync({ id: guiaMasterId, body: { motivo: parsed.data } }),
         {
           loading: 'Marcando guía en revisión...',
           success: 'Guía marcada en revisión',
@@ -1146,10 +1181,16 @@ function MarcarRevisionAlert({
           <Textarea
             id="motivo-revision"
             rows={3}
+            maxLength={MAX_MOTIVO}
             value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
+            onChange={(e) => {
+              setMotivo(e.target.value);
+              setMotivoError(undefined);
+            }}
             placeholder="Ej: validar peso reportado / contactar al cliente"
+            aria-invalid={!!motivoError}
           />
+          {motivoError && <p className="mt-1 text-xs text-destructive">{motivoError}</p>}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
@@ -1177,12 +1218,19 @@ function SalirRevisionAlert({
   onClose: () => void;
 }) {
   const [motivo, setMotivo] = useState('');
+  const [motivoError, setMotivoError] = useState<string | undefined>();
   const salir = useSalirGuiaMasterDeRevision();
 
   async function handleConfirm() {
+    const parsed = guiaMotivoOptionalSchema.safeParse(motivo);
+    if (!parsed.success) {
+      setMotivoError(parsed.error.issues[0]?.message);
+      return;
+    }
+    setMotivoError(undefined);
     try {
       await notify.run(
-        salir.mutateAsync({ id: guiaMasterId, body: { motivo: motivo.trim() || undefined } }),
+        salir.mutateAsync({ id: guiaMasterId, body: { motivo: parsed.data } }),
         {
           loading: 'Finalizando revisión y recalculando...',
           success: 'Revisión finalizada y estado recalculado',
@@ -1212,10 +1260,16 @@ function SalirRevisionAlert({
           <Textarea
             id="motivo-salir-revision"
             rows={3}
+            maxLength={MAX_MOTIVO}
             value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
+            onChange={(e) => {
+              setMotivo(e.target.value);
+              setMotivoError(undefined);
+            }}
             placeholder="Ej: información validada con el cliente"
+            aria-invalid={!!motivoError}
           />
+          {motivoError && <p className="mt-1 text-xs text-destructive">{motivoError}</p>}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
@@ -1243,16 +1297,21 @@ function ReabrirGuiaAlert({
   onClose: () => void;
 }) {
   const [motivo, setMotivo] = useState('');
+  const [motivoError, setMotivoError] = useState<string | undefined>();
   const reabrir = useReabrirGuiaMaster();
 
   async function handleConfirm() {
-    if (!motivo.trim()) {
-      notify.warning('Debes indicar un motivo para reabrir la guía');
+    const parsed = guiaReabrirSchema.safeParse({ motivo });
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? 'Debes indicar un motivo';
+      setMotivoError(msg);
+      notify.warning(msg);
       return;
     }
+    setMotivoError(undefined);
     try {
       await notify.run(
-        reabrir.mutateAsync({ id: guiaMasterId, body: { motivo: motivo.trim() } }),
+        reabrir.mutateAsync({ id: guiaMasterId, body: { motivo: parsed.data.motivo } }),
         {
           loading: 'Reabriendo guía...',
           success: 'Guía reabierta',
@@ -1282,10 +1341,16 @@ function ReabrirGuiaAlert({
           <Textarea
             id="motivo-reabrir"
             rows={3}
+            maxLength={MAX_MOTIVO}
             value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
+            onChange={(e) => {
+              setMotivo(e.target.value);
+              setMotivoError(undefined);
+            }}
             placeholder="Ej: pieza faltante apareció / cierre por error"
+            aria-invalid={!!motivoError}
           />
+          {motivoError && <p className="mt-1 text-xs text-destructive">{motivoError}</p>}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel asChild>

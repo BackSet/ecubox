@@ -16,20 +16,36 @@ interface KpiCardProps {
   icon: ReactNode;
   label: string;
   value: number | string;
+  /** Contexto bajo el valor (máx. 2 líneas). Si se omite, se reserva espacio sin texto visible. */
   hint?: string;
   tone?: KpiTone;
   to?: string;
   className?: string;
 }
 
-const TONE_DOT: Record<KpiTone, string> = {
-  neutral: 'bg-[var(--color-muted-foreground)]',
-  primary: 'bg-[var(--color-primary)]',
-  success: 'bg-[var(--color-success)]',
-  warning: 'bg-[var(--color-warning)]',
-  danger: 'bg-[var(--color-destructive)]',
-  info: 'bg-[var(--color-info)]',
+const TONE_ACCENT: Record<KpiTone, string> = {
+  neutral: '',
+  primary: 'border-l-[var(--color-primary)]',
+  success: 'border-l-[var(--color-success)]',
+  warning: 'border-l-[var(--color-warning)]',
+  danger: 'border-l-[var(--color-destructive)]',
+  info: 'border-l-[var(--color-info)]',
 };
+
+const TONE_BADGE: Record<KpiTone, string> = {
+  neutral: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
+  primary:
+    'bg-[color-mix(in_oklab,var(--color-primary)_18%,transparent)] text-[var(--color-primary)]',
+  success:
+    'bg-[color-mix(in_oklab,var(--color-success)_18%,transparent)] text-[var(--color-success)]',
+  warning:
+    'bg-[color-mix(in_oklab,var(--color-warning)_18%,transparent)] text-[var(--color-warning)]',
+  danger:
+    'bg-[color-mix(in_oklab,var(--color-destructive)_18%,transparent)] text-[var(--color-destructive)]',
+  info: 'bg-[color-mix(in_oklab,var(--color-info)_18%,transparent)] text-[var(--color-info)]',
+};
+
+const TONE_ACCENT_WIDTH = 'border-l-[3px]';
 
 export function KpiCard({
   icon,
@@ -40,53 +56,70 @@ export function KpiCard({
   to,
   className,
 }: KpiCardProps) {
-  const showDot = tone !== 'neutral';
+  const trimmedHint = hint?.trim();
+  const ariaLabel = trimmedHint
+    ? `${label}: ${value}. ${trimmedHint}`
+    : `${label}: ${value}`;
+  const showAccent = tone !== 'neutral';
+  const cardClassName = cn(
+    'h-full p-4',
+    showAccent && TONE_ACCENT_WIDTH,
+    showAccent && TONE_ACCENT[tone],
+    to && 'transition hover:border-[var(--color-foreground)]/20',
+    className
+  );
+
   const inner = (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-start gap-2 text-[var(--color-muted-foreground)]">
-        <span
-          className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center"
-          aria-hidden
-        >
-          {icon}
-        </span>
-        {/* Permitimos hasta 2 líneas (line-clamp-2) para evitar truncar
-            etiquetas largas como "Ingreso neto acumulado". El title nativo
-            sigue ofreciendo el texto completo en hover. */}
-        <p
-          className="flex-1 text-[12px] font-medium leading-snug line-clamp-2"
-          title={label}
-        >
-          {label}
-        </p>
-        {showDot && (
+    <div className="flex h-full min-h-[7.5rem] flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-start gap-2.5">
           <span
+            className={cn(
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-md [&>svg]:h-5 [&>svg]:w-5',
+              TONE_BADGE[tone]
+            )}
             aria-hidden
-            className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone])}
-          />
-        )}
+          >
+            {icon}
+          </span>
+          <p
+            className="pt-0.5 text-[13px] font-medium leading-snug text-[var(--color-foreground)] line-clamp-2"
+            title={label}
+          >
+            {label}
+          </p>
+        </div>
         {to && (
           <ArrowRight
-            className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-100"
+            className="mt-1 h-4 w-4 shrink-0 text-[var(--color-muted-foreground)] opacity-0 transition group-hover:opacity-100"
             strokeWidth={1.75}
+            aria-hidden
           />
         )}
       </div>
-      <div className="min-w-0">
+      <div className="mt-auto min-w-0">
         <p
-          className="text-[26px] font-semibold leading-none tracking-tight text-[var(--color-foreground)]"
-          title={typeof value === 'string' || typeof value === 'number' ? String(value) : undefined}
+          className="text-[28px] font-semibold leading-none tracking-tight text-[var(--color-foreground)] tabular-nums"
+          title={
+            typeof value === 'string' || typeof value === 'number'
+              ? String(value)
+              : undefined
+          }
         >
           {value}
         </p>
-        {hint && (
-          <p
-            className="mt-2 truncate text-[12px] text-[var(--color-muted-foreground)]"
-            title={hint}
-          >
-            {hint}
-          </p>
-        )}
+        <div className="mt-2 min-h-[2.5rem]">
+          {trimmedHint ? (
+            <p
+              className="text-[12px] leading-snug text-[var(--color-muted-foreground)] line-clamp-2"
+              title={trimmedHint}
+            >
+              {trimmedHint}
+            </p>
+          ) : (
+            <span className="sr-only">Sin detalle adicional</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -95,20 +128,15 @@ export function KpiCard({
     return (
       <Link
         to={to}
+        aria-label={ariaLabel}
         className={cn(
-          'group block rounded-md outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]/40'
+          'group block h-full rounded-md outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]/40'
         )}
       >
-        <SurfaceCard className={cn('p-4 transition hover:border-[var(--color-foreground)]/20', className)}>
-          {inner}
-        </SurfaceCard>
+        <SurfaceCard className={cardClassName}>{inner}</SurfaceCard>
       </Link>
     );
   }
 
-  return (
-    <SurfaceCard className={cn('p-4', className)}>
-      {inner}
-    </SurfaceCard>
-  );
+  return <SurfaceCard className={cardClassName}>{inner}</SurfaceCard>;
 }

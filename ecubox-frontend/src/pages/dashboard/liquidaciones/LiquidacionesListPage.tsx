@@ -29,6 +29,7 @@ import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
@@ -146,24 +147,31 @@ export function LiquidacionesListPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <KpiCardsGrid>
         <KpiCard
           icon={<Wallet className="h-5 w-5" />}
           label="Liquidaciones"
           value={stats.total}
           tone="primary"
+          hint={`${stats.pagadas} pagada(s) · ${stats.noPagadas} pendiente(s)`}
         />
         <KpiCard
           icon={<CircleDollarSign className="h-5 w-5" />}
           label="No pagadas"
           value={stats.noPagadas}
           tone="warning"
+          hint="Pendientes de cobro"
         />
         <KpiCard
           icon={<CircleDollarSign className="h-5 w-5" />}
           label="Pagadas"
           value={stats.pagadas}
           tone="success"
+          hint={
+            stats.total > 0
+              ? `${Math.round((stats.pagadas / stats.total) * 100)}% del total`
+              : 'Sin liquidaciones'
+          }
         />
         <KpiCard
           icon={
@@ -176,8 +184,9 @@ export function LiquidacionesListPage() {
           label="Ingreso neto acumulado"
           value={formatMoney(stats.netoAcum)}
           tone={stats.netoAcum >= 0 ? 'success' : 'warning'}
+          hint="Suma de ingreso neto en el catálogo"
         />
-      </div>
+      </KpiCardsGrid>
 
       <div className="grid gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/50 p-3 md:grid-cols-2">
         <RangoFechas

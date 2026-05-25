@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useNavigate, Link } from '@tanstack/react-router';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { useState } from 'react';
 import {
   AlertCircle,
@@ -29,6 +29,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { loginSchema } from '@/lib/schemas/auth';
 
 const REMEMBER_KEY = 'ecubox-login-remember';
 
@@ -40,11 +41,6 @@ function readRememberedUsername(): string {
     return '';
   }
 }
-
-const loginSchema = z.object({
-  username: z.string().min(1, 'El usuario o correo es requerido'),
-  password: z.string().min(1, 'La contraseña es requerida'),
-});
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 

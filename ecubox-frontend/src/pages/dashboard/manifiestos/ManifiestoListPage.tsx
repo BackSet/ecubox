@@ -28,7 +28,10 @@ import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
+import { QuickPresetChips } from '@/components/QuickPresetChips';
+import { MANIFIESTO_PERIOD_PRESETS } from '@/lib/constants/manifiesto-presets';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
@@ -87,6 +90,19 @@ export function ManifiestoListPage() {
   const [filtroTipoFilter, setFiltroTipoFilterRaw] = useState<FiltroManifiesto | undefined>(
     undefined,
   );
+  const [periodoFiltro, setPeriodoFiltroRaw] = useState<{
+    fechaInicio: string;
+    fechaFin: string;
+  } | null>(null);
+  const [periodoPresetId, setPeriodoPresetIdRaw] = useState<string | null>(null);
+  const setPeriodoFiltro = (v: typeof periodoFiltro) => {
+    setPeriodoFiltroRaw(v);
+    setPage(0);
+  };
+  const setPeriodoPresetId = (v: string | null) => {
+    setPeriodoPresetIdRaw(v);
+    setPage(0);
+  };
   const [page, setPage] = useState(0);
   const [size, setSizeRaw] = useState(25);
   const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
@@ -126,6 +142,13 @@ export function ManifiestoListPage() {
     if (filtroTipoFilter) {
       raw = raw.filter((m) => m.filtroTipo === filtroTipoFilter);
     }
+    if (periodoFiltro) {
+      const { fechaInicio, fechaFin } = periodoFiltro;
+      raw = raw.filter((m) => {
+        if (!m.fechaInicio || !m.fechaFin) return false;
+        return m.fechaFin >= fechaInicio && m.fechaInicio <= fechaFin;
+      });
+    }
     const q = search.trim().toLowerCase();
     if (!q) return raw;
     return raw.filter(
@@ -135,11 +158,13 @@ export function ManifiestoListPage() {
         m.filtroAgenciaNombre?.toLowerCase().includes(q) ||
         String(m.id).includes(q),
     );
-  }, [allManifiestos, filtroTipoFilter, search]);
+  }, [allManifiestos, filtroTipoFilter, periodoFiltro, search]);
 
-  const tieneFiltros = filtroTipoFilter != null;
+  const tieneFiltros = filtroTipoFilter != null || periodoFiltro != null;
   const limpiarFiltros = () => {
     setFiltroTipoFilter(undefined);
+    setPeriodoFiltro(null);
+    setPeriodoPresetId(null);
   };
 
   const handleExport = async (id: number, mode: 'pdf' | 'print' | 'xlsx') => {
@@ -224,10 +249,10 @@ export function ManifiestoListPage() {
       />
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={3} withHint />
+        <KpiCardsGridSkeleton count={4} />
       ) : (
         allManifiestos.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <KpiCardsGrid>
           <KpiCard
             icon={<FileText className="h-5 w-5" />}
             label="Total manifiestos"
@@ -244,25 +269,36 @@ export function ManifiestoListPage() {
             label="Despachos agrupados"
             value={stats.totalDespachos}
             tone={stats.totalDespachos > 0 ? 'success' : 'neutral'}
-            hint="Suma de despachos en todos los manifiestos"
+            hint={
+              stats.total > 0
+                ? `~${(stats.totalDespachos / stats.total).toFixed(1)} despachos por manifiesto`
+                : 'Acumulado en todos los manifiestos'
+            }
           />
           <KpiCard
             icon={<CalendarRange className="h-5 w-5" />}
             label="Por período"
             value={stats.porPeriodo}
-            tone="neutral"
+            tone="info"
             hint={
               stats.porCourier > 0 || stats.porAgencia > 0
-                ? `${stats.porCourier} courier · ${stats.porAgencia} agencia`
-                : undefined
+                ? `${stats.porCourier} por courier · ${stats.porAgencia} por agencia`
+                : 'Filtro por rango de fechas'
             }
           />
-        </div>
+          <KpiCard
+            icon={<Building2 className="h-5 w-5" />}
+            label="Otros filtros"
+            value={stats.porCourier + stats.porAgencia}
+            tone="neutral"
+            hint="Manifiestos por courier o agencia"
+          />
+        </KpiCardsGrid>
         )
       )}
 
       {isLoading ? (
-        <FiltrosBarSkeleton chips={0} filters={1} />
+        <FiltrosBarSkeleton chips={0} filters={2} />
       ) : (
         allManifiestos.length > 0 && tiposPresentes.length > 1 && (
         <FiltrosBar
@@ -277,23 +313,40 @@ export function ManifiestoListPage() {
             />
           }
           filtros={
-            <FiltroCampo label="Tipo de filtro">
-              <SearchableCombobox<FiltroManifiesto>
-                value={filtroTipoFilter}
-                onChange={(v) =>
-                  setFiltroTipoFilter(
-                    v == null ? undefined : (v as FiltroManifiesto),
-                  )
-                }
-                options={tiposPresentes}
-                getKey={(t) => t}
-                getLabel={(t) => FILTRO_LABELS[t]}
-                placeholder="Todos los tipos"
-                searchPlaceholder="Buscar tipo..."
-                emptyMessage="Sin tipos"
-                className="h-9 w-full"
-              />
-            </FiltroCampo>
+            <>
+              <FiltroCampo label="Período del manifiesto">
+                <QuickPresetChips
+                  options={MANIFIESTO_PERIOD_PRESETS.map((p) => ({
+                    label: p.label,
+                    value: p.id,
+                  }))}
+                  value={periodoPresetId ?? undefined}
+                  onSelect={(id) => {
+                    const preset = MANIFIESTO_PERIOD_PRESETS.find((p) => p.id === id);
+                    if (!preset) return;
+                    setPeriodoFiltro(preset.range());
+                    setPeriodoPresetId(id);
+                  }}
+                />
+              </FiltroCampo>
+              <FiltroCampo label="Tipo de filtro">
+                <SearchableCombobox<FiltroManifiesto>
+                  value={filtroTipoFilter}
+                  onChange={(v) =>
+                    setFiltroTipoFilter(
+                      v == null ? undefined : (v as FiltroManifiesto),
+                    )
+                  }
+                  options={tiposPresentes}
+                  getKey={(t) => t}
+                  getLabel={(t) => FILTRO_LABELS[t]}
+                  placeholder="Todos los tipos"
+                  searchPlaceholder="Buscar tipo..."
+                  emptyMessage="Sin tipos"
+                  className="h-9 w-full"
+                />
+              </FiltroCampo>
+            </>
           }
         />
         )

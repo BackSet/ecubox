@@ -19,7 +19,10 @@ import {
   Trash2,
   Truck,
 } from 'lucide-react';
+import { QuickPresetChips } from '@/components/QuickPresetChips';
 import { localDateTimeInputToApi } from '@/lib/datetime-local';
+import { loteRecepcionCreateSchema } from '@/lib/schemas';
+import { formatDatetimeLocalNow } from '@/lib/constants/operational-presets';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { EnvioConsolidado } from '@/types/envio-consolidado';
@@ -39,6 +42,9 @@ export function LoteRecepcionNuevoPage() {
   const [comboValue, setComboValue] = useState<number | undefined>(undefined);
   const [bulkText, setBulkText] = useState('');
   const [modo, setModo] = useState<'buscar' | 'lista'>('buscar');
+  const [fechaError, setFechaError] = useState<string | undefined>();
+  const [observacionesError, setObservacionesError] = useState<string | undefined>();
+  const [enviosError, setEnviosError] = useState<string | undefined>();
 
   // El endpoint `disponibles-recepcion` devuelve ya filtrados los envios que
   // (a) tienen al menos un paquete y (b) no estan en otro lote. Es ortogonal
@@ -73,6 +79,7 @@ export function LoteRecepcionNuevoPage() {
     if (seleccionados.some((s) => s.id === env.id)) return;
     setSeleccionados((prev) => [...prev, env]);
     setComboValue(undefined);
+    setEnviosError(undefined);
   };
 
   const quitar = (id: number) => {
@@ -127,6 +134,7 @@ export function LoteRecepcionNuevoPage() {
 
     if (nuevos.length > 0) {
       setSeleccionados((prev) => [...prev, ...nuevos]);
+      setEnviosError(undefined);
       toast.success(
         `${nuevos.length} envío${nuevos.length === 1 ? '' : 's'} agregado${nuevos.length === 1 ? '' : 's'}.`,
       );
@@ -154,17 +162,31 @@ export function LoteRecepcionNuevoPage() {
   };
 
   const handleRegistrar = () => {
-    if (seleccionados.length === 0) {
-      toast.error('Selecciona al menos un envío consolidado.');
+    const numeroGuiasEnvio = seleccionados.map((e) => e.codigo);
+    const parsed = loteRecepcionCreateSchema.safeParse({
+      fechaRecepcion,
+      observaciones: observaciones.trim() || undefined,
+      numeroGuiasEnvio,
+    });
+    if (!parsed.success) {
+      const fechaIssue = parsed.error.issues.find((i) => i.path[0] === 'fechaRecepcion');
+      const obsIssue = parsed.error.issues.find((i) => i.path[0] === 'observaciones');
+      const enviosIssue = parsed.error.issues.find((i) => i.path[0] === 'numeroGuiasEnvio');
+      setFechaError(fechaIssue?.message);
+      setObservacionesError(obsIssue?.message);
+      setEnviosError(enviosIssue?.message);
+      toast.error(parsed.error.issues[0]?.message ?? 'Revisa los datos del lote');
       return;
     }
-    const numeroGuiasEnvio = seleccionados.map((e) => e.codigo);
+    setFechaError(undefined);
+    setObservacionesError(undefined);
+    setEnviosError(undefined);
     const fecha = localDateTimeInputToApi(fechaRecepcion);
     createMutation.mutate(
       {
         fechaRecepcion: fecha,
-        observaciones: observaciones.trim() || undefined,
-        numeroGuiasEnvio,
+        observaciones: parsed.data.observaciones,
+        numeroGuiasEnvio: parsed.data.numeroGuiasEnvio,
       },
       {
         onSuccess: (data) => {
@@ -241,8 +263,19 @@ export function LoteRecepcionNuevoPage() {
                   id="fecha-recepcion"
                   type="datetime-local"
                   value={fechaRecepcion}
-                  onChange={(e) => setFechaRecepcion(e.target.value)}
+                  onChange={(e) => {
+                    setFechaRecepcion(e.target.value);
+                    setFechaError(undefined);
+                  }}
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  aria-invalid={!!fechaError}
+                />
+                {fechaError && (
+                  <p className="text-xs text-destructive">{fechaError}</p>
+                )}
+                <QuickPresetChips
+                  options={[{ label: 'Ahora', value: 'now' as const }]}
+                  onSelect={() => setFechaRecepcion(formatDatetimeLocalNow())}
                 />
                 {fechaLabel && (
                   <p className="text-xs text-muted-foreground">{fechaLabel}</p>
@@ -258,11 +291,18 @@ export function LoteRecepcionNuevoPage() {
                 <textarea
                   id="observaciones"
                   value={observaciones}
-                  onChange={(e) => setObservaciones(e.target.value)}
+                  onChange={(e) => {
+                    setObservaciones(e.target.value);
+                    setObservacionesError(undefined);
+                  }}
                   rows={3}
                   placeholder="Notas internas sobre el lote..."
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  aria-invalid={!!observacionesError}
                 />
+                {observacionesError && (
+                  <p className="text-xs text-destructive">{observacionesError}</p>
+                )}
               </div>
             </div>
           </section>
@@ -477,6 +517,9 @@ export function LoteRecepcionNuevoPage() {
                 </span>
               </div>
 
+              {enviosError && (
+                <p className="text-xs text-destructive">{enviosError}</p>
+              )}
               {seleccionados.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border bg-[var(--color-muted)]/30 px-4 py-8 text-center">
                   <Boxes className="h-8 w-8 text-muted-foreground" />

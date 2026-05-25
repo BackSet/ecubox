@@ -13,6 +13,13 @@ import { useConsignatariosOperario } from '@/hooks/useOperarioDespachos';
 import { useAuthStore } from '@/stores/authStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getApiErrorMessage } from '@/lib/api/error-message';
+import {
+  guiaMasterCreateSchema,
+  guiaMasterUpdateConsignatarioSchema,
+  guiaMasterUpdateTotalSchema,
+  trackingBaseSchema,
+} from '@/lib/schemas';
+import { QuickPresetChips } from '@/components/QuickPresetChips';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +38,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
@@ -173,12 +181,17 @@ export function GuiasMasterPage() {
       />
 
       {totalGuias > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<Boxes className="h-5 w-5" />}
             label="Total guías"
             value={stats.total}
             tone="primary"
+            hint={
+              stats.cerradas > 0
+                ? `${stats.cerradas} cerradas o canceladas`
+                : 'Todas en curso'
+            }
           />
           <KpiCard
             icon={<Clock className="h-5 w-5" />}
@@ -201,7 +214,7 @@ export function GuiasMasterPage() {
             tone={stats.enDespacho > 0 ? 'primary' : 'neutral'}
             hint="Parciales o en revisión"
           />
-        </div>
+        </KpiCardsGrid>
       )}
 
       {totalGuias > 0 && (
@@ -684,6 +697,8 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
   const [consignatarioId, setConsignatarioId] = useState<number | undefined>(
     editing?.consignatarioId ?? undefined,
   );
+  const [totalPiezasEsperadas, setTotalPiezasEsperadas] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const crear = useCrearGuiaMaster();
   const actualizar = useActualizarGuiaMaster();
   const saving = isEdit ? actualizar.isPending : crear.isPending;
@@ -723,6 +738,11 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
   function handleConsignatarioChange(value: string | number | undefined) {
     const did = typeof value === 'string' ? Number(value) : value;
     setConsignatarioId(did);
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.consignatarioId;
+      return next;
+    });
     if (did != null) {
       const dest = consignatarios.find((d) => d.id === did);
       if (dest && dest.clienteUsuarioId != null) {
@@ -733,19 +753,65 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!trackingBase.trim()) {
-      toast.error('Indica el número de guía');
-      return;
+    const errs: Record<string, string> = {};
+
+    if (isEdit && editing) {
+      const destParsed = guiaMasterUpdateConsignatarioSchema.safeParse({
+        clienteId,
+        consignatarioId,
+      });
+      if (!destParsed.success) {
+        for (const issue of destParsed.error.issues) {
+          const key = String(issue.path[0] ?? '_form');
+          if (!errs[key]) errs[key] = issue.message;
+        }
+      }
+      const tb = trackingBase.trim();
+      if (tb && tb !== editing.trackingBase) {
+        const tbParsed = trackingBaseSchema.safeParse(tb);
+        if (!tbParsed.success) {
+          errs.trackingBase = tbParsed.error.issues[0]?.message ?? 'Número de guía inválido';
+        }
+      }
+      if (Object.keys(errs).length > 0) {
+        setFieldErrors(errs);
+        toast.error(Object.values(errs)[0]);
+        return;
+      }
+      setFieldErrors({});
+    } else {
+      const baseParsed = guiaMasterCreateSchema
+        .omit({ totalPiezasEsperadas: true })
+        .safeParse({ trackingBase: trackingBase.trim(), clienteId, consignatarioId });
+      if (!baseParsed.success) {
+        for (const issue of baseParsed.error.issues) {
+          const key = String(issue.path[0] ?? '_form');
+          if (!errs[key]) errs[key] = issue.message;
+        }
+      }
+      const totalRaw = totalPiezasEsperadas.trim();
+      if (totalRaw !== '') {
+        const totalParsed = guiaMasterUpdateTotalSchema.safeParse({
+          totalPiezasEsperadas: Number(totalRaw),
+        });
+        if (!totalParsed.success) {
+          errs.totalPiezasEsperadas =
+            totalParsed.error.issues[0]?.message ?? 'Total de piezas inválido';
+        }
+      }
+      if (Object.keys(errs).length > 0) {
+        setFieldErrors(errs);
+        toast.error(Object.values(errs)[0]);
+        return;
+      }
+      setFieldErrors({});
     }
-    if (consignatarioId == null) {
-      toast.error('Selecciona un consignatario');
-      return;
-    }
+
     try {
       if (isEdit && editing) {
         const tb = trackingBase.trim();
         const body: { consignatarioId: number; trackingBase?: string } = {
-          consignatarioId: consignatarioId,
+          consignatarioId: consignatarioId!,
         };
         if (tb && tb !== editing.trackingBase) {
           body.trackingBase = tb;
@@ -753,9 +819,12 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
         await actualizar.mutateAsync({ id: editing.id, body });
         toast.success('Guía actualizada');
       } else {
+        const totalRaw = totalPiezasEsperadas.trim();
+        const totalNum = totalRaw === '' ? null : Number(totalRaw);
         await crear.mutateAsync({
           trackingBase: trackingBase.trim(),
-          consignatarioId: consignatarioId,
+          consignatarioId: consignatarioId!,
+          totalPiezasEsperadas: totalNum,
         });
         toast.success('Guía registrada');
       }
@@ -789,11 +858,22 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
             <Input
               id="trackingBase"
               value={trackingBase}
-              onChange={(e) => setTrackingBase(e.target.value)}
+              onChange={(e) => {
+                setTrackingBase(e.target.value);
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.trackingBase;
+                  return next;
+                });
+              }}
               placeholder="Ej: 1Z52159R0379385035"
               autoFocus
               className={isEdit ? 'font-mono' : undefined}
+              aria-invalid={!!fieldErrors.trackingBase}
             />
+            {fieldErrors.trackingBase && (
+              <p className="mt-1 text-xs text-destructive">{fieldErrors.trackingBase}</p>
+            )}
             <p className="mt-1 text-xs text-muted-foreground">
               {isEdit
                 ? 'Si lo cambias, se actualizarán los números de las piezas asociadas.'
@@ -907,9 +987,58 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
                 Aún no hay consignatarios registrados. Crea uno desde "Consignatarios".
               </p>
             )}
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              El total de piezas y demás metadatos podrán definirse después al registrar paquetes.
-            </p>
+            {fieldErrors.consignatarioId && (
+              <p className="mt-1 text-xs text-destructive">{fieldErrors.consignatarioId}</p>
+            )}
+            {!isEdit && (
+              <div className="mt-3">
+                <Label htmlFor="totalPiezasEsperadas" className="mb-1 block text-xs">
+                  Total de piezas esperadas (opcional)
+                </Label>
+                <Input
+                  id="totalPiezasEsperadas"
+                  type="number"
+                  min={1}
+                  value={totalPiezasEsperadas}
+                  onChange={(e) => {
+                    setTotalPiezasEsperadas(e.target.value);
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.totalPiezasEsperadas;
+                      return next;
+                    });
+                  }}
+                  placeholder="Sin definir"
+                  aria-invalid={!!fieldErrors.totalPiezasEsperadas}
+                />
+                {fieldErrors.totalPiezasEsperadas && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {fieldErrors.totalPiezasEsperadas}
+                  </p>
+                )}
+                <QuickPresetChips
+                  className="mt-1.5"
+                  options={[1, 2, 3, 5, 10].map((n) => ({
+                    label: String(n),
+                    value: n,
+                  }))}
+                  value={
+                    totalPiezasEsperadas.trim() === ''
+                      ? undefined
+                      : Number(totalPiezasEsperadas)
+                  }
+                  onSelect={(v) => setTotalPiezasEsperadas(String(v))}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Puedes dejarlo vacío y definirlo al registrar paquetes.
+                </p>
+              </div>
+            )}
+            {isEdit && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                El total de piezas se ajusta al registrar o editar paquetes de la guía.
+              </p>
+            )}
           </div>
 
           <DialogFooter>

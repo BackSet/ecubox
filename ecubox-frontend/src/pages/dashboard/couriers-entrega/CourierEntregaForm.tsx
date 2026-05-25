@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { toast } from 'sonner';
 import {
   CalendarClock,
@@ -34,38 +34,11 @@ import {
   useUpdateCourierEntrega,
 } from '@/hooks/useCouriersEntregaAdmin';
 import type { CourierEntregaRequest } from '@/types/despacho';
-import { emailOpcionalSchema } from '@/lib/validation';
+import { courierEntregaFormSchema } from '@/lib/schemas/maestros';
 import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
 import { cn } from '@/lib/utils';
 
-const formSchema = z.object({
-  nombre: z
-    .string()
-    .min(1, 'El nombre es obligatorio')
-    .min(3, 'Mínimo 3 caracteres')
-    .max(120, 'Máximo 120 caracteres'),
-  codigo: z
-    .string()
-    .min(1, 'El código es obligatorio')
-    .min(2, 'Mínimo 2 caracteres')
-    .max(40, 'Máximo 40 caracteres')
-    .regex(/^[A-Z0-9_-]+$/i, 'Solo letras, números, guion y guion bajo'),
-  email: emailOpcionalSchema,
-  horarioReparto: z.string().max(255, 'Máximo 255 caracteres').optional(),
-  paginaTracking: z
-    .string()
-    .optional()
-    .refine(
-      (v) => !v || v.trim() === '' || /^https?:\/\/.+/i.test(v.trim()),
-      { message: 'La página de tracking debe iniciar con http:// o https://' },
-    ),
-  diasMaxRetiroDomicilio: z
-    .union([z.number().int().min(0, 'Debe ser mayor o igual a 0').max(365, 'Máximo 365 días'), z.nan()])
-    .transform((n) => (Number.isNaN(n) ? undefined : n))
-    .optional(),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof courierEntregaFormSchema>;
 
 interface CourierEntregaFormProps {
   id?: number;
@@ -101,7 +74,7 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
   const updateMutation = useUpdateCourierEntrega();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(courierEntregaFormSchema),
     mode: 'onTouched',
     defaultValues: {
       nombre: '',

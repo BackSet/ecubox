@@ -33,6 +33,7 @@ import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -168,7 +169,7 @@ export function CourierEntregaListPage() {
         <KpiCardsGridSkeleton count={4} withHint />
       ) : (
         totalElements > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<Truck className="h-4 w-4" />}
             label="Couriers de entrega"
@@ -199,7 +200,7 @@ export function CourierEntregaListPage() {
             tone="neutral"
             hint={`${stats.total - stats.conHorario} sin horario definido`}
           />
-        </div>
+        </KpiCardsGrid>
         )
       )}
 

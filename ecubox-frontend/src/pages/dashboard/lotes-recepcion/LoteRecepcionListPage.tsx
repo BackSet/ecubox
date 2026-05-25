@@ -24,6 +24,7 @@ import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -253,32 +254,44 @@ export function LoteRecepcionListPage() {
         <KpiCardsGridSkeleton count={4} />
       ) : (
         allLotes.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<PackageCheck className="h-5 w-5" />}
             label="Lotes registrados"
             value={stats.total}
             tone="primary"
+            hint={`${stats.paquetes} paquete(s) recibidos`}
           />
           <KpiCard
             icon={<Boxes className="h-5 w-5" />}
             label="Paquetes recibidos"
             value={stats.paquetes}
             tone="success"
+            hint={
+              stats.total > 0
+                ? `~${Math.round(stats.paquetes / stats.total)} por lote`
+                : 'Acumulado en todos los lotes'
+            }
           />
           <KpiCard
             icon={<FileText className="h-5 w-5" />}
             label="Guías únicas"
             value={stats.guiasUnicas}
             tone="neutral"
+            hint="Guías distintas en recepción"
           />
           <KpiCard
             icon={<CalendarClock className="h-5 w-5" />}
             label="Lotes hoy"
             value={stats.hoy}
             tone={stats.hoy > 0 ? 'warning' : 'neutral'}
+            hint={
+              stats.hoy > 0
+                ? 'Recepciones del día actual'
+                : 'Sin lotes hoy'
+            }
           />
-        </div>
+        </KpiCardsGrid>
         )
       )}
 

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -35,33 +35,11 @@ import {
   useUpdateAgencia,
 } from '@/hooks/useAgencias';
 import type { AgenciaRequest } from '@/types/despacho';
+import { agenciaFormSchema } from '@/lib/schemas/maestros';
 import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
 import { cn } from '@/lib/utils';
 
-const formSchema = z.object({
-  nombre: z
-    .string()
-    .min(1, 'El nombre es obligatorio')
-    .min(3, 'Mínimo 3 caracteres')
-    .max(120, 'Máximo 120 caracteres'),
-  codigo: z
-    .string()
-    .min(1, 'El código es obligatorio')
-    .min(2, 'Mínimo 2 caracteres')
-    .max(40, 'Máximo 40 caracteres')
-    .regex(/^[A-Z0-9_-]+$/i, 'Solo letras, números, guion y guion bajo'),
-  encargado: z.string().max(120, 'Máximo 120 caracteres').optional(),
-  direccion: z.string().max(255, 'Máximo 255 caracteres').optional(),
-  provincia: z.string().optional(),
-  canton: z.string().optional(),
-  horarioAtencion: z.string().max(255, 'Máximo 255 caracteres').optional(),
-  diasMaxRetiro: z
-    .union([z.number().int().min(0, 'Debe ser mayor o igual a 0').max(365, 'Máximo 365 días'), z.nan()])
-    .transform((n) => (Number.isNaN(n) ? undefined : n))
-    .optional(),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof agenciaFormSchema>;
 
 interface AgenciaFormProps {
   id?: number;
@@ -101,7 +79,7 @@ export function AgenciaForm({ id, onClose, onSuccess }: AgenciaFormProps) {
   const updateMutation = useUpdateAgencia();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(agenciaFormSchema),
     mode: 'onTouched',
     defaultValues: {
       nombre: '',

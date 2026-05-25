@@ -1,29 +1,31 @@
 import { cn } from '@/lib/utils';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { KpiCardsGrid, KPI_CARDS_GRID_CLASS } from '@/components/KpiCardsGrid';
 
 interface KpiCardSkeletonProps {
-  /** Si true, pinta también una línea de hint debajo del valor. Default: false. */
+  /** @deprecated El hint siempre se reserva; se mantiene por compatibilidad. */
   withHint?: boolean;
   className?: string;
 }
 
 /**
- * Skeleton de un único `KpiCard`. Imita su estructura: icono `h-4 w-4`,
- * label `h-3`, valor grande `h-7` y hint opcional. Mantiene padding `p-4`
- * y altura aproximada del card real para que no haya "salto" al cargar.
+ * Skeleton de un único `KpiCard`. Imita su estructura: badge de icono,
+ * label, valor grande y hint reservado. Mantiene `h-full` para grids uniformes.
  */
-export function KpiCardSkeleton({ withHint, className }: KpiCardSkeletonProps) {
+export function KpiCardSkeleton({ className }: KpiCardSkeletonProps) {
   return (
-    <SurfaceCard className={cn('p-4', className)}>
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4 rounded-sm" />
-          <Skeleton className="h-3 w-24" />
+    <SurfaceCard className={cn('h-full min-h-[7.5rem] p-4', className)}>
+      <div className="flex h-full flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-start gap-2.5">
+            <Skeleton className="h-9 w-9 shrink-0 rounded-md" />
+            <Skeleton className="h-4 w-28 flex-1" />
+          </div>
         </div>
-        <div className="min-w-0 space-y-2">
-          <Skeleton className="h-7 w-20" />
-          {withHint && <Skeleton className="h-3 w-32" />}
+        <div className="mt-auto min-w-0 space-y-2">
+          <Skeleton className="h-8 w-20" />
+          <Skeleton className="min-h-[2.5rem] h-3 w-32" />
         </div>
       </div>
     </SurfaceCard>
@@ -32,8 +34,9 @@ export function KpiCardSkeleton({ withHint, className }: KpiCardSkeletonProps) {
 
 interface KpiCardsGridSkeletonProps {
   count?: number;
-  /** Clases del grid. Default: `grid-cols-2 md:grid-cols-4`. */
+  /** Clases adicionales del grid. Por defecto usa `KPI_CARDS_GRID_CLASS`. */
   gridClassName?: string;
+  /** @deprecated El hint siempre se reserva; se mantiene por compatibilidad. */
   withHint?: boolean;
 }
 
@@ -41,18 +44,15 @@ interface KpiCardsGridSkeletonProps {
 export function KpiCardsGridSkeleton({
   count = 4,
   gridClassName,
-  withHint,
 }: KpiCardsGridSkeletonProps) {
   return (
-    <div
-      className={cn(
-        'grid grid-cols-2 gap-3 md:grid-cols-4',
-        gridClassName,
-      )}
-    >
+    <KpiCardsGrid className={gridClassName}>
       {Array.from({ length: count }).map((_, i) => (
-        <KpiCardSkeleton key={`kpi-skel-${i}`} withHint={withHint} />
+        <KpiCardSkeleton key={`kpi-skel-${i}`} />
       ))}
-    </div>
+    </KpiCardsGrid>
   );
 }
+
+export { KPI_CARDS_GRID_CLASS };
+

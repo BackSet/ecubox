@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TablePagination } from '@/components/ui/TablePagination';
 import {
   AlertCircle,
@@ -21,9 +21,9 @@ import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import {
   Dialog,
@@ -34,9 +34,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ChipFiltro } from '@/components/ChipFiltro';
+import { QuickPresetChips } from '@/components/QuickPresetChips';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { PRESETS_LBS } from '@/lib/constants/operational-presets';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
-import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -46,10 +48,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useBulkUpdatePesos, usePaquetesOperario } from '@/hooks/usePaquetesOperario';
-import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
+import { sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
 import type { Paquete } from '@/types/paquete';
 import { ConsignatarioCell, GuiaMasterPiezaCell } from '../paquetes/PaqueteCells';
+import { PesoInputPair } from '@/components/PesoInput';
+import { validateBulkPeso, distribuirTotalSchema } from '@/lib/schemas/pesaje';
 
 type WeightInputs = Record<number, { lbs: string; kg: string }>;
 
@@ -128,6 +132,7 @@ export function PesajePage() {
 
   // Estado del dialog "Distribuir total"
   const [distribuirOpen, setDistribuirOpen] = useState(false);
+  const [bulkSaveInvalidIds, setBulkSaveInvalidIds] = useState<Set<number>>(new Set());
 
   // Codigos de envio consolidado presentes en los paquetes cargados, para
   // poblar el filtro. Mantenemos el mismo patron que en gestionar-estados-paquetes.
@@ -362,8 +367,19 @@ export function PesajePage() {
 
     if (items.length === 0) {
       notify.warning('Ingresa al menos un peso válido en alguna fila');
+      setBulkSaveInvalidIds(new Set());
       return;
     }
+
+    const validation = validateBulkPeso(
+      items.map((i) => ({ id: i.paqueteId, pesoLbs: i.pesoLbs, pesoKg: i.pesoKg })),
+    );
+    if (!validation.ok) {
+      notify.warning(validation.message);
+      setBulkSaveInvalidIds(new Set(validation.invalidIds ?? []));
+      return;
+    }
+    setBulkSaveInvalidIds(new Set());
 
     try {
       await notify.run(bulkUpdate.mutateAsync(items), {
@@ -457,24 +473,27 @@ export function PesajePage() {
         <KpiCardsGridSkeleton count={4} />
       ) : (
         allPaquetes.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<PackageX className="h-5 w-5" />}
             label="Sin peso"
             value={stats.pendientes}
             tone="neutral"
+            hint="Paquetes en la lista actual"
           />
           <KpiCard
             icon={<CheckCircle2 className="h-5 w-5" />}
             label="Listos para guardar"
             value={stats.listos}
             tone={stats.listos > 0 ? 'success' : 'neutral'}
+            hint="Peso válido en el formulario"
           />
           <KpiCard
             icon={<AlertCircle className="h-5 w-5" />}
             label="Filas inválidas"
             value={stats.invalidos}
             tone={stats.invalidos > 0 ? 'danger' : 'neutral'}
+            hint="Corrija el peso antes de guardar"
           />
           <KpiCard
             icon={<Scale className="h-5 w-5" />}
@@ -483,8 +502,13 @@ export function PesajePage() {
               stats.pesoLbsTotal > 0 ? `${stats.pesoLbsTotal.toFixed(2)} lbs` : '—'
             }
             tone="primary"
+            hint={
+              stats.listos > 0
+                ? `Suma de ${stats.listos} fila(s) listas`
+                : 'Sin pesos listos aún'
+            }
           />
-        </div>
+        </KpiCardsGrid>
         )
       )}
 
@@ -615,14 +639,13 @@ export function PesajePage() {
                 <TableHead className="min-w-[14rem]">Consignatario</TableHead>
                 <TableHead className="hidden lg:table-cell">Envío consolidado</TableHead>
                 <TableHead className="hidden xl:table-cell">Contenido</TableHead>
-                <TableHead className="w-[10rem]">Peso (lbs)</TableHead>
-                <TableHead className="w-[10rem]">Peso (kg)</TableHead>
+                <TableHead className="w-[10.5rem]">Peso</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRowsSkeleton
-                columns={8}
+                columns={7}
                 columnClasses={{
                   3: 'hidden lg:table-cell',
                   4: 'hidden xl:table-cell',
@@ -671,8 +694,7 @@ export function PesajePage() {
                   <TableHead className="min-w-[14rem]">Consignatario</TableHead>
                   <TableHead className="hidden lg:table-cell">Envío consolidado</TableHead>
                   <TableHead className="hidden xl:table-cell">Contenido</TableHead>
-                  <TableHead className="w-[10rem]">Peso (lbs)</TableHead>
-                  <TableHead className="w-[10rem]">Peso (kg)</TableHead>
+                  <TableHead className="w-[10.5rem]">Peso</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
@@ -684,13 +706,14 @@ export function PesajePage() {
                   const tieneAlgo = w.lbs.trim() !== '' || w.kg.trim() !== '';
                   const valido = lbsValue != null || kgValue != null;
                   const invalido = tieneAlgo && !valido;
+                  const invalidoGuardado = bulkSaveInvalidIds.has(p.id);
 
                   return (
                     <TableRow
                       key={p.id}
                       className={
-                        invalido
-                          ? 'bg-[var(--color-destructive)]/5'
+                        invalido || invalidoGuardado
+                          ? 'bg-[var(--color-destructive)]/5 ring-1 ring-inset ring-[var(--color-destructive)]/20'
                           : valido
                             ? 'bg-[var(--color-success)]/5'
                             : undefined
@@ -735,24 +758,18 @@ export function PesajePage() {
                       <TableCell className="hidden max-w-[16rem] align-top text-sm text-muted-foreground xl:table-cell">
                         <span className="line-clamp-2 break-words">{p.contenido ?? '—'}</span>
                       </TableCell>
-                      <TableCell className="align-top">
-                        <PesoInput
-                          value={w.lbs}
-                          onChange={(v) => setLbs(p.id, v)}
-                          unit="lbs"
-                          ariaLabel={`Peso en libras para ${p.numeroGuia}`}
-                          highlight={valido}
-                          invalid={invalido && w.lbs.trim() !== ''}
-                        />
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <PesoInput
-                          value={w.kg}
-                          onChange={(v) => setKg(p.id, v)}
-                          unit="kg"
-                          ariaLabel={`Peso en kilogramos para ${p.numeroGuia}`}
-                          highlight={valido}
-                          invalid={invalido && w.kg.trim() !== ''}
+                      <TableCell className="w-[10.5rem] align-top">
+                        <PesoInputPair
+                          className="w-fit"
+                          lbs={w.lbs}
+                          kg={w.kg}
+                          onLbsChange={(v) => setLbs(p.id, v)}
+                          onKgChange={(v) => setKg(p.id, v)}
+                          lbsAriaLabel={`Peso en libras para ${p.numeroGuia}`}
+                          kgAriaLabel={`Peso en kilogramos para ${p.numeroGuia}`}
+                          highlight={valido && !invalidoGuardado}
+                          invalid={invalido || invalidoGuardado}
+                          size="sm"
                         />
                       </TableCell>
                       <TableCell className="text-right align-top">
@@ -804,41 +821,6 @@ export function PesajePage() {
   );
 }
 
-interface PesoInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  unit: 'lbs' | 'kg';
-  ariaLabel: string;
-  highlight?: boolean;
-  invalid?: boolean;
-}
-
-function PesoInput({ value, onChange, unit, ariaLabel, highlight, invalid }: PesoInputProps) {
-  const borderClass = invalid
-    ? 'border-[var(--color-destructive)] focus-within:ring-[var(--color-destructive)]/40'
-    : highlight
-      ? 'border-[var(--color-success)]/30 focus-within:ring-emerald-500/30'
-      : '';
-  return (
-    <div
-      className={`flex h-9 items-center overflow-hidden rounded-md border bg-background ${borderClass}`}
-    >
-      <Input
-        type="text"
-        inputMode="decimal"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => onKeyDownNumericDecimal(e, value)}
-        placeholder="0.00"
-        aria-label={ariaLabel}
-        className="h-9 flex-1 border-0 px-2 text-sm shadow-none focus-visible:ring-0"
-      />
-      <span className="select-none border-l border-border bg-[var(--color-muted)]/40 px-2 text-xs font-medium text-muted-foreground">
-        {unit}
-      </span>
-    </div>
-  );
-}
 
 interface DistribuirItem {
   paqueteId: number;
@@ -881,6 +863,7 @@ function DistribuirTotalDialog({
   const [totalLbs, setTotalLbs] = useState('');
   const [totalKg, setTotalKg] = useState('');
   const [sobrescribir, setSobrescribir] = useState(false);
+  const [distribuirErrors, setDistribuirErrors] = useState<Record<string, string>>({});
 
   // Reset al abrir/cerrar para que cada apertura sea limpia.
   useEffect(() => {
@@ -891,6 +874,7 @@ function DistribuirTotalDialog({
     setTotalLbs('');
     setTotalKg('');
     setSobrescribir(false);
+    setDistribuirErrors({});
   }, [open]);
 
   // Si cambia el modo o si el target deja de estar disponible, lo reseteo.
@@ -957,14 +941,23 @@ function DistribuirTotalDialog({
     modo === 'envio' ? 'Envío consolidado' : 'Guía master';
 
   function handleAplicar() {
-    if (totalNum == null) {
-      notify.warning('Ingresa un peso total mayor que 0');
+    const parsed = distribuirTotalSchema.safeParse({
+      envioCodigo: modo === 'envio' ? target : undefined,
+      guiaMasterTracking: modo === 'guia' ? target : undefined,
+      totalLbs: totalLbs.trim() ? Number(totalLbs) : undefined,
+      totalKg: totalKg.trim() ? Number(totalKg) : undefined,
+      sobrescribir,
+    });
+    if (!parsed.success) {
+      const errors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? '_form');
+        if (!errors[key]) errors[key] = issue.message;
+      }
+      setDistribuirErrors(errors);
       return;
     }
-    if (!target) {
-      notify.warning(`Selecciona un ${modo === 'envio' ? 'envío consolidado' : 'guía master'}`);
-      return;
-    }
+    setDistribuirErrors({});
     if (aplicaA.length === 0) {
       notify.warning(
         sobrescribir
@@ -973,6 +966,8 @@ function DistribuirTotalDialog({
       );
       return;
     }
+    const totalNum = unidadFuente === 'lbs' ? parsePositive(totalLbs) : parsePositive(totalKg);
+    if (totalNum == null) return;
     const reparto = distribuirEquitativo(totalNum, aplicaA.length);
     const items: DistribuirItem[] = aplicaA.map((p, i) => ({
       paqueteId: p.id,
@@ -999,32 +994,16 @@ function DistribuirTotalDialog({
             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               Distribuir por
             </span>
-            <div className="inline-flex rounded-md border border-border p-0.5">
-              <button
-                type="button"
-                onClick={() => setModo('envio')}
-                className={cn(
-                  'flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors',
-                  modo === 'envio'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-[var(--color-muted)]',
-                )}
-              >
-                Envío consolidado
-              </button>
-              <button
-                type="button"
-                onClick={() => setModo('guia')}
-                className={cn(
-                  'flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors',
-                  modo === 'guia'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-[var(--color-muted)]',
-                )}
-              >
-                Guía master
-              </button>
-            </div>
+            <SegmentedControl
+              value={modo}
+              onValueChange={setModo}
+              size="md"
+              className="w-full"
+              options={[
+                { value: 'envio', label: 'Envío consolidado' },
+                { value: 'guia', label: 'Guía master' },
+              ]}
+            />
           </div>
 
           <div className="flex flex-col gap-1">
@@ -1033,7 +1012,16 @@ function DistribuirTotalDialog({
             </label>
             <SearchableCombobox<string>
               value={target}
-              onChange={(v) => setTarget(v === undefined ? undefined : String(v))}
+              onChange={(v) => {
+                setTarget(v === undefined ? undefined : String(v));
+                if (distribuirErrors.envioCodigo) {
+                  setDistribuirErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.envioCodigo;
+                    return next;
+                  });
+                }
+              }}
               options={opciones}
               getKey={(c) => c}
               getLabel={(c) => c}
@@ -1053,6 +1041,9 @@ function DistribuirTotalDialog({
               disabled={opciones.length === 0}
               className="h-9 w-full"
             />
+            {distribuirErrors.envioCodigo && (
+              <p className="text-sm text-[var(--color-destructive)]">{distribuirErrors.envioCodigo}</p>
+            )}
           </div>
 
           {target && (
@@ -1084,29 +1075,38 @@ function DistribuirTotalDialog({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Total en libras
-              </label>
-              <PesoInput
-                value={totalLbs}
-                onChange={setLbsSync}
-                unit="lbs"
-                ariaLabel="Peso total en libras"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Total en kilogramos
-              </label>
-              <PesoInput
-                value={totalKg}
-                onChange={setKgSync}
-                unit="kg"
-                ariaLabel="Peso total en kilogramos"
-              />
-            </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Peso total del grupo
+            </label>
+            <PesoInputPair
+              lbs={totalLbs}
+              kg={totalKg}
+              onLbsChange={setLbsSync}
+              onKgChange={setKgSync}
+              lbsAriaLabel="Peso total en libras"
+              kgAriaLabel="Peso total en kilogramos"
+              size="lg"
+              showHint
+              invalid={Boolean(distribuirErrors.totalLbs)}
+            />
+            {distribuirErrors.totalLbs && (
+              <p className="text-sm text-[var(--color-destructive)]">{distribuirErrors.totalLbs}</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Atajos de peso
+            </span>
+            <QuickPresetChips
+              options={PRESETS_LBS.map((p) => ({ label: p.label, value: p.valor }))}
+              onSelect={(v) => setLbsSync(String(v))}
+            />
+            <QuickPresetChips
+              options={[{ label: 'Distribuir equitativamente', value: 'apply' as const }]}
+              onSelect={() => handleAplicar()}
+            />
           </div>
 
           {target && conValor.length > 0 && (

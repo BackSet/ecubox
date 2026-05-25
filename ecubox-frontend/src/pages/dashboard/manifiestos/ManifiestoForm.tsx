@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
   AlertTriangle,
   Building2,
@@ -32,18 +32,9 @@ import {
 } from '@/hooks/useManifiestos';
 import { useDespachos } from '@/hooks/useOperarioDespachos';
 import type { ManifiestoRequest } from '@/types/manifiesto';
+import { manifiestoFormSchema } from '@/lib/schemas/maestros';
 
-const formSchema = z
-  .object({
-    fechaInicio: z.string().min(1, 'La fecha de inicio es obligatoria'),
-    fechaFin: z.string().min(1, 'La fecha de fin es obligatoria'),
-  })
-  .refine((data) => new Date(data.fechaFin) >= new Date(data.fechaInicio), {
-    message: 'La fecha de fin debe ser mayor o igual a la fecha de inicio',
-    path: ['fechaFin'],
-  });
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof manifiestoFormSchema>;
 
 interface ManifiestoFormProps {
   id?: number;
@@ -162,7 +153,7 @@ export function ManifiestoForm({ id, onClose, onSuccess }: ManifiestoFormProps) 
   const updateMutation = useUpdateManifiesto();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(manifiestoFormSchema),
     defaultValues: {
       fechaInicio: '',
       fechaFin: '',

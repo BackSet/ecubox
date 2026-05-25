@@ -53,7 +53,6 @@ import {
   Variable,
   X,
 } from 'lucide-react';
-import { z } from 'zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -116,6 +115,7 @@ import { TarifaDistribucionForm } from '@/pages/dashboard/parametros-sistema/Tar
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/api/error-message';
+import { estadoRastreoFormSchema, mensajePlantillaSchema } from '@/lib/schemas/maestros';
 import type { EstadoRastreo, EstadoRastreoRequest } from '@/types/estado-rastreo';
 
 // ============================================================================
@@ -140,11 +140,6 @@ interface TabMeta {
   icon: React.ComponentType<{ className?: string }>;
   visible: boolean;
 }
-
-const estadoRastreoFormSchema = z.object({
-  codigo: z.string().trim().min(1, 'Código obligatorio'),
-  nombre: z.string().trim().min(1, 'Nombre obligatorio'),
-});
 
 // ============================================================================
 // Helpers
@@ -357,8 +352,13 @@ export function ParametrosSistemaPage() {
   const [confirmarSalida, setConfirmarSalida] = useState(false);
 
   const handleGuardarWhatsapp = async () => {
+    const parsed = mensajePlantillaSchema.safeParse(plantillaLocal);
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? 'Plantilla no válida');
+      throw new Error('validation');
+    }
     try {
-      await updateWhatsMutation.mutateAsync({ plantilla: plantillaLocal });
+      await updateWhatsMutation.mutateAsync({ plantilla: parsed.data });
       toast.success('Mensaje de despacho guardado');
     } catch (err) {
       toast.error(getApiErrorMessage(err) ?? 'Error al guardar el mensaje');
@@ -367,8 +367,13 @@ export function ParametrosSistemaPage() {
   };
 
   const handleGuardarAgencia = async () => {
+    const parsed = mensajePlantillaSchema.safeParse(mensajeAgenciaLocal);
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? 'Mensaje no válido');
+      throw new Error('validation');
+    }
     try {
-      await updateAgenciaMutation.mutateAsync({ mensaje: mensajeAgenciaLocal });
+      await updateAgenciaMutation.mutateAsync({ mensaje: parsed.data });
       toast.success('Mensaje del casillero guardado');
     } catch (err) {
       toast.error(getApiErrorMessage(err) ?? 'Error al guardar el mensaje');

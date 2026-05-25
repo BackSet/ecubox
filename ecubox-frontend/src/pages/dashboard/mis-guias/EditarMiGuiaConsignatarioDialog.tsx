@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { useConsignatarios } from '@/hooks/useConsignatarios';
 import { useActualizarMiGuiaConsignatario } from '@/hooks/useMisGuias';
+import { miGuiaConsignatarioSchema } from '@/lib/schemas';
 import type { GuiaMaster } from '@/types/guia-master';
 
 interface Props {
@@ -28,6 +29,7 @@ interface Props {
 export function EditarMiGuiaConsignatarioDialog({ guia, open, onClose }: Props) {
   const [consignatarioId, setConsignatarioId] = useState<number | undefined>();
   const { data: consignatarios = [], isLoading: loadingDest } = useConsignatarios();
+  const [consignatarioError, setConsignatarioError] = useState<string | undefined>();
   const actualizar = useActualizarMiGuiaConsignatario();
 
   useEffect(() => {
@@ -39,22 +41,27 @@ export function EditarMiGuiaConsignatarioDialog({ guia, open, onClose }: Props) 
   function handleConsignatarioChange(value: string | number | undefined) {
     const did = typeof value === 'string' ? Number(value) : value;
     setConsignatarioId(did);
+    setConsignatarioError(undefined);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (consignatarioId == null) {
-      toast.error('Selecciona un consignatario');
+    const parsed = miGuiaConsignatarioSchema.safeParse({ consignatarioId });
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? 'Selecciona un consignatario';
+      setConsignatarioError(msg);
+      toast.error(msg);
       return;
     }
-    if (consignatarioId === guia.consignatarioId) {
+    setConsignatarioError(undefined);
+    if (parsed.data.consignatarioId === guia.consignatarioId) {
       onClose();
       return;
     }
     try {
       await actualizar.mutateAsync({
         id: guia.id,
-        consignatarioId: consignatarioId,
+        consignatarioId: parsed.data.consignatarioId,
       });
       toast.success('Consignatario actualizado');
       onClose();
@@ -139,6 +146,9 @@ export function EditarMiGuiaConsignatarioDialog({ guia, open, onClose }: Props) 
                 </span>
               )}
             />
+            {consignatarioError && (
+              <p className="mt-1 text-xs text-destructive">{consignatarioError}</p>
+            )}
             {sinConsignatarios && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Aún no tienes consignatarios. Crea uno desde "Mis consignatarios".

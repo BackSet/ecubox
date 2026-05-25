@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { useEffect, useMemo, useState } from 'react';
 import { notify } from '@/lib/notify';
 import {
@@ -26,32 +26,9 @@ import { registerClienteSimple } from '@/lib/api/auth.service';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { registroSchema } from '@/lib/schemas/auth';
 
-const PASSWORD_MIN_LENGTH = 6;
-
-const schema = z
-  .object({
-    email: z
-      .string()
-      .min(1, 'El correo es requerido')
-      .email('Correo electrónico no válido'),
-    password: z
-      .string()
-      .min(
-        PASSWORD_MIN_LENGTH,
-        `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres`,
-      ),
-    passwordConfirm: z.string().min(1, 'Repite la contraseña'),
-    acceptTerms: z.literal(true, {
-      message: 'Debes aceptar los términos para continuar',
-    }),
-  })
-  .refine((data) => data.password === data.passwordConfirm, {
-    message: 'Las contraseñas no coinciden',
-    path: ['passwordConfirm'],
-  });
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<typeof registroSchema>;
 
 const HIGHLIGHTS = [
   {
@@ -159,7 +136,7 @@ export function RegistroSimplePage() {
     watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(registroSchema),
     defaultValues: {
       email: '',
       password: '',

@@ -2,7 +2,15 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
+import {
+  despachoStepperSchema,
+  UX_MESSAGES,
+  TAMANIO_LIMITS,
+  TAMANIO_LIMITS_LBS,
+  INDIVIDUAL_KG_MAX,
+  puntoEntregaOperarioSchema,
+} from '@/lib/schemas/despacho';
 import { Button } from '@/components/ui/button';
 import {
   useCouriersEntrega,
@@ -61,53 +69,14 @@ import { PROVINCIAS_ECUADOR, getCantonesByProvincia } from '@/data/provincias-ca
 import { AgregarPaquetesSacaDialog } from './AgregarPaquetesSacaDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { QuickPresetChips } from '@/components/QuickPresetChips';
+import {
+  formatDatetimeLocalNow,
+  HORARIOS_PRESET,
+  RETIRO_PRESETS_COURIER,
+} from '@/lib/constants/operational-presets';
 
-const sacaNuevaSchema = z.object({
-  numeroOrden: z.string().optional(),
-  pesoLbs: z.union([z.number(), z.nan()]).optional(),
-  pesoKg: z.union([z.number(), z.nan()]).optional(),
-  tamanio: z.enum(['INDIVIDUAL', 'PEQUENO', 'MEDIANO', 'GRANDE']).optional(),
-  paqueteIds: z.array(z.number()).optional(),
-});
-
-const UX_MESSAGES = {
-  refineDestino: 'Completa el destino según el tipo de entrega: consignatario (domicilio) o agencia.',
-  domicilioRegla: 'En despachos a domicilio, todos los paquetes deben ser del mismo consignatario.',
-  agenciaRegla: 'En despachos a agencia, todos los paquetes deben coincidir en provincia y cantón.',
-  agenciaCourierEntregaRegla: 'En despachos a punto de entrega, todos los paquetes deben tener el mismo consignatario.',
-  seleccionarConsignatario: 'Selecciona un consignatario para continuar.',
-  seleccionarAgencia: 'Selecciona una agencia para continuar.',
-  seleccionarAgenciaCourierEntrega: 'Selecciona un punto de entrega para continuar.',
-  validarPaquetes: 'No pudimos validar algunos paquetes seleccionados. Revisa la lista e inténtalo de nuevo.',
-  detectarConsignatario: 'No se pudo identificar el consignatario desde los paquetes agregados.',
-  minSacas: 'Debes tener al menos una saca para continuar.',
-} as const;
-
-const formSchema = z
-  .object({
-    fechaHora: z.string().min(1, 'Fecha y hora obligatoria'),
-    numeroGuia: z.string().min(1, 'El número de guía es obligatorio'),
-    courierEntregaId: z.number().refine((n) => n > 0, 'Selecciona un courier de entrega'),
-    tipoEntrega: z.enum(['DOMICILIO', 'AGENCIA', 'AGENCIA_COURIER_ENTREGA']),
-    consignatarioId: z.number().optional(),
-    agenciaId: z.number().optional(),
-    agenciaCourierEntregaId: z.number().optional(),
-    observaciones: z.string().optional(),
-    codigoPrecinto: z.string().optional(),
-    sacaIds: z.array(z.number()).optional(),
-    sacasNuevas: z.array(sacaNuevaSchema),
-  })
-  .refine(
-    (data) => {
-      if (data.tipoEntrega === 'DOMICILIO') return data.consignatarioId != null && data.consignatarioId > 0;
-      if (data.tipoEntrega === 'AGENCIA') return data.agenciaId != null && data.agenciaId > 0;
-      if (data.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') return data.agenciaCourierEntregaId != null && data.agenciaCourierEntregaId > 0;
-      return true;
-    },
-    { message: UX_MESSAGES.refineDestino, path: ['consignatarioId'] }
-  );
-
-export type FormValues = z.infer<typeof formSchema>;
+export type FormValues = z.input<typeof despachoStepperSchema>;
 
 function hasPeso(p: { pesoKg?: number | null; pesoLbs?: number | null }): boolean {
   return (
@@ -115,8 +84,6 @@ function hasPeso(p: { pesoKg?: number | null; pesoLbs?: number | null }): boolea
     (p.pesoLbs != null && !Number.isNaN(p.pesoLbs) && p.pesoLbs > 0)
   );
 }
-
-const INDIVIDUAL_KG_MAX = 8;
 
 const TAMANIO_OPTIONS: { value: TamanioSaca; label: string; sublabel: string }[] = [
   { value: 'INDIVIDUAL', label: 'Paquete individual', sublabel: `máx ${INDIVIDUAL_KG_MAX} kg · ${Math.round(kgToLbs(INDIVIDUAL_KG_MAX))} lbs` },
@@ -130,22 +97,6 @@ const TAMANIO_LABELS: Record<TamanioSaca, string> = {
   PEQUENO: 'Saca pequeña',
   MEDIANO: 'Saca mediana',
   GRANDE: 'Saca grande',
-};
-
-const TAMANIO_LIMITS = {
-  individualKgMin: 0.1,
-  individualKgMax: INDIVIDUAL_KG_MAX,
-  pequenoKg: 30,
-  medianoKg: 40,
-  grandeKg: 50,
-} as const;
-
-const TAMANIO_LIMITS_LBS = {
-  individualLbsMin: 0.1,
-  individualLbsMax: kgToLbs(INDIVIDUAL_KG_MAX),
-  pequenoLbs: kgToLbs(30),
-  medianoLbs: kgToLbs(40),
-  grandeLbs: kgToLbs(50),
 };
 
 function agenciaCourierEntregaEtiqueta(a: { etiqueta?: string; provincia?: string; canton?: string; codigo?: string }): string {
@@ -258,13 +209,15 @@ export function DespachoStepperForm({
     horarioAtencion: '',
     diasMaxRetiro: '',
   });
+  const [modalAgenciaErrors, setModalAgenciaErrors] = useState<Record<string, string>>({});
   const sectionSacasRef = useRef<HTMLDivElement>(null);
   const prevCourierEntregaIdRef = useRef<number | null>(null);
 
   const isEdit = mode === 'edit' && despacho != null;
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(despachoStepperSchema),
+    mode: 'onTouched',
     defaultValues: {
       fechaHora: getDefaultFechaHora(),
       numeroGuia: '',
@@ -526,6 +479,7 @@ export function DespachoStepperForm({
       horarioAtencion: '',
       diasMaxRetiro: '',
     });
+    setModalAgenciaErrors({});
     setCrearAgenciaCourierEntregaModalOpen(true);
   }
 
@@ -535,13 +489,33 @@ export function DespachoStepperForm({
       toast.error('Seleccione un courier de entrega primero.');
       return;
     }
+    const parsed = puntoEntregaOperarioSchema.safeParse({
+      provincia: modalCrearAgencia.provincia,
+      canton: modalCrearAgencia.canton,
+      direccion: modalCrearAgencia.direccion,
+      horarioAtencion: modalCrearAgencia.horarioAtencion || undefined,
+      diasMaxRetiro: modalCrearAgencia.diasMaxRetiro,
+    });
+    if (!parsed.success) {
+      const errors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? '');
+        if (key && !errors[key]) errors[key] = issue.message;
+      }
+      setModalAgenciaErrors(errors);
+      return;
+    }
+    setModalAgenciaErrors({});
     try {
       const created = await createAgenciaCourierEntregaOperarioMutation.mutateAsync({
-        provincia: modalCrearAgencia.provincia?.trim() || undefined,
-        canton: modalCrearAgencia.canton?.trim() || undefined,
-        direccion: modalCrearAgencia.direccion?.trim() || undefined,
-        horarioAtencion: modalCrearAgencia.horarioAtencion?.trim() || undefined,
-        diasMaxRetiro: modalCrearAgencia.diasMaxRetiro === '' ? undefined : Number(modalCrearAgencia.diasMaxRetiro),
+        provincia: parsed.data.provincia,
+        canton: parsed.data.canton,
+        direccion: parsed.data.direccion,
+        horarioAtencion: parsed.data.horarioAtencion,
+        diasMaxRetiro:
+          parsed.data.diasMaxRetiro != null && parsed.data.diasMaxRetiro !== ''
+            ? Number(parsed.data.diasMaxRetiro)
+            : undefined,
       });
       form.setValue('agenciaCourierEntregaId', created.id);
       setCrearAgenciaCourierEntregaModalOpen(false);
@@ -710,19 +684,6 @@ export function DespachoStepperForm({
       values.agenciaCourierEntregaId > 0
         ? values.agenciaCourierEntregaId
         : undefined;
-    if (values.tipoEntrega === 'DOMICILIO' && !consignatarioId) {
-      toast.error(UX_MESSAGES.seleccionarConsignatario);
-      return;
-    }
-    if (values.tipoEntrega === 'AGENCIA' && !agenciaId) {
-      toast.error(UX_MESSAGES.seleccionarAgencia);
-      return;
-    }
-    if (values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && !agenciaCourierEntregaId) {
-      toast.error(UX_MESSAGES.seleccionarAgenciaCourierEntrega);
-      return;
-    }
-
     const sacasNuevasValidas = (values.sacasNuevas ?? []).filter((s) => s.numeroOrden?.trim());
     const idsExistentes = values.sacaIds ?? [];
     const totalSacas = idsExistentes.length + sacasNuevasValidas.length;
@@ -896,18 +857,16 @@ export function DespachoStepperForm({
 
   async function avanzarAPaso2() {
     const ok = await form.trigger(['fechaHora', 'tipoEntrega']);
-    if (!ok) {
-      toast.error('Completa los datos del lote para continuar.');
-      return;
-    }
+    if (!ok) return;
     setPasoActual(2);
   }
 
   function avanzarAPaso3() {
     if (totalSacasDisplay < 1) {
-      toast.error(UX_MESSAGES.minSacas);
+      form.setError('sacasNuevas', { type: 'manual', message: UX_MESSAGES.minSacas });
       return;
     }
+    form.clearErrors('sacasNuevas');
     setPasoActual(3);
   }
 
@@ -1104,11 +1063,18 @@ export function DespachoStepperForm({
                       <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                       Fecha y hora
                     </Label>
-                    <Input
-                      id="fecha-hora"
-                      type="datetime-local"
-                      {...form.register('fechaHora')}
-                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Input
+                        id="fecha-hora"
+                        type="datetime-local"
+                        className="max-w-xs"
+                        {...form.register('fechaHora')}
+                      />
+                      <QuickPresetChips
+                        options={[{ label: 'Ahora', value: 'ahora' }]}
+                        onSelect={() => form.setValue('fechaHora', formatDatetimeLocalNow())}
+                      />
+                    </div>
                     {form.formState.errors.fechaHora && (
                       <p className="text-sm text-destructive">
                         {form.formState.errors.fechaHora.message}
@@ -1653,9 +1619,16 @@ export function DespachoStepperForm({
               <Button type="button" variant="outline" onClick={() => setPasoActual(1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
               </Button>
-              <Button type="button" className="w-full sm:w-auto" onClick={avanzarAPaso3}>
-                Siguiente <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
+                {form.formState.errors.sacasNuevas && (
+                  <p className="text-sm text-[var(--color-destructive)]">
+                    {form.formState.errors.sacasNuevas.message}
+                  </p>
+                )}
+                <Button type="button" className="w-full sm:w-auto" onClick={avanzarAPaso3}>
+                  Siguiente <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </>
         )}
@@ -2112,6 +2085,9 @@ export function DespachoStepperForm({
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
+                {modalAgenciaErrors.provincia && (
+                  <p className="mt-1 text-sm text-[var(--color-destructive)]">{modalAgenciaErrors.provincia}</p>
+                )}
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">Cantón</label>
@@ -2126,6 +2102,9 @@ export function DespachoStepperForm({
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
+                {modalAgenciaErrors.canton && (
+                  <p className="mt-1 text-sm text-[var(--color-destructive)]">{modalAgenciaErrors.canton}</p>
+                )}
               </div>
             </div>
             <div>
@@ -2136,9 +2115,20 @@ export function DespachoStepperForm({
                 className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
                 placeholder="Calle, número, referencias"
               />
+              {modalAgenciaErrors.direccion && (
+                <p className="mt-1 text-sm text-[var(--color-destructive)]">{modalAgenciaErrors.direccion}</p>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">Horario de atención</label>
+              <QuickPresetChips
+                options={HORARIOS_PRESET.map((p) => ({ label: p.label, value: p.value }))}
+                value={modalCrearAgencia.horarioAtencion}
+                onSelect={(horarioAtencion) =>
+                  setModalCrearAgencia((prev) => ({ ...prev, horarioAtencion }))
+                }
+                className="mb-2"
+              />
               <textarea
                 value={modalCrearAgencia.horarioAtencion}
                 onChange={(e) => setModalCrearAgencia((prev) => ({ ...prev, horarioAtencion: e.target.value }))}
@@ -2148,6 +2138,18 @@ export function DespachoStepperForm({
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">Días máx. retiro</label>
+              <QuickPresetChips
+                options={RETIRO_PRESETS_COURIER.map((d) => ({ label: String(d), value: d }))}
+                value={
+                  modalCrearAgencia.diasMaxRetiro
+                    ? Number(modalCrearAgencia.diasMaxRetiro)
+                    : undefined
+                }
+                onSelect={(d) =>
+                  setModalCrearAgencia((prev) => ({ ...prev, diasMaxRetiro: String(d) }))
+                }
+                className="mb-2"
+              />
               <input
                 type="text"
                 inputMode="numeric"
@@ -2158,6 +2160,9 @@ export function DespachoStepperForm({
                 className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
                 placeholder="Ej: 7"
               />
+              {modalAgenciaErrors.diasMaxRetiro && (
+                <p className="mt-1 text-sm text-[var(--color-destructive)]">{modalAgenciaErrors.diasMaxRetiro}</p>
+              )}
             </div>
           </div>
           <DialogFooter>

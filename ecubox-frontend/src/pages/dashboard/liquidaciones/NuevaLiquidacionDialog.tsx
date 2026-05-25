@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -19,26 +19,9 @@ import {
 import { useCrearLiquidacion } from '@/hooks/useLiquidacion';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { Liquidacion } from '@/types/liquidacion';
+import { liquidacionCrearSchema } from '@/lib/schemas/liquidacion';
 
-const schema = z
-  .object({
-    fechaDocumento: z.string().min(1, 'Selecciona la fecha del documento'),
-    periodoDesde: z.string().optional().or(z.literal('')),
-    periodoHasta: z.string().optional().or(z.literal('')),
-    notas: z.string().max(2000, 'Máximo 2000 caracteres').optional().or(z.literal('')),
-  })
-  .refine(
-    (v) => {
-      if (!v.periodoDesde || !v.periodoHasta) return true;
-      return v.periodoDesde <= v.periodoHasta;
-    },
-    {
-      message: 'El período "desde" no puede ser posterior a "hasta"',
-      path: ['periodoHasta'],
-    },
-  );
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<typeof liquidacionCrearSchema>;
 
 interface Props {
   open: boolean;
@@ -54,7 +37,7 @@ export function NuevaLiquidacionDialog({ open, onOpenChange, onCreated }: Props)
   const crearMutation = useCrearLiquidacion();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(liquidacionCrearSchema),
     defaultValues: {
       fechaDocumento: todayISO(),
       periodoDesde: '',

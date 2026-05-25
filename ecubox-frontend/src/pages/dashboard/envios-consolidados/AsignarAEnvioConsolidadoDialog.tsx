@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
-import { Loader2, Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { BulkGuiaInputPanel, type BulkGuiaTab } from '@/components/BulkGuiaInputPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ import {
   useEnviosConsolidados,
 } from '@/hooks/useEnviosConsolidados';
 import { buscarPaquetesPorGuias } from '@/lib/api/paquetes.service';
+import { asignarEnvioSchema, validateGuiaList } from '@/lib/schemas';
 import type { Paquete } from '@/types/paquete';
 import { EnvioConsolidadoBadge } from '@/pages/dashboard/envios-consolidados/EnvioConsolidadoBadge';
 
@@ -59,9 +60,13 @@ export function AsignarAEnvioConsolidadoDialog({
   const [envioSeleccion, setEnvioSeleccion] = useState<string>('');
   const [nuevoCodigo, setNuevoCodigo] = useState('');
   const [text, setText] = useState('');
+  const [guiaTab, setGuiaTab] = useState<BulkGuiaTab>('lista');
+  const [guiaIndividual, setGuiaIndividual] = useState('');
   const [paquetes, setPaquetes] = useState<Paquete[]>(paquetesPreseleccionados ?? []);
   const [noEncontradas, setNoEncontradas] = useState<string[]>([]);
   const [buscando, setBuscando] = useState(false);
+  const [guiaListError, setGuiaListError] = useState<string | undefined>();
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const { data: enviosData, isLoading: loadingEnvios } = useEnviosConsolidados({
     estado: 'ABIERTO',
@@ -93,8 +98,12 @@ export function AsignarAEnvioConsolidadoDialog({
     setEnvioSeleccion('');
     setNuevoCodigo('');
     setText('');
+    setGuiaTab('lista');
+    setGuiaIndividual('');
     setPaquetes(paquetesPreseleccionados ?? []);
     setNoEncontradas([]);
+    setGuiaListError(undefined);
+    setFieldErrors({});
   }
 
   function handleClose() {
@@ -102,17 +111,24 @@ export function AsignarAEnvioConsolidadoDialog({
     onClose();
   }
 
-  async function handleBuscar() {
-    if (guias.length === 0) {
+  async function buscarGuias(guiasABuscar: string[]) {
+    if (guiasABuscar.length === 0) {
       toast.error('Pega al menos un número de guía');
       return;
     }
     setBuscando(true);
     try {
-      const encontrados = await buscarPaquetesPorGuias(guias);
-      setPaquetes(encontrados);
+      const encontrados = await buscarPaquetesPorGuias(guiasABuscar);
+      setPaquetes((prev) => {
+        const map = new Map(prev.map((p) => [p.id, p]));
+        for (const p of encontrados) map.set(p.id, p);
+        return Array.from(map.values());
+      });
       const set = new Set(encontrados.map((p) => p.numeroGuia));
-      setNoEncontradas(guias.filter((g) => !set.has(g)));
+      const faltantes = guiasABuscar.filter((g) => !set.has(g));
+      setNoEncontradas((prev) =>
+        Array.from(new Set([...prev, ...faltantes])),
+      );
       if (encontrados.length === 0) {
         toast.info('No se encontraron paquetes con esas guías');
       }
@@ -123,15 +139,50 @@ export function AsignarAEnvioConsolidadoDialog({
     }
   }
 
+  async function handleBuscar() {
+    const listCheck = validateGuiaList(text);
+    if (!listCheck.ok) {
+      setGuiaListError(listCheck.errors.join(' · '));
+      return;
+    }
+    setGuiaListError(undefined);
+    await buscarGuias(listCheck.guias);
+  }
+
+  async function handleAgregarIndividual() {
+    const g = guiaIndividual.trim();
+    if (!g) return;
+    const check = validateGuiaList(g);
+    if (!check.ok) {
+      setGuiaListError(check.errors.join(' · '));
+      return;
+    }
+    setGuiaListError(undefined);
+    await buscarGuias(check.guias);
+    setGuiaIndividual('');
+  }
+
   async function handleAsignar() {
-    if (paquetes.length === 0) {
-      toast.error('No hay paquetes para asignar');
+    const modo = envioSeleccion === NUEVO_ENVIO_VALUE ? 'nuevo' : 'existente';
+    const parsed = asignarEnvioSchema.safeParse({
+      modo,
+      envioConsolidadoId:
+        modo === 'existente' && envioSeleccion ? Number(envioSeleccion) : undefined,
+      nuevoCodigo: modo === 'nuevo' ? nuevoCodigo : undefined,
+      numerosGuia: paquetes.map((p) => p.numeroGuia),
+    });
+    if (!parsed.success) {
+      const errs: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? '_form');
+        if (!errs[key]) errs[key] = issue.message;
+      }
+      setFieldErrors(errs);
+      const formMsg = errs._form ?? Object.values(errs)[0];
+      if (formMsg) toast.error(formMsg);
       return;
     }
-    if (!envioSeleccion) {
-      toast.error('Elige un envío consolidado o crea uno nuevo');
-      return;
-    }
+    setFieldErrors({});
 
     try {
       let envioId: number;
@@ -139,11 +190,7 @@ export function AsignarAEnvioConsolidadoDialog({
       let asociadosTotal = paquetes.length;
 
       if (envioSeleccion === NUEVO_ENVIO_VALUE) {
-        const codigo = nuevoCodigo.trim();
-        if (!codigo) {
-          toast.error('Indica el código del nuevo envío');
-          return;
-        }
+        const codigo = parsed.data.nuevoCodigo!.trim();
         // Endpoint atomico: crea el envio y asocia las guias en una sola
         // transaccion. Evita la segunda llamada a "agregar paquetes".
         const nuevo = await crear.mutateAsync({
@@ -208,7 +255,18 @@ export function AsignarAEnvioConsolidadoDialog({
 
           <div className="space-y-2">
             <Label>Envío consolidado *</Label>
-            <Select value={envioSeleccion} onValueChange={setEnvioSeleccion}>
+            <Select
+              value={envioSeleccion}
+              onValueChange={(v) => {
+                setEnvioSeleccion(v);
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.envioConsolidadoId;
+                  delete next.nuevoCodigo;
+                  return next;
+                });
+              }}
+            >
               <SelectTrigger>
                 <SelectValue
                   placeholder={
@@ -238,46 +296,57 @@ export function AsignarAEnvioConsolidadoDialog({
                 ))}
               </SelectContent>
             </Select>
+            {fieldErrors.envioConsolidadoId && (
+              <p className="text-xs text-destructive">{fieldErrors.envioConsolidadoId}</p>
+            )}
             {envioSeleccion === NUEVO_ENVIO_VALUE && (
-              <Input
-                value={nuevoCodigo}
-                onChange={(e) => setNuevoCodigo(e.target.value)}
-                placeholder="Código del nuevo envío (ej: 86157)"
-                autoFocus
-              />
+              <>
+                <Input
+                  value={nuevoCodigo}
+                  onChange={(e) => {
+                    setNuevoCodigo(e.target.value);
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.nuevoCodigo;
+                      return next;
+                    });
+                  }}
+                  placeholder="Código del nuevo envío (ej: 86157)"
+                  autoFocus
+                  aria-invalid={!!fieldErrors.nuevoCodigo}
+                />
+                {fieldErrors.nuevoCodigo && (
+                  <p className="text-xs text-destructive">{fieldErrors.nuevoCodigo}</p>
+                )}
+              </>
+            )}
+            {fieldErrors.numerosGuia && (
+              <p className="text-xs text-destructive">{fieldErrors.numerosGuia}</p>
             )}
           </div>
 
           {!usarPreseleccion && (
-            <div className="space-y-2">
-              <Label>Números de guía (uno por línea)</Label>
-              <Textarea
-                rows={5}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={'1Z52159R0379385035 1/3\n1Z52159R0379385035 2/3'}
-                className="font-mono text-sm"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleBuscar}
-                disabled={buscando || guias.length === 0}
-              >
-                {buscando ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Buscando...
-                  </>
-                ) : (
-                  <>
-                    <Search className="mr-2 h-4 w-4" />
-                    Buscar paquetes ({guias.length})
-                  </>
-                )}
-              </Button>
-            </div>
+            <BulkGuiaInputPanel
+              tab={guiaTab}
+              onTabChange={setGuiaTab}
+              listValue={text}
+              onListChange={(v) => {
+                setText(v);
+                setGuiaListError(undefined);
+              }}
+              individualValue={guiaIndividual}
+              onIndividualChange={setGuiaIndividual}
+              onProcessList={handleBuscar}
+              onProcessIndividual={handleAgregarIndividual}
+              procesandoLista={buscando}
+              procesandoIndividual={buscando}
+              loading={procesando}
+              listButtonLabel={`Buscar paquetes (${guias.length})`}
+              listPlaceholder={'1Z52159R0379385035 1/3\n1Z52159R0379385035 2/3'}
+              lineCount={guias.length}
+              guiaCount={guias.length}
+              validationError={guiaListError}
+            />
           )}
 
           {paquetes.length > 0 && (

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -43,22 +43,11 @@ import {
 } from '@/hooks/usePuntosEntregaAdmin';
 import { useCouriersEntregaAdmin } from '@/hooks/useCouriersEntregaAdmin';
 import type { AgenciaCourierEntregaRequest } from '@/types/despacho';
+import { puntoEntregaFormSchema } from '@/lib/schemas/maestros';
 import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
 import { cn } from '@/lib/utils';
 
-const formSchema = z.object({
-  courierEntregaId: z.number().refine((n) => n > 0, 'Seleccione un courier de entrega'),
-  direccion: z.string().max(255, 'Máximo 255 caracteres').optional(),
-  provincia: z.string().optional(),
-  canton: z.string().optional(),
-  horarioAtencion: z.string().max(255, 'Máximo 255 caracteres').optional(),
-  diasMaxRetiro: z
-    .union([z.number().int().min(0, 'Debe ser mayor o igual a 0').max(365, 'Máximo 365 días'), z.nan()])
-    .transform((n) => (Number.isNaN(n) ? undefined : n))
-    .optional(),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof puntoEntregaFormSchema>;
 
 interface AgenciaCourierEntregaFormProps {
   id?: number;
@@ -87,7 +76,7 @@ export function PuntoEntregaForm({
   const updateMutation = useUpdateAgenciaCourierEntrega();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(puntoEntregaFormSchema),
     mode: 'onTouched',
     defaultValues: {
       courierEntregaId: 0,

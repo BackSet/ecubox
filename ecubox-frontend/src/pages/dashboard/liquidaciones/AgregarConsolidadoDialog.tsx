@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
   Boxes,
   Check,
@@ -43,26 +43,9 @@ import type {
   LiquidacionConsolidadoLinea,
 } from '@/types/liquidacion';
 import { formatMoney } from './moneyFormat';
+import { liquidacionConsolidadoLineaSchema } from '@/lib/schemas/liquidacion';
 
-const schema = z
-  .object({
-    envioConsolidadoId: z.number().int().nonnegative().optional(),
-    envioConsolidadoCodigo: z.string().max(100).optional().or(z.literal('')),
-    costoProveedor: z.number().min(0, 'Debe ser ≥ 0'),
-    ingresoCliente: z.number().min(0, 'Debe ser ≥ 0'),
-    notas: z.string().max(2000).optional().or(z.literal('')),
-  })
-  .refine(
-    (v) =>
-      (v.envioConsolidadoId != null && v.envioConsolidadoId > 0) ||
-      (v.envioConsolidadoCodigo?.trim().length ?? 0) > 0,
-    {
-      message: 'Selecciona un consolidado o ingresa un código nuevo',
-      path: ['envioConsolidadoId'],
-    },
-  );
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<typeof liquidacionConsolidadoLineaSchema>;
 
 function normalizeDecimal(value: string, maxDecimals = 2): string {
   const s = sanitizeNumericDecimal(value);
@@ -141,7 +124,7 @@ export function AgregarConsolidadoDialog({
   const actualizarMutation = useActualizarConsolidadoLinea(liquidacionId);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(liquidacionConsolidadoLineaSchema),
     defaultValues: {
       envioConsolidadoId: linea?.envioConsolidadoId ?? 0,
       envioConsolidadoCodigo: '',

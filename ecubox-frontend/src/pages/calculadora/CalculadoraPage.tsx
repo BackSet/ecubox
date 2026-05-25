@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { getTarifaCalculadoraPublic } from '@/lib/api/tarifa-calculadora.service';
-import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
+import { PesoInputPair } from '@/components/PesoInput';
+import { sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import {
   AlertTriangle,
@@ -17,7 +18,6 @@ import {
   Truck,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { KeyValueGridSkeleton } from '@/components/skeletons/KeyValueGridSkeleton';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { PublicPageHero } from '@/components/public/PublicPageHero';
 
 const MIN_PESO_LBS_RECARGO = 4;
 const RECARGO_ENVIO_MENOR_PESO = 3.5;
@@ -113,7 +114,9 @@ export function CalculadoraPage() {
   };
 
   const pesoLbsNum = pesoLbs === '' ? NaN : Number(pesoLbs);
+  const pesoIngresado = pesoLbs.trim() !== '' || pesoKg.trim() !== '';
   const hasValidPeso = !Number.isNaN(pesoLbsNum) && pesoLbsNum > 0;
+  const pesoInvalido = pesoIngresado && !hasValidPeso;
   const tarifa = tarifaPorLibra ?? 0;
   const tarifaConfigurada = tarifa > 0;
   const costoBase = hasValidPeso && tarifaConfigurada ? pesoLbsNum * tarifa : null;
@@ -153,20 +156,11 @@ export function CalculadoraPage() {
 
       <main className="mobile-safe-inline relative z-10 flex-1 py-6 sm:py-10">
         <div className="content-container w-full max-w-3xl space-y-6">
-          <div className="space-y-3 text-center">
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-              <Calculator className="h-6 w-6" />
-            </span>
-            <div className="space-y-1.5">
-              <h1 className="responsive-title landing-text font-bold tracking-tight">
-                Calculadora de envío
-              </h1>
-              <p className="landing-text-muted text-sm sm:text-base">
-                Ingresa el peso de tu paquete para obtener un costo estimado todo
-                incluido con transporte Servientrega.
-              </p>
-            </div>
-          </div>
+          <PublicPageHero
+            icon={Calculator}
+            title="Calculadora de envío"
+            description="Ingresa el peso de tu paquete para obtener un costo estimado todo incluido con transporte Servientrega."
+          />
 
           {tarifaError && (
             <div
@@ -302,48 +296,25 @@ export function CalculadoraPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label htmlFor="pesoLbs" className="mb-1.5 block text-sm">
-                      Peso (libras)
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="pesoLbs"
-                        type="text"
-                        inputMode="decimal"
-                        value={pesoLbs}
-                        onChange={(e) => handleLbsChange(e.target.value)}
-                        onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoLbs)}
-                        placeholder="0.00"
-                        className="h-11 pr-10 text-base"
-                      />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[var(--color-muted-foreground)]">
-                        lbs
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="pesoKg" className="mb-1.5 block text-sm">
-                      Peso (kilogramos)
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="pesoKg"
-                        type="text"
-                        inputMode="decimal"
-                        value={pesoKg}
-                        onChange={(e) => handleKgChange(e.target.value)}
-                        onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoKg)}
-                        placeholder="0.00"
-                        className="h-11 pr-10 text-base"
-                      />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[var(--color-muted-foreground)]">
-                        kg
-                      </span>
-                    </div>
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Peso del paquete</Label>
+                  <PesoInputPair
+                    lbs={pesoLbs}
+                    kg={pesoKg}
+                    onLbsChange={handleLbsChange}
+                    onKgChange={handleKgChange}
+                    size="lg"
+                    showHint
+                    invalid={pesoInvalido}
+                  />
                 </div>
+
+                {pesoInvalido && (
+                  <div className="ui-alert flex items-start gap-2 border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>El peso debe ser mayor a 0 para calcular la cotización.</span>
+                  </div>
+                )}
 
                 {aplicaRecargo && tarifaConfigurada && (
                   <div className="ui-alert ui-alert-warning flex items-start gap-2">

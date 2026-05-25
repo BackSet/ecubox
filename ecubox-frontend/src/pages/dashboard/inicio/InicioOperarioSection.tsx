@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import {
   AlertTriangle,
@@ -14,7 +15,9 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { SurfaceCard } from '@/components/ui/surface-card';
+import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { useDashboardGuiasMaster } from '@/hooks/useGuiasMaster';
 import {
   usePaquetesOperario,
@@ -23,6 +26,8 @@ import {
 import { usePaquetesSinSaca, useSacasOperario } from '@/hooks/useOperarioDespachos';
 import { useEnviosConsolidados } from '@/hooks/useEnviosConsolidados';
 import { GuiaMasterEstadoBadge } from '@/pages/dashboard/guias-master/_estado';
+
+const ICON = 'h-5 w-5';
 
 function formatDateShort(value?: string | null) {
   if (!value) return '—';
@@ -69,6 +74,23 @@ const QUICK_ACTIONS = [
   },
 ] as const;
 
+function KpiSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-[13px] font-semibold text-[var(--color-foreground)]">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
 export function InicioOperarioSection() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
 
@@ -77,12 +99,24 @@ export function InicioOperarioSection() {
   const canDespachos = hasPermission('DESPACHOS_WRITE');
   const canEnvios = hasPermission('ENVIOS_CONSOLIDADOS_READ');
 
-  const { data: dashGM } = useDashboardGuiasMaster(10, canGuiasMaster);
-  const { data: vencidos } = usePaquetesVencidosOperario(canPesoWrite);
-  const { data: sinPeso } = usePaquetesOperario(true, canPesoWrite);
-  const { data: sinSaca } = usePaquetesSinSaca(canPesoWrite);
-  const { data: sacasPendientes } = useSacasOperario(true, canDespachos);
-  const { data: enviosAbiertos } = useEnviosConsolidados(
+  const { data: dashGM, isLoading: loadingDashGM } = useDashboardGuiasMaster(
+    10,
+    canGuiasMaster
+  );
+  const { data: vencidos, isLoading: loadingVencidos } =
+    usePaquetesVencidosOperario(canPesoWrite);
+  const { data: sinPeso, isLoading: loadingSinPeso } = usePaquetesOperario(
+    true,
+    canPesoWrite
+  );
+  const { data: sinSaca, isLoading: loadingSinSaca } = usePaquetesSinSaca(
+    canPesoWrite
+  );
+  const { data: sacasPendientes, isLoading: loadingSacas } = useSacasOperario(
+    true,
+    canDespachos
+  );
+  const { data: enviosAbiertos, isLoading: loadingEnvios } = useEnviosConsolidados(
     { estado: 'ABIERTO', page: 0, size: 1 },
     canEnvios
   );
@@ -92,6 +126,20 @@ export function InicioOperarioSection() {
   const totalSinSaca = sinSaca?.length ?? 0;
   const totalSacasPend = sacasPendientes?.length ?? 0;
   const totalEnviosAbiertos = enviosAbiertos?.totalElements ?? 0;
+  const totalCerradasConFaltante = dashGM?.totalCerradasConFaltante ?? 0;
+
+  const cargandoGuias = canGuiasMaster && loadingDashGM && !dashGM;
+  const cargandoOperacion =
+    (canPesoWrite &&
+      ((loadingVencidos && !vencidos) ||
+        (loadingSinPeso && !sinPeso) ||
+        (loadingSinSaca && !sinSaca))) ||
+    (canDespachos && loadingSacas && !sacasPendientes) ||
+    (canEnvios && loadingEnvios && !enviosAbiertos);
+
+  const showOperacionSection = canPesoWrite || canDespachos || canEnvios;
+  const operacionKpiCount =
+    (canPesoWrite ? 4 : 0) + (canDespachos ? 1 : 0) + (canEnvios ? 1 : 0);
 
   const visibleActions = QUICK_ACTIONS.filter((a) =>
     a.permission ? hasPermission(a.permission) : true
@@ -108,10 +156,10 @@ export function InicioOperarioSection() {
         </p>
       </header>
 
-      {canPesoWrite && totalVencidos > 0 && (
+      {canPesoWrite && totalVencidos > 0 && !cargandoOperacion && (
         <div className="ui-alert ui-alert-warning">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <div className="flex flex-wrap items-center justify-between gap-3 flex-1 min-w-0">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[13px] font-medium text-[var(--color-foreground)]">
                 Hay {totalVencidos} paquete(s) que superaron el plazo de retiro
@@ -122,7 +170,7 @@ export function InicioOperarioSection() {
             </div>
             <Link
               to="/paquetes-vencidos"
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] transition hover:bg-[var(--color-muted)]"
             >
               Ver paquetes vencidos
               <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -131,79 +179,114 @@ export function InicioOperarioSection() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {canGuiasMaster && (
-          <KpiCard
-            icon={<Boxes className="h-4 w-4" strokeWidth={1.75} />}
-            label="Guías activas"
-            value={dashGM?.totalActivas ?? 0}
-            hint={`${dashGM?.totalCerradas ?? 0} cerradas en total`}
-            tone="primary"
-            to="/guias-master"
-          />
-        )}
-        {canGuiasMaster && (
-          <KpiCard
-            icon={<AlertTriangle className="h-4 w-4" strokeWidth={1.75} />}
-            label="Cerradas con faltante"
-            value={dashGM?.totalCerradasConFaltante ?? 0}
-            tone={(dashGM?.totalCerradasConFaltante ?? 0) > 0 ? 'warning' : 'neutral'}
-            to="/guias-master"
-          />
-        )}
-        {canPesoWrite && (
-          <KpiCard
-            icon={<Weight className="h-4 w-4" strokeWidth={1.75} />}
-            label="Paquetes sin peso"
-            value={totalSinPeso}
-            tone={totalSinPeso > 0 ? 'warning' : 'success'}
-            to="/pesaje"
-          />
-        )}
-        {canPesoWrite && (
-          <KpiCard
-            icon={<PackageX className="h-4 w-4" strokeWidth={1.75} />}
-            label="Paquetes sin saca"
-            value={totalSinSaca}
-            tone={totalSinSaca > 0 ? 'warning' : 'neutral'}
-            to="/paquetes"
-          />
-        )}
-        {canPesoWrite && (
-          <KpiCard
-            icon={<Clock className="h-4 w-4" strokeWidth={1.75} />}
-            label="Paquetes vencidos"
-            value={totalVencidos}
-            tone={totalVencidos > 0 ? 'danger' : 'success'}
-            to="/paquetes-vencidos"
-          />
-        )}
-        {canDespachos && (
-          <KpiCard
-            icon={<Truck className="h-4 w-4" strokeWidth={1.75} />}
-            label="Sacas pendientes"
-            value={totalSacasPend}
-            hint="Sin asignar a despacho"
-            tone={totalSacasPend > 0 ? 'warning' : 'neutral'}
-            to="/despachos"
-          />
-        )}
-        {canEnvios && (
-          <KpiCard
-            icon={<Plane className="h-4 w-4" strokeWidth={1.75} />}
-            label="Envíos consolidados abiertos"
-            value={totalEnviosAbiertos}
-            tone="primary"
-            to="/envios-consolidados"
-          />
-        )}
-      </div>
+      {canGuiasMaster && (
+        <KpiSection title="Guías master">
+          {cargandoGuias ? (
+            <KpiCardsGridSkeleton count={2} />
+          ) : (
+            <KpiCardsGrid>
+              <KpiCard
+                icon={<Boxes className={ICON} strokeWidth={1.75} />}
+                label="Guías activas"
+                value={dashGM?.totalActivas ?? 0}
+                hint={`${dashGM?.totalCerradas ?? 0} cerradas en total`}
+                tone="primary"
+                to="/guias-master"
+              />
+              <KpiCard
+                icon={<AlertTriangle className={ICON} strokeWidth={1.75} />}
+                label="Cerradas con faltante"
+                value={totalCerradasConFaltante}
+                hint={
+                  totalCerradasConFaltante > 0
+                    ? 'Requieren revisión'
+                    : 'Sin novedades'
+                }
+                tone={totalCerradasConFaltante > 0 ? 'warning' : 'neutral'}
+                to="/guias-master"
+              />
+            </KpiCardsGrid>
+          )}
+        </KpiSection>
+      )}
+
+      {showOperacionSection && (
+        <KpiSection title="Operación diaria">
+          {cargandoOperacion ? (
+            <KpiCardsGridSkeleton count={operacionKpiCount} />
+          ) : (
+            <KpiCardsGrid>
+              {canPesoWrite && (
+                <KpiCard
+                  icon={<Weight className={ICON} strokeWidth={1.75} />}
+                  label="Paquetes sin peso"
+                  value={totalSinPeso}
+                  hint={
+                    totalSinPeso > 0 ? 'Pendientes de pesaje' : 'Todo registrado'
+                  }
+                  tone={totalSinPeso > 0 ? 'warning' : 'success'}
+                  to="/pesaje"
+                />
+              )}
+              {canPesoWrite && (
+                <KpiCard
+                  icon={<PackageX className={ICON} strokeWidth={1.75} />}
+                  label="Paquetes sin saca"
+                  value={totalSinSaca}
+                  hint={
+                    totalSinSaca > 0 ? 'Asignar a saca' : 'Sin pendientes'
+                  }
+                  tone={totalSinSaca > 0 ? 'warning' : 'neutral'}
+                  to="/paquetes"
+                />
+              )}
+              {canPesoWrite && (
+                <KpiCard
+                  icon={<Clock className={ICON} strokeWidth={1.75} />}
+                  label="Paquetes vencidos"
+                  value={totalVencidos}
+                  hint={
+                    totalVencidos > 0
+                      ? 'Superaron plazo de retiro'
+                      : 'Al día'
+                  }
+                  tone={totalVencidos > 0 ? 'danger' : 'success'}
+                  to="/paquetes-vencidos"
+                />
+              )}
+              {canDespachos && (
+                <KpiCard
+                  icon={<Truck className={ICON} strokeWidth={1.75} />}
+                  label="Sacas pendientes"
+                  value={totalSacasPend}
+                  hint="Sin asignar a despacho"
+                  tone={totalSacasPend > 0 ? 'warning' : 'neutral'}
+                  to="/despachos"
+                />
+              )}
+              {canEnvios && (
+                <KpiCard
+                  icon={<Plane className={ICON} strokeWidth={1.75} />}
+                  label="Envíos consolidados abiertos"
+                  value={totalEnviosAbiertos}
+                  hint="Manifiestos en curso"
+                  tone="primary"
+                  to="/envios-consolidados"
+                />
+              )}
+            </KpiCardsGrid>
+          )}
+        </KpiSection>
+      )}
 
       {canGuiasMaster && (dashGM?.topAntiguasSinCompletar?.length ?? 0) > 0 && (
         <SurfaceCard className="p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
+              <Clock
+                className="h-4 w-4 text-[var(--color-muted-foreground)]"
+                strokeWidth={1.75}
+              />
               <h3 className="text-[13px] font-semibold text-[var(--color-foreground)]">
                 Guías más antiguas sin completar
               </h3>

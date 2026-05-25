@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Package } from 'lucide-react';
 import type { TrackingPaqueteDespacho, TrackingResponse } from '@/lib/api/tracking.service';
-import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
+import { formatWeightFromValues, normalizeWeight } from '@/lib/utils/weight';
 
 interface TrackingPaquetesDespachoCardProps {
   result: TrackingResponse;
@@ -21,13 +21,6 @@ interface BolsaAgrupada {
 
 const SIN_BOLSA_KEY = '__sin_bolsa__';
 
-function formatPeso(kg: number | null, lbs: number | null): string {
-  const safeKg = kg ?? (lbs != null ? lbsToKg(lbs) : null);
-  const safeLbs = lbs ?? (kg != null ? kgToLbs(kg) : null);
-  if (safeKg == null && safeLbs == null) return '—';
-  return `${safeKg ?? 0} kg / ${safeLbs ?? 0} lbs`;
-}
-
 function inferBolsaLabel(raw?: string): { label: string; sortKey: number | string } {
   if (!raw) return { label: 'Sin bolsa asignada', sortKey: Number.POSITIVE_INFINITY };
   const match = raw.match(/(\d+)$/);
@@ -37,10 +30,8 @@ function inferBolsaLabel(raw?: string): { label: string; sortKey: number | strin
   return { label: `Bolsa ${numero}`, sortKey: numero };
 }
 
-function pesoNormalizado(p: TrackingPaqueteDespacho): { kg: number | null; lbs: number | null } {
-  const kg = p.pesoKg ?? (p.pesoLbs != null ? lbsToKg(p.pesoLbs) : null);
-  const lbs = p.pesoLbs ?? (p.pesoKg != null ? kgToLbs(p.pesoKg) : null);
-  return { kg, lbs };
+function pesoNormalizado(p: TrackingPaqueteDespacho) {
+  return normalizeWeight(p.pesoLbs, p.pesoKg);
 }
 
 export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespachoCardProps) {
@@ -66,9 +57,11 @@ export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespach
         grupos.set(claveGrupo, grupo);
       }
       grupo.paquetes.push(p);
-      const { kg, lbs } = pesoNormalizado(p);
-      if (kg != null) grupo.totalKg = (grupo.totalKg ?? 0) + kg;
-      if (lbs != null) grupo.totalLbs = (grupo.totalLbs ?? 0) + lbs;
+      const peso = pesoNormalizado(p);
+      if (peso != null) {
+        grupo.totalKg = (grupo.totalKg ?? 0) + peso.kg;
+        grupo.totalLbs = (grupo.totalLbs ?? 0) + peso.lbs;
+      }
       if (p.numeroGuia && p.numeroGuia === numeroGuiaActual) {
         grupo.contieneActual = true;
       }
@@ -110,14 +103,15 @@ export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespach
                   </span>
                 </div>
                 <span className="text-xs text-[var(--color-muted-foreground)]">
-                  Peso total: {formatPeso(bolsa.totalKg, bolsa.totalLbs)}
+                  Peso total:{' '}
+                  {formatWeightFromValues(bolsa.totalLbs, bolsa.totalKg) ?? '—'}
                 </span>
               </div>
 
               <ul className="divide-y divide-[var(--color-border)]">
                 {bolsa.paquetes.map((p, idx) => {
                   const esActual = !!p.numeroGuia && p.numeroGuia === numeroGuiaActual;
-                  const { kg, lbs } = pesoNormalizado(p);
+                  const peso = pesoNormalizado(p);
                   return (
                     <li
                       key={`${p.id ?? idx}-${p.numeroGuia ?? idx}`}
@@ -145,7 +139,7 @@ export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespach
                         ) : null}
                       </div>
                       <span className="shrink-0 text-xs text-[var(--color-muted-foreground)] tabular-nums">
-                        {formatPeso(kg, lbs)}
+                        {formatWeightFromValues(peso?.lbs, peso?.kg) ?? '—'}
                       </span>
                     </li>
                   );

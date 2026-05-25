@@ -37,6 +37,7 @@ import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { TablePagination } from '@/components/ui/TablePagination';
@@ -183,14 +184,15 @@ export function UsuarioList() {
       )}
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} gridClassName="grid grid-cols-2 gap-3 lg:grid-cols-4" withHint />
+        <KpiCardsGridSkeleton count={4} withHint />
       ) : (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <KpiCardsGrid>
         <KpiCard
           icon={<Users className="h-5 w-5" />}
           label="Total usuarios"
           value={stats.total}
           tone="primary"
+          hint={`${stats.activos} activo(s) · ${stats.inactivos} inactivo(s)`}
         />
         <KpiCard
           icon={<CheckCircle2 className="h-5 w-5" />}
@@ -204,6 +206,7 @@ export function UsuarioList() {
           label="Inactivos"
           value={stats.inactivos}
           tone={stats.inactivos > 0 ? 'warning' : 'neutral'}
+          hint="Sin acceso al sistema"
         />
         <KpiCard
           icon={<ShieldCheck className="h-5 w-5" />}
@@ -212,7 +215,7 @@ export function UsuarioList() {
           tone={stats.sinRol > 0 ? 'danger' : 'neutral'}
           hint={stats.sinRol > 0 ? 'Requieren asignación de roles' : 'Todos tienen al menos un rol'}
         />
-      </div>
+      </KpiCardsGrid>
       )}
 
       {isLoading ? (

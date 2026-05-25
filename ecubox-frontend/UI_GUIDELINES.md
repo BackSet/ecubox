@@ -117,6 +117,25 @@ import { LabeledField } from '@/components/LabeledField';
 Siempre usar `Table` de `@/components/ui/table` envuelto en `ListTableShell`.
 Para listas con scroll horizontal añadir `min-w-[…]`.
 
+**Columna de peso:** usar `PesoCell` con las clases exportadas para ancho y alineación consistentes.
+
+```tsx
+import {
+  PesoCell,
+  PESO_TABLE_CELL_CLASS,
+  PESO_TABLE_HEAD_CLASS,
+} from '@/components/PesoCell';
+
+<TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
+<TableCell className={PESO_TABLE_CELL_CLASS}>
+  <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
+</TableCell>
+```
+
+- Formato estándar en tablas: **inline** (`3.00 lbs · 1.36 kg`), una sola línea con `whitespace-nowrap`.
+- Variante `stacked` solo cuando el espacio vertical lo permita (p. ej. detalle fuera de columnas estrechas).
+- Utilidades en `@/lib/utils/weight`: `formatWeightInline`, `formatWeightFromValues`, `normalizeWeight`.
+
 ### Estados de dominio (badges)
 
 ```tsx
@@ -133,16 +152,208 @@ Variante `solid` para badges con fondo lleno.
 
 ```tsx
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 
-<KpiCard icon={<Boxes className="h-5 w-5" />} label="Total" value={42} tone="primary" />;
+<KpiCardsGrid>
+  <KpiCard
+    icon={<Boxes className="h-5 w-5" />}
+    label="Total"
+    value={42}
+    tone="primary"
+    hint="Texto contextual opcional"
+  />
+</KpiCardsGrid>;
 ```
 
-Tonos: `primary`, `success`, `warning`, `danger`, `neutral`.
+- Envuelve las tarjetas en `KpiCardsGrid` para un grid responsive uniforme (`auto-fill`).
+- Iconos en `h-5 w-5`; el badge del icono toma color según `tone`.
+- Usa `hint` con contexto útil (promedios, porcentajes, desglose); admite hasta 2 líneas.
+- Si no hay `hint`, no se muestra texto vacío: solo se reserva el espacio.
+- Tonos: `primary`, `success`, `warning`, `danger`, `neutral`, `info`.
+
+### Filtros de listado
+
+`FiltrosBar` tiene **tres modos de layout** según las props que reciba:
+
+| Modo | Props | UI |
+|------|-------|-----|
+| Solo chips | `chips` | Una banda compacta (p. ej. Guías master) |
+| Solo filtros | `filtros` | Una banda con cabecera y grid de dropdowns, sin fila superior vacía |
+| Combinado | `chips` + `filtros` | Chips arriba, separador, filtros abajo |
+
+```tsx
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
+import { ChipFiltro, ChipFiltroGroup } from '@/components/ChipFiltro';
+
+<FiltrosBar
+  chips={
+    <ChipFiltroGroup>
+      <ChipFiltro label="Todos" count={42} active tone="primary" onClick={...} />
+      <ChipFiltro label="Vencidos" count={0} hideWhenZero ... />
+    </ChipFiltroGroup>
+  }
+  filtros={
+    <FiltroCampo label="Estado de rastreo">
+      <SearchableCombobox ... />
+    </FiltroCampo>
+  }
+  hayFiltrosActivos={tieneFiltros}
+  onLimpiar={limpiarFiltros}
+  filtrosActivosCount={n}
+  resumen="16 paquetes"
+/>;
+```
+
+- Chips arriba para filtros rápidos; dropdowns en **Filtros avanzados** (modo combinado) o **Filtros** (solo dropdowns) con grid `auto-fill`.
+- Labels en `FiltroCampo` en sentence case (12px), sin MAYÚSCULAS.
+- `resumen` va en la cabecera de filtros cuando hay `filtros`; si solo hay chips, al final de la fila de chips.
+- `filtrosActivosCount` opcional para badge en cabecera de filtros.
+- Usar `ChipFiltroGroup` cuando los chips son condicionales (`hideWhenZero`) o pasar `chips={undefined}` si no hay chips visibles.
+- Skeleton: `FiltrosBarSkeleton` (`chips={0}` si no hay fila de chips).
 
 ### Diálogos de confirmación
 
 `ConfirmDialog` global (`@/components/ConfirmDialog`). No duplicar en cada
 módulo.
+
+### Controles con presets
+
+Componentes reutilizables para atajos operativos (fechas, cantidades, pesos,
+guías masivas). Usar en formularios y diálogos donde el operario repite los
+mismos valores.
+
+#### `SegmentedControl` (`@/components/ui/segmented-control`)
+
+Alterna entre dos o más modos mutuamente excluyentes (p. ej. Buscar / Pegar,
+envío / guía master). Props: `value`, `onValueChange`, `options` con `value` y
+`label` (ReactNode), `size` (`sm` | `md`).
+
+```tsx
+<SegmentedControl
+  value={modo}
+  onValueChange={setModo}
+  options={[
+    { value: 'buscar', label: 'Buscar' },
+    { value: 'lista', label: 'Pegar lista' },
+  ]}
+/>
+```
+
+#### `QuickPresetChips` (`@/components/QuickPresetChips`)
+
+Chips clicables para aplicar un valor predefinido sin escribir. Opciones desde
+`@/lib/constants/operational-presets` o `@/lib/constants/manifiesto-presets`.
+
+```tsx
+import { QuickPresetChips } from '@/components/QuickPresetChips';
+import { PRESETS_LBS, formatDatetimeLocalNow } from '@/lib/constants/operational-presets';
+
+<QuickPresetChips
+  options={PRESETS_LBS.map((p) => ({ label: p.label, value: p.valor }))}
+  onSelect={(lbs) => setTotalLbs(String(lbs))}
+/>
+
+<QuickPresetChips
+  options={[{ label: 'Ahora', value: 'now' }]}
+  onSelect={() => setFecha(formatDatetimeLocalNow())}
+/>
+```
+
+Con `react-hook-form`: `onSelect={(v) => setValue('cantidad', v, { shouldValidate: true })}`.
+Filtrar presets por cupo o máximo (p. ej. `CANTIDAD_PRESETS` vs `MAX_PAQUETES`).
+
+#### `PesoInput` / `PesoInputPair` (`@/components/PesoInput`)
+
+Entrada numérica de peso con unidad visible (lbs / kg). Usar **`PesoInputPair`**
+cuando ambas unidades se sincronizan; **`PesoInput`** para un solo campo.
+
+- Valores alineados a la derecha, `font-mono tabular-nums`.
+- Badge de unidad con acento al foco; borde y ring en el contenedor.
+- Tamaños: `sm` (tablas), `md` (formularios), `lg` (diálogos destacados).
+- `showHint` opcional: «Escribe en una unidad; la otra se calcula…».
+
+```tsx
+<PesoInputPair
+  lbs={pesoLbs}
+  kg={pesoKg}
+  onLbsChange={handleLbs}
+  onKgChange={handleKg}
+  size="sm"
+  highlight={valido}
+  invalid={invalido}
+  showHint
+/>
+```
+
+En tablas de pesaje: una sola columna **Peso** con el par compacto, no dos columnas separadas.
+
+#### `BulkGuiaInputPanel` (`@/components/BulkGuiaInputPanel`)
+
+Panel unificado para pegar listas de guías o captura individual/escáner. Tabs
+`lista` | `individual` (opcional con `showTabs={false}` solo lista). Conectar
+`onProcessList` / `onProcessIndividual` a la búsqueda API existente.
+
+```tsx
+<BulkGuiaInputPanel
+  tab={tab}
+  onTabChange={setTab}
+  listValue={text}
+  onListChange={setText}
+  individualValue={individual}
+  onIndividualChange={setIndividual}
+  onProcessList={handleBuscar}
+  onProcessIndividual={handleAgregarUna}
+  listButtonLabel="Verificar guías"
+  showTabs={false}
+/>
+```
+
+#### `DistribucionSacasPanel` (`@/components/DistribucionSacasPanel`)
+
+Reparto de piezas entre sacas con presets y validación de totales (despachos).
+Usar en flujos de armado de saca cuando ya exista lógica de distribución en la
+página; no duplicar textarea + botones sueltos.
+
+**Reglas:** mantener labels en sentence case; presets en constantes compartidas;
+no mezclar con `Button variant="outline"` duplicados para el mismo atajo.
+
+---
+
+## 3.5 Validación de formularios
+
+Reglas transversales para todos los formularios del panel operario y admin:
+
+### Schemas centralizados
+
+- Definir reglas en `@/lib/schemas/` (primitives + dominio), alineadas con los DTOs
+  del backend (`@Size`, `@NotBlank`, `@AssertTrue`).
+- Importar desde `@/lib/schemas` o submódulos (`@/lib/schemas/despacho`, etc.).
+- No duplicar `refine` de tipo de entrega, límites de guías bulk (500 × 120 chars)
+  ni notas (4000) en cada página.
+
+### Errores en UI
+
+| Situación | Patrón |
+|-----------|--------|
+| Campo de formulario RHF | `FormMessage` / `LabeledField` con `error`; `mode: 'onTouched'` |
+| Lista bulk de guías | `validateGuiaList()` + banner en `BulkGuiaInputPanel` (`validationError`, contador `N/500`) |
+| Grid operativo (pesaje) | `validateBulkPeso()` + borde/tooltip por fila inválida |
+| Submit fallido por regla de negocio | `form.setError()` o banner inline, **no** `toast.error` |
+| Error de red / API | `toast.error` o `notify.error` en `catch` |
+
+### Utilidades frecuentes
+
+```tsx
+import { validateGuiaList, parseGuiaList } from '@/lib/schemas/bulk-guias';
+import { despachoCreateSchema } from '@/lib/schemas/despacho';
+import { validateBulkPeso } from '@/lib/schemas/pesaje';
+import { liquidacionCrearSchema } from '@/lib/schemas/liquidacion';
+```
+
+### Tests
+
+Añadir casos críticos en `src/lib/schemas.test.ts` al introducir reglas nuevas
+(tipo entrega, bulk 100/500, motivo 500, notas 4000).
 
 ---
 
@@ -183,7 +394,8 @@ Las páginas públicas comparten el lenguaje "landing":
 - [ ] Header: `PageHeader` / `ListToolbar` (dashboard) o `SiteHeader` (público)
 - [ ] Acciones primarias arriba a la derecha del header
 - [ ] Filtros agrupados en `SurfaceCard` (dashboard)
-- [ ] KPIs con `KpiCard`
+- [ ] KPIs con `KpiCardsGrid` + `KpiCard`
+- [ ] Filtros con `FiltrosBar` + `ChipFiltro` + `FiltroCampo`
 - [ ] Listas con `Table` + `ListTableShell`
 - [ ] Estados: `LoadingState`, `EmptyState`, `ui-alert ui-alert-error`
 - [ ] Badges de estado: `StatusBadge` o `DomainStatusBadge`

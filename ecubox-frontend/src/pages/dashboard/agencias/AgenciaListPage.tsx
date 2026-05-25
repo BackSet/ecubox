@@ -24,6 +24,7 @@ import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
@@ -169,7 +170,7 @@ export function AgenciaListPage() {
         <KpiCardsGridSkeleton count={4} withHint />
       ) : (
         totalElements > 0 && (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <KpiCardsGrid>
             <KpiCard
               icon={<Building2 className="h-4 w-4" />}
               label="Agencias"
@@ -182,14 +183,22 @@ export function AgenciaListPage() {
               label="Provincias cubiertas"
               value={stats.provs}
               tone="neutral"
-              hint={stats.provs === 0 ? 'Sin provincia asignada' : undefined}
+              hint={
+                stats.provs === 0
+                  ? 'Sin provincia asignada'
+                  : `${stats.provs} provincia(s) distintas`
+              }
             />
             <KpiCard
               icon={<MapPin className="h-4 w-4" />}
               label="Cantones cubiertos"
               value={stats.cantones}
               tone="neutral"
-              hint={stats.cantones === 0 ? 'Sin cantón asignado' : undefined}
+              hint={
+                stats.cantones === 0
+                  ? 'Sin cantón asignado'
+                  : `${stats.cantones} cantón(es) distintos`
+              }
             />
             <KpiCard
               icon={<Clock className="h-4 w-4" />}
@@ -198,7 +207,7 @@ export function AgenciaListPage() {
               tone="success"
               hint={`${stats.total - stats.conHorario} sin horario definido`}
             />
-          </div>
+          </KpiCardsGrid>
         )
       )}
 

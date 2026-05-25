@@ -1,7 +1,7 @@
 # ECUBOX — Docker Compose
 #
 # Levanta los 3 servicios del proyecto:
-#   - db:       PostgreSQL 17 con volumen persistente
+#   - db:       PostgreSQL 18 con volumen persistente
 #   - backend:  API REST (Spring Boot, Java 25) en puerto 8080
 #   - frontend: SPA (React + Caddy) en puerto 80
 #
@@ -14,7 +14,7 @@ services:
 
   # ── Base de datos ──────────────────────────────────────
   db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     volumes:
       - ecubox-data:/var/lib/postgresql/data

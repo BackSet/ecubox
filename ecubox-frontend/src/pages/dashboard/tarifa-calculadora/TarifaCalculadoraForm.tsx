@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { AlertCircle, DollarSign, Loader2, RotateCcw, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -15,15 +15,9 @@ import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilt
 import { clampNonNegative, roundToDecimals } from '@/lib/utils/decimal';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/api/error-message';
+import { tarifaCalculadoraFormSchema } from '@/lib/schemas/maestros';
 
-const formSchema = z.object({
-  tarifaPorLibra: z
-    .union([z.number(), z.nan()])
-    .transform((n) => (Number.isNaN(n) ? 0 : n))
-    .pipe(z.number().min(0, 'La tarifa debe ser mayor o igual a 0')),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof tarifaCalculadoraFormSchema>;
 
 function normalizeTarifaInput(value: string): string {
   const normalized = sanitizeNumericDecimal(value);
@@ -41,7 +35,7 @@ export function TarifaCalculadoraForm() {
   const [tarifaInput, setTarifaInput] = useState('0');
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(tarifaCalculadoraFormSchema),
     defaultValues: { tarifaPorLibra: 0 },
   });
 

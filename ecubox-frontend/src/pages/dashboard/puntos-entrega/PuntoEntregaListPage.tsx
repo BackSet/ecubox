@@ -28,6 +28,7 @@ import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
@@ -192,7 +193,7 @@ export function PuntoEntregaListPage() {
         <KpiCardsGridSkeleton count={4} withHint />
       ) : (
         totalElements > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<Building2 className="h-4 w-4" />}
             label="Puntos de entrega"
@@ -214,7 +215,11 @@ export function PuntoEntregaListPage() {
             label="Provincias cubiertas"
             value={stats.provs}
             tone="neutral"
-            hint={stats.provs === 0 ? 'Sin provincia asignada' : undefined}
+            hint={
+              stats.provs === 0
+                ? 'Sin provincia asignada'
+                : `${stats.provs} provincia(s) con punto`
+            }
           />
           <KpiCard
             icon={<Clock className="h-4 w-4" />}
@@ -223,7 +228,7 @@ export function PuntoEntregaListPage() {
             tone="success"
             hint={`${stats.total - stats.conHorario} sin horario definido`}
           />
-        </div>
+        </KpiCardsGrid>
         )
       )}
 

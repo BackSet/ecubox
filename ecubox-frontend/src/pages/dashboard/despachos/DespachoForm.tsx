@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
+import { despachoCreateSchema } from '@/lib/schemas/despacho';
 import {
   Dialog,
   DialogContent,
@@ -34,29 +35,7 @@ function agenciaCourierEntregaEtiqueta(a: { etiqueta?: string; provincia?: strin
   return (parts.length ? parts.join(', ') + ' ' : '') + (a.codigo ? `(${a.codigo})` : '—');
 }
 
-const formSchema = z
-  .object({
-    numeroGuia: z.string().min(1, 'El número de guía es obligatorio'),
-    courierEntregaId: z.number().refine((n) => n > 0, 'Selecciona un courier de entrega'),
-    tipoEntrega: z.enum(['DOMICILIO', 'AGENCIA', 'AGENCIA_COURIER_ENTREGA']),
-    consignatarioId: z.number().optional(),
-    agenciaId: z.number().optional(),
-    agenciaCourierEntregaId: z.number().optional(),
-    observaciones: z.string().optional(),
-    codigoPrecinto: z.string().optional(),
-    sacaIds: z.array(z.number()).optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.tipoEntrega === 'DOMICILIO') return data.consignatarioId != null && data.consignatarioId > 0;
-      if (data.tipoEntrega === 'AGENCIA') return data.agenciaId != null && data.agenciaId > 0;
-      if (data.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') return data.agenciaCourierEntregaId != null && data.agenciaCourierEntregaId > 0;
-      return true;
-    },
-    { message: 'Domicilio requiere consignatario; Agencia requiere agencia; Punto de entrega requiere un punto de entrega del courier', path: ['consignatarioId'] }
-  );
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.input<typeof despachoCreateSchema>;
 
 function consignatarioLabel(d: Consignatario): string {
   const parts = [d.nombre];
@@ -92,7 +71,8 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
   const destRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(despachoCreateSchema),
+    mode: 'onTouched',
     defaultValues: {
       numeroGuia: '',
       courierEntregaId: 0,
@@ -163,18 +143,6 @@ export function DespachoForm({ onClose, onSuccess }: DespachoFormProps) {
       values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && values.agenciaCourierEntregaId != null && !Number.isNaN(values.agenciaCourierEntregaId) && values.agenciaCourierEntregaId > 0
         ? values.agenciaCourierEntregaId
         : undefined;
-    if (values.tipoEntrega === 'DOMICILIO' && !consignatarioId) {
-      toast.error('Selecciona un consignatario');
-      return;
-    }
-    if (values.tipoEntrega === 'AGENCIA' && !agenciaId) {
-      toast.error('Selecciona una agencia');
-      return;
-    }
-    if (values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && !agenciaCourierEntregaId) {
-      toast.error('Selecciona un punto de entrega');
-      return;
-    }
     try {
       await createMutation.mutateAsync({
         numeroGuia: values.numeroGuia.trim(),

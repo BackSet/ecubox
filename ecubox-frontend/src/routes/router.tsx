@@ -46,6 +46,7 @@ import { CourierEntregaListPage } from '@/pages/dashboard/couriers-entrega/Couri
 import { ManifiestoListPage } from '@/pages/dashboard/manifiestos/ManifiestoListPage';
 import { ManifiestoDetailPage } from '@/pages/dashboard/manifiestos/ManifiestoDetailPage';
 import { TrackingPage } from '@/pages/tracking/TrackingPage';
+import { TrackingSamplePage } from '@/pages/tracking/TrackingSamplePage';
 import { CalculadoraPage } from '@/pages/calculadora/CalculadoraPage';
 import { TarifaCalculadoraPage } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraPage';
 import { ParametrosSistemaPage } from '@/pages/dashboard/parametros-sistema/ParametrosSistemaPage';
@@ -191,6 +192,19 @@ const trackingRoute = createRoute({
       description:
         'Consulta el estado de tu envío con el número de guía o código del consolidador. ECUBOX muestra el seguimiento por pieza en tiempo real.',
       path: '/tracking',
+    }) as RouteHeadResult,
+});
+
+const trackingEjemploRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/tracking/ejemplo',
+  component: TrackingSamplePage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Ejemplos de rastreo (demostración) | ECUBOX',
+      description:
+        'Explora guías de muestra para ver cómo funciona el rastreo público de ECUBOX. Datos ficticios solo con fines demostrativos.',
+      path: '/tracking/ejemplo',
     }) as RouteHeadResult,
 });
 
@@ -488,6 +502,7 @@ const routeTree = rootRoute.addChildren([
   registroRapidoRoute,
   registroCompletoRoute,
   trackingRoute,
+  trackingEjemploRoute,
   calculadoraRoute,
   terminosRoute,
   privacidadRoute,

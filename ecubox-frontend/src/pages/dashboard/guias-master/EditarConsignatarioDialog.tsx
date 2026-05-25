@@ -14,6 +14,7 @@ import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { useActualizarGuiaMaster } from '@/hooks/useGuiasMaster';
 import { useConsignatariosOperario } from '@/hooks/useOperarioDespachos';
 import type { Consignatario } from '@/types/consignatario';
+import { guiaMasterUpdateConsignatarioSchema } from '@/lib/schemas';
 import type { GuiaMaster } from '@/types/guia-master';
 
 interface ClienteOption {
@@ -44,6 +45,7 @@ export function EditarConsignatarioDialog({
   const [consignatarioId, setConsignatarioId] = useState<number | undefined>(
     guia.consignatarioId ?? undefined
   );
+  const [consignatarioError, setConsignatarioError] = useState<string | undefined>();
 
   useEffect(() => {
     if (!open) return;
@@ -87,6 +89,7 @@ export function EditarConsignatarioDialog({
   function handleConsignatarioChange(value: string | number | undefined) {
     const did = typeof value === 'string' ? Number(value) : value;
     setConsignatarioId(did);
+    setConsignatarioError(undefined);
     if (did != null) {
       const dest = consignatarios.find((d) => d.id === did);
       if (dest && dest.clienteUsuarioId != null) {
@@ -96,14 +99,23 @@ export function EditarConsignatarioDialog({
   }
 
   async function handleSave() {
-    if (consignatarioId == null) {
-      toast.error('Selecciona un consignatario');
+    const parsed = guiaMasterUpdateConsignatarioSchema.safeParse({
+      clienteId,
+      consignatarioId,
+    });
+    if (!parsed.success) {
+      const msg =
+        parsed.error.issues.find((i) => i.path[0] === 'consignatarioId')?.message ??
+        parsed.error.issues[0]?.message;
+      setConsignatarioError(msg);
+      toast.error(msg ?? 'Selecciona un consignatario');
       return;
     }
+    setConsignatarioError(undefined);
     try {
       await actualizar.mutateAsync({
         id: guia.id,
-        body: { consignatarioId: consignatarioId },
+        body: { consignatarioId: parsed.data.consignatarioId },
       });
       toast.success('Guía actualizada');
       onClose();
@@ -247,6 +259,9 @@ export function EditarConsignatarioDialog({
                 </span>
               )}
             />
+            {consignatarioError && (
+              <p className="mt-1 text-xs text-destructive">{consignatarioError}</p>
+            )}
             <p className="mt-1 text-[11px] text-muted-foreground">
               El cliente se asigna automáticamente al elegir el consignatario.
             </p>

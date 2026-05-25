@@ -29,8 +29,25 @@ const DEFAULT_BG = '#ffffff';
 
 function buildOptions(node: HTMLElement, opts: SnapshotOptions = {}) {
   const ratio = Math.max(opts.scale ?? 2, window.devicePixelRatio || 1);
-  const widthCss = opts.width ?? node.offsetWidth;
-  const heightCss = node.offsetHeight;
+  const naturalWidth = node.offsetWidth || node.scrollWidth || 1;
+  const naturalHeight = node.scrollHeight || node.offsetHeight || 1;
+  const widthCss = opts.width ?? naturalWidth;
+  const heightCss =
+    opts.width && opts.width !== naturalWidth
+      ? Math.ceil(naturalHeight * (widthCss / naturalWidth))
+      : naturalHeight;
+
+  const userFilter = opts.filter;
+  const combinedFilter = userFilter
+    ? (n: HTMLElement) => {
+        if (n instanceof HTMLElement && n.dataset?.exportExclude !== undefined) return false;
+        return userFilter(n);
+      }
+    : (n: HTMLElement) => {
+        if (n instanceof HTMLElement && n.dataset?.exportExclude !== undefined) return false;
+        return true;
+      };
+
   return {
     pixelRatio: ratio,
     backgroundColor: opts.background ?? DEFAULT_BG,
@@ -44,9 +61,7 @@ function buildOptions(node: HTMLElement, opts: SnapshotOptions = {}) {
       backgroundColor: opts.background ?? DEFAULT_BG,
     },
     quality: opts.quality ?? 0.95,
-    filter: opts.filter
-      ? (n: HTMLElement) => opts.filter!(n)
-      : undefined,
+    filter: combinedFilter,
   } as Parameters<typeof toPng>[1];
 }
 
@@ -203,7 +218,7 @@ export async function snapshotNodeToPdf(
       pdf.setPage(p);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(7.5);
-      pdf.setTextColor(130, 130, 130);
+      pdf.setTextColor(107, 114, 128);
       const footerY = pageH - 4;
       if (footerLeft) pdf.text(footerLeft, margin, footerY);
       if (showPageNumbers) {

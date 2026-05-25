@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { ListTableShell } from '@/components/ListTableShell';
+import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
 import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
@@ -240,7 +241,7 @@ export function MiGuiaDetailPage() {
                   <TableHead className="w-[5rem]">Pieza</TableHead>
                   <TableHead className="min-w-[14rem]">Tracking ECUBOX</TableHead>
                   <TableHead className="min-w-[10rem]">Estado</TableHead>
-                  <TableHead className="w-[7rem]">Peso</TableHead>
+                  <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -258,7 +259,7 @@ export function MiGuiaDetailPage() {
                     <TableCell className="align-top">
                       <PiezaEstadoBadges paquete={p} piezaEnRecepcionBodega={piezaEnRecepcionBodega} />
                     </TableCell>
-                    <TableCell className="align-top text-xs">
+                    <TableCell className={PESO_TABLE_CELL_CLASS}>
                       <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
                     </TableCell>
                   </TableRow>
@@ -455,22 +456,6 @@ function PiezaGuiaCell({ numeroGuia }: { numeroGuia: string }) {
           <Copy className="h-3 w-3" />
         )}
       </button>
-    </div>
-  );
-}
-
-function PesoCell({ pesoLbs, pesoKg }: { pesoLbs?: number; pesoKg?: number }) {
-  if (pesoLbs == null && pesoKg == null) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-  return (
-    <div className="space-y-0.5">
-      {pesoLbs != null && (
-        <p className="font-medium text-foreground">{pesoLbs.toFixed(2)} lbs</p>
-      )}
-      {pesoKg != null && (
-        <p className="text-[11px] text-muted-foreground">{pesoKg.toFixed(2)} kg</p>
-      )}
     </div>
   );
 }

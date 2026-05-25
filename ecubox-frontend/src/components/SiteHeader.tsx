@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useRouterState } from '@tanstack/react-router';
 import { Menu, X, Moon, Monitor, Sun } from 'lucide-react';
 import { EcuboxLogo } from '@/components/brand';
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/themeStore';
+import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
   { to: '/tracking', label: 'Rastreo' },
-  { to: '/calculadora', label: 'Tarifas' },
+  { to: '/calculadora', label: 'Calculadora' },
 ] as const;
 
 const ANCHOR_LINKS = [
@@ -30,7 +31,18 @@ interface SiteHeaderProps {
  */
 export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
   const { theme, toggleTheme } = useThemeStore();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  function navLinkClass(to: string, exact = false) {
+    const active = exact ? pathname === to : pathname.startsWith(to);
+    return cn(
+      'transition',
+      active
+        ? 'font-semibold text-[var(--color-primary)]'
+        : 'hover:text-[var(--color-primary)]'
+    );
+  }
 
   const themeIcon = theme === 'dark'
     ? <Moon className="h-4 w-4" />
@@ -57,7 +69,7 @@ export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
             <span className="h-4 w-px bg-[var(--color-landing-border)]" aria-hidden />
           )}
           {NAV_LINKS.map(l => (
-            <Link key={l.to} to={l.to} className="transition hover:text-[var(--color-primary)]">{l.label}</Link>
+            <Link key={l.to} to={l.to} className={navLinkClass(l.to)} aria-current={pathname.startsWith(l.to) ? 'page' : undefined}>{l.label}</Link>
           ))}
         </nav>
 
@@ -115,7 +127,7 @@ export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
               <div className="my-1 h-px bg-[var(--color-landing-border)]" aria-hidden />
             )}
             {NAV_LINKS.map(l => (
-              <Link key={l.to} to={l.to} className="rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]" onClick={() => setMobileOpen(false)}>
+              <Link key={l.to} to={l.to} className={cn('rounded-lg px-3 py-2.5 transition hover:bg-[var(--color-landing-card-muted)]', navLinkClass(l.to))} onClick={() => setMobileOpen(false)}>
                 {l.label}
               </Link>
             ))}

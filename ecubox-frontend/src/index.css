@@ -377,6 +377,25 @@
     border-radius: var(--radius-lg);
     box-shadow: none;
   }
+  .landing-card-interactive {
+    border: 1px solid var(--color-landing-border);
+    background: var(--color-landing-card);
+    border-radius: var(--radius-lg);
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+  .landing-card-interactive:hover {
+    border-color: color-mix(in oklab, var(--color-primary) 35%, var(--color-landing-border));
+    box-shadow: 0 8px 24px color-mix(in oklab, var(--color-primary) 8%, transparent);
+    transform: translateY(-1px);
+  }
+  .landing-mesh {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      color-mix(in oklab, var(--color-landing-border) 65%, transparent) 1px,
+      transparent 0
+    );
+    background-size: 24px 24px;
+  }
   .landing-card-muted {
     border: 1px solid var(--color-landing-border);
     background: var(--color-landing-card-muted);
@@ -386,7 +405,7 @@
     border: 1px solid var(--color-landing-border);
     background: var(--color-landing-card);
     border-radius: var(--radius-lg);
-    box-shadow: none;
+    box-shadow: 0 12px 40px color-mix(in oklab, var(--color-primary) 10%, transparent);
   }
   .landing-chip {
     border: 1px solid var(--color-landing-border);
@@ -396,12 +415,16 @@
   .landing-text { color: var(--color-landing-text); }
   .landing-text-muted { color: var(--color-landing-text-muted); }
 
-  /* brand-gradient-* preservados como clases pero neutralizados a color sólido */
+  /* Gradiente de marca en titulares públicos */
   .brand-gradient-text {
-    color: var(--color-foreground);
-    background-image: none;
-    -webkit-background-clip: initial;
-    background-clip: initial;
+    background-image: linear-gradient(
+      135deg,
+      var(--color-primary) 0%,
+      var(--color-ecubox-acento-claro) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   .brand-gradient-bg {
     background-color: var(--color-primary);
@@ -474,6 +497,15 @@
   .command-item[data-selected='true'] svg { color: var(--color-command-item-active-text); opacity: 1; }
   .command-item:not([data-selected='true']):hover { background: var(--color-command-item-hover); }
   .command-group-heading { color: var(--color-command-heading); }
+
+  .tracking-export-capture {
+    width: 820px !important;
+    max-width: 820px !important;
+    pointer-events: none;
+  }
+  .tracking-export-capture .tracking-surface:hover {
+    border-color: var(--color-border);
+  }
 
   .surface-card {
     border: 1px solid var(--color-border);

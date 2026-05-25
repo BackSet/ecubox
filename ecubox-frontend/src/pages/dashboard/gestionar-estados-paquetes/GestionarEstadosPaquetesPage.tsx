@@ -13,8 +13,11 @@ import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
+import { QuickPresetChips } from '@/components/QuickPresetChips';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
+import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +52,7 @@ import {
 import { notify } from '@/lib/notify';
 import { GuiaMasterPiezaCell, ConsignatarioCell } from '../paquetes/PaqueteCells';
 import type { Paquete } from '@/types/paquete';
+import { gestionarEstadosBulkSchema } from '@/lib/schemas/auth';
 
 export function GestionarEstadosPaquetesPage() {
   const { data: paquetes, isLoading, isFetching, error, refetch } = usePaquetesSinSaca();
@@ -170,6 +174,22 @@ export function GestionarEstadosPaquetesPage() {
     };
   }, [all, list, seleccionados]);
 
+  const estadosFrecuentes = useMemo(() => {
+    const grupos = new Map<string, number>();
+    for (const p of list) {
+      const key = p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—';
+      grupos.set(key, (grupos.get(key) ?? 0) + 1);
+    }
+    return Array.from(grupos.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([nombre]) => {
+        const estado = estadosRastreo.find((e) => e.nombre === nombre);
+        return estado ? { id: estado.id, label: estado.nombre } : null;
+      })
+      .filter((x): x is { id: number; label: string } => x != null);
+  }, [list, estadosRastreo]);
+
   const toggleSelected = useCallback((id: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -222,9 +242,16 @@ export function GestionarEstadosPaquetesPage() {
   }, [soloSeleccionados, selectedIds]);
 
   const ejecutar = useCallback(async () => {
-    if (estadoTarget == null) return;
     const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const parsed = gestionarEstadosBulkSchema.safeParse({
+      estadoTargetId: estadoTarget?.id ?? 0,
+      paqueteIds: ids,
+    });
+    if (!parsed.success) {
+      notify.warning(parsed.error.issues[0]?.message ?? 'Datos no válidos');
+      return;
+    }
+    if (estadoTarget == null) return;
     try {
       const res = await notify.run(
         cambiarEstadoBulk.mutateAsync({
@@ -283,6 +310,11 @@ export function GestionarEstadosPaquetesPage() {
     envioFiltro != null ||
     soloSeleccionados;
 
+  const filtrosActivosCount =
+    (estadoActualFiltro != null ? 1 : 0) +
+    (envioFiltro != null ? 1 : 0) +
+    (soloSeleccionados ? 1 : 0);
+
   return (
     <div className="space-y-4 pb-32">
       {error && paquetes && paquetes.length > 0 && (
@@ -303,12 +335,13 @@ export function GestionarEstadosPaquetesPage() {
         <KpiCardsGridSkeleton count={4} />
       ) : (
         all.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<ListChecks className="h-5 w-5" />}
             label="Disponibles"
             value={stats.totalDisponibles}
             tone="primary"
+            hint="Paquetes elegibles para cambio"
           />
           <KpiCard
             icon={<Search className="h-5 w-5" />}
@@ -317,42 +350,58 @@ export function GestionarEstadosPaquetesPage() {
             tone={
               stats.totalFiltrados !== stats.totalDisponibles ? 'warning' : 'neutral'
             }
+            hint={
+              stats.totalFiltrados !== stats.totalDisponibles
+                ? `${stats.totalDisponibles - stats.totalFiltrados} ocultos por filtros`
+                : 'Sin filtros activos'
+            }
           />
           <KpiCard
             icon={<CheckCircle2 className="h-5 w-5" />}
             label="Seleccionados"
             value={stats.totalSeleccionados}
             tone={stats.totalSeleccionados > 0 ? 'success' : 'neutral'}
+            hint={
+              stats.totalSeleccionados > 0
+                ? 'Listos para aplicar nuevo estado'
+                : 'Marca filas en la tabla'
+            }
           />
           <KpiCard
             icon={<Users className="h-5 w-5" />}
             label="Estados distintos"
             value={estadosActualesPresentes.length}
             tone="neutral"
+            hint="Estados de rastreo en la lista"
           />
-        </div>
+        </KpiCardsGrid>
         )
       )}
 
       {isLoading ? (
-        <FiltrosBarSkeleton chips={1} filters={2} />
+        <FiltrosBarSkeleton chips={0} filters={2} />
       ) : (
         all.length > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
+          filtrosActivosCount={filtrosActivosCount}
+          resumen={`${list.length} paquete${list.length === 1 ? '' : 's'}${
+            list.length !== all.length ? ` de ${all.length}` : ''
+          }`}
           chips={
-            <ChipFiltro
-              label={
-                soloSeleccionados ? 'Mostrar todos' : 'Solo seleccionados'
-              }
-              count={selectedIds.size}
-              active={soloSeleccionados}
-              tone="success"
-              icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-              onClick={() => setSoloSeleccionados((v) => !v)}
-              hideWhenZero
-            />
+            selectedIds.size > 0 || soloSeleccionados ? (
+              <ChipFiltro
+                label={
+                  soloSeleccionados ? 'Mostrar todos' : 'Solo seleccionados'
+                }
+                count={selectedIds.size}
+                active={soloSeleccionados}
+                tone="success"
+                icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                onClick={() => setSoloSeleccionados((v) => !v)}
+              />
+            ) : undefined
           }
           filtros={
             <>
@@ -409,7 +458,7 @@ export function GestionarEstadosPaquetesPage() {
                 <TableHead className="min-w-[16rem]">Consignatario</TableHead>
                 <TableHead className="hidden md:table-cell">Envío</TableHead>
                 <TableHead className="hidden lg:table-cell">Contenido</TableHead>
-                <TableHead className="text-right">Peso</TableHead>
+                <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -458,7 +507,7 @@ export function GestionarEstadosPaquetesPage() {
                 <TableHead className="min-w-[16rem]">Consignatario</TableHead>
                 <TableHead className="hidden md:table-cell">Envío</TableHead>
                 <TableHead className="hidden lg:table-cell">Contenido</TableHead>
-                <TableHead className="text-right">Peso</TableHead>
+                <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -534,16 +583,8 @@ export function GestionarEstadosPaquetesPage() {
                         {p.contenido ?? '—'}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right align-top text-sm tabular-nums">
-                      {p.pesoLbs != null ? <div>{p.pesoLbs.toFixed(2)} lbs</div> : null}
-                      {p.pesoKg != null ? (
-                        <div className="text-xs text-muted-foreground">
-                          {p.pesoKg.toFixed(2)} kg
-                        </div>
-                      ) : null}
-                      {p.pesoLbs == null && p.pesoKg == null && (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                    <TableCell className={PESO_TABLE_CELL_CLASS}>
+                      <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
                     </TableCell>
                   </TableRow>
                 );
@@ -568,13 +609,18 @@ export function GestionarEstadosPaquetesPage() {
         <SelectionActionBar
           total={selectedIds.size}
           gruposEstado={stats.gruposEstado}
+          estadosFrecuentes={estadosFrecuentes}
           opcionesEstado={opcionesEstado}
           estadoTargetId={estadoTargetId}
           onChangeEstado={setEstadoTargetId}
           onClear={limpiarSeleccion}
           onApply={() => {
-            if (!estadoTargetId) {
-              notify.warning('Selecciona el estado a aplicar.');
+            const parsed = gestionarEstadosBulkSchema.safeParse({
+              estadoTargetId: Number(estadoTargetId) || 0,
+              paqueteIds: Array.from(selectedIds),
+            });
+            if (!parsed.success) {
+              notify.warning(parsed.error.issues[0]?.message ?? 'Datos no válidos');
               return;
             }
             setConfirmOpen(true);
@@ -611,6 +657,7 @@ export function GestionarEstadosPaquetesPage() {
 interface SelectionActionBarProps {
   total: number;
   gruposEstado: [string, number][];
+  estadosFrecuentes: { id: number; label: string }[];
   opcionesEstado: EstadoRastreo[];
   estadoTargetId: string;
   onChangeEstado: (v: string) => void;
@@ -622,6 +669,7 @@ interface SelectionActionBarProps {
 function SelectionActionBar({
   total,
   gruposEstado,
+  estadosFrecuentes,
   opcionesEstado,
   estadoTargetId,
   onChangeEstado,
@@ -652,6 +700,16 @@ function SelectionActionBar({
 
         <div className="flex flex-wrap items-center gap-2">
           <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          {estadosFrecuentes.length > 0 && (
+            <QuickPresetChips
+              options={estadosFrecuentes.map((e) => ({
+                label: e.label,
+                value: e.id,
+              }))}
+              value={estadoTargetId === '' ? undefined : Number(estadoTargetId)}
+              onSelect={(id) => onChangeEstado(String(id))}
+            />
+          )}
           <div className="w-[18rem]">
             <SearchableCombobox<EstadoRastreo>
               value={estadoTargetId === '' ? undefined : Number(estadoTargetId)}

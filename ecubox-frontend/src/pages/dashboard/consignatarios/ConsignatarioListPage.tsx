@@ -30,6 +30,7 @@ import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
@@ -266,12 +267,13 @@ export function ConsignatarioListPage() {
         <KpiCardsGridSkeleton count={hasConsignatariosOperario ? 4 : 2} />
       ) : (
         allConsignatarios.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<UserRound className="h-5 w-5" />}
             label="Consignatarios"
             value={stats.total}
             tone="primary"
+            hint="Universo total, sin filtros"
           />
           {hasConsignatariosOperario && (
             <KpiCard
@@ -279,6 +281,7 @@ export function ConsignatarioListPage() {
               label="Con cliente"
               value={stats.conCliente}
               tone={stats.conCliente > 0 ? 'success' : 'neutral'}
+              hint={`${stats.total - stats.conCliente} sin cliente asignado`}
             />
           )}
           <KpiCard
@@ -286,6 +289,7 @@ export function ConsignatarioListPage() {
             label="Provincias"
             value={stats.provincias}
             tone="neutral"
+            hint="Provincias distintas en catálogo"
           />
           {hasConsignatariosOperario && (
             <KpiCard
@@ -293,9 +297,10 @@ export function ConsignatarioListPage() {
               label="Clientes únicos"
               value={stats.clientes}
               tone="neutral"
+              hint="Cuentas con consignatarios propios"
             />
           )}
-        </div>
+        </KpiCardsGrid>
         )
       )}
 

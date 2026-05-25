@@ -1,6 +1,8 @@
 import { Loader2, Package, Search, X } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TRACKING_SAMPLES } from '@/lib/tracking/trackingSamples';
 
 interface TrackingSearchPanelProps {
   numeroGuia: string;
@@ -10,7 +12,7 @@ interface TrackingSearchPanelProps {
   onSubmit: (e: React.FormEvent) => void;
 }
 
-const EJEMPLOS: string[] = ['ABC1234567890', 'ABC1234567890 1/2', 'XYZ-987654321'];
+const EJEMPLOS = TRACKING_SAMPLES.map((sample) => sample.codigo);
 
 export function TrackingSearchPanel({
   numeroGuia,
@@ -22,7 +24,7 @@ export function TrackingSearchPanel({
   const hasValor = numeroGuia.trim().length > 0;
 
   return (
-    <section className="surface-card space-y-4 p-5 sm:p-6">
+    <section className="landing-card-elevated space-y-4 p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)] sm:inline-flex">
           <Search className="h-5 w-5" />
@@ -100,17 +102,16 @@ export function TrackingSearchPanel({
             id="tracking-guia-help"
             className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-muted-foreground)]"
           >
-            <span>Ejemplos:</span>
+            <span>Ejemplos de demostración:</span>
             {EJEMPLOS.map((ej) => (
-              <button
+              <Link
                 key={ej}
-                type="button"
-                disabled={loading}
-                onClick={() => onNumeroGuiaChange(ej)}
-                className="inline-flex items-center rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/50 px-2 py-0.5 font-mono text-[11px] text-[var(--color-foreground)] transition-colors hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                to="/tracking/ejemplo"
+                search={{ codigo: ej } as never}
+                className="inline-flex items-center rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/50 px-2 py-0.5 font-mono text-[11px] text-[var(--color-foreground)] transition-colors hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
               >
                 {ej}
-              </button>
+              </Link>
             ))}
           </div>
         )}

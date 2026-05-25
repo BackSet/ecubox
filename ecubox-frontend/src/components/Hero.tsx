@@ -12,6 +12,12 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { trackingSearchSchema } from '@/lib/schemas/primitives';
+import {
+  isTrackingSampleCodigo,
+  normalizeTrackingSampleCodigo,
+} from '@/lib/tracking/trackingSamples';
+import { HeroRouteIllustration } from '@/components/public/HeroRouteIllustration';
 
 const STATS = [
   { value: '8-12', label: 'Días promedio USA → EC' },
@@ -21,22 +27,32 @@ const STATS = [
 
 export function Hero() {
   const [codigo, setCodigo] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const value = codigo.trim();
-    if (!value || submitting) return;
+    if (submitting) return;
+    const parsed = trackingSearchSchema.safeParse(codigo);
+    if (!parsed.success) {
+      setValidationError(parsed.error.issues[0]?.message ?? 'Código no válido');
+      return;
+    }
+    setValidationError(null);
     setSubmitting(true);
-    void navigate({
-      to: '/tracking',
-      search: { codigo: value } as never,
-    }).finally(() => setSubmitting(false));
+    const codigoConsulta = parsed.data;
+    const target = isTrackingSampleCodigo(codigoConsulta)
+      ? {
+          to: '/tracking/ejemplo' as const,
+          search: { codigo: normalizeTrackingSampleCodigo(codigoConsulta) } as never,
+        }
+      : { to: '/tracking' as const, search: { codigo: codigoConsulta } as never };
+    void navigate(target).finally(() => setSubmitting(false));
   }
 
   return (
-    <section className="relative overflow-hidden" aria-labelledby="hero-heading">
+    <section className="relative overflow-hidden landing-mesh" aria-labelledby="hero-heading">
       <div className="content-container mobile-safe-inline landing-hero relative">
         <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.72fr)] lg:gap-10 xl:gap-14">
           <div className="flex min-w-0 flex-col items-center text-center lg:items-start lg:text-left">
@@ -64,7 +80,8 @@ export function Hero() {
 
             <form
               onSubmit={handleSubmit}
-              className="landing-card mb-6 flex w-full max-w-xl flex-col items-stretch gap-2 p-2 sm:flex-row lg:mx-0"
+              className="landing-card-elevated mb-2 flex w-full max-w-xl flex-col items-stretch gap-2 p-2 sm:flex-row lg:mx-0"
+              noValidate
             >
               <label htmlFor="hero-tracking" className="sr-only">
                 Número de guía
@@ -80,15 +97,20 @@ export function Hero() {
                   type="text"
                   variant="clean"
                   value={codigo}
-                  onChange={(e) => setCodigo(e.target.value)}
+                  onChange={(e) => {
+                    setCodigo(e.target.value);
+                    if (validationError) setValidationError(null);
+                  }}
                   placeholder="Rastrea ahora: ej. ABC1234567890"
                   className="h-11 pl-10 font-mono"
                   autoComplete="off"
+                  aria-invalid={Boolean(validationError)}
+                  aria-describedby={validationError ? 'hero-tracking-error' : undefined}
                 />
               </div>
               <Button
                 type="submit"
-                disabled={submitting || !codigo.trim()}
+                disabled={submitting}
                 className="h-11 gap-2 px-5"
               >
                 {submitting ? (
@@ -99,27 +121,44 @@ export function Hero() {
                 Rastrear
               </Button>
             </form>
+            {validationError ? (
+              <p
+                id="hero-tracking-error"
+                className="mb-4 max-w-xl text-sm text-[var(--color-destructive)]"
+                role="alert"
+              >
+                {validationError}
+              </p>
+            ) : (
+              <p className="mb-6 max-w-xl text-xs landing-text-muted">
+                También puedes usar el formato de pieza, por ejemplo{' '}
+                <span className="font-mono text-[var(--color-primary)]">ABC123 1/2</span>
+                .{' '}
+                <Link to="/tracking/ejemplo" className="font-medium text-[var(--color-primary)] hover:underline">
+                  Ver ejemplos de demostración
+                </Link>
+              </p>
+            )}
 
             <div className="flex w-full max-w-xl flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:gap-4 lg:mx-0 lg:justify-start">
-              <Link
-                to="/registro"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-6 py-3.5 text-sm font-semibold text-[var(--color-primary-foreground)] shadow-lg transition hover:opacity-90 sm:px-8 sm:py-4"
-              >
-                Empezar envío
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </Link>
-              <Link
-                to="/calculadora"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--color-primary)]/55 px-6 py-3.5 text-sm font-semibold landing-text transition hover:bg-[var(--color-primary)]/10 sm:px-8 sm:py-4"
-              >
-                <Calculator className="h-4 w-4" aria-hidden />
-                Cotizar envío
-              </Link>
+              <Button asChild size="lg" className="h-12 gap-2 px-8 shadow-lg">
+                <Link to="/registro">
+                  Empezar envío
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="h-12 gap-2 border-2 px-8 landing-text">
+                <Link to="/calculadora">
+                  <Calculator className="h-4 w-4" aria-hidden />
+                  Cotizar envío
+                </Link>
+              </Button>
             </div>
           </div>
 
-          <div className="landing-card-muted w-full overflow-hidden p-3 sm:p-4 lg:p-5">
-            <p className="landing-text-muted mb-3 text-xs font-medium uppercase">
+          <div className="landing-card-muted w-full space-y-4 overflow-hidden p-3 sm:p-4 lg:p-5">
+            <HeroRouteIllustration />
+            <p className="text-xs font-medium uppercase tracking-wider landing-text-muted">
               Operación ECUBOX
             </p>
             <ul className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">

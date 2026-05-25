@@ -14,8 +14,10 @@ import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
+import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu, type RowActionEntry } from '@/components/RowActionsMenu';
 import { Button } from '@/components/ui/button';
@@ -257,6 +259,13 @@ export function PaqueteListPage() {
     guiaMasterFiltro != null ||
     chipActivo !== 'todos';
 
+  const filtrosActivosCount =
+    (estadoFiltro ? 1 : 0) +
+    (consignatarioFiltro ? 1 : 0) +
+    (envioFiltro ? 1 : 0) +
+    (guiaMasterFiltro != null ? 1 : 0) +
+    (chipActivo !== 'todos' ? 1 : 0);
+
   const limpiarFiltros = useCallback(() => {
     setEstadoFiltro(undefined);
     setConsignatarioFiltro(undefined);
@@ -357,42 +366,54 @@ export function PaqueteListPage() {
         <KpiCardsGridSkeleton count={4} />
       ) : (
         allPaquetes.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<Package className="h-5 w-5" />}
             label="Paquetes"
             value={stats.total}
             tone="primary"
+            hint="Universo total, sin filtros"
           />
           <KpiCard
             icon={<Weight className="h-5 w-5" />}
             label="Con peso cargado"
             value={stats.conPeso}
             tone={stats.conPeso > 0 ? 'success' : 'neutral'}
+            hint={`${stats.total - stats.conPeso} sin peso registrado`}
           />
           <KpiCard
             icon={<Users className="h-5 w-5" />}
             label="Consignatarios únicos"
             value={stats.consignatarios}
             tone="neutral"
+            hint="Destinatarios distintos en catálogo"
           />
           <KpiCard
             icon={<ClipboardList className="h-5 w-5" />}
             label="Vencidos"
             value={stats.vencidos}
             tone={stats.vencidos > 0 ? 'danger' : 'neutral'}
+            hint={
+              stats.vencidos > 0
+                ? 'Superaron plazo de retiro'
+                : 'Ninguno vencido'
+            }
           />
-        </div>
+        </KpiCardsGrid>
         )
       )}
 
       {isLoading ? (
-        <FiltrosBarSkeleton chips={5} filters={2} />
+        <FiltrosBarSkeleton chips={5} filters={4} />
       ) : (
         allPaquetes.length > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
+          filtrosActivosCount={filtrosActivosCount}
+          resumen={`${totalElements} paquete${totalElements === 1 ? '' : 's'}${
+            totalElements !== allPaquetes.length ? ` de ${allPaquetes.length}` : ''
+          }`}
           chips={
             <>
               <ChipFiltro
@@ -439,7 +460,7 @@ export function PaqueteListPage() {
               guiasMasterDisponibles.length > 0) && (
               <>
                 {estadosDisponibles.length > 0 && (
-                  <FiltroCampo label="Estado de rastreo" width="w-[14rem]">
+                  <FiltroCampo label="Estado de rastreo">
                     <SearchableCombobox<string>
                       value={estadoFiltro}
                       onChange={(v) =>
@@ -458,7 +479,7 @@ export function PaqueteListPage() {
                   </FiltroCampo>
                 )}
                 {consignatarios.length > 0 && (
-                  <FiltroCampo label="Consignatario" width="w-[16rem]">
+                  <FiltroCampo label="Consignatario">
                     <SearchableCombobox<string>
                       value={consignatarioFiltro}
                       onChange={(v) =>
@@ -477,7 +498,7 @@ export function PaqueteListPage() {
                   </FiltroCampo>
                 )}
                 {guiasMasterDisponibles.length > 0 && (
-                  <FiltroCampo label="Guía master" width="w-[16rem]">
+                  <FiltroCampo label="Guía master">
                     <SearchableCombobox<number>
                       value={guiaMasterFiltro}
                       onChange={(v) =>
@@ -509,7 +530,7 @@ export function PaqueteListPage() {
                   </FiltroCampo>
                 )}
                 {hasPesoWrite && codigosEnvio.length > 0 && (
-                  <FiltroCampo label="Envío consolidado" width="w-[14rem]">
+                  <FiltroCampo label="Envío consolidado">
                     <SearchableCombobox<string>
                       value={envioFiltro}
                       onChange={(v) =>
@@ -549,7 +570,7 @@ export function PaqueteListPage() {
                 <TableHead>Consignatario</TableHead>
                 {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
                 <TableHead>Contenido</TableHead>
-                <TableHead>Peso</TableHead>
+                <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                 {(hasPaquetesUpdate || hasPaquetesDelete || hasGuiasMasterUpdate) && (
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 )}
@@ -609,7 +630,7 @@ export function PaqueteListPage() {
                   <TableHead>Consignatario</TableHead>
                   {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
                   <TableHead>Contenido</TableHead>
-                  <TableHead>Peso</TableHead>
+                  <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                   {(hasPaquetesUpdate ||
                     hasPaquetesDelete ||
                     hasGuiasMasterUpdate) && (
@@ -656,12 +677,8 @@ export function PaqueteListPage() {
                         {p.contenido ?? '—'}
                       </span>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {p.pesoLbs != null || p.pesoKg != null
-                        ? [p.pesoLbs != null ? `${p.pesoLbs} lbs` : null, p.pesoKg != null ? `${p.pesoKg} kg` : null]
-                            .filter(Boolean)
-                            .join(' / ')
-                        : '—'}
+                    <TableCell className={PESO_TABLE_CELL_CLASS}>
+                      <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
                     </TableCell>
                     {(hasPaquetesUpdate ||
                       hasPaquetesDelete ||

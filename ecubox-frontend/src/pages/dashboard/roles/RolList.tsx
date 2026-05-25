@@ -29,6 +29,7 @@ import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { FiltrosBar } from '@/components/FiltrosBar';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { TablePagination } from '@/components/ui/TablePagination';
@@ -165,14 +166,15 @@ export function RolList() {
       )}
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} gridClassName="grid grid-cols-2 gap-3 lg:grid-cols-4" withHint />
+        <KpiCardsGridSkeleton count={4} withHint />
       ) : (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <KpiCardsGrid>
         <KpiCard
           icon={<ShieldCheck className="h-5 w-5" />}
           label="Total roles"
           value={stats.total}
           tone="primary"
+          hint={`${stats.totalPermisosSistema} permisos en el catálogo`}
         />
         <KpiCard
           icon={<Lock className="h-5 w-5" />}
@@ -195,7 +197,7 @@ export function RolList() {
           tone={stats.sinPermisos > 0 ? 'warning' : 'neutral'}
           hint={stats.sinPermisos > 0 ? 'No otorgan acceso a nada' : 'Todos los roles configurados'}
         />
-      </div>
+      </KpiCardsGrid>
       )}
 
       {isLoading ? (

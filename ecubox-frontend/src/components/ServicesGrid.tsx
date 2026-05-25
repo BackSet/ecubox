@@ -57,7 +57,7 @@ const FEATURES: Feature[] = [
     icon: Zap,
     href: '/calculadora',
     ctaLabel: 'Calcular tarifa',
-    accent: 'from-emerald-400/25 to-emerald-400/0',
+    accent: 'from-[var(--color-success)]/20 to-[var(--color-success)]/0',
     bullets: [
       { icon: Truck, text: '8-12 días laborables promedio' },
       { icon: Calculator, text: 'Sin sorpresas: cotiza antes' },
@@ -91,7 +91,7 @@ export function ServicesGrid() {
           return (
             <article
               key={feature.title}
-              className="landing-card group relative flex min-h-[320px] flex-col overflow-hidden p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--color-primary)]/40 hover:shadow-lg sm:p-6 lg:p-7"
+              className="landing-card-interactive group relative flex min-h-[320px] flex-col overflow-hidden p-5 sm:p-6 lg:p-7"
             >
               <div
                 aria-hidden

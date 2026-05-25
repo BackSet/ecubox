@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { Button } from '@/components/ui/button';
@@ -165,32 +166,40 @@ export function PaquetesVencidosPage() {
       )}
 
       {allPaquetes.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCardsGrid>
           <KpiCard
             icon={<AlertTriangle className="h-5 w-5" />}
             label="Total vencidos"
             value={stats.total}
             tone="danger"
+            hint="Superaron plazo de retiro"
           />
           <KpiCard
             icon={<TrendingUp className="h-5 w-5" />}
             label="Atraso máximo"
             value={`${stats.maximo}d`}
             tone="warning"
+            hint="Mayor días de atraso en la lista"
           />
           <KpiCard
             icon={<Clock className="h-5 w-5" />}
             label="Atraso promedio"
             value={`${stats.promedio}d`}
             tone="neutral"
+            hint={`${stats.criticos} crítico(s) con ≥15 días`}
           />
           <KpiCard
             icon={<AlertTriangle className="h-5 w-5" />}
             label="Críticos (≥15d)"
             value={stats.criticos}
             tone={stats.criticos > 0 ? 'danger' : 'neutral'}
+            hint={
+              stats.criticos > 0
+                ? 'Requieren atención prioritaria'
+                : 'Ninguno con atraso crítico'
+            }
           />
-        </div>
+        </KpiCardsGrid>
       )}
 
       {allPaquetes.length > 0 && (

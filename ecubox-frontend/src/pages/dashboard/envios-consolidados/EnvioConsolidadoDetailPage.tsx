@@ -26,8 +26,8 @@ import { toast } from 'sonner';
 import { notify } from '@/lib/notify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { BulkGuiaInputPanel } from '@/components/BulkGuiaInputPanel';
+import type { BulkGuiaTab } from '@/components/BulkGuiaInputPanel';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +51,7 @@ import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton'
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { KpiCard } from '@/components/KpiCard';
 import { ListTableShell } from '@/components/ListTableShell';
+import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
   useAgregarPaquetesEnvioConsolidado,
@@ -61,6 +62,7 @@ import {
   useRemoverPaquetesEnvioConsolidado,
 } from '@/hooks/useEnviosConsolidados';
 import { buscarPaquetesPorGuias } from '@/lib/api/paquetes.service';
+import { validateGuiaList } from '@/lib/schemas';
 import type { Paquete } from '@/types/paquete';
 import {
   GuiaMasterPiezaCell,
@@ -69,7 +71,7 @@ import {
 import { EnvioConsolidadoBadge } from './EnvioConsolidadoBadge';
 import { useAuthStore } from '@/stores/authStore';
 
-const LBS_TO_KG = 0.45359237;
+import { formatWeightFromValues, formatWeightInline, LBS_TO_KG } from '@/lib/utils/weight';
 
 function descargarBlob(blob: Blob, filename: string) {
   const url = window.URL.createObjectURL(blob);
@@ -148,7 +150,7 @@ export function EnvioConsolidadoDetailPage() {
               <TableRow>
                 <TableHead>Paquete</TableHead>
                 <TableHead className="hidden md:table-cell">Consignatario</TableHead>
-                <TableHead className="text-right">Peso</TableHead>
+                <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                 <TableHead className="text-right">Estado</TableHead>
               </TableRow>
             </TableHeader>
@@ -342,7 +344,7 @@ export function EnvioConsolidadoDetailPage() {
           label="Peso total"
           value={stats.pesoLbs > 0 ? `${stats.pesoLbs.toFixed(2)} lbs` : '—'}
           tone="neutral"
-          hint={stats.pesoLbs > 0 ? `${stats.pesoKg.toFixed(2)} kg` : undefined}
+          hint={stats.pesoLbs > 0 ? formatWeightInline(stats.pesoLbs, stats.pesoKg) : undefined}
         />
         <KpiCard
           icon={<Calendar className="h-5 w-5" />}
@@ -564,7 +566,7 @@ function PaquetesTable({
             <TableHead>Guía master / Pieza</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead>Consignatario</TableHead>
-            <TableHead>Peso</TableHead>
+            <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
             <TableHead className="w-[100px] text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -586,8 +588,8 @@ function PaquetesTable({
               <TableCell>
                 <ConsignatarioCell paquete={p} />
               </TableCell>
-              <TableCell>
-                <PesoMini lbs={p.pesoLbs} />
+              <TableCell className={PESO_TABLE_CELL_CLASS}>
+                <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
               </TableCell>
               <TableCell className="text-right">
                 <div className="inline-flex items-center gap-0.5">
@@ -641,19 +643,12 @@ function EstadoBadge({
   );
 }
 
-function PesoMini({ lbs }: { lbs?: number | null }) {
-  if (lbs == null) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
-  const lbsNum = Number(lbs);
-  return (
-    <div className="flex flex-col leading-tight">
-      <span className="text-sm font-medium text-foreground">{lbsNum.toFixed(2)} lbs</span>
-      <span className="text-[11px] text-muted-foreground">
-        {(lbsNum * LBS_TO_KG).toFixed(2)} kg
-      </span>
-    </div>
-  );
+function bulkTextToGuiaLines(raw: string): string {
+  return raw
+    .split(/[\r\n,;]+/)
+    .map((s) => s.replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
 function AgregarPaquetesDialog({
@@ -664,9 +659,12 @@ function AgregarPaquetesDialog({
   onClose: () => void;
 }) {
   const [text, setText] = useState('');
+  const [tab, setTab] = useState<BulkGuiaTab>('lista');
+  const [individualGuia, setIndividualGuia] = useState('');
   const [paquetes, setPaquetes] = useState<Paquete[]>([]);
   const [noEncontradas, setNoEncontradas] = useState<string[]>([]);
   const [buscando, setBuscando] = useState(false);
+  const [guiaListError, setGuiaListError] = useState<string | undefined>();
   const agregar = useAgregarPaquetesEnvioConsolidado();
 
   const guias = useMemo(
@@ -699,18 +697,55 @@ function AgregarPaquetesDialog({
   }, [paquetes, noEncontradas]);
 
   async function handleBuscar() {
-    if (guias.length === 0) {
+    const listCheck = validateGuiaList(bulkTextToGuiaLines(text));
+    if (!listCheck.ok) {
+      setGuiaListError(listCheck.errors.join(' · '));
+      return;
+    }
+    setGuiaListError(undefined);
+    if (listCheck.guias.length === 0) {
       toast.error('Pega al menos un número de guía');
       return;
     }
     setBuscando(true);
     try {
-      const encontrados = await buscarPaquetesPorGuias(guias);
+      const encontrados = await buscarPaquetesPorGuias(listCheck.guias);
       setPaquetes(encontrados);
       const set = new Set(encontrados.map((p) => p.numeroGuia.toLowerCase()));
-      setNoEncontradas(guias.filter((g) => !set.has(g.toLowerCase())));
+      setNoEncontradas(listCheck.guias.filter((g) => !set.has(g.toLowerCase())));
     } catch {
       toast.error('Error al buscar paquetes');
+    } finally {
+      setBuscando(false);
+    }
+  }
+
+  async function handleAgregarIndividual() {
+    const g = individualGuia.trim();
+    if (!g) return;
+    const check = validateGuiaList(g);
+    if (!check.ok) {
+      setGuiaListError(check.errors.join(' · '));
+      return;
+    }
+    setGuiaListError(undefined);
+    const merged = text.trim() ? `${text.trim()}\n${g}` : g;
+    setText(merged);
+    setIndividualGuia('');
+    setTab('lista');
+    setBuscando(true);
+    try {
+      const encontrados = await buscarPaquetesPorGuias([g]);
+      if (encontrados.length > 0) {
+        setPaquetes((prev) => {
+          const ids = new Set(prev.map((p) => p.id));
+          return [...prev, ...encontrados.filter((p) => !ids.has(p.id))];
+        });
+      } else {
+        setNoEncontradas((prev) => (prev.includes(g) ? prev : [...prev, g]));
+      }
+    } catch {
+      toast.error('Error al buscar paquete');
     } finally {
       setBuscando(false);
     }
@@ -722,6 +757,7 @@ function AgregarPaquetesDialog({
     setPaquetes([]);
     setNoEncontradas([]);
   }
+
 
   async function handleAgregar() {
     if (paquetes.length === 0) {
@@ -760,60 +796,34 @@ function AgregarPaquetesDialog({
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col space-y-4 overflow-y-auto px-6 py-4">
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <Label className="text-xs font-medium text-muted-foreground">
-                Guías ECUBOX
-              </Label>
-              <span className="text-xs text-muted-foreground">
-                {guias.length} pieza{guias.length === 1 ? '' : 's'}
-              </span>
-            </div>
-            <Textarea
-              rows={6}
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value);
-                setPaquetes([]);
-                setNoEncontradas([]);
-              }}
-              placeholder={'1Z52159R0379385035 1/3\n1Z52159R0379385035 2/3'}
-              className="resize-y font-mono text-sm"
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Una línea por pieza. Formato:{' '}
-              <span className="font-mono">{'<guía> <pieza>/<total>'}</span>. Acepta
-              saltos de línea, comas o punto y coma.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleBuscar}
-              disabled={buscando || guias.length === 0}
-            >
-              <Search className="mr-1.5 h-3.5 w-3.5" />
-              {buscando ? 'Buscando...' : 'Verificar guías'}
-            </Button>
-            {text.trim() && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setText('');
-                  setPaquetes([]);
-                  setNoEncontradas([]);
-                }}
-              >
-                <Eraser className="mr-1.5 h-3.5 w-3.5" />
-                Limpiar
-              </Button>
-            )}
-          </div>
+          <BulkGuiaInputPanel
+            tab={tab}
+            onTabChange={setTab}
+            listValue={text}
+            onListChange={(v) => {
+              setText(v);
+              setPaquetes([]);
+              setNoEncontradas([]);
+              setGuiaListError(undefined);
+            }}
+            individualValue={individualGuia}
+            onIndividualChange={setIndividualGuia}
+            onProcessList={handleBuscar}
+            onProcessIndividual={handleAgregarIndividual}
+            procesandoLista={buscando}
+            procesandoIndividual={buscando}
+            listButtonLabel={buscando ? 'Buscando...' : 'Verificar guías'}
+            listPlaceholder={'1Z52159R0379385035 1/3\n1Z52159R0379385035 2/3'}
+            listLabel={`Guías ECUBOX · ${guias.length} pieza${guias.length === 1 ? '' : 's'}`}
+            guiaCount={guias.length}
+            validationError={guiaListError}
+            resultado={
+              <p className="text-[11px] text-muted-foreground">
+                Una línea por pieza. Formato:{' '}
+                <span className="font-mono">{'<guía> <pieza>/<total>'}</span>. Acepta saltos de línea, comas o punto y coma.
+              </p>
+            }
+          />
 
           {(paquetes.length > 0 || noEncontradas.length > 0) && (
             <div className="space-y-3 rounded-md border border-border bg-[var(--color-muted)]/20 p-3">
@@ -827,7 +837,7 @@ function AgregarPaquetesDialog({
                 {stats.pesoLbs > 0 && (
                   <span className="inline-flex items-center gap-1 rounded border border-border bg-[var(--color-background)] px-2 py-0.5 text-xs text-foreground">
                     <Scale className="h-3 w-3" />
-                    {stats.pesoLbs.toFixed(2)} lbs · {stats.pesoKg.toFixed(2)} kg
+                    {formatWeightInline(stats.pesoLbs, stats.pesoKg)}
                   </span>
                 )}
                 {stats.yaEnOtro > 0 && (
@@ -851,8 +861,7 @@ function AgregarPaquetesDialog({
                   </p>
                   <ul className="max-h-44 space-y-1 overflow-auto pr-1">
                     {paquetes.map((p) => {
-                      const peso =
-                        p.pesoLbs != null ? `${Number(p.pesoLbs).toFixed(2)} lbs` : null;
+                      const peso = formatWeightFromValues(p.pesoLbs, p.pesoKg);
                       return (
                         <li
                           key={p.id}

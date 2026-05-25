@@ -28,6 +28,7 @@ import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -255,14 +256,15 @@ export function PermisoList() {
       )}
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} gridClassName="grid grid-cols-2 gap-3 lg:grid-cols-4" withHint />
+        <KpiCardsGridSkeleton count={4} withHint />
       ) : (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <KpiCardsGrid>
         <KpiCard
           icon={<Key className="h-5 w-5" />}
           label="Total permisos"
           value={stats.total}
           tone="primary"
+          hint={`${stats.modulos} módulo(s) del sistema`}
         />
         <KpiCard
           icon={<Layers className="h-5 w-5" />}
@@ -276,14 +278,16 @@ export function PermisoList() {
           label="Permisos de lectura"
           value={stats.lectura}
           tone="success"
+          hint="Solo consulta (READ)"
         />
         <KpiCard
           icon={<PencilLine className="h-5 w-5" />}
           label="Permisos de escritura"
           value={stats.escritura}
           tone="warning"
+          hint="Crear, editar o eliminar"
         />
-      </div>
+      </KpiCardsGrid>
       )}
 
       {isLoading ? (

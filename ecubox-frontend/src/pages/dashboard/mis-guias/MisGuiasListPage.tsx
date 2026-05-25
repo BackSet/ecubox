@@ -24,6 +24,7 @@ import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ListToolbar } from '@/components/ListToolbar';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
@@ -160,15 +161,13 @@ export function MisGuiasListPage() {
       />
 
       {!isLoading && !error && guias.length > 0 && (
-        // En movil: scroll horizontal con snap para no comerse pantalla con 4
-        // tarjetas grandes apiladas; en md+ pasa a grid normal de 4 columnas.
-        <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 md:pb-0">
+        <KpiCardsGrid>
           <KpiCard
             icon={<Boxes className="h-5 w-5" />}
             label="Total guías"
             value={stats.total}
             tone="primary"
-            className="min-w-[14rem] shrink-0 snap-start md:min-w-0"
+            hint="Todas tus guías registradas"
           />
           <KpiCard
             icon={<Clock className="h-5 w-5" />}
@@ -176,7 +175,6 @@ export function MisGuiasListPage() {
             value={stats.enEspera}
             tone={stats.enEspera > 0 ? 'warning' : 'neutral'}
             hint="Aún sin llegar a bodega"
-            className="min-w-[14rem] shrink-0 snap-start md:min-w-0"
           />
           <KpiCard
             icon={<PackageCheck className="h-5 w-5" />}
@@ -184,7 +182,6 @@ export function MisGuiasListPage() {
             value={stats.enBodega}
             tone={stats.enBodega > 0 ? 'primary' : 'neutral'}
             hint="Listas para despacho"
-            className="min-w-[14rem] shrink-0 snap-start md:min-w-0"
           />
           <KpiCard
             icon={<Truck className="h-5 w-5" />}
@@ -196,9 +193,8 @@ export function MisGuiasListPage() {
                 ? `${stats.entregadas} entregadas`
                 : `${stats.enCamino} en camino`
             }
-            className="min-w-[14rem] shrink-0 snap-start md:min-w-0"
           />
-        </div>
+        </KpiCardsGrid>
       )}
 
       {!isLoading && !error && guias.length > 0 && (

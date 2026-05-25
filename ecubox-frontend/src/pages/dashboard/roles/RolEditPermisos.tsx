@@ -35,6 +35,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { PermisoDTO } from '@/types/rol';
+import { rolPermisosSchema } from '@/lib/schemas/auth';
 
 interface RolEditPermisosProps {
   rolId: number;
@@ -251,10 +252,15 @@ export function RolEditPermisos({ rolId, onClose, onSuccess }: RolEditPermisosPr
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const parsed = rolPermisosSchema.safeParse({ permisoIds: selectedIds });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? 'Permisos no válidos');
+      return;
+    }
     try {
       await updatePermisos.mutateAsync({
         id: rolId,
-        body: { permisoIds: selectedIds },
+        body: parsed.data,
       });
       if (rol?.nombre && userRoles.includes(rol.nombre)) {
         await refreshAuth();

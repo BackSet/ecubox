@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
   Check,
   DollarSign,
@@ -42,17 +42,9 @@ import type {
   LiquidacionDespachoLinea,
 } from '@/types/liquidacion';
 import { formatMoney, formatNumber } from './moneyFormat';
+import { liquidacionDespachoLineaSchema } from '@/lib/schemas/liquidacion';
 
-const schema = z.object({
-  despachoId: z.number().int().positive('Selecciona un despacho'),
-  pesoKg: z.number().min(0, 'Debe ser ≥ 0'),
-  kgIncluidos: z.number().min(0, 'Debe ser ≥ 0'),
-  precioFijo: z.number().min(0, 'Debe ser ≥ 0'),
-  precioKgAdicional: z.number().min(0, 'Debe ser ≥ 0'),
-  notas: z.string().max(2000).optional().or(z.literal('')),
-});
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<typeof liquidacionDespachoLineaSchema>;
 
 function normalizeDecimal(value: string, maxDecimals = 4): string {
   const s = sanitizeNumericDecimal(value);
@@ -166,7 +158,7 @@ export function AgregarDespachoDialog({
   const tarifaBase: ConfigTarifaDistribucion | undefined = tarifaDefault ?? tarifaActual;
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(liquidacionDespachoLineaSchema),
     defaultValues: {
       despachoId: linea?.despachoId ?? 0,
       pesoKg: linea?.pesoKg ?? 0,

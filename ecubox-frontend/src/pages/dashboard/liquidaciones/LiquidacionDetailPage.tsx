@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
   ArrowLeft,
   Boxes,
@@ -63,26 +63,9 @@ import type {
 import { AgregarConsolidadoDialog } from './AgregarConsolidadoDialog';
 import { AgregarDespachoDialog } from './AgregarDespachoDialog';
 import { formatMoney, formatNumber } from './moneyFormat';
+import { liquidacionHeaderSchema } from '@/lib/schemas/liquidacion';
 
-const headerSchema = z
-  .object({
-    fechaDocumento: z.string().min(1, 'Selecciona la fecha del documento'),
-    periodoDesde: z.string().optional().or(z.literal('')),
-    periodoHasta: z.string().optional().or(z.literal('')),
-    notas: z.string().max(2000).optional().or(z.literal('')),
-  })
-  .refine(
-    (v) => {
-      if (!v.periodoDesde || !v.periodoHasta) return true;
-      return v.periodoDesde <= v.periodoHasta;
-    },
-    {
-      message: 'El período "desde" no puede ser posterior a "hasta"',
-      path: ['periodoHasta'],
-    },
-  );
-
-type HeaderFormValues = z.infer<typeof headerSchema>;
+type HeaderFormValues = z.infer<typeof liquidacionHeaderSchema>;
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -128,7 +111,7 @@ export function LiquidacionDetailPage() {
   const [exportingXlsx, setExportingXlsx] = useState(false);
 
   const headerForm = useForm<HeaderFormValues>({
-    resolver: zodResolver(headerSchema),
+    resolver: zodResolver(liquidacionHeaderSchema),
     defaultValues: {
       fechaDocumento: liq?.fechaDocumento ?? '',
       periodoDesde: liq?.periodoDesde ?? '',

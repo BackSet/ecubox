@@ -11,12 +11,14 @@ import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleto
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { ListTableShell } from '@/components/ListTableShell';
+import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KpiCard } from '@/components/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +52,7 @@ import {
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { agregarEnviosLoteSchema } from '@/lib/schemas';
 import type { Paquete } from '@/types/paquete';
 import type { EnvioConsolidado } from '@/types/envio-consolidado';
 import {
@@ -612,7 +615,7 @@ function PaquetesTabla({ paquetes }: { paquetes: Paquete[] }) {
             <TableHead>Estado</TableHead>
             <TableHead className="min-w-[16rem]">Consignatario</TableHead>
             <TableHead>Envío</TableHead>
-            <TableHead className="text-right">Peso</TableHead>
+            <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -643,18 +646,8 @@ function PaquetesTabla({ paquetes }: { paquetes: Paquete[] }) {
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
               </TableCell>
-              <TableCell className="text-right align-top text-sm tabular-nums">
-                {p.pesoLbs != null ? (
-                  <div>{p.pesoLbs.toFixed(2)} lbs</div>
-                ) : null}
-                {p.pesoKg != null ? (
-                  <div className="text-xs text-muted-foreground">
-                    {p.pesoKg.toFixed(2)} kg
-                  </div>
-                ) : null}
-                {p.pesoLbs == null && p.pesoKg == null && (
-                  <span className="text-muted-foreground">—</span>
-                )}
+              <TableCell className={PESO_TABLE_CELL_CLASS}>
+                <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
               </TableCell>
             </TableRow>
           ))}
@@ -715,6 +708,8 @@ function AgregarEnviosDialog({
   const [seleccionados, setSeleccionados] = useState<EnvioConsolidado[]>([]);
   const [comboValue, setComboValue] = useState<number | undefined>(undefined);
   const [bulkText, setBulkText] = useState('');
+  const [modo, setModo] = useState<'buscar' | 'lista'>('buscar');
+  const [enviosError, setEnviosError] = useState<string | undefined>();
 
   // Listamos los envios disponibles para recepcion: incluye cerrados y
   // pagados (la recepcion fisica es ortogonal al estado administrativo) y
@@ -744,6 +739,7 @@ function AgregarEnviosDialog({
     setSeleccionados([]);
     setComboValue(undefined);
     setBulkText('');
+    setModo('buscar');
   };
 
   const cerrar = (next: boolean) => {
@@ -759,6 +755,7 @@ function AgregarEnviosDialog({
     if (seleccionados.some((s) => s.id === env.id)) return;
     setSeleccionados((prev) => [...prev, env]);
     setComboValue(undefined);
+    setEnviosError(undefined);
   };
 
   const agregarBulk = () => {
@@ -791,6 +788,7 @@ function AgregarEnviosDialog({
 
     if (nuevos.length > 0) {
       setSeleccionados((prev) => [...prev, ...nuevos]);
+      setEnviosError(undefined);
       toast.success(
         `${nuevos.length} envío${nuevos.length === 1 ? '' : 's'} agregado${nuevos.length === 1 ? '' : 's'}.`,
       );
@@ -805,11 +803,16 @@ function AgregarEnviosDialog({
   };
 
   const handleConfirm = async () => {
-    if (seleccionados.length === 0) {
-      toast.error('Selecciona al menos un envío consolidado.');
+    const numeroGuiasEnvio = seleccionados.map((s) => s.codigo);
+    const parsed = agregarEnviosLoteSchema.safeParse({ numeroGuiasEnvio });
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? 'Selecciona al menos un envío';
+      setEnviosError(msg);
+      toast.error(msg);
       return;
     }
-    await onConfirm(seleccionados.map((s) => s.codigo));
+    setEnviosError(undefined);
+    await onConfirm(parsed.data.numeroGuiasEnvio);
     reset();
   };
 
@@ -826,117 +829,142 @@ function AgregarEnviosDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Buscar y agregar uno
-            </label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <SearchableCombobox<EnvioConsolidado>
-                  value={comboValue}
-                  onChange={(v) => setComboValue(typeof v === 'number' ? v : undefined)}
-                  options={opcionesDisponibles}
-                  getKey={(o) => o.id}
-                  getLabel={(o) => o.codigo}
-                  getSearchText={(o) => `${o.codigo} ${o.totalPaquetes ?? 0}`}
-                  placeholder={
-                    isLoading
-                      ? 'Cargando envíos...'
-                      : opcionesDisponibles.length === 0
-                        ? 'No hay envíos disponibles'
-                        : 'Buscar por código de envío'
-                  }
-                  searchPlaceholder="Escribe el código..."
-                  emptyMessage="Sin envíos coincidentes"
-                  disabled={isLoading || opcionesDisponibles.length === 0}
-                  renderOption={(o) => (
-                    <div className="flex w-full items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-mono text-sm font-medium">
-                          {o.codigo}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {o.totalPaquetes ?? 0} paquete
-                          {o.totalPaquetes === 1 ? '' : 's'}
-                          {o.pesoTotalLbs != null
-                            ? ` · ${o.pesoTotalLbs.toFixed(2)} lbs`
-                            : ''}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {o.estadoPago === 'PAGADO' && (
-                          <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20">
-                            Pagado
-                          </Badge>
-                        )}
-                        {o.cerrado && (
-                          <Badge variant="secondary" className="font-normal">
-                            Cerrado
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  renderSelected={(o) => (
-                    <span className="font-mono text-sm">{o.codigo}</span>
-                  )}
-                  clearable={false}
-                />
-              </div>
-              <Button
-                type="button"
-                onClick={agregarCombo}
-                disabled={comboValue == null}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar
-              </Button>
-            </div>
-          </div>
+          <SegmentedControl
+            value={modo}
+            onValueChange={setModo}
+            className="w-full max-w-xs"
+            options={[
+              {
+                value: 'buscar',
+                label: (
+                  <span className="inline-flex items-center gap-1">
+                    <Search className="h-3.5 w-3.5" />
+                    Buscar
+                  </span>
+                ),
+              },
+              {
+                value: 'lista',
+                label: (
+                  <span className="inline-flex items-center gap-1">
+                    <ListPlus className="h-3.5 w-3.5" />
+                    Pegar
+                  </span>
+                ),
+              },
+            ]}
+          />
 
-          <div className="rounded-md border border-dashed border-border bg-[var(--color-muted)]/20 p-3">
-            <div className="mb-2 flex items-center gap-2">
-              <ListPlus className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-semibold text-foreground">
-                Agregar varios códigos
-              </h3>
+          {modo === 'buscar' ? (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Buscar y agregar uno
+              </label>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <SearchableCombobox<EnvioConsolidado>
+                    value={comboValue}
+                    onChange={(v) => setComboValue(typeof v === 'number' ? v : undefined)}
+                    options={opcionesDisponibles}
+                    getKey={(o) => o.id}
+                    getLabel={(o) => o.codigo}
+                    getSearchText={(o) => `${o.codigo} ${o.totalPaquetes ?? 0}`}
+                    placeholder={
+                      isLoading
+                        ? 'Cargando envíos...'
+                        : opcionesDisponibles.length === 0
+                          ? 'No hay envíos disponibles'
+                          : 'Buscar por código de envío'
+                    }
+                    searchPlaceholder="Escribe el código..."
+                    emptyMessage="Sin envíos coincidentes"
+                    disabled={isLoading || opcionesDisponibles.length === 0}
+                    renderOption={(o) => (
+                      <div className="flex w-full items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-mono text-sm font-medium">
+                            {o.codigo}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {o.totalPaquetes ?? 0} paquete
+                            {o.totalPaquetes === 1 ? '' : 's'}
+                            {o.pesoTotalLbs != null
+                              ? ` · ${o.pesoTotalLbs.toFixed(2)} lbs`
+                              : ''}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {o.estadoPago === 'PAGADO' && (
+                            <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20">
+                              Pagado
+                            </Badge>
+                          )}
+                          {o.cerrado && (
+                            <Badge variant="secondary" className="font-normal">
+                              Cerrado
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    renderSelected={(o) => (
+                      <span className="font-mono text-sm">{o.codigo}</span>
+                    )}
+                    clearable={false}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={agregarCombo}
+                  disabled={comboValue == null}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar
+                </Button>
+              </div>
             </div>
-            <textarea
-              value={bulkText}
-              onChange={(e) => setBulkText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  agregarBulk();
-                }
-              }}
-              rows={3}
-              placeholder={'EC-2025-001\nEC-2025-002'}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
-              disabled={isLoading}
-            />
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[11px] text-muted-foreground">
-                <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">
-                  Ctrl
-                </kbd>
-                {' + '}
-                <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">
-                  Enter
-                </kbd>
-              </span>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={agregarBulk}
-                disabled={isLoading || bulkText.trim().length === 0}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar lista
-              </Button>
+          ) : (
+            <div className="rounded-md border border-dashed border-border bg-[var(--color-muted)]/20 p-3">
+              <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                Pegar varios códigos (uno por línea)
+              </label>
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    agregarBulk();
+                  }
+                }}
+                rows={3}
+                placeholder={'EC-2025-001\nEC-2025-002'}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
+                disabled={isLoading}
+              />
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] text-muted-foreground">
+                  <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">
+                    Ctrl
+                  </kbd>
+                  {' + '}
+                  <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">
+                    Enter
+                  </kbd>
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={agregarBulk}
+                  disabled={isLoading || bulkText.trim().length === 0}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar lista
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <div className="mb-2 flex items-center justify-between">
@@ -947,6 +975,9 @@ function AgregarEnviosDialog({
                 {seleccionados.length} envío{seleccionados.length === 1 ? '' : 's'}
               </span>
             </div>
+            {enviosError && (
+              <p className="text-xs text-destructive">{enviosError}</p>
+            )}
             {seleccionados.length === 0 ? (
               <p className="rounded-md border border-dashed border-border bg-[var(--color-muted)]/20 p-4 text-center text-sm text-muted-foreground">
                 Aún no has agregado envíos a la selección.

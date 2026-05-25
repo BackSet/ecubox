@@ -53,6 +53,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { KpiCard } from '@/components/KpiCard';
 import { ListTableShell } from '@/components/ListTableShell';
+import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
 import {
@@ -64,7 +65,7 @@ import { useMensajeWhatsAppDespacho } from '@/hooks/useMensajeWhatsAppDespacho';
 import { buildDespachoPdf } from '@/lib/pdf/builders/despachoPdf';
 import { runJsPdfAction } from '@/lib/pdf/actions';
 import { downloadDespachoXlsx } from '@/lib/xlsx/despachoXlsx';
-import { lbsToKg } from '@/lib/utils/weight';
+import { formatWeightFromValues, formatWeightInline, lbsToKg } from '@/lib/utils/weight';
 import { cn } from '@/lib/utils';
 import type { Despacho, Saca, TamanioSaca, TipoEntrega } from '@/types/despacho';
 import type { Paquete } from '@/types/paquete';
@@ -143,12 +144,6 @@ function relativeTime(value?: string | null): string | null {
   return rtf.format(year, 'year');
 }
 
-function fmtPeso(lbs?: number | null): { lbs: string; kg: string } | null {
-  if (lbs == null) return null;
-  const n = Number(lbs);
-  if (!Number.isFinite(n)) return null;
-  return { lbs: n.toFixed(2), kg: lbsToKg(n).toFixed(2) };
-}
 
 export function DespachoDetailPage() {
   const navigate = useNavigate();
@@ -507,7 +502,7 @@ export function DespachoDetailPage() {
           label="Peso total"
           value={stats.pesoLbs > 0 ? `${stats.pesoLbs.toFixed(2)} lbs` : '—'}
           tone="neutral"
-          hint={stats.pesoLbs > 0 ? `${stats.pesoKg.toFixed(2)} kg` : undefined}
+          hint={stats.pesoLbs > 0 ? formatWeightInline(stats.pesoLbs, stats.pesoKg) : undefined}
         />
         <KpiCard
           icon={<Calendar className="h-5 w-5" />}
@@ -877,7 +872,7 @@ function SacaCard({
     0,
   );
   const pesoSaca = saca.pesoLbs != null ? Number(saca.pesoLbs) : totalPesoPaquetes;
-  const peso = fmtPeso(pesoSaca);
+  const pesoLabel = formatWeightFromValues(pesoSaca > 0 ? pesoSaca : null, null);
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -912,10 +907,10 @@ function SacaCard({
             <PackageIcon className="h-3 w-3" />
             {paquetes.length} pkt{paquetes.length === 1 ? '' : 's'}
           </Badge>
-          {peso && (
+          {pesoLabel && (
             <Badge variant="outline" className="gap-1 font-normal">
               <Scale className="h-3 w-3" />
-              {peso.lbs} lbs · {peso.kg} kg
+              {pesoLabel}
             </Badge>
           )}
         </div>
@@ -936,7 +931,7 @@ function SacaCard({
                   <TableHead>Estado</TableHead>
                   <TableHead>Consignatario</TableHead>
                   <TableHead className="hidden max-w-[220px] md:table-cell">Contenido</TableHead>
-                  <TableHead className="text-right">Peso</TableHead>
+                  <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                   <TableHead className="w-[60px] text-right">Acción</TableHead>
                 </TableRow>
               </TableHeader>
@@ -970,8 +965,8 @@ function SacaCard({
                         <span className="text-xs italic text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <PesoMini lbs={p.pesoLbs} />
+                    <TableCell className={PESO_TABLE_CELL_CLASS}>
+                      <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -1013,23 +1008,6 @@ function EstadoBadge({
     <span className="inline-flex items-center rounded-md border border-border bg-[var(--color-muted)]/40 px-2 py-0.5 text-xs font-medium text-foreground">
       {label}
     </span>
-  );
-}
-
-function PesoMini({ lbs }: { lbs?: number | null }) {
-  const peso = fmtPeso(lbs);
-  if (!peso) {
-    return <span className="text-xs italic text-muted-foreground">—</span>;
-  }
-  return (
-    <div className="flex flex-col items-end leading-tight">
-      <span className="text-sm font-medium tabular-nums text-foreground">
-        {peso.lbs} lbs
-      </span>
-      <span className="text-[11px] tabular-nums text-muted-foreground">
-        {peso.kg} kg
-      </span>
-    </div>
   );
 }
 

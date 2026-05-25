@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useFieldArray, useForm, type UseFormSetValue } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
+import {
+  paqueteBulkSchema,
+  MAX_PAQUETES_BULK,
+  validatePaqueteBulkAgainstTotal,
+} from '@/lib/schemas/paquete';
 import { useQueryClient } from '@tanstack/react-query';
 import { notify } from '@/lib/notify';
 import {
@@ -33,44 +38,17 @@ import {
   deletePaquete,
 } from '@/lib/api/paquetes.service';
 import { actualizarGuiaMaster } from '@/lib/api/guias-master.service';
-import { onKeyDownNumericDecimal, sanitizeNumericDecimal } from '@/lib/inputFilters';
+import { PesoInputPair } from '@/components/PesoInput';
+import { sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import type { Paquete, PaqueteCreateRequest, PaqueteUpdateRequest } from '@/types/paquete';
+import { QuickPresetChips } from '@/components/QuickPresetChips';
+import { CANTIDAD_PRESETS } from '@/lib/constants/operational-presets';
 import { GuiaMasterCombobox } from './GuiaMasterCombobox';
 
-const optionalNumber = z
-  .union([z.number(), z.nan()])
-  .optional()
-  .transform((v) => (typeof v === 'number' && Number.isNaN(v) ? undefined : v));
-
-const itemSchema = z.object({
-  // id presente => paquete existente (modo edit). Sin id => nuevo paquete.
-  id: z.number().optional(),
-  contenido: z.string().min(1, 'El contenido es obligatorio'),
-  pesoLbs: optionalNumber,
-  pesoKg: optionalNumber,
-  piezaNumero: optionalNumber,
-});
-
-const MAX_PAQUETES = 50;
-
-const schema = z.object({
-  guiaMasterId: z
-    .union([z.number(), z.nan()])
-    .optional()
-    .transform((v) => (typeof v === 'number' && Number.isNaN(v) ? undefined : v))
-    .refine((n): n is number => n != null && n > 0, { message: 'Selecciona una guía' }),
-  cantidad: z
-    .number({ error: 'Ingresa la cantidad' })
-    .int('Debe ser un número entero')
-    .min(1, 'Mínimo 1 paquete')
-    .max(MAX_PAQUETES, `Máximo ${MAX_PAQUETES} paquetes a la vez`),
-  paquetes: z.array(itemSchema).min(1),
-});
-
-type FormValues = z.input<typeof schema>;
+type FormValues = z.input<typeof paqueteBulkSchema>;
 type PaqueteItemValues = FormValues['paquetes'][number];
 
 function emptyItem(): PaqueteItemValues {
@@ -190,7 +168,8 @@ export function PaqueteBulkCreateForm({
   );
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(paqueteBulkSchema),
+    mode: 'onTouched',
     defaultValues: {
       guiaMasterId: editGuiaMasterId,
       cantidad: 1,
@@ -213,6 +192,50 @@ export function PaqueteBulkCreateForm({
   const totalEsperadas = guiaSeleccionada?.totalPiezasEsperadas ?? null;
   const cupoRestante =
     totalEsperadas != null ? Math.max(0, totalEsperadas - piezasRegistradas) : null;
+  const cantidadPresetOptions = useMemo(() => {
+    const max =
+      cupoRestante != null
+        ? Math.min(cupoRestante, MAX_PAQUETES_BULK)
+        : MAX_PAQUETES_BULK;
+    return CANTIDAD_PRESETS.filter((n) => n <= max).map((n) => ({
+      label: String(n),
+      value: n,
+    }));
+  }, [cupoRestante]);
+
+  const bulkSchemaWithTotal = useMemo(
+    () =>
+      paqueteBulkSchema.superRefine((data, ctx) => {
+        if (totalEsperadas == null || totalEsperadas <= 0) return;
+        const piezas = data.paquetes
+          .map((p) => p.piezaNumero)
+          .filter((n): n is number => n != null && !Number.isNaN(n));
+        const msg = validatePaqueteBulkAgainstTotal(piezas, totalEsperadas);
+        if (msg) {
+          ctx.addIssue({ code: 'custom', message: msg, path: ['paquetes'] });
+        }
+        if (!isEditMode && cupoRestante != null && data.paquetes.length > cupoRestante) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `Solo puedes registrar ${cupoRestante} pieza(s) más para esta guía`,
+            path: ['cantidad'],
+          });
+        }
+      }),
+    [totalEsperadas, cupoRestante, isEditMode],
+  );
+
+  function applyBulkSchemaErrors(values: FormValues): boolean {
+    const parsed = bulkSchemaWithTotal.safeParse(values);
+    if (parsed.success) return true;
+    for (const issue of parsed.error.issues) {
+      const field = issue.path[0];
+      if (field === 'cantidad' || field === 'paquetes') {
+        form.setError(field, { type: 'manual', message: issue.message });
+      }
+    }
+    return false;
+  }
 
   // ----- Modo edición: precargar las piezas existentes una vez -----
   useEffect(() => {
@@ -270,7 +293,7 @@ export function PaqueteBulkCreateForm({
       1,
       Math.min(
         typeof cantidad === 'number' && !Number.isNaN(cantidad) ? cantidad : 1,
-        MAX_PAQUETES,
+        MAX_PAQUETES_BULK,
       ),
     );
     if (fields.length < target) {
@@ -350,6 +373,7 @@ export function PaqueteBulkCreateForm({
     !diff.totalChanged;
 
   async function onSubmitCreate(values: FormValues) {
+    if (!applyBulkSchemaErrors(values)) return;
     if (consignatarioId == null) {
       notify.warning('La guía seleccionada no tiene consignatario asignado');
       return;
@@ -425,6 +449,7 @@ export function PaqueteBulkCreateForm({
   }
 
   async function onSubmitEdit(values: FormValues) {
+    if (!applyBulkSchemaErrors(values)) return;
     if (consignatarioId == null) {
       notify.warning('La guía no tiene consignatario asignado');
       return;
@@ -654,16 +679,26 @@ export function PaqueteBulkCreateForm({
                   <Input
                     type="number"
                     min={1}
-                    max={MAX_PAQUETES}
+                    max={MAX_PAQUETES_BULK}
                     {...register('cantidad', { valueAsNumber: true })}
                     variant="clean"
                     className="input-clean"
                     disabled={!guiaMasterId || enviando}
                   />
+                  {!isEditMode && cantidadPresetOptions.length > 0 && (
+                    <QuickPresetChips
+                      className="mt-1.5"
+                      options={cantidadPresetOptions}
+                      value={typeof cantidad === 'number' && !Number.isNaN(cantidad) ? cantidad : undefined}
+                      onSelect={(v) =>
+                        setValue('cantidad', v, { shouldValidate: true, shouldDirty: true })
+                      }
+                    />
+                  )}
                   <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
                     {cupoRestante != null
                       ? `Cupo declarado en la guía: ${cupoRestante}`
-                      : `Hasta ${MAX_PAQUETES} por lote`}
+                      : `Hasta ${MAX_PAQUETES_BULK} por lote`}
                   </p>
                   {formState.errors.cantidad && (
                     <p className="mt-1 text-sm text-[var(--color-destructive)]">
@@ -795,7 +830,7 @@ export function PaqueteBulkCreateForm({
                         Quitar
                       </Button>
                     )}
-                    {fields.length < MAX_PAQUETES && !enviando && (
+                    {fields.length < MAX_PAQUETES_BULK && !enviando && (
                       <Button
                         type="button"
                         variant="secondary"
@@ -1014,75 +1049,46 @@ function BulkPaqueteItem({
       </div>
 
       {hasPesoWrite && (
-        <>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-                Peso lbs
-              </label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={pesoLbsInput}
-                onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoLbsInput)}
-                onChange={(e) => {
-                  const s = sanitizeNumericDecimal(e.target.value);
-                  setPesoLbsInput(s);
-                  const n = s === '' || s === '.' ? undefined : Number(s);
-                  setValue(`paquetes.${index}.pesoLbs`, n, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  });
-                  if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
-                    const kg = lbsToKg(n);
-                    setValue(`paquetes.${index}.pesoKg`, kg, { shouldDirty: true });
-                    setPesoKgInput(String(kg));
-                  } else {
-                    setValue(`paquetes.${index}.pesoKg`, undefined, { shouldDirty: true });
-                    setPesoKgInput('');
-                  }
-                }}
-                variant="clean"
-                className="input-clean"
-                placeholder="0"
-                disabled={disabled}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-                Peso kg
-              </label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={pesoKgInput}
-                onKeyDown={(e) => onKeyDownNumericDecimal(e, pesoKgInput)}
-                onChange={(e) => {
-                  const s = sanitizeNumericDecimal(e.target.value);
-                  setPesoKgInput(s);
-                  const n = s === '' || s === '.' ? undefined : Number(s);
-                  setValue(`paquetes.${index}.pesoKg`, n, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  });
-                  if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
-                    const lbs = kgToLbs(n);
-                    setValue(`paquetes.${index}.pesoLbs`, lbs, { shouldDirty: true });
-                    setPesoLbsInput(String(lbs));
-                  } else {
-                    setValue(`paquetes.${index}.pesoLbs`, undefined, { shouldDirty: true });
-                    setPesoLbsInput('');
-                  }
-                }}
-                variant="clean"
-                className="input-clean"
-                placeholder="0"
-                disabled={disabled}
-              />
-            </div>
-          </div>
-
-        </>
+        <PesoInputPair
+          lbs={pesoLbsInput}
+          kg={pesoKgInput}
+          disabled={disabled}
+          size="sm"
+          onLbsChange={(raw) => {
+            const s = sanitizeNumericDecimal(raw);
+            setPesoLbsInput(s);
+            const n = s === '' || s === '.' ? undefined : Number(s);
+            setValue(`paquetes.${index}.pesoLbs`, n, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
+            if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
+              const kg = lbsToKg(n);
+              setValue(`paquetes.${index}.pesoKg`, kg, { shouldDirty: true });
+              setPesoKgInput(String(kg));
+            } else {
+              setValue(`paquetes.${index}.pesoKg`, undefined, { shouldDirty: true });
+              setPesoKgInput('');
+            }
+          }}
+          onKgChange={(raw) => {
+            const s = sanitizeNumericDecimal(raw);
+            setPesoKgInput(s);
+            const n = s === '' || s === '.' ? undefined : Number(s);
+            setValue(`paquetes.${index}.pesoKg`, n, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
+            if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
+              const lbs = kgToLbs(n);
+              setValue(`paquetes.${index}.pesoLbs`, lbs, { shouldDirty: true });
+              setPesoLbsInput(String(lbs));
+            } else {
+              setValue(`paquetes.${index}.pesoLbs`, undefined, { shouldDirty: true });
+              setPesoLbsInput('');
+            }
+          }}
+        />
       )}
     </div>
   );

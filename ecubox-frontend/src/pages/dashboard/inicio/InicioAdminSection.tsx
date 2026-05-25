@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { KpiCard } from '@/components/KpiCard';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
@@ -97,8 +98,8 @@ export function InicioAdminSection() {
 
       {cargando && !usuarios && !roles && !permisos ? (
         <div aria-busy="true" aria-live="polite" className="space-y-4">
-          <KpiCardsGridSkeleton count={8} gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" />
-          <KpiCardsGridSkeleton count={3} gridClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" />
+          <KpiCardsGridSkeleton count={8} />
+          <KpiCardsGridSkeleton count={3} />
           <SurfaceCard className="overflow-hidden">
             <ListItemsSkeleton rows={6} withTrailing />
           </SurfaceCard>
@@ -106,9 +107,9 @@ export function InicioAdminSection() {
         </div>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCardsGrid>
             <KpiCard
-              icon={<Users className="h-4 w-4" strokeWidth={1.75} />}
+              icon={<Users className="h-5 w-5" strokeWidth={1.75} />}
               label="Usuarios totales"
               value={totalUsuarios}
               tone="primary"
@@ -116,7 +117,7 @@ export function InicioAdminSection() {
               to="/usuarios"
             />
             <KpiCard
-              icon={<UserCheck className="h-4 w-4" strokeWidth={1.75} />}
+              icon={<UserCheck className="h-5 w-5" strokeWidth={1.75} />}
               label="Usuarios activos"
               value={usuariosActivos}
               tone={usuariosActivos > 0 ? 'success' : 'neutral'}
@@ -124,7 +125,7 @@ export function InicioAdminSection() {
               to="/usuarios"
             />
             <KpiCard
-              icon={<UserX className="h-4 w-4" strokeWidth={1.75} />}
+              icon={<UserX className="h-5 w-5" strokeWidth={1.75} />}
               label="Usuarios deshabilitados"
               value={usuariosInactivos}
               tone={usuariosInactivos > 0 ? 'warning' : 'neutral'}
@@ -132,47 +133,51 @@ export function InicioAdminSection() {
               to="/usuarios"
             />
             <KpiCard
-              icon={<Shield className="h-4 w-4" strokeWidth={1.75} />}
+              icon={<Shield className="h-5 w-5" strokeWidth={1.75} />}
               label="Roles configurados"
               value={totalRoles}
               tone="neutral"
+              hint={`${totalPermisos} permisos asignables`}
               to="/roles"
             />
             <KpiCard
-              icon={<Key className="h-4 w-4" strokeWidth={1.75} />}
+              icon={<Key className="h-5 w-5" strokeWidth={1.75} />}
               label="Permisos disponibles"
               value={totalPermisos}
               tone="neutral"
+              hint="Catálogo de acciones del sistema"
               to="/permisos"
             />
             <KpiCard
-              icon={<Building2 className="h-4 w-4" strokeWidth={1.75} />}
+              icon={<Building2 className="h-5 w-5" strokeWidth={1.75} />}
               label="Agencias"
               value={totalAgencias}
               tone="neutral"
+              hint="Oficinas de origen y destino"
               to="/agencias"
             />
             <KpiCard
-              icon={<PackageCheck className="h-4 w-4" strokeWidth={1.75} />}
+              icon={<PackageCheck className="h-5 w-5" strokeWidth={1.75} />}
               label="Couriers de entrega"
               value={totalCouriersEntrega}
               tone="neutral"
+              hint="Operadores de última milla"
               to="/couriers-entrega"
             />
             <KpiCard
-              icon={<Settings className="h-4 w-4" strokeWidth={1.75} />}
+              icon={<Settings className="h-5 w-5" strokeWidth={1.75} />}
               label="Parámetros"
               value="—"
               tone="neutral"
               hint="Configuración del sistema"
               to="/parametros-sistema"
             />
-          </div>
+          </KpiCardsGrid>
 
           {dashGM && (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <KpiCardsGrid>
               <KpiCard
-                icon={<Boxes className="h-4 w-4" strokeWidth={1.75} />}
+                icon={<Boxes className="h-5 w-5" strokeWidth={1.75} />}
                 label="Guías activas"
                 value={dashGM.totalActivas ?? 0}
                 hint={`${dashGM.totalCerradas ?? 0} cerradas en total`}
@@ -180,7 +185,7 @@ export function InicioAdminSection() {
                 to="/guias-master"
               />
               <KpiCard
-                icon={<Truck className="h-4 w-4" strokeWidth={1.75} />}
+                icon={<Truck className="h-5 w-5" strokeWidth={1.75} />}
                 label="Despachos"
                 value="—"
                 hint="Gestión de salidas"
@@ -188,14 +193,14 @@ export function InicioAdminSection() {
                 to="/despachos"
               />
               <KpiCard
-                icon={<Plane className="h-4 w-4" strokeWidth={1.75} />}
+                icon={<Plane className="h-5 w-5" strokeWidth={1.75} />}
                 label="Envíos consolidados"
                 value="—"
                 hint="Manifiestos aéreos"
                 tone="neutral"
                 to="/envios-consolidados"
               />
-            </div>
+            </KpiCardsGrid>
           )}
 
           <SurfaceCard className="overflow-hidden">
@@ -216,7 +221,7 @@ export function InicioAdminSection() {
                       }`}
                     >
                       <Icon
-                        className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]"
+                        className="h-5 w-5 shrink-0 text-[var(--color-muted-foreground)]"
                         strokeWidth={1.75}
                       />
                       <div className="min-w-0 flex-1">
@@ -228,7 +233,7 @@ export function InicioAdminSection() {
                         </p>
                       </div>
                       <ChevronRight
-                        className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)] opacity-0 transition group-hover:opacity-100"
+                        className="h-5 w-5 shrink-0 text-[var(--color-muted-foreground)] opacity-0 transition group-hover:opacity-100"
                         strokeWidth={1.75}
                       />
                     </Link>

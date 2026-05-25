@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -27,8 +27,11 @@ import { useAuthStore } from '@/stores/authStore';
 import { updateMe } from '@/lib/api/auth.service';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import { cn } from '@/lib/utils';
-
-const PASSWORD_MIN_LENGTH = 6;
+import {
+  accountUpdateSchema,
+  passwordChangeSchema,
+  PASSWORD_MIN_LENGTH,
+} from '@/lib/schemas/auth';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -72,15 +75,7 @@ function FieldError({ message }: { message?: string }) {
 
 // ============== Cuenta ==============
 
-const accountSchema = z.object({
-  email: z
-    .string()
-    .min(1, 'El correo es obligatorio')
-    .email('Correo electrónico no válido')
-    .max(255, 'Demasiado largo'),
-});
-
-type AccountValues = z.infer<typeof accountSchema>;
+type AccountValues = z.infer<typeof accountUpdateSchema>;
 
 function CuentaSection() {
   const { username, email, roles, createdAt, setProfile } = useAuthStore();
@@ -92,7 +87,7 @@ function CuentaSection() {
     reset,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<AccountValues>({
-    resolver: zodResolver(accountSchema),
+    resolver: zodResolver(accountUpdateSchema),
     defaultValues: { email: email ?? '' },
   });
 
@@ -229,25 +224,7 @@ function CuentaSection() {
 
 // ============== Seguridad ==============
 
-const passwordSchema = z
-  .object({
-    currentPassword: z.string().min(1, 'Ingresa tu contraseña actual'),
-    newPassword: z
-      .string()
-      .min(PASSWORD_MIN_LENGTH, `Mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
-      .max(100, 'Máximo 100 caracteres'),
-    confirmPassword: z.string().min(1, 'Repite la nueva contraseña'),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: 'Las contraseñas no coinciden',
-    path: ['confirmPassword'],
-  })
-  .refine((data) => data.currentPassword !== data.newPassword, {
-    message: 'La nueva contraseña debe ser distinta de la actual',
-    path: ['newPassword'],
-  });
-
-type PasswordValues = z.infer<typeof passwordSchema>;
+type PasswordValues = z.infer<typeof passwordChangeSchema>;
 
 function StrengthBar({ strength }: { strength: PasswordStrength }) {
   const colors = [
@@ -302,7 +279,7 @@ function SeguridadSection() {
     watch,
     formState: { errors, isSubmitting },
   } = useForm<PasswordValues>({
-    resolver: zodResolver(passwordSchema),
+    resolver: zodResolver(passwordChangeSchema),
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
   });
 

@@ -15,33 +15,44 @@ import { Label } from '@/components/ui/label';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { useConsignatarios } from '@/hooks/useConsignatarios';
 import { useRegistrarMiGuia } from '@/hooks/useMisGuias';
+import { miGuiaSchema } from '@/lib/schemas';
 
 export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
   const [trackingBase, setTrackingBase] = useState('');
   const [consignatarioId, setConsignatarioId] = useState<number | undefined>();
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const registrar = useRegistrarMiGuia();
   const { data: consignatarios = [], isLoading: loadingDest } = useConsignatarios();
 
   function handleConsignatarioChange(value: string | number | undefined) {
     const did = typeof value === 'string' ? Number(value) : value;
     setConsignatarioId(did);
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.consignatarioId;
+      return next;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!trackingBase.trim()) {
-      notify.warning('Indica el número de guía');
+    const parsed = miGuiaSchema.safeParse({ trackingBase: trackingBase.trim(), consignatarioId });
+    if (!parsed.success) {
+      const errs: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? '_form');
+        if (!errs[key]) errs[key] = issue.message;
+      }
+      setFieldErrors(errs);
+      notify.warning(Object.values(errs)[0] ?? 'Revisa los datos');
       return;
     }
-    if (consignatarioId == null) {
-      notify.warning('Selecciona un consignatario');
-      return;
-    }
+    setFieldErrors({});
     try {
       await notify.run(
         registrar.mutateAsync({
-          trackingBase: trackingBase.trim(),
-          consignatarioId: consignatarioId,
+          trackingBase: parsed.data.trackingBase,
+          consignatarioId: parsed.data.consignatarioId,
         }),
         {
           loading: 'Registrando guía...',
@@ -74,10 +85,21 @@ export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
             <Input
               id="trackingBase"
               value={trackingBase}
-              onChange={(e) => setTrackingBase(e.target.value)}
+              onChange={(e) => {
+                setTrackingBase(e.target.value);
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.trackingBase;
+                  return next;
+                });
+              }}
               placeholder="Ej: 1Z52159R0379385035"
               autoFocus
+              aria-invalid={!!fieldErrors.trackingBase}
             />
+            {fieldErrors.trackingBase && (
+              <p className="mt-1 text-xs text-destructive">{fieldErrors.trackingBase}</p>
+            )}
             <p className="mt-1 text-xs text-muted-foreground">
               El número que aparece en la guía del courier (UPS, FedEx, etc.).
             </p>
@@ -141,6 +163,9 @@ export function RegistrarMiGuiaDialog({ onClose }: { onClose: () => void }) {
                 </span>
               )}
             />
+            {fieldErrors.consignatarioId && (
+              <p className="mt-1 text-xs text-destructive">{fieldErrors.consignatarioId}</p>
+            )}
             {sinConsignatarios && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Aún no tienes consignatarios. Crea uno desde "Mis consignatarios".

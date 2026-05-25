@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
   AtSign,
   Check,
@@ -39,21 +39,11 @@ import { Input } from '@/components/ui/input';
 import { LabeledField as FormField } from '@/components/LabeledField';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { emailOpcionalSchema } from '@/lib/validation';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/api/error-message';
+import { usuarioCreateSchema, usuarioUpdateSchema } from '@/lib/schemas/auth';
 
-const usernameRegex = /^[a-zA-Z0-9._-]+$/;
-
-const formSchema = z.object({
-  username: z.string().optional(),
-  password: z.string().optional(),
-  email: emailOpcionalSchema,
-  enabled: z.boolean(),
-  roleIds: z.array(z.number()),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof usuarioCreateSchema>;
 
 interface UsuarioFormProps {
   id?: number;
@@ -71,7 +61,7 @@ export function UsuarioForm({ id, onClose, onSuccess }: UsuarioFormProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(isEdit ? usuarioUpdateSchema : usuarioCreateSchema),
     mode: 'onTouched',
     defaultValues: isEdit
       ? { username: '', password: '', email: '', enabled: true, roleIds: [] }
@@ -104,13 +94,6 @@ export function UsuarioForm({ id, onClose, onSuccess }: UsuarioFormProps) {
   const watchedEmail = form.watch('email') ?? '';
   const watchedEnabled = form.watch('enabled');
   const watchedRoleIds = form.watch('roleIds') ?? [];
-
-  const usernameInvalid =
-    !isEdit && watchedUsername.trim().length > 0 && !usernameRegex.test(watchedUsername.trim());
-  const usernameLenInvalid =
-    !isEdit && watchedUsername.trim().length > 0 && watchedUsername.trim().length < 3;
-  const passwordLenInvalid =
-    watchedPassword.length > 0 && watchedPassword.length < 6;
 
   const passwordStrength = useMemo(() => computeStrength(watchedPassword), [watchedPassword]);
 
@@ -171,35 +154,6 @@ export function UsuarioForm({ id, onClose, onSuccess }: UsuarioFormProps) {
   }
 
   async function onSubmit(values: FormValues) {
-    let hasError = false;
-    if (!isEdit) {
-      const u = (values.username ?? '').trim();
-      const p = (values.password ?? '').trim();
-      if (!u) {
-        form.setError('username', { message: 'El usuario es obligatorio' });
-        hasError = true;
-      } else if (u.length < 3) {
-        form.setError('username', { message: 'Mínimo 3 caracteres' });
-        hasError = true;
-      } else if (!usernameRegex.test(u)) {
-        form.setError('username', {
-          message: 'Solo letras, números, punto, guion y guion bajo',
-        });
-        hasError = true;
-      }
-      if (!p) {
-        form.setError('password', { message: 'La contraseña es obligatoria' });
-        hasError = true;
-      } else if (p.length < 6) {
-        form.setError('password', { message: 'Mínimo 6 caracteres' });
-        hasError = true;
-      }
-    } else if ((values.password ?? '').length > 0 && (values.password ?? '').length < 6) {
-      form.setError('password', { message: 'Mínimo 6 caracteres' });
-      hasError = true;
-    }
-    if (hasError) return;
-
     try {
       if (isEdit && id != null) {
         await updateMutation.mutateAsync({
@@ -294,12 +248,7 @@ export function UsuarioForm({ id, onClose, onSuccess }: UsuarioFormProps) {
                 label="Nombre de usuario"
                 required={!isEdit}
                 error={
-                  errors.username?.message ??
-                  (usernameLenInvalid
-                    ? 'Mínimo 3 caracteres'
-                    : usernameInvalid
-                      ? 'Solo letras, números, punto, guion y guion bajo'
-                      : undefined)
+                  errors.username?.message
                 }
                 hint={
                   isEdit
@@ -313,7 +262,7 @@ export function UsuarioForm({ id, onClose, onSuccess }: UsuarioFormProps) {
                   placeholder="Ej: maria.perez"
                   autoComplete="username"
                   disabled={isEdit}
-                  aria-invalid={Boolean(errors.username) || usernameInvalid || usernameLenInvalid}
+                  aria-invalid={Boolean(errors.username)}
                 />
               </FormField>
 
@@ -348,8 +297,7 @@ export function UsuarioForm({ id, onClose, onSuccess }: UsuarioFormProps) {
               label={isEdit ? 'Nueva contraseña' : 'Contraseña'}
               required={!isEdit}
               error={
-                errors.password?.message ??
-                (passwordLenInvalid ? 'Mínimo 6 caracteres' : undefined)
+                errors.password?.message
               }
               hint={isEdit ? 'Dejar vacío para no cambiar.' : 'Mínimo 6 caracteres.'}
             >
@@ -363,7 +311,7 @@ export function UsuarioForm({ id, onClose, onSuccess }: UsuarioFormProps) {
                     }
                     autoComplete={isEdit ? 'new-password' : 'new-password'}
                     className="pr-9 font-mono"
-                    aria-invalid={Boolean(errors.password) || passwordLenInvalid}
+                    aria-invalid={Boolean(errors.password)}
                   />
                   <button
                     type="button"
