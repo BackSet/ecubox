@@ -1,10 +1,9 @@
-import type { ReactNode } from 'react';
+﻿import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
-import { SiteHeader } from '@/components/SiteHeader';
-import { SiteFooter } from '@/components/SiteFooter';
 import { Button } from '@/components/ui/button';
 import { PublicPageHero } from '@/components/public/PublicPageHero';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 
 type LegalPageLayoutProps = {
   title: string;
@@ -14,40 +13,33 @@ type LegalPageLayoutProps = {
 
 export function LegalPageLayout({ title, subtitle, children }: LegalPageLayoutProps) {
   return (
-    <div className="landing-shell">
-      <div className="landing-overlay" />
-      <SiteHeader variant="tool" />
+    <PublicPageLayout headerVariant="tool" mainClassName="mobile-safe-inline py-6 sm:py-10">
+      <div className="content-container-wide w-full max-w-3xl space-y-6">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="-ml-2 gap-1.5 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+          asChild
+        >
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Volver al inicio
+          </Link>
+        </Button>
 
-      <main className="relative z-10 mobile-safe-inline flex-1 py-6 sm:py-10">
-        <div className="content-container-wide w-full max-w-3xl space-y-6">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="-ml-2 gap-1.5 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
-            asChild
-          >
-            <Link to="/">
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              Volver al inicio
-            </Link>
-          </Button>
+        <PublicPageHero
+          title={title}
+          description={subtitle ?? 'Documento legal de ECUBOX.'}
+        />
 
-          <PublicPageHero
-            title={title}
-            description={subtitle ?? 'Documento legal de ECUBOX.'}
-          />
+        <p className="border-b border-[var(--color-landing-border)] pb-6 text-xs landing-text-muted">
+          Última actualización: 23 de abril de 2026
+        </p>
 
-          <p className="border-b border-[var(--color-landing-border)] pb-6 text-xs landing-text-muted">
-            Última actualización: 23 de abril de 2026
-          </p>
-
-          <article className="pb-4 text-sm leading-relaxed sm:text-[15px]">{children}</article>
-        </div>
-      </main>
-
-      <SiteFooter />
-    </div>
+        <article className="pb-4 text-sm leading-relaxed sm:text-[15px]">{children}</article>
+      </div>
+    </PublicPageLayout>
   );
 }
 

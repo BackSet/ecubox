@@ -29,6 +29,7 @@ import {
   Italic,
   Layers,
   Link2,
+  Share2,
   ListOrdered,
   Loader2,
   MapPin,
@@ -112,6 +113,17 @@ import {
 import { parseWhatsAppPreviewToReact } from './whatsappFormatPreview';
 import { TarifaCalculadoraForm } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraForm';
 import { TarifaDistribucionForm } from '@/pages/dashboard/parametros-sistema/TarifaDistribucionForm';
+import { CanalesComunicacionPanel } from '@/pages/dashboard/parametros-sistema/CanalesComunicacionPanel';
+import {
+  useCanalesComunicacion,
+  useUpdateCanalesComunicacion,
+} from '@/hooks/useCanalesComunicacion';
+import {
+  canalesToComparable,
+  emptyCanalesComunicacion,
+  normalizeCanalesFromApi,
+} from '@/types/canales-comunicacion';
+import { canalesComunicacionSchema } from '@/lib/schemas/canales-comunicacion';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/api/error-message';
@@ -125,6 +137,7 @@ import type { EstadoRastreo, EstadoRastreoRequest } from '@/types/estado-rastreo
 type OpcionActiva =
   | 'mensaje-whatsapp-despacho'
   | 'mensaje-agencia-eeuu'
+  | 'canales-comunicacion'
   | 'tarifa-calculadora'
   | 'tarifa-distribucion'
   | 'estados-rastreo'
@@ -275,6 +288,14 @@ export function ParametrosSistemaPage() {
         visible: true,
       },
       {
+        key: 'canales-comunicacion',
+        label: 'Redes y contacto',
+        shortLabel: 'Contacto',
+        description: 'Correo, teléfono y redes sociales visibles en el sitio público.',
+        icon: Share2,
+        visible: true,
+      },
+      {
         key: 'tarifa-calculadora',
         label: 'Tarifa de calculadora',
         shortLabel: 'Tarifa',
@@ -344,9 +365,24 @@ export function ParametrosSistemaPage() {
   const whatsappDirty = plantillaLocal !== plantillaOriginal;
   const agenciaDirty = mensajeAgenciaLocal !== mensajeAgenciaOriginal;
 
+  const { data: dataCanales, isLoading: loadingCanales, error: errorCanales } =
+    useCanalesComunicacion();
+  const updateCanalesMutation = useUpdateCanalesComunicacion();
+  const [canalesLocal, setCanalesLocal] = useState(emptyCanalesComunicacion);
+  useEffect(() => {
+    if (dataCanales != null) setCanalesLocal(normalizeCanalesFromApi(dataCanales));
+  }, [dataCanales]);
+
+  const canalesOriginal = useMemo(
+    () => (dataCanales != null ? normalizeCanalesFromApi(dataCanales) : emptyCanalesComunicacion()),
+    [dataCanales],
+  );
+  const canalesDirty = canalesToComparable(canalesLocal) !== canalesToComparable(canalesOriginal);
+
   const isCurrentDirty =
     (opcionActiva === 'mensaje-whatsapp-despacho' && whatsappDirty) ||
-    (opcionActiva === 'mensaje-agencia-eeuu' && agenciaDirty);
+    (opcionActiva === 'mensaje-agencia-eeuu' && agenciaDirty) ||
+    (opcionActiva === 'canales-comunicacion' && canalesDirty);
 
   const [opcionPendiente, setOpcionPendiente] = useState<PendingParametrosNav | null>(null);
   const [confirmarSalida, setConfirmarSalida] = useState(false);
@@ -362,6 +398,23 @@ export function ParametrosSistemaPage() {
       toast.success('Mensaje de despacho guardado');
     } catch (err) {
       toast.error(getApiErrorMessage(err) ?? 'Error al guardar el mensaje');
+      throw err;
+    }
+  };
+
+  const handleGuardarCanales = async () => {
+    const parsed = canalesComunicacionSchema.safeParse(canalesLocal);
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      const path = first?.path?.join('.') ?? '';
+      toast.error(path ? `${path}: ${first?.message}` : (first?.message ?? 'Datos no válidos'));
+      throw new Error('validation');
+    }
+    try {
+      await updateCanalesMutation.mutateAsync(parsed.data);
+      toast.success('Canales de comunicación guardados');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) ?? 'Error al guardar');
       throw err;
     }
   };
@@ -395,6 +448,7 @@ export function ParametrosSistemaPage() {
   const dirtyByKey: Record<OpcionActiva, boolean> = {
     'mensaje-whatsapp-despacho': whatsappDirty,
     'mensaje-agencia-eeuu': agenciaDirty,
+    'canales-comunicacion': canalesDirty,
     'tarifa-calculadora': false,
     'tarifa-distribucion': false,
     'estados-rastreo': false,
@@ -535,14 +589,20 @@ export function ParametrosSistemaPage() {
                     ? agenciaDirty
                       ? 'pending'
                       : 'saved'
-                    : null
+                    : opcionActiva === 'canales-comunicacion'
+                      ? canalesDirty
+                        ? 'pending'
+                        : 'saved'
+                      : null
               }
               saving={
                 opcionActiva === 'mensaje-whatsapp-despacho'
                   ? updateWhatsMutation.isPending
                   : opcionActiva === 'mensaje-agencia-eeuu'
                     ? updateAgenciaMutation.isPending
-                    : false
+                    : opcionActiva === 'canales-comunicacion'
+                      ? updateCanalesMutation.isPending
+                      : false
               }
             />
           )}
@@ -573,6 +633,18 @@ export function ParametrosSistemaPage() {
             />
           )}
 
+          {opcionActiva === 'canales-comunicacion' && (
+            <CanalesComunicacionPanel
+              loading={loadingCanales}
+              error={errorCanales}
+              canalesLocal={canalesLocal}
+              setCanalesLocal={setCanalesLocal}
+              dirty={canalesDirty}
+              saving={updateCanalesMutation.isPending}
+              onSave={handleGuardarCanales}
+            />
+          )}
+
           {opcionActiva === 'tarifa-calculadora' && <TarifaCalculadoraPanel />}
 
           {opcionActiva === 'tarifa-distribucion' && <TarifaDistribucionPanel />}
@@ -598,6 +670,9 @@ export function ParametrosSistemaPage() {
             if (opcionActiva === 'mensaje-agencia-eeuu' && agenciaDirty) {
               await handleGuardarAgencia();
             }
+            if (opcionActiva === 'canales-comunicacion' && canalesDirty) {
+              await handleGuardarCanales();
+            }
             if (opcionPendiente && opcionPendiente !== 'menu') {
               setOpcionActiva(opcionPendiente);
             }
@@ -607,7 +682,11 @@ export function ParametrosSistemaPage() {
             // mantenemos el modal abierto si falla guardar
           }
         }}
-        loading={updateWhatsMutation.isPending || updateAgenciaMutation.isPending}
+        loading={
+          updateWhatsMutation.isPending ||
+          updateAgenciaMutation.isPending ||
+          updateCanalesMutation.isPending
+        }
       />
     </div>
   );
@@ -793,7 +872,7 @@ function WhatsAppDespachoPanel({
             onChange={(e) => setPlantillaLocal(e.target.value)}
             className="min-h-[220px] font-mono text-sm leading-relaxed"
             rows={9}
-            placeholder="Hola {{consignatarioNombre}}, tu envío {{numeroGuia}} está en camino..."
+            placeholder="Hola {{consignatarioNombre}}, tu envío {{numeroGuia}} ({{fechaDespacho}}) va a {{destinoNombre}}. Sacas: {{cantidadSacas}}, peso {{pesoTotalKg}} kg."
           />
 
           {unknown.length > 0 && (
@@ -1161,10 +1240,10 @@ function TarifaDistribucionPanel() {
   return (
     <div className="page-stack">
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="space-y-3">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="min-w-0 space-y-3">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
                 <Truck className="h-3.5 w-3.5" />
               </span>
               <h3 className="text-sm font-semibold text-foreground">

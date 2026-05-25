@@ -15,8 +15,8 @@ import {
   UserRound,
 } from 'lucide-react';
 
-import { SiteHeader } from '@/components/SiteHeader';
-import { SiteFooter } from '@/components/SiteFooter';
+import { PublicAuthHelpBlock } from '@/components/public/PublicAuthHelpBlock';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 import { login } from '@/lib/api/auth.service';
 import { useAuthStore } from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
@@ -107,12 +107,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="landing-shell">
-      <div className="landing-overlay" />
-      <SiteHeader variant="auth" />
-
-      <main className="relative z-10 mobile-safe-inline flex-1 py-6 sm:py-10">
-        <div className="content-container-wide grid w-full gap-8 lg:grid-cols-2 lg:items-center lg:gap-12">
+    <PublicPageLayout headerVariant="auth" mainClassName="mobile-safe-inline py-6 sm:py-10">
+      <div className="content-container-wide grid w-full gap-8 lg:grid-cols-2 lg:items-center lg:gap-12">
           {/* Panel marketing (izquierda) */}
           <aside className="hidden flex-col gap-7 lg:flex">
             <span className="landing-chip inline-flex w-fit items-center gap-2 px-3 py-1.5">
@@ -145,6 +141,8 @@ export function LoginPage() {
                 </li>
               ))}
             </ul>
+
+            <PublicAuthHelpBlock />
           </aside>
 
           {/* Formulario (derecha) */}
@@ -336,9 +334,6 @@ export function LoginPage() {
             </p>
           </div>
         </div>
-      </main>
-
-      <SiteFooter />
-    </div>
+    </PublicPageLayout>
   );
 }

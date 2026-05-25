@@ -1,7 +1,12 @@
 import { Link } from '@tanstack/react-router';
 import { LegalPageLayout, LegalSection } from '@/pages/legal/LegalPageLayout';
+import { LegalContactBlock } from '@/pages/legal/LegalContactBlock';
+import { usePublicCanalesDisponibles } from '@/hooks/useCanalesComunicacion';
 
 export function TerminosCondicionesPage() {
+  const { hasCanales, isLoading: loadingCanales } = usePublicCanalesDisponibles();
+  const muestraCanales = !loadingCanales && hasCanales;
+
   return (
     <LegalPageLayout
       title="Términos y condiciones de uso"
@@ -165,9 +170,11 @@ export function TerminosCondicionesPage() {
         </LegalSection>
 
         <LegalSection title="14. Contacto">
-          <p>
-            Para consultas sobre estos términos, utiliza los canales oficiales indicados
-            en el sitio web (correo o formulario de contacto). También puedes revisar la{' '}
+          <p className="mb-3">
+            {muestraCanales
+              ? 'Para consultas sobre estos términos, utiliza los canales oficiales siguientes.'
+              : 'Para consultas sobre estos términos, comunícate con ECUBOX cuando los canales oficiales estén publicados en el sitio.'}{' '}
+            También puedes revisar la{' '}
             <Link
               to="/privacidad"
               className="font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
@@ -176,6 +183,7 @@ export function TerminosCondicionesPage() {
             </Link>
             .
           </p>
+          <LegalContactBlock />
         </LegalSection>
       </div>
     </LegalPageLayout>

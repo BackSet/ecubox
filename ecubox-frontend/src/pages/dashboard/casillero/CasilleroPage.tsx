@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { useMensajeAgenciaEeuu } from '@/hooks/useMensajeAgenciaEeuu';
+import { PublicContactSection } from '@/components/public/PublicContactSection';
 import { parseWhatsAppPreviewToReact } from '@/pages/dashboard/parametros-sistema/whatsappFormatPreview';
 import { cn } from '@/lib/utils';
 
@@ -85,6 +86,13 @@ export function CasilleroPage() {
           </div>
         </SurfaceCard>
       )}
+
+      <PublicContactSection
+        asCard
+        title="¿Necesitas ayuda?"
+        description="Contáctanos por los canales habilitados por ECUBOX."
+        variant="inline"
+      />
     </div>
   );
 }

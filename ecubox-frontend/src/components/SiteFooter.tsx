@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router';
+﻿import { Link } from '@tanstack/react-router';
 import { Clock, MapPin, ShieldCheck } from 'lucide-react';
 import { EcuboxLogo } from '@/components/brand';
 

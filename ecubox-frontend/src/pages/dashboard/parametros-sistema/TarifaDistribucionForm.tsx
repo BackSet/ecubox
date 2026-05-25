@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -19,71 +19,78 @@ import { tarifaDistribucionFormSchema } from '@/lib/schemas/maestros';
 
 type FormValues = z.infer<typeof tarifaDistribucionFormSchema>;
 
-function normalizeDecimalInput(value: string): string {
+function normalizeDecimalInput(value: string, maxDecimals = 4): string {
   const normalized = sanitizeNumericDecimal(value);
   if (!normalized.includes('.')) return normalized;
   const [integerPart, decimalPart = ''] = normalized.split('.');
-  const decimalLimited = decimalPart.slice(0, 4);
+  const decimalLimited = decimalPart.slice(0, maxDecimals);
   if (decimalLimited.length > 0) return `${integerPart}.${decimalLimited}`;
   return normalized.endsWith('.') ? `${integerPart}.` : integerPart;
+}
+
+function suffixPadding(suffix: string): string {
+  if (suffix.length >= 6) return 'pr-[4.25rem]';
+  if (suffix.length >= 4) return 'pr-14';
+  return 'pr-11';
 }
 
 interface NumericFieldProps {
   id: string;
   label: string;
   prefix?: 'money' | 'weight';
-  suffix?: string;
+  suffix: string;
   value: number;
   onChange: (n: number) => void;
   error?: string;
 }
 
 function NumericField({ id, label, prefix, suffix, value, onChange, error }: NumericFieldProps) {
-  const stringValue = Number.isFinite(value) ? String(value) : '';
+  const [str, setStr] = useState(Number.isFinite(value) ? String(value) : '0');
+
+  useEffect(() => {
+    setStr(Number.isFinite(value) ? String(value) : '0');
+  }, [value]);
+
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id} className="flex items-center gap-1.5 text-xs text-foreground">
-        <span>{label}</span>
-        <span className="text-[var(--color-destructive)]">*</span>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <Label htmlFor={id} className="text-xs font-medium text-foreground">
+        {label}
+        <span className="text-[var(--color-destructive)]"> *</span>
       </Label>
       <div className="relative">
         {prefix === 'money' && (
-          <span className="pointer-events-none absolute top-1/2 left-3 inline-flex -translate-y-1/2 items-center text-sm font-semibold text-muted-foreground">
-            <DollarSign className="h-4 w-4" />
-          </span>
+          <DollarSign className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         )}
         {prefix === 'weight' && (
-          <span className="pointer-events-none absolute top-1/2 left-3 inline-flex -translate-y-1/2 items-center text-sm font-semibold text-muted-foreground">
-            <Scale className="h-4 w-4" />
-          </span>
+          <Scale className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         )}
         <input
           id={id}
           type="text"
           inputMode="decimal"
-          value={stringValue}
-          onKeyDown={(e) => onKeyDownNumericDecimal(e, stringValue)}
+          value={str}
+          onKeyDown={(e) => onKeyDownNumericDecimal(e, str)}
           onChange={(e) => {
             const s = normalizeDecimalInput(e.target.value);
+            setStr(s);
             const n = s === '' || s === '.' ? 0 : Number(s);
             onChange(Number.isFinite(n) ? n : 0);
           }}
           aria-invalid={Boolean(error)}
           className={cn(
-            'block h-12 w-full rounded-md border bg-[var(--color-background)] pr-16 pl-9 text-right font-mono text-lg font-semibold text-foreground transition-colors',
-            'border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]',
+            'block h-10 w-full min-w-0 rounded-md border bg-[var(--color-background)] pl-9 text-right font-mono text-sm tabular-nums text-foreground',
+            'border-[var(--color-border)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]',
+            suffixPadding(suffix),
             error && 'border-[var(--color-destructive)] focus:ring-[var(--color-destructive)]/30',
           )}
         />
-        {suffix && (
-          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-medium text-muted-foreground">
-            {suffix}
-          </span>
-        )}
+        <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[11px] font-medium text-muted-foreground">
+          {suffix}
+        </span>
       </div>
       {error && (
         <p className="flex items-center gap-1 text-xs text-[var(--color-destructive)]">
-          <AlertCircle className="h-3 w-3" />
+          <AlertCircle className="h-3 w-3 shrink-0" />
           {error}
         </p>
       )}
@@ -149,7 +156,7 @@ export function TarifaDistribucionForm() {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid max-w-sm grid-cols-1 gap-4">
         <Controller
           control={form.control}
           name="kgIncluidos"
@@ -171,7 +178,7 @@ export function TarifaDistribucionForm() {
           render={({ field }) => (
             <NumericField
               id="precioFijo"
-              label="Precio fijo (incluye los kg base)"
+              label="Precio fijo (incluye kg base)"
               prefix="money"
               suffix="USD"
               value={field.value}

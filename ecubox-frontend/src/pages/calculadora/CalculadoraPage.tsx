@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { getTarifaCalculadoraPublic } from '@/lib/api/tarifa-calculadora.service';
 import { PesoInputPair } from '@/components/PesoInput';
@@ -23,9 +23,9 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { KeyValueGridSkeleton } from '@/components/skeletons/KeyValueGridSkeleton';
-import { SiteHeader } from '@/components/SiteHeader';
-import { SiteFooter } from '@/components/SiteFooter';
 import { PublicPageHero } from '@/components/public/PublicPageHero';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
+import { PublicSupportStrip } from '@/components/public/PublicSupportStrip';
 
 const MIN_PESO_LBS_RECARGO = 4;
 const RECARGO_ENVIO_MENOR_PESO = 3.5;
@@ -150,17 +150,15 @@ export function CalculadoraPage() {
   };
 
   return (
-    <div className="landing-shell">
-      <div className="landing-overlay" />
-      <SiteHeader variant="tool" />
-
-      <main className="mobile-safe-inline relative z-10 flex-1 py-6 sm:py-10">
-        <div className="content-container w-full max-w-3xl space-y-6">
+    <PublicPageLayout headerVariant="tool" mainClassName="mobile-safe-inline py-6 sm:py-10">
+      <div className="content-container w-full max-w-3xl space-y-6">
           <PublicPageHero
             icon={Calculator}
             title="Calculadora de envío"
             description="Ingresa el peso de tu paquete para obtener un costo estimado todo incluido con transporte Servientrega."
           />
+
+          <PublicSupportStrip />
 
           {tarifaError && (
             <div
@@ -425,9 +423,7 @@ export function CalculadoraPage() {
             </>
           )}
         </div>
-      </main>
-
-      <SiteFooter />
-    </div>
+    </PublicPageLayout>
   );
 }
+

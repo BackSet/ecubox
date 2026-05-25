@@ -1,5 +1,9 @@
 package com.ecubox.ecubox_backend.service;
 
+import com.ecubox.ecubox_backend.dto.CanalComunicacionItemDTO;
+import com.ecubox.ecubox_backend.dto.CanalesComunicacionDTO;
+import com.ecubox.ecubox_backend.dto.CanalesComunicacionPublicDTO;
+import com.ecubox.ecubox_backend.dto.CanalesComunicacionRequest;
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeAgenciaEeuuDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoDTO;
@@ -8,14 +12,24 @@ import com.ecubox.ecubox_backend.entity.ParametroSistema;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
 import com.ecubox.ecubox_backend.repository.ParametroSistemaRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.regex.Pattern;
 
 @Service
 public class ParametroSistemaService {
 
     public static final String CLAVE_MENSAJE_WHATSAPP_DESPACHO = "mensaje_whatsapp_despacho";
     public static final String CLAVE_MENSAJE_AGENCIA_EEUU = "mensaje_agencia_eeuu";
+    public static final String CLAVE_CANALES_COMUNICACION = "canales_comunicacion";
+
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final Pattern URL_PATTERN =
+            Pattern.compile("^https?://.+", Pattern.CASE_INSENSITIVE);
 
     public static final String CLAVE_ESTADO_RASTREO_REGISTRO_PAQUETE = "estado_rastreo_registro_paquete";
     public static final String CLAVE_ESTADO_RASTREO_EN_LOTE_RECEPCION = "estado_rastreo_en_lote_recepcion";
@@ -35,6 +49,7 @@ public class ParametroSistemaService {
 
     private final ParametroSistemaRepository parametroSistemaRepository;
     private final EstadoRastreoRepository estadoRastreoRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public ParametroSistemaService(ParametroSistemaRepository parametroSistemaRepository,
                                    EstadoRastreoRepository estadoRastreoRepository) {
@@ -71,6 +86,175 @@ public class ParametroSistemaService {
         return MensajeAgenciaEeuuDTO.builder()
                 .mensaje(valor != null ? valor : "")
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public CanalesComunicacionDTO getCanalesComunicacion() {
+        return loadCanalesComunicacion();
+    }
+
+    @Transactional(readOnly = true)
+    public CanalesComunicacionPublicDTO getCanalesComunicacionPublic() {
+        CanalesComunicacionDTO full = loadCanalesComunicacion();
+        return CanalesComunicacionPublicDTO.builder()
+                .email(publicValor(full.getEmail()))
+                .telefono(publicValor(full.getTelefono()))
+                .whatsapp(publicValor(full.getWhatsapp()))
+                .facebook(publicValor(full.getFacebook()))
+                .instagram(publicValor(full.getInstagram()))
+                .tiktok(publicValor(full.getTiktok()))
+                .youtube(publicValor(full.getYoutube()))
+                .linkedin(publicValor(full.getLinkedin()))
+                .x(publicValor(full.getX()))
+                .build();
+    }
+
+    @Transactional
+    public CanalesComunicacionDTO updateCanalesComunicacion(CanalesComunicacionRequest request) {
+        CanalesComunicacionDTO normalized = CanalesComunicacionDTO.builder()
+                .email(normalizeCanal(request.getEmail(), "email", CanalTipo.EMAIL))
+                .telefono(normalizeCanal(request.getTelefono(), "teléfono", CanalTipo.TELEFONO))
+                .whatsapp(normalizeCanal(request.getWhatsapp(), "WhatsApp", CanalTipo.WHATSAPP))
+                .facebook(normalizeCanal(request.getFacebook(), "Facebook", CanalTipo.URL))
+                .instagram(normalizeCanal(request.getInstagram(), "Instagram", CanalTipo.URL))
+                .tiktok(normalizeCanal(request.getTiktok(), "TikTok", CanalTipo.URL))
+                .youtube(normalizeCanal(request.getYoutube(), "YouTube", CanalTipo.URL))
+                .linkedin(normalizeCanal(request.getLinkedin(), "LinkedIn", CanalTipo.URL))
+                .x(normalizeCanal(request.getX(), "X", CanalTipo.URL))
+                .build();
+        saveCanalesComunicacion(normalized);
+        return normalized;
+    }
+
+    private CanalesComunicacionDTO loadCanalesComunicacion() {
+        String json = parametroSistemaRepository.findById(CLAVE_CANALES_COMUNICACION)
+                .map(ParametroSistema::getValor)
+                .orElse("{}");
+        if (json == null || json.isBlank()) {
+            return emptyCanalesComunicacion();
+        }
+        try {
+            CanalesComunicacionDTO parsed = objectMapper.readValue(json, CanalesComunicacionDTO.class);
+            return normalizeLoaded(parsed);
+        } catch (JsonProcessingException e) {
+            return emptyCanalesComunicacion();
+        }
+    }
+
+    private CanalesComunicacionDTO normalizeLoaded(CanalesComunicacionDTO parsed) {
+        if (parsed == null) {
+            return emptyCanalesComunicacion();
+        }
+        return CanalesComunicacionDTO.builder()
+                .email(mergeLegacyItem(parsed.getEmail()))
+                .telefono(mergeLegacyItem(parsed.getTelefono()))
+                .whatsapp(mergeLegacyItem(parsed.getWhatsapp()))
+                .facebook(mergeLegacyItem(parsed.getFacebook()))
+                .instagram(mergeLegacyItem(parsed.getInstagram()))
+                .tiktok(mergeLegacyItem(parsed.getTiktok()))
+                .youtube(mergeLegacyItem(parsed.getYoutube()))
+                .linkedin(mergeLegacyItem(parsed.getLinkedin()))
+                .x(mergeLegacyItem(parsed.getX()))
+                .build();
+    }
+
+    private CanalComunicacionItemDTO mergeLegacyItem(CanalComunicacionItemDTO item) {
+        if (item == null) {
+            return emptyItem();
+        }
+        String valor = item.getValor() != null ? item.getValor().trim() : "";
+        boolean visible = resolveVisible(valor, item.getVisible());
+        return CanalComunicacionItemDTO.builder().valor(valor).visible(visible).build();
+    }
+
+    private boolean resolveVisible(String valor, Boolean visibleFlag) {
+        if (valor == null || valor.isEmpty()) {
+            return false;
+        }
+        if (visibleFlag == null) {
+            return true;
+        }
+        return Boolean.TRUE.equals(visibleFlag);
+    }
+
+    private enum CanalTipo { EMAIL, TELEFONO, WHATSAPP, URL }
+
+    private CanalComunicacionItemDTO normalizeCanal(CanalComunicacionItemDTO item, String label, CanalTipo tipo) {
+        if (item == null) {
+            return emptyItem();
+        }
+        String valor = item.getValor() != null ? item.getValor().trim() : "";
+        if (valor.isEmpty()) {
+            return emptyItem();
+        }
+        if (valor.length() > 500) {
+            throw new BadRequestException("El valor de " + label + " no puede superar 500 caracteres");
+        }
+        switch (tipo) {
+            case EMAIL -> {
+                if (!EMAIL_PATTERN.matcher(valor).matches()) {
+                    throw new BadRequestException("El correo electrónico no es válido");
+                }
+            }
+            case TELEFONO -> {
+                if (valor.length() > 30) {
+                    throw new BadRequestException("El teléfono no puede superar 30 caracteres");
+                }
+            }
+            case WHATSAPP -> {
+                if (valor.length() > 200) {
+                    throw new BadRequestException("WhatsApp no puede superar 200 caracteres");
+                }
+            }
+            case URL -> {
+                if (!URL_PATTERN.matcher(valor).matches()) {
+                    throw new BadRequestException("La URL de " + label + " debe comenzar con http:// o https://");
+                }
+            }
+        }
+        boolean visible = resolveVisible(valor, item.getVisible());
+        return CanalComunicacionItemDTO.builder().valor(valor).visible(visible).build();
+    }
+
+    private String publicValor(CanalComunicacionItemDTO item) {
+        if (item == null) {
+            return null;
+        }
+        String valor = item.getValor() != null ? item.getValor().trim() : "";
+        if (!resolveVisible(valor, item.getVisible())) {
+            return null;
+        }
+        return valor;
+    }
+
+    private void saveCanalesComunicacion(CanalesComunicacionDTO dto) {
+        try {
+            String json = objectMapper.writeValueAsString(dto);
+            ParametroSistema param = parametroSistemaRepository.findById(CLAVE_CANALES_COMUNICACION)
+                    .orElse(ParametroSistema.builder().clave(CLAVE_CANALES_COMUNICACION).valor("{}").build());
+            param.setValor(json);
+            parametroSistemaRepository.save(param);
+        } catch (JsonProcessingException e) {
+            throw new BadRequestException("No se pudo guardar la configuración de canales");
+        }
+    }
+
+    private CanalesComunicacionDTO emptyCanalesComunicacion() {
+        return CanalesComunicacionDTO.builder()
+                .email(emptyItem())
+                .telefono(emptyItem())
+                .whatsapp(emptyItem())
+                .facebook(emptyItem())
+                .instagram(emptyItem())
+                .tiktok(emptyItem())
+                .youtube(emptyItem())
+                .linkedin(emptyItem())
+                .x(emptyItem())
+                .build();
+    }
+
+    private CanalComunicacionItemDTO emptyItem() {
+        return CanalComunicacionItemDTO.builder().valor("").visible(Boolean.FALSE).build();
     }
 
     @Transactional

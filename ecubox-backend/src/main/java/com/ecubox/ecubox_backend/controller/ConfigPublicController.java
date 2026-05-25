@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.dto.CanalesComunicacionPublicDTO;
 import com.ecubox.ecubox_backend.dto.MensajeAgenciaEeuuDTO;
 import com.ecubox.ecubox_backend.dto.TarifaCalculadoraDTO;
 import com.ecubox.ecubox_backend.service.ConfigCalculadoraService;
@@ -30,5 +31,10 @@ public class ConfigPublicController {
     @GetMapping("/mensaje-agencia-eeuu")
     public ResponseEntity<MensajeAgenciaEeuuDTO> getMensajeAgenciaEeuu() {
         return ResponseEntity.ok(parametroSistemaService.getMensajeAgenciaEeuu());
+    }
+
+    @GetMapping("/canales-comunicacion")
+    public ResponseEntity<CanalesComunicacionPublicDTO> getCanalesComunicacion() {
+        return ResponseEntity.ok(parametroSistemaService.getCanalesComunicacionPublic());
     }
 }

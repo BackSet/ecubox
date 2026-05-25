@@ -1,5 +1,7 @@
 package com.ecubox.ecubox_backend.controller;
 
+import com.ecubox.ecubox_backend.dto.CanalesComunicacionDTO;
+import com.ecubox.ecubox_backend.dto.CanalesComunicacionRequest;
 import com.ecubox.ecubox_backend.dto.MensajeAgenciaEeuuDTO;
 import com.ecubox.ecubox_backend.dto.MensajeAgenciaEeuuRequest;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoDTO;
@@ -59,6 +61,19 @@ public class OperarioConfigController {
     public ResponseEntity<MensajeAgenciaEeuuDTO> updateMensajeAgenciaEeuu(
             @Valid @RequestBody MensajeAgenciaEeuuRequest request) {
         return ResponseEntity.ok(parametroSistemaService.updateMensajeAgenciaEeuu(request.getMensaje()));
+    }
+
+    @GetMapping("/canales-comunicacion")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    public ResponseEntity<CanalesComunicacionDTO> getCanalesComunicacion() {
+        return ResponseEntity.ok(parametroSistemaService.getCanalesComunicacion());
+    }
+
+    @PutMapping("/canales-comunicacion")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    public ResponseEntity<CanalesComunicacionDTO> updateCanalesComunicacion(
+            @Valid @RequestBody CanalesComunicacionRequest request) {
+        return ResponseEntity.ok(parametroSistemaService.updateCanalesComunicacion(request));
     }
 
     @GetMapping("/estados-rastreo-por-punto")

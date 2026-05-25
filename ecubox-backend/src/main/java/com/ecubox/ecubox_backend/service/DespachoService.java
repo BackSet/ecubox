@@ -14,6 +14,7 @@ import com.ecubox.ecubox_backend.repository.*;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
+import com.ecubox.ecubox_backend.util.WeightUtil;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,9 +23,12 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -32,6 +36,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class DespachoService {
+
+    private static final DateTimeFormatter FMT_FECHA_DESPACHO =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final DespachoRepository despachoRepository;
     private final CourierEntregaRepository courierEntregaRepository;
@@ -306,6 +313,7 @@ public class DespachoService {
         }
         Despacho d = despachoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Despacho", id));
+        DespachoDTO dto = toDTO(d);
 
         List<Saca> sacas = sacaRepository.findByDespachoIdOrderByIdAsc(id);
         int cantidadSacas = sacas.size();
@@ -318,39 +326,110 @@ public class DespachoService {
             numerosSacaList.add(saca.getNumeroOrden() != null ? saca.getNumeroOrden() : "");
             paquetesPorSacaList.add(String.valueOf(count));
         }
-        String codigoPrecinto = d.getCodigoPrecinto() != null ? d.getCodigoPrecinto() : "";
-        String cantidadSacasStr = String.valueOf(cantidadSacas);
-        String totalPaquetesStr = String.valueOf(totalPaquetes);
-        String numerosSaca = String.join(", ", numerosSacaList);
-        String paquetesPorSaca = String.join(", ", paquetesPorSacaList);
 
-        String numeroGuia = d.getNumeroGuia() != null ? d.getNumeroGuia() : "";
-        String consignatarioNombre = d.getConsignatario() != null && d.getConsignatario().getNombre() != null
-                ? d.getConsignatario().getNombre() : "";
-        String courierEntregaNombre = d.getCourierEntrega() != null && d.getCourierEntrega().getNombre() != null
-                ? d.getCourierEntrega().getNombre() : "";
-        String agenciaNombre = d.getAgencia() != null && d.getAgencia().getNombre() != null
-                ? d.getAgencia().getNombre() : "";
-        if (d.getAgenciaCourierEntrega() != null) {
-            agenciaNombre = com.ecubox.ecubox_backend.service.AgenciaCourierEntregaService.etiquetaDe(d.getAgenciaCourierEntrega());
+        BigDecimal pesoLbs = despachoRepository.sumPesoLbsPorDespacho(id);
+        if (pesoLbs == null) {
+            pesoLbs = BigDecimal.ZERO;
         }
-        String observaciones = d.getObservaciones() != null ? d.getObservaciones() : "";
+        BigDecimal pesoKg = WeightUtil.lbsToKg(pesoLbs);
+        if (pesoKg == null) {
+            pesoKg = BigDecimal.ZERO;
+        }
 
-        String mensaje = plantilla
-                .replace("{{numeroGuia}}", numeroGuia)
-                .replace("{{consignatarioNombre}}", consignatarioNombre)
-                .replace("{{courierEntregaNombre}}", courierEntregaNombre)
-                .replace("{{agenciaNombre}}", agenciaNombre)
-                .replace("{{observaciones}}", observaciones)
-                .replace("{{codigoPrecinto}}", codigoPrecinto)
-                .replace("{{cantidadSacas}}", cantidadSacasStr)
-                .replace("{{totalPaquetes}}", totalPaquetesStr)
-                .replace("{{numerosSaca}}", numerosSaca)
-                .replace("{{paquetesPorSaca}}", paquetesPorSaca);
+        String mensaje = aplicarPlaceholdersWhatsApp(
+                plantilla,
+                dto,
+                String.valueOf(cantidadSacas),
+                String.valueOf(totalPaquetes),
+                String.join(", ", numerosSacaList),
+                String.join(", ", paquetesPorSacaList),
+                formatearPesoDisplay(pesoLbs),
+                formatearPesoDisplay(pesoKg));
 
         return MensajeWhatsAppDespachoGeneradoDTO.builder()
                 .mensaje(mensaje)
                 .build();
+    }
+
+    private static String aplicarPlaceholdersWhatsApp(
+            String plantilla,
+            DespachoDTO dto,
+            String cantidadSacas,
+            String totalPaquetes,
+            String numerosSaca,
+            String paquetesPorSaca,
+            String pesoTotalLbs,
+            String pesoTotalKg) {
+        String fechaDespacho = dto.getFechaHora() != null
+                ? dto.getFechaHora().format(FMT_FECHA_DESPACHO)
+                : "";
+        String tipoEntregaEtiqueta = etiquetaTipoEntrega(dto.getTipoEntrega());
+        String destinoNombre = resolverDestinoNombre(dto);
+
+        String consignatarioNombre = textoSeguro(dto.getConsignatarioNombre());
+        String consignatarioTelefono = textoSeguro(dto.getConsignatarioTelefono());
+        String consignatarioDireccion = textoSeguro(dto.getConsignatarioDireccion());
+        String courierEntregaNombre = textoSeguro(dto.getCourierEntregaNombre());
+        String agenciaNombre = textoSeguro(dto.getAgenciaNombre());
+        String agenciaCourierEntregaNombre = textoSeguro(dto.getAgenciaCourierEntregaNombre());
+
+        return plantilla
+                .replace("{{numeroGuia}}", textoSeguro(dto.getNumeroGuia()))
+                .replace("{{fechaDespacho}}", fechaDespacho)
+                .replace("{{tipoEntregaEtiqueta}}", tipoEntregaEtiqueta)
+                .replace("{{observaciones}}", textoSeguro(dto.getObservaciones()))
+                .replace("{{codigoPrecinto}}", textoSeguro(dto.getCodigoPrecinto()))
+                .replace("{{consignatarioNombre}}", consignatarioNombre)
+                .replace("{{consignatarioTelefono}}", consignatarioTelefono)
+                .replace("{{consignatarioDireccion}}", consignatarioDireccion)
+                .replace("{{courierEntregaNombre}}", courierEntregaNombre)
+                .replace("{{agenciaNombre}}", agenciaNombre)
+                .replace("{{agenciaCourierEntregaNombre}}", agenciaCourierEntregaNombre)
+                .replace("{{destinoNombre}}", destinoNombre)
+                .replace("{{cantidadSacas}}", cantidadSacas)
+                .replace("{{totalPaquetes}}", totalPaquetes)
+                .replace("{{numerosSaca}}", numerosSaca)
+                .replace("{{paquetesPorSaca}}", paquetesPorSaca)
+                .replace("{{pesoTotalLbs}}", pesoTotalLbs)
+                .replace("{{pesoTotalKg}}", pesoTotalKg)
+                // Compatibilidad con placeholders obsoletos (pre-refactor nomenclatura)
+                .replace("{{destinatarioNombre}}", consignatarioNombre)
+                .replace("{{distribuidorNombre}}", courierEntregaNombre);
+    }
+
+    private static String resolverDestinoNombre(DespachoDTO dto) {
+        if (dto.getTipoEntrega() == TipoEntrega.DOMICILIO) {
+            return textoSeguro(dto.getConsignatarioNombre());
+        }
+        if (dto.getTipoEntrega() == TipoEntrega.AGENCIA_COURIER_ENTREGA) {
+            return textoSeguro(dto.getAgenciaCourierEntregaNombre());
+        }
+        if (dto.getTipoEntrega() == TipoEntrega.AGENCIA) {
+            return textoSeguro(dto.getAgenciaNombre());
+        }
+        return "";
+    }
+
+    private static String etiquetaTipoEntrega(TipoEntrega tipo) {
+        if (tipo == null) {
+            return "";
+        }
+        return switch (tipo) {
+            case DOMICILIO -> "Domicilio";
+            case AGENCIA -> "Agencia aliada";
+            case AGENCIA_COURIER_ENTREGA -> "Punto de entrega";
+        };
+    }
+
+    private static String formatearPesoDisplay(BigDecimal valor) {
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) == 0) {
+            return "0";
+        }
+        return valor.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
+    }
+
+    private static String textoSeguro(String valor) {
+        return valor != null ? valor : "";
     }
 
     @Transactional

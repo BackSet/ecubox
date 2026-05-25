@@ -1,7 +1,12 @@
 import { Link } from '@tanstack/react-router';
 import { LegalPageLayout, LegalSection } from '@/pages/legal/LegalPageLayout';
+import { LegalContactBlock } from '@/pages/legal/LegalContactBlock';
+import { usePublicCanalesDisponibles } from '@/hooks/useCanalesComunicacion';
 
 export function PoliticaPrivacidadPage() {
+  const { hasCanales, isLoading: loadingCanales } = usePublicCanalesDisponibles();
+  const muestraCanales = !loadingCanales && hasCanales;
+
   return (
     <LegalPageLayout
       title="Política de privacidad"
@@ -89,10 +94,12 @@ export function PoliticaPrivacidadPage() {
           <p>
             Puedes solicitar acceso, rectificación, cancelación, oposición, portabilidad
             cuando proceda, y revocar el consentimiento otorgado, según la Ley Orgánica de
-            Protección de Datos Personales del Ecuador y reglamentos relacionados. Para
-            ejercerlos, escribe al contacto indicado en el sitio adjuntando identificación
-            razonable.
+            Protección de Datos Personales del Ecuador y reglamentos relacionados.{' '}
+            {muestraCanales
+              ? 'Para ejercerlos, escribe a los canales de contacto indicados a continuación, adjuntando identificación razonable.'
+              : 'Para ejercerlos, utiliza los canales de contacto publicados en el sitio cuando estén disponibles, adjuntando identificación razonable.'}
           </p>
+          <LegalContactBlock />
         </LegalSection>
 
         <LegalSection title="8. Seguridad">

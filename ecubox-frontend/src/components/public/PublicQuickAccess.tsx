@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router';
+﻿import { Link } from '@tanstack/react-router';
 import { ArrowRight, Calculator, PackageSearch } from 'lucide-react';
 
 const LINKS = [
@@ -60,3 +60,4 @@ export function PublicQuickAccess() {
     </section>
   );
 }
+

@@ -6,6 +6,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { PublicContactLinks } from '@/components/public/PublicContactLinks';
+import { usePublicCanalesDisponibles } from '@/hooks/useCanalesComunicacion';
 
 const FAQ_ITEMS = [
   {
@@ -35,6 +37,8 @@ const FAQ_ITEMS = [
 ];
 
 export function FAQ() {
+  const { hasCanales, canales, isLoading } = usePublicCanalesDisponibles();
+
   return (
     <section
       id="faq"
@@ -50,7 +54,9 @@ export function FAQ() {
           Todo lo que necesitas saber
         </h2>
         <p className="landing-text-muted mt-3 text-sm sm:text-base">
-          Si no encuentras tu respuesta, escríbenos y te ayudamos en minutos.
+          {hasCanales
+            ? 'Si no encuentras tu respuesta, escríbenos y te ayudamos en minutos.'
+            : 'Revisa las respuestas más comunes sobre envíos, tarifas y casilleros.'}
         </p>
       </div>
 
@@ -71,7 +77,7 @@ export function FAQ() {
         ))}
       </Accordion>
 
-      <div className="mt-8 flex flex-col items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] p-5 text-center sm:flex-row sm:text-left">
+      <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-xl border border-dashed border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] p-5 text-center sm:flex-row sm:text-left">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
             <MessageCircleQuestion className="h-5 w-5" strokeWidth={1.8} aria-hidden />
@@ -79,16 +85,30 @@ export function FAQ() {
           <div>
             <p className="text-sm font-semibold landing-text">¿Tienes otra pregunta?</p>
             <p className="text-xs landing-text-muted">
-              Nuestro equipo de soporte está disponible para ayudarte.
+              {hasCanales
+                ? 'Nuestro equipo de soporte está disponible para ayudarte.'
+                : 'Consulta las secciones anteriores o crea tu cuenta para empezar.'}
             </p>
           </div>
         </div>
-        <Link
-          to="/registro"
-          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--color-primary)]/55 px-4 py-2 text-sm font-semibold landing-text transition hover:bg-[var(--color-primary)]/10 sm:w-auto"
-        >
-          Contáctanos
-        </Link>
+        {!isLoading && hasCanales && canales ? (
+          <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:items-end">
+            <PublicContactLinks canales={canales} variant="compact" className="justify-center sm:justify-end" />
+            <Link
+              to="/registro"
+              className="text-xs font-medium text-[var(--color-primary)] hover:underline"
+            >
+              o crea tu cuenta gratis
+            </Link>
+          </div>
+        ) : (
+          <Link
+            to="/registro"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--color-primary)]/55 px-4 py-2 text-sm font-semibold landing-text transition hover:bg-[var(--color-primary)]/10 sm:w-auto"
+          >
+            Crear cuenta
+          </Link>
+        )}
       </div>
     </section>
   );

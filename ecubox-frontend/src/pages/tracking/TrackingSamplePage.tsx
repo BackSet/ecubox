@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { FlaskConical, PackageSearch } from 'lucide-react';
 import { PublicPageHero } from '@/components/public/PublicPageHero';
-import { SiteHeader } from '@/components/SiteHeader';
-import { SiteFooter } from '@/components/SiteFooter';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
+import { PublicSupportStrip } from '@/components/public/PublicSupportStrip';
 import { codigoFromResolved } from '@/lib/tracking/trackingDisplayUtils';
 import {
   TRACKING_SAMPLES,
@@ -43,18 +43,16 @@ export function TrackingSamplePage() {
   }
 
   return (
-    <div className="landing-shell">
-      <div className="landing-overlay" />
-      <SiteHeader variant="tool" />
-
-      <main className="mobile-safe-inline relative z-10 flex-1 py-5 sm:py-8">
-        <div className="content-container-wide w-full space-y-6">
+    <PublicPageLayout headerVariant="tool" mainClassName="mobile-safe-inline py-5 sm:py-8">
+      <div className="content-container-wide w-full space-y-6">
           <PublicPageHero
             badge="Demostración"
             badgeIcon={FlaskConical}
             title="Ejemplos de rastreo"
             description="Explora cómo se ve el seguimiento público con guías de muestra. Toda la información mostrada es ficticia."
           />
+
+          <PublicSupportStrip />
 
           <TrackingSampleBanner />
 
@@ -126,9 +124,7 @@ export function TrackingSamplePage() {
             </div>
           )}
         </div>
-      </main>
-
-      <SiteFooter />
-    </div>
+    </PublicPageLayout>
   );
 }
+

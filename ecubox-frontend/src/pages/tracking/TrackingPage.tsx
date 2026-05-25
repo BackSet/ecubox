@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { PackageSearch, ShieldCheck } from 'lucide-react';
 import { PublicPageHero } from '@/components/public/PublicPageHero';
-import { SiteHeader } from '@/components/SiteHeader';
-import { SiteFooter } from '@/components/SiteFooter';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
+import { PublicSupportStrip } from '@/components/public/PublicSupportStrip';
 import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { KeyValueGridSkeleton } from '@/components/skeletons/KeyValueGridSkeleton';
 import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
@@ -156,12 +156,8 @@ export function TrackingPage() {
     autoQueryDone && !loading && !error && !resolved && !validationError;
 
   return (
-    <div className="landing-shell">
-      <div className="landing-overlay" />
-      <SiteHeader variant="tool" />
-
-      <main className="mobile-safe-inline relative z-10 flex-1 py-5 sm:py-8">
-        <div className="content-container-wide w-full space-y-6">
+    <PublicPageLayout headerVariant="tool" mainClassName="mobile-safe-inline py-5 sm:py-8">
+      <div className="content-container-wide w-full space-y-6">
           <PublicPageHero
             badge="Rastreo público"
             badgeIcon={PackageSearch}
@@ -174,6 +170,8 @@ export function TrackingPage() {
               </p>
             }
           />
+
+          <PublicSupportStrip />
 
           <TrackingSearchPanel
             numeroGuia={codigo}
@@ -213,19 +211,22 @@ export function TrackingPage() {
           )}
 
           {error && (
-            <div
-              className="landing-card flex flex-col items-start gap-3 border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 p-5 text-sm text-[var(--color-destructive)] sm:flex-row sm:items-center sm:justify-between"
-              role="alert"
-            >
-              <div className="flex items-start gap-2.5">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-destructive)]/15">
-                  <PackageSearch className="h-4 w-4" />
-                </span>
-                <div>
-                  <p className="font-semibold">No pudimos completar la búsqueda</p>
-                  <p className="mt-0.5 text-[var(--color-destructive)]/85">{error}</p>
+            <div className="space-y-3">
+              <div
+                className="landing-card flex flex-col items-start gap-3 border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 p-5 text-sm text-[var(--color-destructive)] sm:flex-row sm:items-center sm:justify-between"
+                role="alert"
+              >
+                <div className="flex items-start gap-2.5">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-destructive)]/15">
+                    <PackageSearch className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="font-semibold">No pudimos completar la búsqueda</p>
+                    <p className="mt-0.5 text-[var(--color-destructive)]/85">{error}</p>
+                  </div>
                 </div>
               </div>
+              <PublicSupportStrip message="¿No encuentras tu guía?" />
             </div>
           )}
 
@@ -255,9 +256,7 @@ export function TrackingPage() {
             />
           ) : null}
         </div>
-      </main>
-
-      <SiteFooter />
-    </div>
+    </PublicPageLayout>
   );
 }
+

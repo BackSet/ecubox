@@ -1,4 +1,5 @@
 import type { MetaDescriptor } from '@tanstack/react-router';
+import type { CanalesComunicacionPublic } from '@/types/canales-comunicacion';
 
 /**
  * URL pública del sitio (sin barra final) para canonical, Open Graph y JSON-LD.
@@ -67,9 +68,40 @@ export function buildPublicPageHead(payload: PublicSeoPayload): {
   return { meta, links };
 }
 
-export function buildHomeJsonLd(): [MetaDescriptor, MetaDescriptor] {
+function buildSameAsFromCanales(canales: CanalesComunicacionPublic | undefined): string[] {
+  if (!canales) return [];
+  const urls: string[] = [];
+  const keys = ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin', 'x', 'whatsapp'] as const;
+  for (const key of keys) {
+    const v = canales[key];
+    if (typeof v === 'string' && v.trim().startsWith('http')) {
+      urls.push(v.trim());
+    }
+  }
+  return urls;
+}
+
+function buildContactPointFromCanales(canales: CanalesComunicacionPublic | undefined) {
+  if (!canales) return undefined;
+  const email = typeof canales.email === 'string' ? canales.email.trim() : '';
+  const telefono = typeof canales.telefono === 'string' ? canales.telefono.trim() : '';
+  if (!email && !telefono) return undefined;
+  return {
+    '@type': 'ContactPoint',
+    contactType: 'customer service',
+    ...(email ? { email } : {}),
+    ...(telefono ? { telephone: telefono } : {}),
+    availableLanguage: ['Spanish'],
+  };
+}
+
+export function buildHomeJsonLd(
+  canales?: CanalesComunicacionPublic,
+): [MetaDescriptor, MetaDescriptor] {
   const origin = getPublicSiteOrigin();
-  const org = {
+  const sameAs = buildSameAsFromCanales(canales);
+  const contactPoint = buildContactPointFromCanales(canales);
+  const org: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'ECUBOX',
@@ -77,6 +109,8 @@ export function buildHomeJsonLd(): [MetaDescriptor, MetaDescriptor] {
     description: SEO_DEFAULT_DESCRIPTION,
     logo: `${origin}/favicon.svg`,
   };
+  if (sameAs.length > 0) org.sameAs = sameAs;
+  if (contactPoint) org.contactPoint = contactPoint;
   const website = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
