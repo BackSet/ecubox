@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   contarNotificacionesNoLeidas,
@@ -6,7 +6,7 @@ import {
   marcarNotificacionLeida,
   marcarTodasNotificacionesLeidas,
 } from '@/lib/api/notificaciones.service';
-import { notifyUser } from '@/lib/pwa';
+import { hasActivePushSubscription, notifyUser } from '@/lib/pwa';
 import { useAuthStore } from '@/stores/authStore';
 import type { NotificacionUsuario } from '@/types/notificacion';
 
@@ -62,8 +62,21 @@ export function useNotificaciones(limit = 20) {
     refetchInterval: 30_000,
   });
 
+  // Si hay suscripcion Web Push, el servidor entrega los avisos y no debemos
+  // duplicarlos con notificaciones locales durante el polling.
+  const pushActiveRef = useRef(false);
   useEffect(() => {
-    if (query.data) {
+    let mounted = true;
+    void hasActivePushSubscription().then((active) => {
+      if (mounted) pushActiveRef.current = active;
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (query.data && !pushActiveRef.current) {
       notifyUnreadChanges(query.data);
     }
   }, [query.data]);

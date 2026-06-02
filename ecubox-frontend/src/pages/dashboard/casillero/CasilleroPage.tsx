@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 import {
   Bell,
   CheckCircle2,
   Copy,
-  FileUp,
   Info,
   MapPin,
   Smartphone,
@@ -18,7 +17,10 @@ import { useMensajeAgenciaEeuu } from '@/hooks/useMensajeAgenciaEeuu';
 import { PublicContactSection } from '@/components/public/PublicContactSection';
 import { parseWhatsAppPreviewToReact } from '@/pages/dashboard/parametros-sistema/whatsappFormatPreview';
 import { cn } from '@/lib/utils';
-import { isStandalonePwa, type InstallPromptEvent } from '@/lib/pwa';
+import { PwaInstallGuideDialog } from '@/components/pwa/PwaInstallGuideDialog';
+import { usePwaInstall } from '@/hooks/usePwaInstall';
+import { useActivarNotificaciones } from '@/hooks/useWebPush';
+import { isMobileDevice } from '@/lib/pwa';
 
 export function CasilleroPage() {
   const { data, isLoading, error } = useMensajeAgenciaEeuu();
@@ -110,62 +112,12 @@ export function CasilleroPage() {
 }
 
 function MobilePortalPanel() {
-  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(isStandalonePwa);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
-    typeof Notification === 'undefined' ? 'default' : Notification.permission
-  );
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const pwa = usePwaInstall();
+  const notificaciones = useActivarNotificaciones();
+  const showInstallHelp = !pwa.isInstalled && isMobileDevice();
 
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as InstallPromptEvent);
-    };
-    const handleInstalled = () => {
-      setIsInstalled(true);
-      setInstallPrompt(null);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleInstalled);
-    };
-  }, []);
-
-  const canAskNotifications = typeof Notification !== 'undefined';
-  const totalFilesSize = useMemo(
-    () => selectedFiles.reduce((sum, file) => sum + file.size, 0),
-    [selectedFiles]
-  );
-
-  const installApp = async () => {
-    if (!installPrompt) {
-      toast.info('Usa la opción "Agregar a pantalla de inicio" de tu navegador.');
-      return;
-    }
-    await installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    if (choice.outcome === 'accepted') {
-      setIsInstalled(true);
-      toast.success('ECUBOX agregado a tu dispositivo');
-    }
-    setInstallPrompt(null);
-  };
-
-  const requestNotifications = async () => {
-    if (!canAskNotifications) {
-      toast.info('Este navegador no permite notificaciones web.');
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    setNotificationPermission(permission);
-    if (permission === 'granted') {
-      toast.success('Notificaciones activadas');
-    } else {
-      toast.info('Puedes activar notificaciones desde la configuración del navegador.');
-    }
+  const requestNotifications = () => {
+    notificaciones.activate();
   };
 
   return (
@@ -176,29 +128,56 @@ function MobilePortalPanel() {
           Portal móvil
         </h2>
         <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-          Instala ECUBOX, consulta tu casillero y prepara comprobantes desde el celular.
+          Instala ECUBOX y activa avisos desde el celular.
         </p>
+        {showInstallHelp && (
+          <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
+            Agrega ECUBOX a tu pantalla de inicio.{' '}
+            <button
+              type="button"
+              className="font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
+              onClick={pwa.openInstallGuide}
+            >
+              Ver pasos
+            </button>
+          </p>
+        )}
       </div>
-      <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+      <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
         <MobilePortalAction
           icon={<Smartphone className="h-4 w-4" />}
-          title={isInstalled ? 'App instalada' : 'Instalar ECUBOX'}
+          completed={pwa.isInstalled}
+          title={pwa.isInstalled ? 'App instalada' : 'Instalar ECUBOX'}
           description={
-            isInstalled
+            pwa.isInstalled
               ? 'Abre el portal desde tu pantalla de inicio.'
               : 'Acceso rápido a tracking, calculadora y casillero.'
           }
           action={
-            <Button type="button" size="sm" variant="outline" onClick={() => void installApp()}>
-              {isInstalled ? 'Listo' : 'Instalar'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void pwa.requestInstall()}
+                disabled={pwa.isInstalled}
+              >
+                {pwa.isInstalled ? 'Listo' : 'Instalar'}
+              </Button>
+              {showInstallHelp && (
+                <Button type="button" size="sm" variant="ghost" onClick={pwa.openInstallGuide}>
+                  Como instalar
+                </Button>
+              )}
+            </div>
           }
         />
         <MobilePortalAction
           icon={<Bell className="h-4 w-4" />}
-          title="Notificaciones"
+          completed={notificaciones.isGranted}
+          title={notificaciones.isGranted ? 'Notificaciones activas' : 'Notificaciones'}
           description={
-            notificationPermission === 'granted'
+            notificaciones.isGranted
               ? 'Listas para avisos de estado.'
               : 'Activa avisos cuando tu navegador lo permita.'
           }
@@ -207,37 +186,27 @@ function MobilePortalPanel() {
               type="button"
               size="sm"
               variant="outline"
-              disabled={notificationPermission === 'granted'}
-              onClick={() => void requestNotifications()}
+              disabled={
+                !notificaciones.isSupported || notificaciones.isGranted || notificaciones.isPending
+              }
+              onClick={requestNotifications}
             >
-              {notificationPermission === 'granted' ? 'Activas' : 'Activar'}
+              {notificaciones.isGranted
+                ? 'Activas'
+                : notificaciones.isPending
+                  ? 'Activando...'
+                  : 'Activar'}
             </Button>
           }
         />
-        <MobilePortalAction
-          icon={<FileUp className="h-4 w-4" />}
-          title="Facturas"
-          description={
-            selectedFiles.length > 0
-              ? `${selectedFiles.length} archivo(s), ${formatBytes(totalFilesSize)}`
-              : 'Selecciona comprobantes para tenerlos listos.'
-          }
-          action={
-            <label className="inline-flex">
-              <input
-                type="file"
-                className="sr-only"
-                multiple
-                accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
-                onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))}
-              />
-              <span className="inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-[var(--color-border)] px-3 text-xs font-medium hover:bg-[var(--color-muted)]">
-                Adjuntar
-              </span>
-            </label>
-          }
-        />
       </div>
+      <PwaInstallGuideDialog
+        open={pwa.guideOpen}
+        onOpenChange={pwa.setGuideOpen}
+        platform={pwa.platform}
+        inAppBrowser={pwa.isInAppBrowser}
+        nativeDismissed={pwa.nativeDismissed}
+      />
     </SurfaceCard>
   );
 }
@@ -247,11 +216,14 @@ function MobilePortalAction({
   title,
   description,
   action,
+  completed = false,
 }: {
   icon: ReactNode;
   title: string;
   description: string;
   action: ReactNode;
+  /** Muestra el visto verde junto al titulo (p. ej. PWA instalada o avisos activos). */
+  completed?: boolean;
 }) {
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-3">
@@ -262,8 +234,8 @@ function MobilePortalAction({
         <div className="min-w-0 flex-1">
           <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-foreground)]">
             {title}
-            {title.includes('instalada') || title.includes('Activas') ? (
-              <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-success)]" />
+            {completed ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-success)]" aria-hidden />
             ) : null}
           </p>
           <p className="mt-0.5 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
@@ -274,10 +246,4 @@ function MobilePortalAction({
       </div>
     </div>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

@@ -64,6 +64,49 @@ src/
 - **Formularios:** React Hook Form + Zod
 - **Estilos:** Tailwind CSS 4
 
+## PWA, Service Worker y notificaciones
+
+La app es instalable como PWA. El Service Worker se genera con
+[`vite-plugin-pwa`](https://vite-pwa-org.netlify.app/) en modo `injectManifest`
+a partir de [`src/sw.ts`](src/sw.ts), que conserva la lógica de Web Push.
+
+Puntos clave:
+
+- **Solo en producción:** el SW no se registra en `npm run dev`
+  (ver `registerServiceWorker` en [`src/lib/pwa.ts`](src/lib/pwa.ts)).
+- **Estrategia de caché:** precache del manifiesto de build (app shell + assets
+  con hash) y navegación SPA servida desde `index.html` precacheado. Las
+  peticiones a `/api/` nunca se cachean.
+- **Actualizaciones (`registerType: 'prompt'`):** cuando hay una versión nueva,
+  se muestra un toast "Hay una nueva versión disponible" con botón Actualizar;
+  al confirmar se envía `SKIP_WAITING` y la página recarga. Esto evita servir
+  chunks inconsistentes tras un deploy.
+- **Cabeceras de caché (`Caddyfile`):** `/assets/*` es inmutable (hash por
+  build); `sw.js`, `index.html` y `manifest.webmanifest` usan `no-cache` para
+  revalidar en cada deploy.
+
+### Notificaciones
+
+- Las notificaciones del sistema se muestran **solo** vía
+  `ServiceWorkerRegistration.showNotification` (nunca `new Notification`, que es
+  ilegal en páginas controladas por un SW).
+- Con la pestaña visible no se duplica el aviso del sistema (el usuario ya ve la
+  campana); con suscripción Web Push activa, el servidor entrega los avisos.
+- La activación está unificada en `useActivarNotificaciones`
+  ([`src/hooks/useWebPush.ts`](src/hooks/useWebPush.ts)): pide permiso y, si hay
+  sesión y el servidor tiene VAPID configurado, registra la suscripción push.
+
+Web Push requiere en el backend `WEB_PUSH_ENABLED=true` y las claves VAPID
+(`WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`, `WEB_PUSH_SUBJECT`); ver
+[Variables de entorno](../docs/despliegue/VARIABLES_ENTORNO.md).
+
+### Recuperación tras un deploy
+
+Si un usuario quedó con una versión cacheada inconsistente (antes de esta
+migración del SW), basta con recargar; el nuevo SW limpia las cachés obsoletas
+(`cleanupOutdatedCaches`). Como último recurso: DevTools → Application →
+Service Workers → Unregister, o un hard refresh.
+
 ## Documentación detallada
 
 - [UX-UI-DESIGN.md](../docs/desarrollo/UX-UI-DESIGN.md) — Sistema de diseño UX/UI

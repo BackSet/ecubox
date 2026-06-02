@@ -1,9 +1,27 @@
 import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      registerType: 'prompt',
+      injectRegister: null,
+      // El manifest de la PWA ya existe como archivo estatico en public/.
+      manifest: false,
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+      },
+      devOptions: {
+        enabled: false,
+      },
+    }),
+  ],
   build: {
     rollupOptions: {
       output: {

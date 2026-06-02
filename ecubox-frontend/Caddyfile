@@ -3,10 +3,20 @@
 encode zstd gzip
 root * /srv/dist
 
-@assets {
-	path *.css *.js *.mjs *.ico *.svg *.png *.jpg *.jpeg *.gif *.webp *.woff *.woff2 *.ttf
+# Recursos con hash de contenido en /assets/*: cache larga e inmutable. El hash
+# del nombre cambia en cada build, asi que nunca sirve contenido obsoleto.
+@immutable {
+	path /assets/*
 }
-header @assets Cache-Control "public, max-age=31536000, immutable"
+header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+# Artefactos sin hash que deben revalidarse en cada deploy. Si se cachean de
+# forma agresiva, el service worker o el index quedan desincronizados de los
+# chunks nuevos y la PWA falla al cargar modulos dinamicos.
+@no_cache {
+	path /sw.js /sw.js.map /registerSW.js /workbox-*.js /manifest.webmanifest /index.html /
+}
+header @no_cache Cache-Control "no-cache"
 
 header {
 	X-Content-Type-Options nosniff

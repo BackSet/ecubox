@@ -13,7 +13,7 @@ import {
   useNotificaciones,
   useNotificacionesNoLeidas,
 } from '@/hooks/useNotificaciones';
-import { useActivarWebPush } from '@/hooks/useWebPush';
+import { useActivarNotificaciones } from '@/hooks/useWebPush';
 import type { NotificacionUsuario } from '@/types/notificacion';
 
 function formatDate(value: string): string {
@@ -30,7 +30,7 @@ export function NotificationBell() {
   const { data: unread } = useNotificacionesNoLeidas();
   const markRead = useMarcarNotificacionLeida();
   const markAllRead = useMarcarTodasNotificacionesLeidas();
-  const enableWebPush = useActivarWebPush();
+  const notificaciones = useActivarNotificaciones();
   const unreadCount = unread?.count ?? notifications.filter((item) => !item.leida).length;
 
   async function handleOpenNotification(notification: NotificacionUsuario) {
@@ -44,7 +44,7 @@ export function NotificationBell() {
 
   function handleRequestPermission(event: Event) {
     event.preventDefault();
-    enableWebPush.mutate();
+    notificaciones.activate();
   }
 
   return (
@@ -143,13 +143,19 @@ export function NotificationBell() {
         )}
 
         <DropdownMenuSeparator className="my-1 h-px bg-[var(--color-border)]" />
-        <DropdownMenuItem
-          className="flex cursor-pointer items-center justify-center rounded-md px-2 py-1.5 text-[12px] text-[var(--color-primary)] outline-none hover:bg-[var(--color-muted)] focus:bg-[var(--color-muted)]"
-          onSelect={handleRequestPermission}
-          disabled={enableWebPush.isPending}
-        >
-          {enableWebPush.isPending ? 'Activando...' : 'Activar push del navegador'}
-        </DropdownMenuItem>
+        {notificaciones.isSupported && (
+          <DropdownMenuItem
+            className="flex cursor-pointer items-center justify-center rounded-md px-2 py-1.5 text-[12px] text-[var(--color-primary)] outline-none hover:bg-[var(--color-muted)] focus:bg-[var(--color-muted)] disabled:cursor-default disabled:text-[var(--color-muted-foreground)]"
+            onSelect={handleRequestPermission}
+            disabled={notificaciones.isPending || notificaciones.isGranted}
+          >
+            {notificaciones.isGranted
+              ? 'Notificaciones activas'
+              : notificaciones.isPending
+                ? 'Activando...'
+                : 'Activar push del navegador'}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

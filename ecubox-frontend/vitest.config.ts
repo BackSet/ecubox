@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // El modulo virtual lo inyecta vite-plugin-pwa solo en dev/build.
+      'virtual:pwa-register': path.resolve(__dirname, './src/test/pwa-register-stub.ts'),
     },
   },
   test: {
