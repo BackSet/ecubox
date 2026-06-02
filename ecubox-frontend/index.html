@@ -12,19 +12,54 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="ECUBOX" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#7B3FE4" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0F1F42" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" id="ecubox-theme-color" content="#FBFBFA" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="ECUBOX: casillero en Estados Unidos, envíos a Ecuador, rastreo por pieza y calculadora de tarifas. Tus compras en USA llegan a casa." />
     <title>ECUBOX | Casillero USA y envíos a Ecuador</title>
+    <!-- Estilos criticos inline: el bundle CSS de Vite carga con el modulo JS.
+         Sin esto, el script de tema aplica .dark antes de que existan variables
+         Tailwind y el navegador fuerza recalculo / FOUC. Colores = index.css -->
+    <style id="ecubox-critical">
+      html {
+        color-scheme: light dark;
+        background-color: #fbfbfa;
+      }
+      html.dark {
+        color-scheme: dark;
+        background-color: #1a1a1a;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background-color: inherit;
+        color: #1a1a1a;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      html.dark body {
+        color: #ececec;
+      }
+      #root {
+        min-height: 100vh;
+      }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      />
+    </noscript>
     <script>
-      // Aplica el tema (light/dark/system) ANTES del primer paint para evitar
-      // FOUC (flash de fondo blanco al cargar con tema oscuro). Debe replicar
-      // la misma lógica de src/stores/themeStore.ts (clave 'ecubox_theme' del
-      // persist de zustand). Si fallara, la app cae al default 'system'.
+      // Aplica el tema (light/dark/system) ANTES del primer paint. Debe replicar
+      // src/stores/themeStore.ts (clave ecubox_theme). Los fondos ya estan en
+      // #ecubox-critical; aqui solo alternamos .dark sin esperar al bundle CSS.
       (function () {
         try {
           var stored = window.localStorage.getItem('ecubox_theme');
@@ -49,6 +84,13 @@
             root.classList.add('dark');
           } else {
             root.classList.remove('dark');
+          }
+          var barColor = effective === 'dark' ? '#1A1A1A' : '#FBFBFA';
+          var themeMeta = document.getElementById('ecubox-theme-color');
+          if (themeMeta) themeMeta.setAttribute('content', barColor);
+          var appleBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+          if (appleBar) {
+            appleBar.setAttribute('content', effective === 'dark' ? 'black-translucent' : 'default');
           }
         } catch (e) {
           // Storage bloqueado: dejamos que React aplique el default tras montar.

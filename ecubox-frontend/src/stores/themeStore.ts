@@ -1,3 +1,4 @@
+import { applyBrowserChromeTheme } from '@/lib/theme-colors';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -26,6 +27,8 @@ function applyTheme(theme: Theme) {
   } else {
     root.classList.remove('dark');
   }
+
+  applyBrowserChromeTheme(effective);
 }
 
 export { applyTheme };
