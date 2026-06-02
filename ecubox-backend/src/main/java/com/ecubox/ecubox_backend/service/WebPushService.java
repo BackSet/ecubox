@@ -31,14 +31,12 @@ public class WebPushService {
 
     private final WebPushProperties properties;
     private final WebPushSubscriptionRepository subscriptionRepository;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public WebPushService(WebPushProperties properties,
-                          WebPushSubscriptionRepository subscriptionRepository,
-                          ObjectMapper objectMapper) {
+                          WebPushSubscriptionRepository subscriptionRepository) {
         this.properties = properties;
         this.subscriptionRepository = subscriptionRepository;
-        this.objectMapper = objectMapper;
     }
 
     public WebPushPublicKeyDTO publicKey() {
