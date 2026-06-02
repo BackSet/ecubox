@@ -11,6 +11,26 @@ export type EffectiveTheme = keyof typeof APP_SURFACE_COLORS;
 
 const THEME_COLOR_META_ID = 'ecubox-theme-color';
 const APPLE_STATUS_META_NAME = 'apple-mobile-web-app-status-bar-style';
+const FAVICON_LINK_ID = 'ecubox-favicon';
+const FAVICON_PATHS: Record<EffectiveTheme, string> = {
+  light: '/favicon-light.svg',
+  dark: '/favicon-dark.svg',
+};
+
+/** Sincroniza el icono de pestaña con el tema efectivo de la app (no solo prefers-color-scheme). */
+export function applyFaviconTheme(effective: EffectiveTheme): void {
+  if (typeof document === 'undefined') return;
+
+  let link = document.getElementById(FAVICON_LINK_ID) as HTMLLinkElement | null;
+  if (!link) {
+    link = document.createElement('link');
+    link.id = FAVICON_LINK_ID;
+    link.rel = 'icon';
+    link.type = 'image/svg+xml';
+    document.head.appendChild(link);
+  }
+  link.href = FAVICON_PATHS[effective];
+}
 
 /**
  * Sincroniza theme-color y estilo de barra de estado iOS con el tema efectivo
@@ -46,4 +66,6 @@ export function applyBrowserChromeTheme(effective: EffectiveTheme): void {
   }
   // default = barra clara (texto oscuro); black-translucent = integrada en fondo oscuro
   appleStatus.content = effective === 'dark' ? 'black-translucent' : 'default';
+
+  applyFaviconTheme(effective);
 }

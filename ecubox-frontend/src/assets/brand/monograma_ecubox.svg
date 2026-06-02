@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="250" viewBox="0 0 250 250" fill="none" role="img" aria-label="ECUBOX">
+  <defs>
+    <linearGradient id="ecboxMonoLight" x1="15" y1="15" x2="235" y2="235" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B6CFF" />
+      <stop offset="1" stop-color="#3E27A8" />
+    </linearGradient>
+    <linearGradient id="ecboxMonoDark" x1="15" y1="15" x2="235" y2="235" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9B82FF" />
+      <stop offset="1" stop-color="#5B3FD0" />
+    </linearGradient>
+  </defs>
+  <style>
+    .ecubox-tile { fill: url(#ecboxMonoLight); }
+    @media (prefers-color-scheme: dark) {
+      .ecubox-tile { fill: url(#ecboxMonoDark); }
+    }
+  </style>
+  <rect class="ecubox-tile" x="15" y="15" width="220" height="220" rx="67" />
+  <text x="125" y="134" text-anchor="middle" dominant-baseline="central"
+        font-family="Manrope, Inter, 'Segoe UI', Arial, sans-serif" font-size="150" font-weight="700" fill="#FFFFFF">e</text>
+</svg>

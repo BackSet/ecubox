@@ -1,20 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-label="ECUBOX">
   <defs>
-    <linearGradient id="ecbBg" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2E6BE6" />
-      <stop offset="1" stop-color="#7B3FE4" />
-    </linearGradient>
-    <linearGradient id="ecbHighlight" x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22" />
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    <linearGradient id="ecbFaviconDefault" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B6CFF" />
+      <stop offset="1" stop-color="#3E27A8" />
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="url(#ecbBg)" />
-  <rect width="64" height="64" rx="14" fill="url(#ecbHighlight)" />
-  <g stroke="#FFFFFF" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M32 14 L48 22 L32 30 L16 22 Z" fill="#FFFFFF" fill-opacity="0.42" />
-    <path d="M16 22 L32 30 L32 50 L16 42 Z" fill="#FFFFFF" fill-opacity="0.12" />
-    <path d="M48 22 L32 30 L32 50 L48 42 Z" fill="#FFFFFF" fill-opacity="0.26" />
-  </g>
-  <path d="M32 14 L32 30" stroke="#FFFFFF" stroke-width="1.4" stroke-opacity="0.55" stroke-linecap="round" />
+  <rect width="64" height="64" rx="18" fill="url(#ecbFaviconDefault)" />
+  <text x="32" y="34" text-anchor="middle" dominant-baseline="central"
+        font-family="Manrope, Inter, 'Segoe UI', Arial, sans-serif" font-size="42" font-weight="700" fill="#FFFFFF">e</text>
 </svg>

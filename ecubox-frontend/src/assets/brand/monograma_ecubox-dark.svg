@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-label="ECUBOX">
   <defs>
-    <linearGradient id="ecbFaviconLight" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8B6CFF" />
-      <stop offset="1" stop-color="#3E27A8" />
+    <linearGradient id="ecbMonoDark" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9B82FF" />
+      <stop offset="1" stop-color="#5B3FD0" />
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="18" fill="url(#ecbFaviconLight)" />
+  <rect width="64" height="64" rx="18" fill="url(#ecbMonoDark)" />
   <text x="32" y="34" text-anchor="middle" dominant-baseline="central"
         font-family="Manrope, Inter, 'Segoe UI', Arial, sans-serif" font-size="42" font-weight="700" fill="#FFFFFF">e</text>
 </svg>

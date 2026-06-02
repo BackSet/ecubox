@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router';
 import { cn } from '@/lib/utils';
-import logoLight from '@/assets/brand/ecubox-logo-light.svg';
-import logoDark from '@/assets/brand/ecubox-logo-dark.svg';
-import markLight from '@/assets/brand/ecubox-mark-light.svg';
-import markDark from '@/assets/brand/ecubox-mark-dark.svg';
+import logoLight from '@/assets/brand/logotipo_texto_ecubox-light.svg';
+import logoDark from '@/assets/brand/logotipo_texto_ecubox-dark.svg';
+import markLight from '@/assets/brand/monograma_ecubox-light.svg';
+import markDark from '@/assets/brand/monograma_ecubox-dark.svg';
 
 export type EcuboxLogoVariant = 'principal' | 'gradient' | 'purple' | 'light' | 'onPurple';
 export type EcuboxLogoSize = 'sm' | 'md' | 'lg';

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="120" viewBox="0 0 400 120" fill="none" role="img" aria-label="ECUBOX">
+  <style>
+    .ecubox-ecu { fill: #0F1F42; }
+    .ecubox-box { fill: #6C4CF1; }
+    @media (prefers-color-scheme: dark) {
+      .ecubox-ecu { fill: #F1F5FF; }
+      .ecubox-box { fill: #8B6CFF; }
+    }
+  </style>
+  <text x="200" y="62" text-anchor="middle" dominant-baseline="central"
+        font-family="Manrope, Inter, 'Segoe UI', Arial, sans-serif" font-size="76" font-weight="800" letter-spacing="-2">
+    <tspan class="ecubox-ecu">ECU</tspan><tspan class="ecubox-box">BOX</tspan>
+  </text>
+</svg>
