@@ -1,20 +1,41 @@
 import { useEffect, useState } from 'react';
-import { Bell, Download, PackageSearch, ReceiptText, Smartphone } from 'lucide-react';
+import { Bell, Download, MoreVertical, PackageSearch, PlusSquare, ReceiptText, Share2, Smartphone } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { isStandalonePwa, requestNotificationPermission, type InstallPromptEvent } from '@/lib/pwa';
 import { useAuthStore } from '@/stores/authStore';
 import { useActivarWebPush } from '@/hooks/useWebPush';
 
+type InstallPlatform = 'ios' | 'android' | 'desktop';
+
+function detectInstallPlatform(): InstallPlatform {
+  if (typeof navigator === 'undefined') return 'desktop';
+  const ua = navigator.userAgent.toLowerCase();
+  const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'desktop';
+}
+
 export function PwaLandingPanel() {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
+  const [installPlatform, setInstallPlatform] = useState<InstallPlatform>('desktop');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const token = useAuthStore((state) => state.token);
   const enableWebPush = useActivarWebPush();
 
   useEffect(() => {
     setInstalled(isStandalonePwa());
+    setInstallPlatform(detectInstallPlatform());
     if ('Notification' in window) {
       setNotificationPermission(Notification.permission);
     }
@@ -37,7 +58,10 @@ export function PwaLandingPanel() {
   }, []);
 
   async function handleInstall() {
-    if (!installPrompt) return;
+    if (!installPrompt) {
+      setInstallGuideOpen(true);
+      return;
+    }
     await installPrompt.prompt();
     const result = await installPrompt.userChoice;
     if (result.outcome === 'accepted') {
@@ -74,7 +98,7 @@ export function PwaLandingPanel() {
               type="button"
               className="h-11 gap-2"
               onClick={handleInstall}
-              disabled={installed || !installPrompt}
+              disabled={installed}
             >
               <Download className="h-4 w-4" aria-hidden />
               {installed ? 'Instalada' : 'Instalar portal'}
@@ -109,6 +133,72 @@ export function PwaLandingPanel() {
           </Link>
         </div>
       </div>
+      <InstallGuideDialog
+        open={installGuideOpen}
+        onOpenChange={setInstallGuideOpen}
+        platform={installPlatform}
+      />
     </section>
+  );
+}
+
+function InstallGuideDialog({
+  open,
+  onOpenChange,
+  platform,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  platform: InstallPlatform;
+}) {
+  const steps =
+    platform === 'ios'
+      ? [
+          { icon: Share2, title: 'Abre el menu Compartir', text: 'En Safari toca el icono de compartir en la barra inferior.' },
+          { icon: PlusSquare, title: 'Agrega a inicio', text: 'Selecciona Agregar a pantalla de inicio y confirma ECUBOX.' },
+        ]
+      : platform === 'android'
+        ? [
+            { icon: MoreVertical, title: 'Abre el menu del navegador', text: 'En Chrome toca el menu de tres puntos.' },
+            { icon: PlusSquare, title: 'Instala ECUBOX', text: 'Elige Instalar app o Agregar a pantalla de inicio.' },
+          ]
+        : [
+            { icon: MoreVertical, title: 'Abre el menu del navegador', text: 'Busca Instalar app o Agregar a pantalla de inicio.' },
+            { icon: PlusSquare, title: 'Confirma la instalacion', text: 'ECUBOX se abrira como una app independiente.' },
+          ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[420px] rounded-md border border-[var(--color-border)] bg-[var(--color-popover)] p-5 shadow-none">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold text-[var(--color-popover-foreground)]">
+            Instalar ECUBOX
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed text-[var(--color-muted-foreground)]">
+            Tu navegador no mostro el instalador automatico. Puedes agregar el portal desde el menu del navegador.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mt-2 grid gap-3">
+          {steps.map((step) => {
+            const Icon = step.icon;
+            return (
+              <div key={step.title} className="flex gap-3 rounded-md border border-[var(--color-border)] p-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-muted)] text-[var(--color-primary)]">
+                  <Icon className="h-4 w-4" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-[var(--color-popover-foreground)]">
+                    {step.title}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                    {step.text}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

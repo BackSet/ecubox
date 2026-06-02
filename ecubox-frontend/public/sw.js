@@ -5,6 +5,9 @@ const APP_SHELL = [
   '/calculadora',
   '/casillero',
   '/favicon.svg',
+  '/pwa-icon-192.png',
+  '/pwa-icon-512.png',
+  '/apple-touch-icon.png',
   '/manifest.webmanifest',
 ];
 
