@@ -2,17 +2,8 @@ import { useCallback, useMemo } from 'react';
 import type { RefObject } from 'react';
 import type { TrackingResolveResponse } from '@/lib/api/tracking.service';
 import { notify } from '@/lib/notify';
-import {
-  copyImageBlobToClipboard,
-  downloadBlob,
-  snapshotNodeToPdf,
-  snapshotToBlob,
-  type SnapshotFormat,
-} from '@/lib/exporters/domSnapshot';
+import type { SnapshotFormat } from '@/lib/exporters/domSnapshot';
 import { TRACKING_SNAPSHOT_OPTIONS } from '@/lib/exporters/trackingSnapshotOptions';
-import { buildTrackingPdf } from '@/lib/pdf/builders/trackingPdf';
-import { buildTrackingMasterPdf } from '@/lib/pdf/builders/trackingMasterPdf';
-import { runJsPdfAction } from '@/lib/pdf/actions';
 import { codigoFromResolved } from '@/lib/tracking/trackingDisplayUtils';
 
 export type TrackingPdfMode = 'estructurado' | 'snapshot';
@@ -86,12 +77,14 @@ export function useTrackingExport(
     }
   }, [shareUrl, resolved, codigo]);
 
-  const buildStructuredDoc = useCallback(() => {
+  const buildStructuredDoc = useCallback(async () => {
     if (!resolved) return null;
     if (resolved.tipo === 'GUIA_MASTER' && resolved.master) {
+      const { buildTrackingMasterPdf } = await import('@/lib/pdf/builders/trackingMasterPdf');
       return buildTrackingMasterPdf(resolved.master);
     }
     if (resolved.tipo === 'PIEZA' && resolved.pieza) {
+      const { buildTrackingPdf } = await import('@/lib/pdf/builders/trackingPdf');
       return buildTrackingPdf(resolved.pieza);
     }
     return null;
@@ -103,6 +96,7 @@ export function useTrackingExport(
       try {
         await notify.run(
           (async () => {
+            const { downloadBlob, snapshotToBlob } = await import('@/lib/exporters/domSnapshot');
             await withSnapshotLayout(async (node) => {
               const blob = await snapshotToBlob(node, format, {
                 ...TRACKING_SNAPSHOT_OPTIONS,
@@ -130,6 +124,9 @@ export function useTrackingExport(
     try {
       await notify.run(
         (async () => {
+          const { copyImageBlobToClipboard, snapshotToBlob } = await import(
+            '@/lib/exporters/domSnapshot'
+          );
           await withSnapshotLayout(async (node) => {
             const blob = await snapshotToBlob(node, 'png', TRACKING_SNAPSHOT_OPTIONS);
             await copyImageBlobToClipboard(blob);
@@ -155,11 +152,15 @@ export function useTrackingExport(
         await notify.run(
           (async () => {
             if (mode === 'estructurado') {
-              const doc = buildStructuredDoc();
+              const [doc, { runJsPdfAction }] = await Promise.all([
+                buildStructuredDoc(),
+                import('@/lib/pdf/actions'),
+              ]);
               if (!doc) throw new Error('No hay datos disponibles para exportar.');
               runJsPdfAction(doc, { mode: 'download', filename });
               return;
             }
+            const { snapshotNodeToPdf } = await import('@/lib/exporters/domSnapshot');
             await withSnapshotLayout(async (node) => {
               const result = await snapshotNodeToPdf(node, filename, {
                 ...TRACKING_SNAPSHOT_OPTIONS,
@@ -197,11 +198,15 @@ export function useTrackingExport(
         await notify.run(
           (async () => {
             if (mode === 'estructurado') {
-              const doc = buildStructuredDoc();
+              const [doc, { runJsPdfAction }] = await Promise.all([
+                buildStructuredDoc(),
+                import('@/lib/pdf/actions'),
+              ]);
               if (!doc) throw new Error('No hay datos disponibles para imprimir.');
               runJsPdfAction(doc, { mode: 'print', filename });
               return;
             }
+            const { snapshotNodeToPdf } = await import('@/lib/exporters/domSnapshot');
             await withSnapshotLayout(async (node) => {
               const result = await snapshotNodeToPdf(node, filename, {
                 ...TRACKING_SNAPSHOT_OPTIONS,

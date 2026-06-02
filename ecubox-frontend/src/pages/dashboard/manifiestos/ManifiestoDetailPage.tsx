@@ -78,9 +78,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { buildManifiestoPdf } from '@/lib/pdf/builders/manifiestoPdf';
-import { runJsPdfAction } from '@/lib/pdf/actions';
-import { downloadManifiestoXlsx } from '@/lib/xlsx/manifiestoXlsx';
 import { ManifiestoForm } from './ManifiestoForm';
 import type {
   DespachoEnManifiesto,
@@ -283,6 +280,10 @@ export function ManifiestoDetailPage() {
     try {
       await notify.run(
         (async () => {
+          const [{ buildManifiestoPdf }, { runJsPdfAction }] = await Promise.all([
+            import('@/lib/pdf/builders/manifiestoPdf'),
+            import('@/lib/pdf/actions'),
+          ]);
           const doc = buildManifiestoPdf({
             manifiesto: m,
             despachos: despachosFiltradosExport,
@@ -309,12 +310,15 @@ export function ManifiestoDetailPage() {
     setExporting('xlsx');
     try {
       await notify.run(
-        downloadManifiestoXlsx({
-          manifiesto: m,
-          despachos: despachosFiltradosExport,
-          filtroAgenciaNombre: agenciaSeleccionada?.nombre,
-          filtroCourierEntregaNombre: courierEntregaSeleccionado?.nombre,
-        }),
+        (async () => {
+          const { downloadManifiestoXlsx } = await import('@/lib/xlsx/manifiestoXlsx');
+          await downloadManifiestoXlsx({
+            manifiesto: m,
+            despachos: despachosFiltradosExport,
+            filtroAgenciaNombre: agenciaSeleccionada?.nombre,
+            filtroCourierEntregaNombre: courierEntregaSeleccionado?.nombre,
+          });
+        })(),
         {
           loading: 'Generando Excel del manifiesto...',
           success: 'Excel generado',

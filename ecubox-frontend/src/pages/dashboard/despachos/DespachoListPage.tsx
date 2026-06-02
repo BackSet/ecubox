@@ -46,9 +46,6 @@ import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import { useMensajeWhatsAppDespacho } from '@/hooks/useMensajeWhatsAppDespacho';
 import { getDespachoById } from '@/lib/api/operario-despachos.service';
-import { buildDespachoPdf } from '@/lib/pdf/builders/despachoPdf';
-import { runJsPdfAction } from '@/lib/pdf/actions';
-import { downloadDespachoXlsx } from '@/lib/xlsx/despachoXlsx';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
@@ -183,8 +180,13 @@ export function DespachoListPage() {
         (async () => {
           const detalle = await getDespachoById(id);
           if (mode === 'xlsx') {
+            const { downloadDespachoXlsx } = await import('@/lib/xlsx/despachoXlsx');
             await downloadDespachoXlsx(detalle);
           } else {
+            const [{ buildDespachoPdf }, { runJsPdfAction }] = await Promise.all([
+              import('@/lib/pdf/builders/despachoPdf'),
+              import('@/lib/pdf/actions'),
+            ]);
             const doc = buildDespachoPdf(detalle);
             runJsPdfAction(doc, {
               mode: mode === 'pdf' ? 'download' : 'print',

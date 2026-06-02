@@ -8,50 +8,8 @@ import {
   HeadContent,
 } from '@tanstack/react-router';
 import { createPortal } from 'react-dom';
-import { useEffect, type ComponentType } from 'react';
+import { lazy, Suspense, useEffect, type ComponentType, type ElementType } from 'react';
 import { AppToaster } from '@/components/ui/sonner';
-import { HomePage } from '@/pages/home/HomePage';
-import { LoginPage } from '@/pages/login/LoginPage';
-import { RegistroSimplePage } from '@/pages/registro/RegistroSimplePage';
-import { TerminosCondicionesPage } from '@/pages/legal/TerminosCondicionesPage';
-import { PoliticaPrivacidadPage } from '@/pages/legal/PoliticaPrivacidadPage';
-import { DashboardLayout } from '@/pages/dashboard/DashboardLayout';
-import { DashboardPage } from '@/pages/dashboard/DashboardPage';
-import { UsuarioList } from '@/pages/dashboard/usuarios/UsuarioList';
-import { RolList } from '@/pages/dashboard/roles/RolList';
-import { PermisoList } from '@/pages/dashboard/permisos/PermisoList';
-import { ConsignatarioListPage } from '@/pages/dashboard/consignatarios/ConsignatarioListPage';
-import { PaqueteListPage } from '@/pages/dashboard/paquetes/PaqueteListPage';
-import { PaquetesVencidosPage } from '@/pages/dashboard/paquetes/PaquetesVencidosPage';
-import { PesajePage } from '@/pages/dashboard/pesaje/PesajePage';
-import { GuiasMasterPage } from '@/pages/dashboard/guias-master/GuiasMasterPage';
-import { GuiaMasterDetailPage } from '@/pages/dashboard/guias-master/GuiaMasterDetailPage';
-import { MisGuiasListPage } from '@/pages/dashboard/mis-guias/MisGuiasListPage';
-import { MiGuiaDetailPage } from '@/pages/dashboard/mis-guias/MiGuiaDetailPage';
-import { EnviosConsolidadosListPage } from '@/pages/dashboard/envios-consolidados/EnviosConsolidadosListPage';
-import { EnvioConsolidadoDetailPage } from '@/pages/dashboard/envios-consolidados/EnvioConsolidadoDetailPage';
-import { LiquidacionesListPage } from '@/pages/dashboard/liquidaciones/LiquidacionesListPage';
-import { LiquidacionDetailPage } from '@/pages/dashboard/liquidaciones/LiquidacionDetailPage';
-import { GestionarEstadosPaquetesPage } from '@/pages/dashboard/gestionar-estados-paquetes/GestionarEstadosPaquetesPage';
-import { DespachoListPage } from '@/pages/dashboard/despachos/DespachoListPage';
-import { DespachoDetailPage } from '@/pages/dashboard/despachos/DespachoDetailPage';
-import { EditarDespachoPage } from '@/pages/dashboard/despachos/EditarDespachoPage';
-import { NuevoDespachoPage } from '@/pages/dashboard/despachos/NuevoDespachoPage';
-import { LoteRecepcionListPage } from '@/pages/dashboard/lotes-recepcion/LoteRecepcionListPage';
-import { LoteRecepcionNuevoPage } from '@/pages/dashboard/lotes-recepcion/LoteRecepcionNuevoPage';
-import { LoteRecepcionDetailPage } from '@/pages/dashboard/lotes-recepcion/LoteRecepcionDetailPage';
-import { AgenciaListPage } from '@/pages/dashboard/agencias/AgenciaListPage';
-import { PuntoEntregaListPage } from '@/pages/dashboard/puntos-entrega/PuntoEntregaListPage';
-import { CourierEntregaListPage } from '@/pages/dashboard/couriers-entrega/CourierEntregaListPage';
-import { ManifiestoListPage } from '@/pages/dashboard/manifiestos/ManifiestoListPage';
-import { ManifiestoDetailPage } from '@/pages/dashboard/manifiestos/ManifiestoDetailPage';
-import { TrackingPage } from '@/pages/tracking/TrackingPage';
-import { TrackingSamplePage } from '@/pages/tracking/TrackingSamplePage';
-import { CalculadoraPage } from '@/pages/calculadora/CalculadoraPage';
-import { TarifaCalculadoraPage } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraPage';
-import { ParametrosSistemaPage } from '@/pages/dashboard/parametros-sistema/ParametrosSistemaPage';
-import { CasilleroPage } from '@/pages/dashboard/casillero/CasilleroPage';
-import { PerfilPage } from '@/pages/perfil/PerfilPage';
 import { useAuthStore } from '@/stores/authStore';
 import { applyTheme, useThemeStore } from '@/stores/themeStore';
 import {
@@ -60,6 +18,163 @@ import {
   buildHomeJsonLd,
   buildPublicPageHead,
 } from '@/lib/seo';
+
+const HomePage = lazyNamed(() => import('@/pages/home/HomePage'), 'HomePage');
+const LoginPage = lazyNamed(() => import('@/pages/login/LoginPage'), 'LoginPage');
+const RegistroSimplePage = lazyNamed(
+  () => import('@/pages/registro/RegistroSimplePage'),
+  'RegistroSimplePage',
+);
+const TerminosCondicionesPage = lazyNamed(
+  () => import('@/pages/legal/TerminosCondicionesPage'),
+  'TerminosCondicionesPage',
+);
+const PoliticaPrivacidadPage = lazyNamed(
+  () => import('@/pages/legal/PoliticaPrivacidadPage'),
+  'PoliticaPrivacidadPage',
+);
+const DashboardLayout = lazyNamed(
+  () => import('@/pages/dashboard/DashboardLayout'),
+  'DashboardLayout',
+);
+const DashboardPage = lazyNamed(() => import('@/pages/dashboard/DashboardPage'), 'DashboardPage');
+const UsuarioList = lazyNamed(() => import('@/pages/dashboard/usuarios/UsuarioList'), 'UsuarioList');
+const RolList = lazyNamed(() => import('@/pages/dashboard/roles/RolList'), 'RolList');
+const PermisoList = lazyNamed(() => import('@/pages/dashboard/permisos/PermisoList'), 'PermisoList');
+const ConsignatarioListPage = lazyNamed(
+  () => import('@/pages/dashboard/consignatarios/ConsignatarioListPage'),
+  'ConsignatarioListPage',
+);
+const PaqueteListPage = lazyNamed(
+  () => import('@/pages/dashboard/paquetes/PaqueteListPage'),
+  'PaqueteListPage',
+);
+const PaquetesVencidosPage = lazyNamed(
+  () => import('@/pages/dashboard/paquetes/PaquetesVencidosPage'),
+  'PaquetesVencidosPage',
+);
+const PesajePage = lazyNamed(() => import('@/pages/dashboard/pesaje/PesajePage'), 'PesajePage');
+const GuiasMasterPage = lazyNamed(
+  () => import('@/pages/dashboard/guias-master/GuiasMasterPage'),
+  'GuiasMasterPage',
+);
+const GuiaMasterDetailPage = lazyNamed(
+  () => import('@/pages/dashboard/guias-master/GuiaMasterDetailPage'),
+  'GuiaMasterDetailPage',
+);
+const MisGuiasListPage = lazyNamed(
+  () => import('@/pages/dashboard/mis-guias/MisGuiasListPage'),
+  'MisGuiasListPage',
+);
+const MiGuiaDetailPage = lazyNamed(
+  () => import('@/pages/dashboard/mis-guias/MiGuiaDetailPage'),
+  'MiGuiaDetailPage',
+);
+const EnviosConsolidadosListPage = lazyNamed(
+  () => import('@/pages/dashboard/envios-consolidados/EnviosConsolidadosListPage'),
+  'EnviosConsolidadosListPage',
+);
+const EnvioConsolidadoDetailPage = lazyNamed(
+  () => import('@/pages/dashboard/envios-consolidados/EnvioConsolidadoDetailPage'),
+  'EnvioConsolidadoDetailPage',
+);
+const LiquidacionesListPage = lazyNamed(
+  () => import('@/pages/dashboard/liquidaciones/LiquidacionesListPage'),
+  'LiquidacionesListPage',
+);
+const LiquidacionDetailPage = lazyNamed(
+  () => import('@/pages/dashboard/liquidaciones/LiquidacionDetailPage'),
+  'LiquidacionDetailPage',
+);
+const GestionarEstadosPaquetesPage = lazyNamed(
+  () => import('@/pages/dashboard/gestionar-estados-paquetes/GestionarEstadosPaquetesPage'),
+  'GestionarEstadosPaquetesPage',
+);
+const DespachoListPage = lazyNamed(
+  () => import('@/pages/dashboard/despachos/DespachoListPage'),
+  'DespachoListPage',
+);
+const DespachoDetailPage = lazyNamed(
+  () => import('@/pages/dashboard/despachos/DespachoDetailPage'),
+  'DespachoDetailPage',
+);
+const EditarDespachoPage = lazyNamed(
+  () => import('@/pages/dashboard/despachos/EditarDespachoPage'),
+  'EditarDespachoPage',
+);
+const NuevoDespachoPage = lazyNamed(
+  () => import('@/pages/dashboard/despachos/NuevoDespachoPage'),
+  'NuevoDespachoPage',
+);
+const LoteRecepcionListPage = lazyNamed(
+  () => import('@/pages/dashboard/lotes-recepcion/LoteRecepcionListPage'),
+  'LoteRecepcionListPage',
+);
+const LoteRecepcionNuevoPage = lazyNamed(
+  () => import('@/pages/dashboard/lotes-recepcion/LoteRecepcionNuevoPage'),
+  'LoteRecepcionNuevoPage',
+);
+const LoteRecepcionDetailPage = lazyNamed(
+  () => import('@/pages/dashboard/lotes-recepcion/LoteRecepcionDetailPage'),
+  'LoteRecepcionDetailPage',
+);
+const AgenciaListPage = lazyNamed(
+  () => import('@/pages/dashboard/agencias/AgenciaListPage'),
+  'AgenciaListPage',
+);
+const PuntoEntregaListPage = lazyNamed(
+  () => import('@/pages/dashboard/puntos-entrega/PuntoEntregaListPage'),
+  'PuntoEntregaListPage',
+);
+const CourierEntregaListPage = lazyNamed(
+  () => import('@/pages/dashboard/couriers-entrega/CourierEntregaListPage'),
+  'CourierEntregaListPage',
+);
+const ManifiestoListPage = lazyNamed(
+  () => import('@/pages/dashboard/manifiestos/ManifiestoListPage'),
+  'ManifiestoListPage',
+);
+const ManifiestoDetailPage = lazyNamed(
+  () => import('@/pages/dashboard/manifiestos/ManifiestoDetailPage'),
+  'ManifiestoDetailPage',
+);
+const TrackingPage = lazyNamed(() => import('@/pages/tracking/TrackingPage'), 'TrackingPage');
+const TrackingSamplePage = lazyNamed(
+  () => import('@/pages/tracking/TrackingSamplePage'),
+  'TrackingSamplePage',
+);
+const CalculadoraPage = lazyNamed(
+  () => import('@/pages/calculadora/CalculadoraPage'),
+  'CalculadoraPage',
+);
+const TarifaCalculadoraPage = lazyNamed(
+  () => import('@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraPage'),
+  'TarifaCalculadoraPage',
+);
+const ParametrosSistemaPage = lazyNamed(
+  () => import('@/pages/dashboard/parametros-sistema/ParametrosSistemaPage'),
+  'ParametrosSistemaPage',
+);
+const CasilleroPage = lazyNamed(
+  () => import('@/pages/dashboard/casillero/CasilleroPage'),
+  'CasilleroPage',
+);
+const PerfilPage = lazyNamed(() => import('@/pages/perfil/PerfilPage'), 'PerfilPage');
+
+function lazyNamed<T extends ComponentType<object>>(loader: () => Promise<unknown>, exportName: string) {
+  return lazy(async () => {
+    const mod = (await loader()) as Record<string, T>;
+    return { default: mod[exportName] };
+  });
+}
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 text-sm text-muted-foreground">
+      Cargando...
+    </div>
+  );
+}
 
 function RootLayout() {
   const theme = useThemeStore((s) => s.theme);
@@ -72,7 +187,9 @@ function RootLayout() {
     <>
       {typeof document !== 'undefined' &&
         createPortal(<HeadContent />, document.head)}
-      <Outlet />
+      <Suspense fallback={<RouteFallback />}>
+        <Outlet />
+      </Suspense>
       <AppToaster />
     </>
   );
@@ -91,11 +208,12 @@ function requirePermission(permission: string) {
   };
 }
 
-function withDashboardLayout<P extends object>(Component: ComponentType<P>) {
-  return function DashboardLayoutWrapper(props: P) {
+function withDashboardLayout(Component: ElementType) {
+  return function DashboardLayoutWrapper(props: Record<string, unknown>) {
+    const PageComponent = Component;
     return (
       <DashboardLayout>
-        <Component {...props} />
+        <PageComponent {...props} />
       </DashboardLayout>
     );
   };

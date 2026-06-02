@@ -62,9 +62,6 @@ import {
   useMensajeWhatsAppDespachoGenerado,
 } from '@/hooks/useOperarioDespachos';
 import { useMensajeWhatsAppDespacho } from '@/hooks/useMensajeWhatsAppDespacho';
-import { buildDespachoPdf } from '@/lib/pdf/builders/despachoPdf';
-import { runJsPdfAction } from '@/lib/pdf/actions';
-import { downloadDespachoXlsx } from '@/lib/xlsx/despachoXlsx';
 import { formatWeightFromValues, formatWeightInline, lbsToKg } from '@/lib/utils/weight';
 import { cn } from '@/lib/utils';
 import type { Despacho, Saca, TamanioSaca, TipoEntrega } from '@/types/despacho';
@@ -285,8 +282,13 @@ export function DespachoDetailPage() {
       await notify.run(
         (async () => {
           if (mode === 'xlsx') {
+            const { downloadDespachoXlsx } = await import('@/lib/xlsx/despachoXlsx');
             await downloadDespachoXlsx(d);
           } else {
+            const [{ buildDespachoPdf }, { runJsPdfAction }] = await Promise.all([
+              import('@/lib/pdf/builders/despachoPdf'),
+              import('@/lib/pdf/actions'),
+            ]);
             const doc = buildDespachoPdf(d);
             runJsPdfAction(doc, {
               mode: mode === 'pdf' ? 'download' : 'print',

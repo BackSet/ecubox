@@ -17,7 +17,6 @@ import {
 import { notify } from '@/lib/notify';
 import { useManifiestos, useDeleteManifiesto } from '@/hooks/useManifiestos';
 import { getManifiesto } from '@/lib/api/manifiestos.service';
-import { downloadManifiestoXlsx } from '@/lib/xlsx/manifiestoXlsx';
 import { ManifiestoForm } from './ManifiestoForm';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
@@ -47,8 +46,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { buildManifiestoPdf } from '@/lib/pdf/builders/manifiestoPdf';
-import { runJsPdfAction } from '@/lib/pdf/actions';
 import type { FiltroManifiesto, Manifiesto } from '@/types/manifiesto';
 
 const FILTRO_LABELS: Record<FiltroManifiesto, string> = {
@@ -181,12 +178,17 @@ export function ManifiestoListPage() {
         (async () => {
           const detalle = await getManifiesto(id);
           if (mode === 'xlsx') {
+            const { downloadManifiestoXlsx } = await import('@/lib/xlsx/manifiestoXlsx');
             await downloadManifiestoXlsx({
               manifiesto: detalle,
               despachos: detalle.despachos ?? [],
             });
             return;
           }
+          const [{ buildManifiestoPdf }, { runJsPdfAction }] = await Promise.all([
+            import('@/lib/pdf/builders/manifiestoPdf'),
+            import('@/lib/pdf/actions'),
+          ]);
           const doc = buildManifiestoPdf({
             manifiesto: detalle,
             despachos: detalle.despachos ?? [],
