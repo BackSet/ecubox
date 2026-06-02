@@ -32,23 +32,41 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return Notification.requestPermission();
 }
 
-export function notifyUser(title: string, options?: NotificationOptions): void {
+export async function notifyUser(title: string, options?: NotificationOptions): Promise<void> {
   if (!canUseNotifications() || Notification.permission !== 'granted') return;
 
-  const notification = new Notification(title, {
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
-    ...options,
-  });
-
-  notification.onclick = () => {
-    const targetUrl = (notification as Notification & { data?: { url?: string } }).data?.url;
-    if (targetUrl) {
-      window.focus();
-      window.location.href = targetUrl;
+  try {
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, {
+        icon: '/favicon.svg',
+        badge: '/favicon.svg',
+        ...options,
+      });
+      return;
     }
-    notification.close();
-  };
+  } catch (error) {
+    console.warn('Service Worker notification failed, falling back', error);
+  }
+
+  try {
+    const notification = new Notification(title, {
+      icon: '/favicon.svg',
+      badge: '/favicon.svg',
+      ...options,
+    });
+
+    notification.onclick = () => {
+      const targetUrl = (notification as Notification & { data?: { url?: string } }).data?.url;
+      if (targetUrl) {
+        window.focus();
+        window.location.href = targetUrl;
+      }
+      notification.close();
+    };
+  } catch (error) {
+    console.error('Notification constructor failed', error);
+  }
 }
 
 export function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
