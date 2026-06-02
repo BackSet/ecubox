@@ -64,9 +64,9 @@ export function PwaLandingPanel() {
     }
     await installPrompt.prompt();
     const result = await installPrompt.userChoice;
+    setInstallPrompt(null);
     if (result.outcome === 'accepted') {
       setInstalled(true);
-      setInstallPrompt(null);
     }
   }
 

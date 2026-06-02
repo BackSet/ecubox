@@ -1,9 +1,6 @@
-const CACHE_NAME = 'ecubox-pwa-v1';
-const APP_SHELL = [
+const CACHE_NAME = 'ecubox-pwa-v2';
+const CORE_ASSETS = [
   '/',
-  '/tracking',
-  '/calculadora',
-  '/casillero',
   '/favicon.svg',
   '/pwa-icon-192.png',
   '/pwa-icon-512.png',
@@ -15,7 +12,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => cache.addAll(CORE_ASSETS))
       .then(() => self.skipWaiting())
   );
 });
@@ -39,27 +36,45 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
 
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(() => caches.match('/')));
+    return;
+  }
+
   event.respondWith(
-    fetch(request)
-      .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        return response;
-      })
-      .catch(() =>
-        caches.match(request).then((cached) => cached || caches.match('/'))
-      )
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+
+      return fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request));
+    })
   );
 });
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
-  const payload = event.data.json();
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = {
+      title: 'ECUBOX',
+      body: event.data.text() || 'Tienes una actualizacion pendiente.',
+    };
+  }
+
   const title = payload.title || 'ECUBOX';
   event.waitUntil(
     self.registration.showNotification(title, {
-      body: payload.body,
+      body: payload.body || 'Tienes una actualizacion pendiente.',
       icon: '/favicon.svg',
       badge: '/favicon.svg',
       tag: payload.tag,
@@ -70,13 +85,15 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const targetUrl = new URL(event.notification.data?.url || '/', self.location.origin).href;
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
       for (const client of clients) {
         if ('focus' in client) {
-          client.navigate(targetUrl);
+          if ('navigate' in client) {
+            await client.navigate(targetUrl);
+          }
           return client.focus();
         }
       }
