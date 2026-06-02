@@ -1,0 +1,43 @@
+{
+  "name": "ECUBOX",
+  "short_name": "ECUBOX",
+  "description": "Casillero en USA, envios a Ecuador, rastreo por pieza y portal de clientes.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F8FAFC",
+  "theme_color": "#7B3FE4",
+  "categories": ["business", "productivity", "shopping"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Rastrear envio",
+      "short_name": "Tracking",
+      "description": "Consultar el estado de una guia o pieza.",
+      "url": "/tracking",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Mi casillero",
+      "short_name": "Casillero",
+      "description": "Abrir la informacion de tu casillero en USA.",
+      "url": "/casillero",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Calculadora",
+      "short_name": "Tarifas",
+      "description": "Calcular un envio antes de comprar.",
+      "url": "/calculadora",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

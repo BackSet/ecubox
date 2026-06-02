@@ -3,6 +3,7 @@ import type { TrackingResolveResponse } from '@/lib/api/tracking.service';
 import { computePiezaDisplay } from '@/lib/tracking/trackingDisplayUtils';
 import { TrackingSummaryCard } from '@/pages/tracking/components/TrackingSummaryCard';
 import { TrackingProgressCard } from '@/pages/tracking/components/TrackingProgressCard';
+import { TrackingInsightCard } from '@/pages/tracking/components/TrackingInsightCard';
 import { TrackingTimeline } from '@/pages/tracking/components/TrackingTimeline';
 import { TrackingDetailsCard } from '@/pages/tracking/components/TrackingDetailsCard';
 import { TrackingDespachoCard } from '@/pages/tracking/components/TrackingDespachoCard';
@@ -15,11 +16,12 @@ import { cn } from '@/lib/utils';
 export interface TrackingExportContentProps {
   resolved: TrackingResolveResponse;
   onSelectPieza: (numeroGuia: string) => void;
+  whatsapp?: string | null;
   className?: string;
 }
 
 export const TrackingExportContent = forwardRef<HTMLDivElement, TrackingExportContentProps>(
-  function TrackingExportContent({ resolved, onSelectPieza, className }, ref) {
+  function TrackingExportContent({ resolved, onSelectPieza, whatsapp, className }, ref) {
     const pieza = resolved.tipo === 'PIEZA' ? resolved.pieza ?? null : null;
     const master = resolved.tipo === 'GUIA_MASTER' ? resolved.master ?? null : null;
     const piezaDisplay = pieza ? computePiezaDisplay(pieza) : null;
@@ -62,6 +64,7 @@ export const TrackingExportContent = forwardRef<HTMLDivElement, TrackingExportCo
               totalPasosBase={piezaDisplay.totalPasosBase}
               pasoBaseActual={piezaDisplay.pasoBaseActual}
             />
+            <TrackingInsightCard result={piezaDisplay.pieza} whatsapp={whatsapp} />
             <TrackingTimeline
               estados={piezaDisplay.estados}
               currentIndex={piezaDisplay.currentIndex}

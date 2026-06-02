@@ -25,12 +25,15 @@ public class TrackingEventService {
 
     private final PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
     private final OutboxEventRepository outboxEventRepository;
+    private final NotificacionService notificacionService;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public TrackingEventService(PaqueteEstadoEventoRepository paqueteEstadoEventoRepository,
-                                OutboxEventRepository outboxEventRepository) {
+                                OutboxEventRepository outboxEventRepository,
+                                NotificacionService notificacionService) {
         this.paqueteEstadoEventoRepository = paqueteEstadoEventoRepository;
         this.outboxEventRepository = outboxEventRepository;
+        this.notificacionService = notificacionService;
     }
 
     /**
@@ -140,6 +143,7 @@ public class TrackingEventService {
                 .createdAt(now)
                 .build();
         outboxEventRepository.save(outboxEvent);
+        notificacionService.crearCambioEstadoPaquete(paquete, estadoDestino, eventId);
     }
 
     @Transactional(readOnly = true)

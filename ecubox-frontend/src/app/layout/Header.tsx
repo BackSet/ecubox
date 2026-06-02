@@ -1,7 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   Search,
-  Bell,
   LogOut,
   PanelLeftOpen,
   UserCircle,
@@ -20,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { NotificationBell } from '@/app/layout/NotificationBell';
 
 interface HeaderProps {
   onOpenSearch?: () => void;
@@ -83,15 +83,7 @@ export function Header({ onOpenSearch, onOpenSidebar, shortcutLabel = 'Ctrl+K' }
       </Button>
 
       <div className="ml-auto flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="dashboard-topbar-action h-8 w-8 shrink-0 rounded-md"
-          aria-label="Notificaciones"
-          title="Notificaciones (próximamente)"
-        >
-          <Bell className="h-4 w-4" strokeWidth={1.75} />
-        </Button>
+        <NotificationBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

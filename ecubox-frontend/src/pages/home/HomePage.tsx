@@ -7,12 +7,14 @@ import { FAQ } from '@/components/FAQ';
 import { HomeJsonLdCanales } from '@/components/public/HomeJsonLdCanales';
 import { PublicContactBlock } from '@/components/public/PublicContactBlock';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
+import { PwaLandingPanel } from '@/components/public/PwaLandingPanel';
 
 export function HomePage() {
   return (
     <PublicPageLayout skipLink topSlot={<HomeJsonLdCanales />}>
       <Hero />
       <PublicQuickAccess />
+      <PwaLandingPanel />
       <ServicesGrid />
       <HowItWorks />
       <CallToActionBanner />

@@ -138,6 +138,11 @@ export function TrackingTimeline({ estados, currentIndex }: TrackingTimelineProp
                   }
                   return null;
                 })()}
+                {item.leyenda ? (
+                  <p className="mt-2 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                    {item.leyenda}
+                  </p>
+                ) : null}
               </div>
             </li>
           );
@@ -146,4 +151,3 @@ export function TrackingTimeline({ estados, currentIndex }: TrackingTimelineProp
     </section>
   );
 }
-

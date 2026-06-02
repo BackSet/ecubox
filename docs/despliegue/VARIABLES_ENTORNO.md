@@ -26,6 +26,27 @@ Cargado automáticamente al arrancar Spring Boot desde el directorio de trabajo 
 | `TRACKING_TIMELINE_USE_EVENTS` | No | Línea de tiempo basada en eventos. Por defecto en [application.properties](../../ecubox-backend/src/main/resources/application.properties). | `true` | `true` | `true` |
 | `TRACKING_OUTBOX_RELAY_DELAY_MS` | No | Retardo del relay de outbox (ms). | `5000` | `5000` | `5000` |
 | `TRACKING_OUTBOX_MAX_ATTEMPTS` | No | Reintentos máximos outbox. | `6` | `6` | `6` |
+| `WEB_PUSH_ENABLED` | No | Activa envio Web Push real para la PWA. Si falta alguna clave VAPID, el backend lo trata como desactivado. | `false` o `true` | `false` o `true` | `true` |
+| `WEB_PUSH_SUBJECT` | Condicional | Contacto VAPID del servidor. Debe ser URL o `mailto:`. | `mailto:dev@ecubox.local` | `mailto:soporte@ecubox.com` | `mailto:soporte@ecubox.com` |
+| `WEB_PUSH_PUBLIC_KEY` | Condicional | Clave publica VAPID que el frontend usa para suscribirse. No es secreta. | Generada por ti | Generada por ti | Secreto/variable de plataforma |
+| `WEB_PUSH_PRIVATE_KEY` | Condicional | Clave privada VAPID. **Secreta; nunca va en frontend.** | Generada por ti | Generada por ti | Secreto de plataforma |
+| `WEB_PUSH_TTL_SECONDS` | No | Tiempo que el servicio push puede retener la notificacion si el dispositivo esta offline. | `86400` | `86400` | `86400` |
+
+Genera las claves VAPID una sola vez y reutilizalas:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Ejemplo de forma para backend:
+
+```env
+WEB_PUSH_ENABLED=true
+WEB_PUSH_SUBJECT=mailto:soporte@ecubox.com
+WEB_PUSH_PUBLIC_KEY=PEGA_AQUI_LA_PUBLIC_KEY
+WEB_PUSH_PRIVATE_KEY=PEGA_AQUI_LA_PRIVATE_KEY
+WEB_PUSH_TTL_SECONDS=86400
+```
 
 ---
 
@@ -36,6 +57,8 @@ Vite **embebe** estas variables en el build: no pongas secretos (solo URLs públ
 | Variable | Requerida | Descripción | Ejemplo tentativo (desarrollo) | Ejemplo tentativo (Compose) | Ejemplo tentativo (build de producción) |
 |----------|-----------|-------------|-------------------------------|-------------------------------|----------------------------------------|
 | `VITE_API_URL` | Sí | URL del backend. Puede ser **solo el origen** (p. ej. `http://localhost:8080`): el frontend añade `/api` si el path está vacío o es `/` (context path típico de Spring). Si ya pones un path que termina en `/api`, o un path distinto (gateway), se respeta. Ver [`resolveApiBaseUrl`](../../ecubox-frontend/src/lib/api/resolve-api-base-url.ts). | `http://localhost:8080` o `http://localhost:8080/api` | `http://backend:8080` (Compose; mismo criterio) | `https://api-backend-ejemplo.invalid` o `https://api-backend-ejemplo.invalid/api` |
+
+Web Push no requiere variables `VITE_*`: la clave publica VAPID se consulta desde el backend autenticado. La clave privada siempre queda en variables del backend.
 
 ---
 

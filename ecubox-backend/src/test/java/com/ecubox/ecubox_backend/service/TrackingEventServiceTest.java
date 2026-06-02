@@ -27,12 +27,17 @@ class TrackingEventServiceTest {
     private PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
     @Mock
     private OutboxEventRepository outboxEventRepository;
+    @Mock
+    private NotificacionService notificacionService;
 
     private TrackingEventService trackingEventService;
 
     @BeforeEach
     void setUp() {
-        trackingEventService = new TrackingEventService(paqueteEstadoEventoRepository, outboxEventRepository);
+        trackingEventService = new TrackingEventService(
+                paqueteEstadoEventoRepository,
+                outboxEventRepository,
+                notificacionService);
     }
 
     @Test
@@ -65,5 +70,6 @@ class TrackingEventServiceTest {
         assertEquals("PAQUETE", outbox.getAggregateType());
         assertEquals("10", outbox.getAggregateId());
         assertEquals(TrackingEventType.ESTADO_CAMBIO_MANUAL.name(), outbox.getEventType());
+        verify(notificacionService).crearCambioEstadoPaquete(paquete, destino, evento.getEventId());
     }
 }

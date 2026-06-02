@@ -3,6 +3,7 @@ import type { TrackingResolveResponse } from '@/lib/api/tracking.service';
 import { TrackingExportContent } from '@/pages/tracking/components/TrackingExportContent';
 import { TrackingActionsBar } from '@/pages/tracking/components/TrackingActionsBar';
 import { useTrackingExport } from '@/pages/tracking/hooks/useTrackingExport';
+import { usePublicCanalesDisponibles } from '@/hooks/useCanalesComunicacion';
 
 export interface TrackingResultsSectionProps {
   resolved: TrackingResolveResponse;
@@ -20,6 +21,7 @@ export function TrackingResultsSection({
   exportsDisabled = false,
 }: TrackingResultsSectionProps) {
   const exportRef = useRef<HTMLDivElement>(null);
+  const { canales } = usePublicCanalesDisponibles();
   const {
     handleShare,
     handlePrintPdf,
@@ -35,6 +37,7 @@ export function TrackingResultsSection({
           ref={exportRef}
           resolved={resolved}
           onSelectPieza={onSelectPieza}
+          whatsapp={canales?.whatsapp}
         />
         <aside className="space-y-5 xl:sticky xl:top-4">
           <TrackingActionsBar
