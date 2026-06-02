@@ -2,7 +2,7 @@
   "name": "ECUBOX",
   "short_name": "ECUBOX",
   "description": "Casillero en USA, envios a Ecuador, rastreo por pieza y portal de clientes.",
-  "id": "/",
+  "id": "/?app=ecubox-v3",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -12,22 +12,22 @@
   "categories": ["business", "productivity", "shopping"],
   "icons": [
     {
-      "src": "/pwa-icon-192.png",
+      "src": "/icons/ecubox-monogram-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/pwa-icon-512.png",
+      "src": "/icons/ecubox-monogram-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/icons/ecubox-monogram-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -36,21 +36,21 @@
       "short_name": "Tracking",
       "description": "Consultar el estado de una guia o pieza.",
       "url": "/tracking",
-      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "/icons/ecubox-monogram-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Mi casillero",
       "short_name": "Casillero",
       "description": "Abrir la informacion de tu casillero en USA.",
       "url": "/casillero",
-      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "/icons/ecubox-monogram-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Calculadora",
       "short_name": "Tarifas",
       "description": "Calcular un envio antes de comprar.",
       "url": "/calculadora",
-      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [{ "src": "/icons/ecubox-monogram-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && tsc -p tsconfig.worker.json && vite build",
+    "icons:generate": "node scripts/generate-pwa-icons.mjs",
+    "build": "tsc -b && tsc -p tsconfig.worker.json && node scripts/generate-pwa-icons.mjs && vite build",
     "preview": "vite preview",
     "lint:nomenclatura": "node scripts/lint-nomenclatura.mjs",
     "lint:nomenclatura:report": "node scripts/lint-nomenclatura.mjs --report",

@@ -71,8 +71,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: payload.body || 'Tienes una actualizacion pendiente.',
-      icon: '/pwa-icon-192.png',
-      badge: '/pwa-icon-192.png',
+      icon: '/icons/ecubox-monogram-192.png',
+      badge: '/icons/ecubox-monogram-192.png',
       tag: payload.tag,
       data: { url: payload.url || '/' },
     })

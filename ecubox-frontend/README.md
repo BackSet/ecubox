@@ -82,8 +82,12 @@ Puntos clave:
   al confirmar se envía `SKIP_WAITING` y la página recarga. Esto evita servir
   chunks inconsistentes tras un deploy.
 - **Cabeceras de caché (`Caddyfile`):** `/assets/*` es inmutable (hash por
-  build); `sw.js`, `index.html` y `manifest.webmanifest` usan `no-cache` para
-  revalidar en cada deploy.
+  build); `sw.js`, `index.html`, `manifest.webmanifest` e iconos en `/icons/*`
+  usan `no-cache` para revalidar en cada deploy.
+- **Iconos de instalación:** PNG en `public/icons/` generados desde
+  `monograma_ecubox-light.svg` (`npm run icons:generate`). El manifest referencia
+  rutas versionadas (`/icons/ecubox-monogram-*.png`) para evitar caché del icono
+  antiguo en el movil.
 
 ### Notificaciones
 

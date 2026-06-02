@@ -111,8 +111,8 @@ export async function notifyUser(title: string, options?: NotificationOptions): 
   try {
     const registration = await navigator.serviceWorker.ready;
     await registration.showNotification(title, {
-      icon: '/pwa-icon-192.png',
-      badge: '/pwa-icon-192.png',
+      icon: '/icons/ecubox-monogram-192.png',
+      badge: '/icons/ecubox-monogram-192.png',
       ...options,
     });
   } catch (error) {
