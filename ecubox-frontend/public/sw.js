@@ -37,7 +37,13 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/')));
+    event.respondWith(
+      fetch(request).catch(async () => {
+        const cachedResponse = await caches.match('/');
+        if (cachedResponse) return cachedResponse;
+        throw new Error('Offline and no cached fallback for navigation');
+      })
+    );
     return;
   }
 
@@ -52,8 +58,7 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
           return response;
-        })
-        .catch(() => caches.match(request));
+        });
     })
   );
 });
