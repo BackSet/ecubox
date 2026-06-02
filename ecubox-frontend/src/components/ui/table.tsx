@@ -6,7 +6,7 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  <div className="relative w-full overflow-auto rounded-[inherit]">
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-sm", className)}
@@ -58,7 +58,7 @@ const TableRow = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      "border-b border-border/60 transition-colors hover:bg-muted/40 data-[state=selected]:bg-muted",
+      "group border-b border-border/60 transition-all duration-150 hover:bg-muted/50 data-[state=selected]:bg-muted",
       className
     )}
     {...props}
@@ -73,10 +73,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      // Mejor legibilidad: 12px + semibold + tracking sutil + foreground/75 (más
-      // contraste que muted-foreground puro). bg-muted/30 separa visualmente
-      // la cabecera del cuerpo sin gritar.
-      "h-10 bg-muted/30 px-3 text-left align-middle text-[12px] font-semibold tracking-wide text-foreground/75 border-b border-border [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+      "h-10 bg-muted/30 px-3 text-left align-middle text-[11.5px] font-semibold tracking-wide text-foreground/70 border-b border-border sticky top-0 z-10 backdrop-blur-sm [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
       className
     )}
     {...props}

@@ -36,7 +36,11 @@ export function TableRowsSkeleton({
   return (
     <>
       {Array.from({ length: rows }).map((_, rowIdx) => (
-        <TableRow key={`skeleton-row-${rowIdx}`} className="hover:bg-transparent">
+        <TableRow
+          key={`skeleton-row-${rowIdx}`}
+          className="hover:bg-transparent"
+          style={{ animationDelay: `${rowIdx * 40}ms` }}
+        >
           {Array.from({ length: columns }).map((__, colIdx) => (
             <TableCell
               key={`skeleton-cell-${rowIdx}-${colIdx}`}
@@ -47,6 +51,7 @@ export function TableRowsSkeleton({
                   'h-3.5 rounded-md bg-[var(--color-muted)]/70 animate-pulse',
                   widths[(rowIdx + colIdx) % widths.length]
                 )}
+                style={{ animationDelay: `${(rowIdx * 40 + colIdx * 20) % 400}ms` }}
                 aria-hidden
               />
             </TableCell>

@@ -3,16 +3,16 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const statusBadgeVariants = cva(
-  'inline-flex items-center gap-1.5 rounded-md border border-transparent bg-[var(--color-muted)] px-2 py-0.5 text-[11px] font-medium leading-none text-[var(--color-foreground)]',
+  'inline-flex items-center gap-1.5 rounded-md border border-transparent px-2 py-0.5 text-[11px] font-medium leading-none',
   {
     variants: {
       tone: {
-        success: '',
-        info: '',
-        warning: '',
-        error: '',
-        primary: '',
-        neutral: '',
+        neutral: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
+        success: 'bg-[color-mix(in_oklab,var(--color-success)_14%,transparent)] text-[var(--color-success)]',
+        info:    'bg-[color-mix(in_oklab,var(--color-info)_14%,transparent)] text-[var(--color-info)]',
+        warning: 'bg-[color-mix(in_oklab,var(--color-warning)_14%,transparent)] text-[var(--color-warning)]',
+        error:   'bg-[color-mix(in_oklab,var(--color-destructive)_14%,transparent)] text-[var(--color-destructive)]',
+        primary: 'bg-[color-mix(in_oklab,var(--color-primary)_14%,transparent)] text-[var(--color-primary)]',
       },
       solid: {
         true: '',
@@ -23,27 +23,27 @@ const statusBadgeVariants = cva(
       {
         tone: 'success',
         solid: true,
-        class: 'border-transparent bg-[var(--color-success)] text-[var(--color-success-foreground)]',
+        class: 'bg-[var(--color-success)] text-[var(--color-success-foreground)]',
       },
       {
         tone: 'info',
         solid: true,
-        class: 'border-transparent bg-[var(--color-info)] text-[var(--color-info-foreground)]',
+        class: 'bg-[var(--color-info)] text-[var(--color-info-foreground)]',
       },
       {
         tone: 'warning',
         solid: true,
-        class: 'border-transparent bg-[var(--color-warning)] text-[var(--color-warning-foreground)]',
+        class: 'bg-[var(--color-warning)] text-[var(--color-warning-foreground)]',
       },
       {
         tone: 'error',
         solid: true,
-        class: 'border-transparent bg-[var(--color-destructive)] text-[var(--color-destructive-foreground)]',
+        class: 'bg-[var(--color-destructive)] text-[var(--color-destructive-foreground)]',
       },
       {
         tone: 'primary',
         solid: true,
-        class: 'border-transparent bg-[var(--color-primary)] text-[var(--color-primary-foreground)]',
+        class: 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]',
       },
     ],
     defaultVariants: {

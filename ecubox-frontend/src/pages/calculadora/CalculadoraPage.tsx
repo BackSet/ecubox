@@ -251,16 +251,21 @@ export function CalculadoraPage() {
               )}
 
               <section className="landing-card space-y-5 p-4 sm:p-6">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
-                    <Scale className="h-4 w-4 text-[var(--color-muted-foreground)]" />
-                    Peso del paquete
-                  </h2>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1.5">
+                    <span className="inline-flex items-center rounded-full bg-[var(--color-primary)]/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-primary)]">
+                      Paso 1
+                    </span>
+                    <h2 className="inline-flex items-center gap-2 text-base font-semibold text-[var(--color-foreground)]">
+                      <Scale className="h-4 w-4 text-[var(--color-muted-foreground)]" />
+                      ¿Cuánto pesa tu paquete?
+                    </h2>
+                  </div>
                   {(pesoLbs || pesoKg) && (
                     <button
                       type="button"
                       onClick={limpiar}
-                      className="inline-flex items-center gap-1 text-xs text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)]"
+                      className="inline-flex shrink-0 items-center gap-1 text-xs text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)]"
                     >
                       <RotateCcw className="h-3 w-3" />
                       Limpiar
@@ -270,7 +275,7 @@ export function CalculadoraPage() {
 
                 <div className="space-y-2">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
-                    Atajos
+                    Pesos frecuentes
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {PRESETS_LBS.map((p) => {
@@ -330,18 +335,22 @@ export function CalculadoraPage() {
 
               {costoEstimado !== null && tarifaConfigurada ? (
                 <section className="landing-card-elevated overflow-hidden">
-                  <div className="space-y-4 p-5 sm:p-6">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                  {/* Total protagonista sobre fondo de marca */}
+                  <div className="brand-gradient-bg px-5 py-5 sm:px-6 sm:py-6">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
-                          Costo estimado
+                        <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-primary-foreground)]/80">
+                          <span className="inline-flex items-center rounded-full bg-[var(--color-primary-foreground)]/20 px-2 py-0.5">
+                            Paso 2
+                          </span>
+                          Costo estimado total
                         </p>
-                        <p className="mt-1 text-3xl font-bold tracking-tight text-[var(--color-foreground)] sm:text-4xl">
+                        <p className="mt-2 text-4xl font-bold tracking-tight text-[var(--color-primary-foreground)] sm:text-5xl">
                           {fmtMoneda(costoEstimado)}
                         </p>
-                        <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                          Para un paquete de{' '}
-                          <span className="font-medium text-[var(--color-foreground)]">
+                        <p className="mt-1.5 text-sm text-[var(--color-primary-foreground)]/85">
+                          Paquete de{' '}
+                          <span className="font-semibold text-[var(--color-primary-foreground)]">
                             {fmtLbs(pesoLbsNum)} lbs
                           </span>{' '}
                           ({fmtLbs(lbsToKg(pesoLbsNum))} kg)
@@ -352,13 +361,15 @@ export function CalculadoraPage() {
                         variant="outline"
                         size="sm"
                         onClick={handleCopiarResultado}
-                        className={`gap-2 ${copiado ? 'border-[var(--color-success)] text-[var(--color-success)]' : ''}`}
+                        className="gap-2 border-[var(--color-primary-foreground)]/30 bg-[var(--color-primary-foreground)]/10 text-[var(--color-primary-foreground)] hover:bg-[var(--color-primary-foreground)]/20 hover:text-[var(--color-primary-foreground)]"
                       >
                         {copiado ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                         {copiado ? 'Copiado' : 'Copiar'}
                       </Button>
                     </div>
+                  </div>
 
+                  <div className="space-y-4 p-5 sm:p-6">
                     <dl className="space-y-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/60 p-3.5 text-sm">
                       <div className="flex items-center justify-between gap-2">
                         <dt className="text-[var(--color-muted-foreground)]">

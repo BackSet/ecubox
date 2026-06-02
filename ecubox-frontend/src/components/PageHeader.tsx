@@ -56,7 +56,7 @@ export function PageHeader({
   );
 
   const actionsNode = actions ? (
-    <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+    <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap sm:justify-end">
       {actions}
     </div>
   ) : null;

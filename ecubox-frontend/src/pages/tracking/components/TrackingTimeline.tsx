@@ -1,4 +1,4 @@
-import { Check, Circle, CircleDot } from 'lucide-react';
+import { Check, Circle, CircleDot, Route } from 'lucide-react';
 import type { TrackingEstadoItem } from '@/lib/api/tracking.service';
 
 interface TrackingTimelineProps {
@@ -43,11 +43,13 @@ export function TrackingTimeline({ estados, currentIndex }: TrackingTimelineProp
 
   return (
     <section className="surface-card p-5 sm:p-6">
-      <h3 className="text-base font-semibold text-[var(--color-foreground)]">
+      <h3 className="inline-flex items-center gap-2 text-base font-semibold text-[var(--color-foreground)]">
+        <Route className="h-4 w-4 text-[var(--color-muted-foreground)]" />
         Recorrido del envío
       </h3>
       <p className="mt-1.5 text-sm text-[var(--color-muted-foreground)]">
-        Revisa cada etapa de tu envío. Los avisos adicionales aparecen solo cuando corresponden.
+        Cada etapa por la que pasa tu envío. La marcada como "Actual" es donde se
+        encuentra ahora.
       </p>
 
       <ul className="relative mt-5 space-y-0" role="list">
@@ -68,7 +70,7 @@ export function TrackingTimeline({ estados, currentIndex }: TrackingTimelineProp
                 className={`
                   relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2
                   ${item.esActual
-                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)] ring-4 ring-[var(--color-primary)]/15'
                     : isCompleted
                       ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
                       : 'border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-muted-foreground)]'}
@@ -83,7 +85,13 @@ export function TrackingTimeline({ estados, currentIndex }: TrackingTimelineProp
                   <Circle className="h-3.5 w-3.5" />
                 )}
               </span>
-              <div className="flex-1 min-w-0 rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-3.5 py-3">
+              <div
+                className={`flex-1 min-w-0 rounded-lg border px-3.5 py-3 transition-colors ${
+                  item.esActual
+                    ? 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/[0.06]'
+                    : 'border-[var(--color-border)] bg-[var(--color-muted)]/20'
+                }`}
+              >
                 <div className="flex items-center gap-2.5 flex-wrap">
                   {isAlterno ? (
                     <span className="rounded border border-[var(--color-primary)]/25 bg-[var(--color-primary)]/10 px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]">

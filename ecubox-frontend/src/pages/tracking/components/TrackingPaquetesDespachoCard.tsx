@@ -13,8 +13,6 @@ interface BolsaAgrupada {
   /** Clave de orden estable (numero de bolsa cuando se puede inferir, sino el raw). */
   sortKey: number | string;
   paquetes: TrackingPaqueteDespacho[];
-  totalKg: number | null;
-  totalLbs: number | null;
   /** True si en esta bolsa esta el paquete que el usuario esta viendo. */
   contieneActual: boolean;
 }
@@ -50,18 +48,11 @@ export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespach
           label,
           sortKey,
           paquetes: [],
-          totalKg: null,
-          totalLbs: null,
           contieneActual: false,
         };
         grupos.set(claveGrupo, grupo);
       }
       grupo.paquetes.push(p);
-      const peso = pesoNormalizado(p);
-      if (peso != null) {
-        grupo.totalKg = (grupo.totalKg ?? 0) + peso.kg;
-        grupo.totalLbs = (grupo.totalLbs ?? 0) + peso.lbs;
-      }
       if (p.numeroGuia && p.numeroGuia === numeroGuiaActual) {
         grupo.contieneActual = true;
       }
@@ -77,9 +68,15 @@ export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespach
 
   return (
     <section className="surface-card p-5 sm:p-6 space-y-4">
-      <h3 className="text-base font-semibold text-[var(--color-foreground)]">
-        Otros envíos del mismo lote
-      </h3>
+      <div className="space-y-1">
+        <h3 className="inline-flex items-center gap-2 text-base font-semibold text-[var(--color-foreground)]">
+          <Package className="h-4 w-4 text-[var(--color-muted-foreground)]" />
+          Otros envíos del mismo lote
+        </h3>
+        <p className="text-sm text-[var(--color-muted-foreground)]">
+          Paquetes agrupados por bolsa de transporte. Tu paquete aparece resaltado.
+        </p>
+      </div>
       {bolsas.length === 0 ? (
         <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-3 text-sm text-[var(--color-muted-foreground)]">
           No hay paquetes asociados para mostrar.
@@ -91,20 +88,14 @@ export function TrackingPaquetesDespachoCard({ result }: TrackingPaquetesDespach
               key={`${bolsa.label}-${String(bolsa.sortKey)}`}
               className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-4 space-y-3"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-[var(--color-muted-foreground)]" />
-                  <span className="text-sm font-semibold text-[var(--color-foreground)]">
-                    {bolsa.label}
-                  </span>
-                  <span className="text-xs text-[var(--color-muted-foreground)]">
-                    · {bolsa.paquetes.length}{' '}
-                    {bolsa.paquetes.length === 1 ? 'paquete' : 'paquetes'}
-                  </span>
-                </div>
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-[var(--color-muted-foreground)]" />
+                <span className="text-sm font-semibold text-[var(--color-foreground)]">
+                  {bolsa.label}
+                </span>
                 <span className="text-xs text-[var(--color-muted-foreground)]">
-                  Peso total:{' '}
-                  {formatWeightFromValues(bolsa.totalLbs, bolsa.totalKg) ?? '—'}
+                  · {bolsa.paquetes.length}{' '}
+                  {bolsa.paquetes.length === 1 ? 'paquete' : 'paquetes'}
                 </span>
               </div>
 

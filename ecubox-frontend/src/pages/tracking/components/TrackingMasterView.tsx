@@ -1,9 +1,13 @@
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import {
   Activity,
   AlertCircle,
+  AlertTriangle,
+  Boxes,
+  CalendarClock,
+  Hash,
   MapPin,
-  Package,
   PackageCheck,
   Truck,
   UserRound,
@@ -14,6 +18,7 @@ import type {
   TrackingMasterResponse,
   TrackingPiezaItem,
 } from '@/lib/api/tracking.service';
+import { getDomainStatusTone } from '@/components/ui/StatusBadge';
 import { TrackingPiezasList } from '@/pages/tracking/components/TrackingPiezasList';
 
 interface TrackingMasterViewProps {
@@ -32,6 +37,50 @@ const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
   CANCELADA: 'Cancelada',
   EN_REVISION: 'En revisión',
 };
+
+type HeroTone = 'info' | 'success' | 'warning' | 'danger' | 'neutral';
+
+/** Colapsa el StatusTone (6 valores) al tono visual del héroe (5 valores). */
+function resolveMasterTone(estado?: EstadoGuiaMaster | null): HeroTone {
+  const tone = getDomainStatusTone(estado);
+  if (tone === 'primary') return 'info';
+  if (tone === 'error') return 'danger';
+  return tone as HeroTone;
+}
+
+const TONE_STYLES: Record<HeroTone, { band: string; icon: string; percent: string }> = {
+  neutral: {
+    band: 'bg-[var(--color-muted)]/40',
+    icon: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
+    percent: 'text-[var(--color-muted-foreground)]',
+  },
+  info: {
+    band: 'bg-[color-mix(in_oklab,var(--color-info)_9%,var(--color-card))]',
+    icon: 'bg-[color-mix(in_oklab,var(--color-info)_16%,transparent)] text-[var(--color-info)]',
+    percent: 'text-[var(--color-info)]',
+  },
+  success: {
+    band: 'bg-[color-mix(in_oklab,var(--color-success)_10%,var(--color-card))]',
+    icon: 'bg-[color-mix(in_oklab,var(--color-success)_16%,transparent)] text-[var(--color-success)]',
+    percent: 'text-[var(--color-success)]',
+  },
+  warning: {
+    band: 'bg-[color-mix(in_oklab,var(--color-warning)_11%,var(--color-card))]',
+    icon: 'bg-[color-mix(in_oklab,var(--color-warning)_18%,transparent)] text-[var(--color-warning)]',
+    percent: 'text-[var(--color-warning)]',
+  },
+  danger: {
+    band: 'bg-[color-mix(in_oklab,var(--color-destructive)_10%,var(--color-card))]',
+    icon: 'bg-[color-mix(in_oklab,var(--color-destructive)_16%,transparent)] text-[var(--color-destructive)]',
+    percent: 'text-[var(--color-destructive)]',
+  },
+};
+
+function resolveHeroIcon(tone: HeroTone): ReactNode {
+  if (tone === 'danger' || tone === 'warning') return <AlertTriangle className="h-7 w-7" />;
+  if (tone === 'success') return <PackageCheck className="h-7 w-7" />;
+  return <Boxes className="h-7 w-7" />;
+}
 
 function formatDate(iso?: string): string | null {
   if (!iso) return null;
@@ -64,16 +113,24 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
   const registradas = master.piezasRegistradas ?? 0;
   const piezas: TrackingPiezaItem[] = master.piezas ?? [];
 
-  const progresoRecibidas = total > 0 ? Math.min(100, (recibidas / total) * 100) : 0;
-  const progresoDespachadas = total > 0 ? Math.min(100, (despachadas / total) * 100) : 0;
+  const safeTotal = Math.max(total, 1);
+  const pctRegistradas = total > 0 ? Math.min(100, (registradas / safeTotal) * 100) : 0;
+  const pctRecibidas = total > 0 ? Math.min(100, (recibidas / safeTotal) * 100) : 0;
+  const pctDespachadas = total > 0 ? Math.min(100, (despachadas / safeTotal) * 100) : 0;
+  const pctDespachadasRedondeado = Math.round(pctDespachadas);
 
   const estadoLabel = master.estadoGlobal ? ESTADO_LABELS[master.estadoGlobal] : 'Sin estado';
+  const tone = resolveMasterTone(master.estadoGlobal);
+  const styles = TONE_STYLES[tone];
 
   const dest = master.consignatario;
   const consignatarioNombre = dest?.nombre ?? master.consignatarioNombre ?? null;
   const consignatarioProvincia = dest?.provincia ?? null;
   const consignatarioCanton = dest?.canton ?? null;
   const tieneUbicacion = Boolean(consignatarioProvincia || consignatarioCanton);
+
+  const fechaPrimeraRecepcion = formatDate(master.fechaPrimeraRecepcion);
+  const fechaPrimerDespacho = formatDate(master.fechaPrimeraPiezaDespachada);
 
   const timeline: TrackingMasterEventoItem[] = useMemo(() => {
     const base = master.timeline ?? [];
@@ -88,60 +145,102 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
 
   return (
     <section className="space-y-5">
-      <div className="surface-card p-5 sm:p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-wide text-[var(--color-muted-foreground)]">
-              Guía del consolidador
-            </p>
-            <h2 className="text-2xl font-semibold text-[var(--color-foreground)] break-all">
-              {master.trackingBase}
-            </h2>
-            {consignatarioNombre ? (
-              <p className="text-sm text-[var(--color-muted-foreground)]">
-                Consignatario: <span className="font-medium">{consignatarioNombre}</span>
+      {/* Héroe de estado de la guía consolidada */}
+      <div className="surface-card overflow-hidden">
+        <div className={`${styles.band} p-5 sm:p-6`}>
+          <div className="flex items-start gap-4">
+            <span
+              className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${styles.icon}`}
+              aria-hidden
+            >
+              {resolveHeroIcon(tone)}
+            </span>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
+                Guía consolidada
               </p>
-            ) : null}
+              <h2 className="text-2xl font-bold leading-tight tracking-tight text-[var(--color-foreground)] sm:text-[1.75rem]">
+                {estadoLabel}
+              </h2>
+              {consignatarioNombre ? (
+                <p className="text-sm text-[var(--color-muted-foreground)]">
+                  Consignatario:{' '}
+                  <span className="font-medium text-[var(--color-foreground)]">
+                    {consignatarioNombre}
+                  </span>
+                </p>
+              ) : null}
+            </div>
           </div>
-          <span className="self-start inline-flex items-center gap-1.5 rounded-full bg-[var(--color-muted)] px-3 py-1 text-xs font-medium text-[var(--color-foreground)]">
-            <PackageCheck className="h-3.5 w-3.5" />
-            {estadoLabel}
+
+          {total > 0 ? (
+            <div className="mt-5 space-y-2.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-sm font-medium text-[var(--color-foreground)]">
+                  {despachadas} de {total} piezas despachadas
+                </p>
+                <p className={`text-sm font-bold tabular-nums ${styles.percent}`}>
+                  {pctDespachadasRedondeado}%
+                </p>
+              </div>
+              {/* Barra segmentada: registradas → recibidas → despachadas sobre el total */}
+              <div
+                className="relative h-2.5 w-full overflow-hidden rounded-full bg-[var(--color-muted)]"
+                role="img"
+                aria-label={`${registradas} registradas, ${recibidas} recibidas, ${despachadas} despachadas de ${total}`}
+              >
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-info)]/70 transition-all duration-500"
+                  style={{ width: `${pctRegistradas}%` }}
+                />
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-warning)]/85 transition-all duration-500"
+                  style={{ width: `${pctRecibidas}%` }}
+                />
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-success)]/90 transition-all duration-500"
+                  style={{ width: `${pctDespachadas}%` }}
+                />
+              </div>
+              {/* Leyenda con los conteos (única fuente, no se repiten arriba) */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                <Dot color="bg-[var(--color-info)]" label="Registradas" value={registradas} />
+                <Dot color="bg-[var(--color-warning)]" label="Recibidas" value={recibidas} />
+                <Dot color="bg-[var(--color-success)]" label="Despachadas" value={despachadas} />
+                <span className="text-[var(--color-muted-foreground)]/70">
+                  Esperadas {total}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-dashed border-[var(--color-border)] p-3 text-xs text-[var(--color-muted-foreground)]">
+              <AlertCircle className="h-4 w-4" />
+              Aún no se ha definido el total de piezas esperadas para esta guía.
+            </div>
+          )}
+        </div>
+
+        {/* Pie de metadatos: guía + fechas clave */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-[var(--color-border)] px-5 py-3 sm:px-6">
+          <span className="inline-flex items-center gap-1.5 text-sm">
+            <Hash className="h-3.5 w-3.5 text-[var(--color-muted-foreground)]" aria-hidden />
+            <span className="text-[var(--color-muted-foreground)]">Guía</span>
+            <span className="font-mono font-medium text-[var(--color-foreground)] break-all">
+              {master.trackingBase}
+            </span>
           </span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Metric icon={<Package className="h-4 w-4" />} label="Esperadas" value={total} />
-          <Metric icon={<Package className="h-4 w-4" />} label="Registradas" value={registradas} />
-          <Metric icon={<PackageCheck className="h-4 w-4" />} label="Recibidas" value={recibidas} />
-          <Metric icon={<Truck className="h-4 w-4" />} label="Despachadas" value={despachadas} />
-        </div>
-
-        {total > 0 ? (
-          <div className="space-y-3 pt-1">
-            <ProgressBar
-              label={`Recibidas ${recibidas}/${total}`}
-              percent={progresoRecibidas}
-              tone="primary"
-            />
-            <ProgressBar
-              label={`Despachadas ${despachadas}/${total}`}
-              percent={progresoDespachadas}
-              tone="success"
-            />
-          </div>
-        ) : (
-          <div className="rounded-md border border-dashed border-[var(--color-border)] p-3 text-xs text-[var(--color-muted-foreground)] inline-flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            Aún no se ha definido el total de piezas esperadas para esta guía.
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs text-[var(--color-muted-foreground)]">
-          <DateChip label="Primera recepción" value={formatDate(master.fechaPrimeraRecepcion)} />
-          <DateChip
-            label="Primer despacho"
-            value={formatDate(master.fechaPrimeraPiezaDespachada)}
-          />
+          {fechaPrimeraRecepcion ? (
+            <span className="inline-flex items-center gap-1.5 text-sm text-[var(--color-muted-foreground)]">
+              <CalendarClock className="h-3.5 w-3.5" aria-hidden />
+              Primera recepción: {fechaPrimeraRecepcion}
+            </span>
+          ) : null}
+          {fechaPrimerDespacho ? (
+            <span className="inline-flex items-center gap-1.5 text-sm text-[var(--color-muted-foreground)]">
+              <Truck className="h-3.5 w-3.5" aria-hidden />
+              Primer despacho: {fechaPrimerDespacho}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -242,56 +341,25 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
   );
 }
 
-function Metric({
-  icon,
+function Dot({
+  color,
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  color: string;
   label: string;
   value: number;
 }) {
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-3">
-      <div className="flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)]">
-        {icon}
-        <span>{label}</span>
-      </div>
-      <p className="mt-1 text-xl font-semibold text-[var(--color-foreground)]">{value}</p>
-    </div>
-  );
-}
-
-function ProgressBar({
-  label,
-  percent,
-  tone,
-}: {
-  label: string;
-  percent: number;
-  tone: 'primary' | 'success';
-}) {
-  const barColor =
-    tone === 'success' ? 'bg-[var(--color-success)]' : 'bg-[var(--color-primary)]';
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-xs text-[var(--color-muted-foreground)]">
-        <span>{label}</span>
-        <span>{Math.round(percent)}%</span>
-      </div>
-      <div className="h-2 w-full rounded-full bg-[var(--color-muted)] overflow-hidden">
-        <div className={`h-full ${barColor}`} style={{ width: `${percent}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function DateChip({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="rounded-md border border-[var(--color-border)] px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wide">{label}</p>
-      <p className="text-sm text-[var(--color-foreground)]">{value ?? '—'}</p>
-    </div>
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`h-2 w-2 rounded-full ${color}`} aria-hidden />
+      <span>
+        {label}{' '}
+        <span className="font-semibold text-[var(--color-foreground)] tabular-nums">
+          {value}
+        </span>
+      </span>
+    </span>
   );
 }
 

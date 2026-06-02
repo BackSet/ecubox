@@ -57,7 +57,7 @@ export function TablePagination({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 border-t border-[var(--color-border)] pt-3 sm:flex-row sm:items-center sm:justify-between',
+        'flex flex-col gap-2.5 border-t border-[var(--color-border)] pt-3 sm:flex-row sm:items-center sm:justify-between',
         className,
       )}
     >
@@ -78,7 +78,7 @@ export function TablePagination({
         )}
       </p>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
         {onSizeChange && (
           <div className="flex items-center gap-2">
             <label
