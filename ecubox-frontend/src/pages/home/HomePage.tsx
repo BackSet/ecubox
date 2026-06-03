@@ -1,5 +1,4 @@
 import { Hero } from '@/components/Hero';
-import { PublicQuickAccess } from '@/components/public/PublicQuickAccess';
 import { ServicesGrid } from '@/components/ServicesGrid';
 import { HowItWorks } from '@/components/HowItWorks';
 import { CallToActionBanner } from '@/components/CallToActionBanner';
@@ -13,11 +12,10 @@ export function HomePage() {
   return (
     <PublicPageLayout skipLink topSlot={<HomeJsonLdCanales />}>
       <Hero />
-      <PublicQuickAccess />
-      <PwaLandingPanel />
       <ServicesGrid />
       <HowItWorks />
       <CallToActionBanner />
+      <PwaLandingPanel />
       <FAQ />
       <PublicContactBlock />
     </PublicPageLayout>

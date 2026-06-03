@@ -50,19 +50,26 @@ export function buildPublicPageHead(payload: PublicSeoPayload): {
 } {
   const url = absoluteUrl(payload.path);
   const image = absoluteOgImageUrl();
+  const imageAlt = 'ECUBOX – Casillero en USA y envíos a Ecuador';
   const meta: MetaDescriptor[] = [
     { title: payload.title },
     { name: 'description', content: payload.description },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:site_name', content: 'ECUBOX' },
     { property: 'og:title', content: payload.title },
     { property: 'og:description', content: payload.description },
     { property: 'og:type', content: 'website' },
     { property: 'og:url', content: url },
     { property: 'og:locale', content: 'es_EC' },
     { property: 'og:image', content: image },
+    { property: 'og:image:alt', content: imageAlt },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: payload.title },
     { name: 'twitter:description', content: payload.description },
     { name: 'twitter:image', content: image },
+    { name: 'twitter:image:alt', content: imageAlt },
   ];
   const links = [{ rel: 'canonical' as const, href: url }];
   return { meta, links };

@@ -8,7 +8,6 @@ import {
   PackageSearch,
   Plane,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -56,16 +55,6 @@ export function Hero() {
       <div className="content-container mobile-safe-inline landing-hero relative">
         <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.72fr)] lg:gap-10 xl:gap-14">
           <div className="flex min-w-0 flex-col items-center text-center lg:items-start lg:text-left">
-            <div className="landing-chip mb-5 inline-flex max-w-full items-center gap-2 px-3 py-2 sm:px-4">
-              <Sparkles className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
-              <span className="rounded bg-[var(--color-primary)] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[var(--color-primary-foreground)]">
-                Nuevo
-              </span>
-              <span className="landing-text-muted min-w-0 truncate text-xs sm:text-sm">
-                Cobertura USA → Ecuador
-              </span>
-            </div>
-
             <h1 id="hero-heading" className="hero-title landing-text mb-5 max-w-3xl font-bold">
               Tu casillero en USA.{' '}
               <span className="brand-gradient-text">
