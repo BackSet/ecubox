@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 import { lazy, Suspense, useEffect, type ComponentType, type ElementType } from 'react';
 import { AppToaster } from '@/components/ui/sonner';
+import { RouteErrorScreen } from '@/components/RouteErrorScreen';
 import { useAuthStore } from '@/stores/authStore';
 import { applyTheme, useThemeStore } from '@/stores/themeStore';
 import {
@@ -660,7 +661,10 @@ const routeTree = rootRoute.addChildren([
   tarifaCalculadoraRoute,
   parametrosSistemaRoute,
 ]);
-const router = createRouter({ routeTree });
+const router = createRouter({
+  routeTree,
+  defaultErrorComponent: ({ error }) => <RouteErrorScreen error={error} />,
+});
 
 declare module '@tanstack/react-router' {
   interface Register {

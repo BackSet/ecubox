@@ -16,7 +16,8 @@
 const RELOAD_FLAG = 'ecubox_chunk_reload_at';
 const RELOAD_WINDOW_MS = 15_000;
 
-function isModuleLoadError(reason: unknown): boolean {
+/** Identifica fallos de carga de chunks (modulo importado de forma diferida). */
+export function isModuleLoadError(reason: unknown): boolean {
   const message = reason instanceof Error ? reason.message : String(reason ?? '');
   return /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|expected a javascript(?:-or-wasm)? module|mime type|text\/html/i.test(
     message
