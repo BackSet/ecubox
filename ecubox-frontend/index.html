@@ -2,10 +2,10 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon-light.svg" id="ecubox-favicon" />
-    <link rel="apple-touch-icon" href="/icons/ecubox-monogram-180.png" />
-    <link rel="mask-icon" href="/favicon.svg" color="#6C4CF1" />
-    <link rel="manifest" href="/manifest.webmanifest?v=5" />
+    <link rel="icon" type="image/svg+xml" href="/favicon-light.svg?v=6" id="ecubox-favicon" />
+    <link rel="apple-touch-icon" href="/icons/ecubox-monogram-180.png?v=6" />
+    <link rel="mask-icon" href="/favicon.svg?v=6" color="#6C4CF1" />
+    <link rel="manifest" href="/manifest.webmanifest?v=6" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="ECUBOX" />
@@ -92,7 +92,7 @@
           }
           var favicon = document.getElementById('ecubox-favicon');
           if (favicon) {
-            favicon.setAttribute('href', effective === 'dark' ? '/favicon-dark.svg' : '/favicon-light.svg');
+            favicon.setAttribute('href', effective === 'dark' ? '/favicon-dark.svg?v=6' : '/favicon-light.svg?v=6');
           }
         } catch (e) {
           // Storage bloqueado: dejamos que React aplique el default tras montar.
