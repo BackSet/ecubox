@@ -85,9 +85,9 @@ Puntos clave:
   build); `sw.js`, `index.html`, `manifest.webmanifest` e iconos en `/icons/*`
   usan `no-cache` para revalidar en cada deploy.
 - **Iconos de instalación:** PNG en `public/icons/` generados desde
-  `monograma_ecubox-light.svg` (`npm run icons:generate`). El manifest referencia
-  rutas versionadas (`/icons/ecubox-monogram-*.png`) para evitar caché del icono
-  antiguo en el movil.
+  `monograma_ecubox-light.svg` (`npm run icons:generate`). La letra **e** debe ser
+  un `<path>` (no `<text>`), porque el rasterizador no tiene fuentes embebidas.
+  El manifest referencia rutas en `/icons/ecubox-monogram-*.png`.
 
 ### Notificaciones
 

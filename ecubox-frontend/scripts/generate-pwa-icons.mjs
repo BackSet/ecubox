@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// Debe usar <path> para la letra "e", no <text>: resvg no carga fuentes en CI/móvil.
 const sourceSvg = path.join(root, 'src/assets/brand/monograma_ecubox-light.svg');
 const outDir = path.join(root, 'public/icons');
 
@@ -21,6 +22,16 @@ const outputs = [
 
 if (!fs.existsSync(sourceSvg)) {
   console.error('No se encontró:', sourceSvg);
+  process.exit(1);
+}
+
+const sourceContent = fs.readFileSync(sourceSvg, 'utf8');
+if (sourceContent.includes('<text')) {
+  console.error('El monograma no debe usar <text> para PNG PWA. Usa <path> (ver monograma-letter-e.path.svg).');
+  process.exit(1);
+}
+if (!sourceContent.includes('<path')) {
+  console.error('El monograma debe incluir un <path> con la letra e.');
   process.exit(1);
 }
 

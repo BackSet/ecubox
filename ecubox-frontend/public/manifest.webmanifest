@@ -2,7 +2,7 @@
   "name": "ECUBOX",
   "short_name": "ECUBOX",
   "description": "Casillero en USA, envios a Ecuador, rastreo por pieza y portal de clientes.",
-  "id": "/?app=ecubox-v3",
+  "id": "/?app=ecubox-v4",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
