@@ -84,9 +84,12 @@ Puntos clave:
 - **Cabeceras de caché (`Caddyfile`):** `/assets/*` es inmutable (hash por
   build); `sw.js`, `index.html`, `manifest.webmanifest` e iconos en `/icons/*`
   usan `no-cache` para revalidar en cada deploy.
-- **Iconos de instalación:** PNG en `public/icons/` generados desde
-  `src/assets/brand/monograma_ecubox.png` (`npm run icons:generate`). El manifest
-  referencia rutas en `/icons/ecubox-monogram-*.png`.
+- **Iconos de instalación:** PNG en `public/icons/` generados con
+  `npm run icons:generate` (`scripts/generate-pwa-icons.mjs`), que compone el
+  monograma como SVG (degradado de marca + glifo "e" vectorizado de Manrope) y lo
+  rasteriza con `sharp` al tamaño exacto: squircle a sangre para `any`, cuadrado a
+  sangre para `apple-touch`, y fondo a sangre con glifo en zona segura para
+  `maskable`. El manifest referencia rutas en `/icons/ecubox-monogram-*.png`.
 
 ### Notificaciones
 
