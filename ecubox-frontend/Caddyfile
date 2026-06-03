@@ -24,5 +24,16 @@ header {
 	Referrer-Policy strict-origin-when-cross-origin
 }
 
-try_files {path} /index.html
-file_server
+# Recursos con hash: si el archivo no existe (chunk de un build anterior tras
+# un deploy), responder 404 limpio. NUNCA caer al fallback SPA, que serviria
+# index.html con Content-Type text/html y rompe el import dinamico con el error
+# "MIME type ('text/html') is not a valid JavaScript MIME type".
+handle /assets/* {
+	file_server
+}
+
+# Resto de rutas: fallback SPA al index.html para el enrutado del cliente.
+handle {
+	try_files {path} /index.html
+	file_server
+}
