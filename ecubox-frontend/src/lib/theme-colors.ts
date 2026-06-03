@@ -12,10 +12,16 @@ export type EffectiveTheme = keyof typeof APP_SURFACE_COLORS;
 const THEME_COLOR_META_ID = 'ecubox-theme-color';
 const APPLE_STATUS_META_NAME = 'apple-mobile-web-app-status-bar-style';
 const FAVICON_LINK_ID = 'ecubox-favicon';
+/** Incrementar al cambiar favicon SVG para invalidar caché del navegador. */
+export const FAVICON_ASSET_VERSION = '7';
 const FAVICON_PATHS: Record<EffectiveTheme, string> = {
   light: '/favicon-light.svg',
   dark: '/favicon-dark.svg',
 };
+
+function faviconHref(effective: EffectiveTheme): string {
+  return `${FAVICON_PATHS[effective]}?v=${FAVICON_ASSET_VERSION}`;
+}
 
 /** Sincroniza el icono de pestaña con el tema efectivo de la app (no solo prefers-color-scheme). */
 export function applyFaviconTheme(effective: EffectiveTheme): void {
@@ -29,7 +35,7 @@ export function applyFaviconTheme(effective: EffectiveTheme): void {
     link.type = 'image/svg+xml';
     document.head.appendChild(link);
   }
-  link.href = FAVICON_PATHS[effective];
+  link.href = faviconHref(effective);
 }
 
 /**
