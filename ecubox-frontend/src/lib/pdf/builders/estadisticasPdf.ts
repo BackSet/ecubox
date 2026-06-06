@@ -98,17 +98,17 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
     },
   ]);
 
-  drawInlineMetrics(ctx, 'Estimación según paquetes registrados', [
+  drawInlineMetrics(ctx, 'Estimación financiera', [
     {
-      label: 'Margen bruto estimado',
+      label: 'Margen bruto',
       value: fmtMoneda(data.resumen.margenBruto),
     },
     {
-      label: 'Costo de distribución',
+      label: 'Costo distribución',
       value: fmtMoneda(data.resumen.costoDistribucion),
     },
     {
-      label: 'Ingreso neto aproximado',
+      label: 'Ingreso neto aprox.',
       value: fmtMoneda(data.resumen.ingresoNetoAproximado),
     },
   ]);
@@ -189,11 +189,11 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
     { key: 'guia', label: 'GUÍA', weight: 0.16, align: 'left', render: (r) => safeStr(r.numeroGuia), mono: true },
     { key: 'ref', label: 'REFERENCIA', weight: 0.12, align: 'left', render: (r) => safeStr(r.referencia), mono: true },
     { key: 'master', label: 'GUÍA MASTER', weight: 0.14, align: 'left', render: (r) => safeStr(r.guiaMaster), mono: true },
-    { key: 'cons', label: 'CONSIGNATARIO', weight: 0.2, align: 'left', render: (r) => safeStr(r.consignatario) },
-    { key: 'estado', label: 'ESTADO', weight: 0.14, align: 'left', render: (r) => safeStr(r.estado) },
+    { key: 'cons', label: 'CONSIGNATARIO', weight: 0.18, align: 'left', render: (r) => safeStr(r.consignatario) },
+    { key: 'estado', label: 'ESTADO', weight: 0.12, align: 'left', render: (r) => safeStr(r.estado) },
     { key: 'reg', label: 'REGISTRADO', weight: 0.1, align: 'left', render: (r) => fmtFechaCorta(r.registradoEn) },
-    { key: 'dias', label: 'DÍAS LAB.', weight: 0.05, align: 'right', render: (r) => String(r.diasSinDespachar) },
-    { key: 'atraso', label: 'ATRASO LAB.', weight: 0.05, align: 'right', render: (r) => `+${r.diasAtraso}` },
+    { key: 'dias', label: 'DÍAS', weight: 0.07, align: 'right', render: (r) => String(r.diasSinDespachar) },
+    { key: 'atraso', label: 'ATRASO', weight: 0.07, align: 'right', render: (r) => `+${r.diasAtraso}` },
   ];
   drawTable<PaqueteDemorado>(ctx, {
     columns: demoradoCols,
