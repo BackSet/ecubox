@@ -282,7 +282,7 @@ export function EstadisticasPage() {
               icon={<AlertTriangle />}
               label="Demorados"
               value={formatNumber(data.resumen.demoradosSinDespachar)}
-              hint={`Superan ${data.diasMaxSinDespachar} días sin despacho`}
+              hint={`Superan ${data.diasMaxSinDespachar} días laborables sin despacho`}
               tone={data.resumen.demoradosSinDespachar > 0 ? 'danger' : 'neutral'}
             />
             <KpiCard
@@ -315,13 +315,6 @@ export function EstadisticasPage() {
                   : '—'
               }
               hint="Desde el registro hasta el despacho"
-              tone="info"
-            />
-            <KpiCard
-              icon={<CalendarRange />}
-              label="Tiempo estimado de entrega"
-              value="7 a 12 días"
-              hint="Días laborables desde el despacho"
               tone="info"
             />
             <KpiCard
@@ -590,7 +583,9 @@ export function EstadisticasPage() {
                     Paquetes demorados sin despacho
                   </h2>
                   <p className="mt-1 text-[12px] text-[var(--color-muted-foreground)]">
-                    Registrados hace más de {data.diasMaxSinDespachar} días y todavía sin despacho asignado.
+                    El proceso completo se estima entre 7 y 12 días laborables. Aquí aparecen los
+                    paquetes que superan {data.diasMaxSinDespachar} días laborables desde su registro
+                    y todavía no tienen despacho.
                   </p>
                 </div>
                 <span className="rounded-full bg-[var(--color-destructive)]/10 px-2.5 py-1 text-[12px] font-medium text-[var(--color-destructive)]">
@@ -607,8 +602,8 @@ export function EstadisticasPage() {
                   <TableHead>Consignatario</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Registrado</TableHead>
-                  <TableHead className="text-right">Días</TableHead>
-                  <TableHead className="text-right">Atraso</TableHead>
+                  <TableHead className="text-right">Días laborables</TableHead>
+                  <TableHead className="text-right">Atraso laborable</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

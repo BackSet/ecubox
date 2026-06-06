@@ -96,10 +96,6 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
           ? `${fmtNumero(data.resumen.tiempoPromedioDespachoDias, 1)} días`
           : '—',
     },
-    {
-      label: 'Entrega estimada',
-      value: '7 a 12 días laborables',
-    },
   ]);
 
   drawInlineMetrics(ctx, 'Estimación según paquetes registrados', [
@@ -186,7 +182,7 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
   // ── Paquetes demorados ──
   drawSectionTitle(
     ctx,
-    `Paquetes demorados sin despacho (> ${data.diasMaxSinDespachar} días)`,
+    `Paquetes demorados sin despacho (> ${data.diasMaxSinDespachar} días laborables)`,
   );
   const demoradoCols: ColumnDef<PaqueteDemorado>[] = [
     { key: 'idx', label: '#', weight: 0.04, align: 'center', render: (_, i) => String(i + 1) },
@@ -196,8 +192,8 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
     { key: 'cons', label: 'CONSIGNATARIO', weight: 0.2, align: 'left', render: (r) => safeStr(r.consignatario) },
     { key: 'estado', label: 'ESTADO', weight: 0.14, align: 'left', render: (r) => safeStr(r.estado) },
     { key: 'reg', label: 'REGISTRADO', weight: 0.1, align: 'left', render: (r) => fmtFechaCorta(r.registradoEn) },
-    { key: 'dias', label: 'DÍAS', weight: 0.05, align: 'right', render: (r) => String(r.diasSinDespachar) },
-    { key: 'atraso', label: 'ATRASO', weight: 0.05, align: 'right', render: (r) => `+${r.diasAtraso}` },
+    { key: 'dias', label: 'DÍAS LAB.', weight: 0.05, align: 'right', render: (r) => String(r.diasSinDespachar) },
+    { key: 'atraso', label: 'ATRASO LAB.', weight: 0.05, align: 'right', render: (r) => `+${r.diasAtraso}` },
   ];
   drawTable<PaqueteDemorado>(ctx, {
     columns: demoradoCols,

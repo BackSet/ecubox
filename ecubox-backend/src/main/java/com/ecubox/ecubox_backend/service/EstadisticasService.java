@@ -15,12 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +31,7 @@ import java.util.Map;
 public class EstadisticasService {
 
     private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
+    private static final int DIAS_MAX_PROCESO_LABORABLES = 12;
     private static final DateTimeFormatter ETIQUETA_MES =
             DateTimeFormatter.ofPattern("MMM yy", Locale.forLanguageTag("es-EC"));
 
@@ -62,8 +63,7 @@ public class EstadisticasService {
         YearMonth primerMes = YearMonth.from(hoy).minusMonths(meses - 1L);
         LocalDateTime desde = primerMes.atDay(1).atStartOfDay();
         LocalDateTime hasta = YearMonth.from(hoy).plusMonths(1).atDay(1).atStartOfDay();
-        int diasMaxSinDespachar = parametroSistemaService.getDiasMaxSinDespachar();
-        LocalDateTime limiteDemora = LocalDateTime.now(ZONA_ECUADOR).minusDays(diasMaxSinDespachar);
+        int diasMaxSinDespachar = DIAS_MAX_PROCESO_LABORABLES;
         int ordenTerminal = estadoRastreoRepository
                 .findMaxOrdenTrackingActivoByTipoFlujo(TipoFlujoEstado.NORMAL);
         Long estadoDespachoId = parametroSistemaService.getEstadosRastreoPorPunto()
@@ -119,7 +119,8 @@ public class EstadisticasService {
         LocalDate hoyLocal = LocalDate.now(ZONA_ECUADOR);
         List<EstadisticasDashboardDTO.PaqueteDemorado> demorados =
                 paqueteRepository.findDemoradosSinDespachar(
-                                limiteDemora, ordenTerminal, Pageables.bounded(0, 100, 100))
+                                hoyLocal, diasMaxSinDespachar, ordenTerminal,
+                                Pageables.bounded(0, 100, 100))
                         .stream()
                         .map(paquete -> toDemorado(paquete, hoyLocal, diasMaxSinDespachar))
                         .toList();
@@ -145,7 +146,8 @@ public class EstadisticasService {
                         paquetesDespachados,
                         paquetesRegistrados,
                         paqueteRepository.countPendientesDespacho(ordenTerminal),
-                        paqueteRepository.countDemoradosSinDespachar(limiteDemora, ordenTerminal),
+                        paqueteRepository.countDemoradosSinDespachar(
+                                hoyLocal, diasMaxSinDespachar, ordenTerminal),
                         paqueteRepository.countEntregadosSinDespacho(ordenTerminal),
                         excepcionRepository.countExcepciones(ordenDespacho, ordenTerminal),
                         pesoDespachado,
@@ -184,7 +186,7 @@ public class EstadisticasService {
 
     private static EstadisticasDashboardDTO.PaqueteDemorado toDemorado(
             Paquete paquete, LocalDate hoy, int diasMax) {
-        long dias = Math.max(0, ChronoUnit.DAYS.between(paquete.getCreatedAt().toLocalDate(), hoy));
+        long dias = contarDiasLaborables(paquete.getCreatedAt().toLocalDate(), hoy);
         return new EstadisticasDashboardDTO.PaqueteDemorado(
                 paquete.getId(),
                 paquete.getNumeroGuia(),
@@ -196,6 +198,19 @@ public class EstadisticasService {
                 paquete.getCreatedAt(),
                 dias,
                 Math.max(0, dias - diasMax));
+    }
+
+    private static long contarDiasLaborables(LocalDate desde, LocalDate hasta) {
+        long dias = 0;
+        for (LocalDate fecha = desde.plusDays(1);
+             !fecha.isAfter(hasta);
+             fecha = fecha.plusDays(1)) {
+            DayOfWeek dia = fecha.getDayOfWeek();
+            if (dia != DayOfWeek.SATURDAY && dia != DayOfWeek.SUNDAY) {
+                dias++;
+            }
+        }
+        return dias;
     }
 
     private static EstadisticasDashboardDTO.PaqueteInconsistente toInconsistente(

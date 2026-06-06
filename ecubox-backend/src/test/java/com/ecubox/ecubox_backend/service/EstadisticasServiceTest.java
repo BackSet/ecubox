@@ -18,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
@@ -63,7 +64,6 @@ class EstadisticasServiceTest {
     @Test
     void dashboard_completaMesesYCalculaDemoras() {
         LocalDateTime currentMonth = YearMonth.now().atDay(1).atStartOfDay();
-        when(parametroSistemaService.getDiasMaxSinDespachar()).thenReturn(7);
         when(parametroSistemaService.getEstadosRastreoPorPunto()).thenReturn(
                 EstadosRastreoPorPuntoDTO.builder().estadoRastreoEnDespachoId(4L).build());
         when(estadoRastreoRepository.findMaxOrdenTrackingActivoByTipoFlujo(any())).thenReturn(8);
@@ -82,7 +82,8 @@ class EstadisticasServiceTest {
                 new Object[]{Timestamp.valueOf(currentMonth), 12L}));
         when(paqueteRepository.countRegistradosEntre(any(), any())).thenReturn(12L);
         when(paqueteRepository.countPendientesDespacho(8)).thenReturn(6L);
-        when(paqueteRepository.countDemoradosSinDespachar(any(), eq(8))).thenReturn(1L);
+        when(paqueteRepository.countDemoradosSinDespachar(
+                any(LocalDate.class), eq(12), eq(8))).thenReturn(1L);
         when(paqueteRepository.countEntregadosSinDespacho(8)).thenReturn(2L);
         when(paqueteRepository.sumPesoRegistradoEntre(any(), any()))
                 .thenReturn(new BigDecimal("100.00"));
@@ -94,12 +95,13 @@ class EstadisticasServiceTest {
                 .thenReturn(tasasEstimacion);
         when(paqueteRepository.aggregateByEstado()).thenReturn(List.<Object[]>of(
                 new Object[]{1L, "REGISTRADO", "Registrado", 6L}));
-        when(paqueteRepository.findDemoradosSinDespachar(any(), eq(8), any(Pageable.class)))
+        when(paqueteRepository.findDemoradosSinDespachar(
+                any(LocalDate.class), eq(12), eq(8), any(Pageable.class)))
                 .thenReturn(List.of(Paquete.builder()
                         .id(10L)
                         .numeroGuia("GUIA-10")
                         .ref("REF-10")
-                        .createdAt(LocalDateTime.now().minusDays(10))
+                        .createdAt(LocalDateTime.now().minusDays(20))
                         .consignatario(Consignatario.builder().nombre("Cliente prueba").build())
                         .estadoRastreo(EstadoRastreo.builder().nombre("Registrado").build())
                         .build()));
@@ -129,22 +131,23 @@ class EstadisticasServiceTest {
         assertEquals(new BigDecimal("210.1000"), result.resumen().costoDistribucion());
         assertEquals(new BigDecimal("640.1500"), result.resumen().ingresoNetoAproximado());
         assertEquals(1, result.paquetesDemorados().size());
-        assertTrue(result.paquetesDemorados().getFirst().diasSinDespachar() >= 10);
-        assertTrue(result.paquetesDemorados().getFirst().diasAtraso() >= 3);
+        assertTrue(result.paquetesDemorados().getFirst().diasSinDespachar() >= 13);
+        assertTrue(result.paquetesDemorados().getFirst().diasAtraso() >= 1);
         assertEquals(1, result.paquetesEntregadosSinDespacho().size());
         assertEquals("Entregado a destinatario",
                 result.paquetesEntregadosSinDespacho().getFirst().estado());
         assertEquals(1, result.excepcionesOperativas().size());
         assertEquals("ALTA", result.excepcionesOperativas().getFirst().severidad());
         verify(paqueteRepository).countPendientesDespacho(8);
-        verify(paqueteRepository).countDemoradosSinDespachar(any(), eq(8));
-        verify(paqueteRepository).findDemoradosSinDespachar(any(), eq(8), any(Pageable.class));
+        verify(paqueteRepository).countDemoradosSinDespachar(
+                any(LocalDate.class), eq(12), eq(8));
+        verify(paqueteRepository).findDemoradosSinDespachar(
+                any(LocalDate.class), eq(12), eq(8), any(Pageable.class));
         verify(paqueteRepository).findEntregadosSinDespacho(eq(8), any(Pageable.class));
     }
 
     @Test
     void dashboard_limitaElPeriodoSolicitado() {
-        when(parametroSistemaService.getDiasMaxSinDespachar()).thenReturn(7);
         when(parametroSistemaService.getEstadosRastreoPorPunto()).thenReturn(
                 EstadosRastreoPorPuntoDTO.builder().estadoRastreoEnDespachoId(4L).build());
         when(estadoRastreoRepository.findMaxOrdenTrackingActivoByTipoFlujo(any())).thenReturn(8);
@@ -153,7 +156,8 @@ class EstadisticasServiceTest {
         when(despachoRepository.aggregateByMonth(any(), any())).thenReturn(List.of());
         when(paqueteRepository.aggregateRegistradosByMonth(any(), any())).thenReturn(List.of());
         when(paqueteRepository.aggregateByEstado()).thenReturn(List.of());
-        when(paqueteRepository.findDemoradosSinDespachar(any(), eq(8), any(Pageable.class)))
+        when(paqueteRepository.findDemoradosSinDespachar(
+                any(LocalDate.class), eq(12), eq(8), any(Pageable.class)))
                 .thenReturn(List.of());
         when(paqueteRepository.findEntregadosSinDespacho(eq(8), any(Pageable.class)))
                 .thenReturn(List.of());

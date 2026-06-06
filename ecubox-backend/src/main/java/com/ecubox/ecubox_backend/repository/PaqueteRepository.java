@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -87,32 +88,49 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
             """)
     long countPendientesDespacho(@Param("ordenTerminal") Integer ordenTerminal);
 
-    @Query("""
-            SELECT COUNT(p)
-            FROM Paquete p
-            LEFT JOIN p.saca s
-            LEFT JOIN s.despacho d
-            WHERE (s IS NULL OR d IS NULL)
-              AND p.createdAt < :limite
-              AND p.estadoRastreo.ordenTracking < :ordenTerminal
-            """)
-    long countDemoradosSinDespachar(@Param("limite") LocalDateTime limite,
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM paquete p
+            JOIN estado_rastreo er ON er.id = p.estado_rastreo_id
+            LEFT JOIN saca s ON s.id = p.saca_id
+            LEFT JOIN despacho d ON d.id = s.despacho_id
+            WHERE d.id IS NULL
+              AND er.orden_tracking < :ordenTerminal
+              AND (
+                  SELECT COUNT(*)
+                  FROM generate_series(
+                      p.created_at::date + 1,
+                      CAST(:hoy AS date),
+                      interval '1 day'
+                  ) dia
+                  WHERE EXTRACT(ISODOW FROM dia) BETWEEN 1 AND 5
+              ) > :diasMax
+            """, nativeQuery = true)
+    long countDemoradosSinDespachar(@Param("hoy") LocalDate hoy,
+                                    @Param("diasMax") Integer diasMax,
                                     @Param("ordenTerminal") Integer ordenTerminal);
 
-    @Query("""
-            SELECT p
-            FROM Paquete p
-            JOIN FETCH p.estadoRastreo
-            JOIN FETCH p.consignatario
-            LEFT JOIN FETCH p.guiaMaster
-            LEFT JOIN FETCH p.saca s
-            LEFT JOIN FETCH s.despacho
-            WHERE (p.saca IS NULL OR s.despacho IS NULL)
-              AND p.createdAt < :limite
-              AND p.estadoRastreo.ordenTracking < :ordenTerminal
-            ORDER BY p.createdAt ASC, p.id ASC
-            """)
-    List<Paquete> findDemoradosSinDespachar(@Param("limite") LocalDateTime limite,
+    @Query(value = """
+            SELECT p.*
+            FROM paquete p
+            JOIN estado_rastreo er ON er.id = p.estado_rastreo_id
+            LEFT JOIN saca s ON s.id = p.saca_id
+            LEFT JOIN despacho d ON d.id = s.despacho_id
+            WHERE d.id IS NULL
+              AND er.orden_tracking < :ordenTerminal
+              AND (
+                  SELECT COUNT(*)
+                  FROM generate_series(
+                      p.created_at::date + 1,
+                      CAST(:hoy AS date),
+                      interval '1 day'
+                  ) dia
+                  WHERE EXTRACT(ISODOW FROM dia) BETWEEN 1 AND 5
+              ) > :diasMax
+            ORDER BY p.created_at ASC, p.id ASC
+            """, nativeQuery = true)
+    List<Paquete> findDemoradosSinDespachar(@Param("hoy") LocalDate hoy,
+                                            @Param("diasMax") Integer diasMax,
                                             @Param("ordenTerminal") Integer ordenTerminal,
                                             org.springframework.data.domain.Pageable pageable);
 
