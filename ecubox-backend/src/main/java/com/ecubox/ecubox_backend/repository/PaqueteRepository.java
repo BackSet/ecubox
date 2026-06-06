@@ -6,9 +6,10 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.time.LocalDateTime;
 
 public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpecificationExecutor<Paquete> {
     Optional<Paquete> findByNumeroGuiaIgnoreCase(String numeroGuia);
@@ -81,9 +82,10 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
             FROM Paquete p
             LEFT JOIN p.saca s
             LEFT JOIN s.despacho d
-            WHERE s IS NULL OR d IS NULL
+            WHERE (s IS NULL OR d IS NULL)
+              AND p.estadoRastreo.ordenTracking < :ordenTerminal
             """)
-    long countPendientesDespacho();
+    long countPendientesDespacho(@Param("ordenTerminal") Integer ordenTerminal);
 
     @Query("""
             SELECT COUNT(p)
@@ -92,8 +94,10 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
             LEFT JOIN s.despacho d
             WHERE (s IS NULL OR d IS NULL)
               AND p.createdAt < :limite
+              AND p.estadoRastreo.ordenTracking < :ordenTerminal
             """)
-    long countDemoradosSinDespachar(@Param("limite") LocalDateTime limite);
+    long countDemoradosSinDespachar(@Param("limite") LocalDateTime limite,
+                                    @Param("ordenTerminal") Integer ordenTerminal);
 
     @Query("""
             SELECT p
@@ -105,10 +109,38 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
             LEFT JOIN FETCH s.despacho
             WHERE (p.saca IS NULL OR s.despacho IS NULL)
               AND p.createdAt < :limite
+              AND p.estadoRastreo.ordenTracking < :ordenTerminal
             ORDER BY p.createdAt ASC, p.id ASC
             """)
     List<Paquete> findDemoradosSinDespachar(@Param("limite") LocalDateTime limite,
+                                            @Param("ordenTerminal") Integer ordenTerminal,
                                             org.springframework.data.domain.Pageable pageable);
+
+    @Query("""
+            SELECT COUNT(p)
+            FROM Paquete p
+            LEFT JOIN p.saca s
+            LEFT JOIN s.despacho d
+            WHERE (s IS NULL OR d IS NULL)
+              AND p.estadoRastreo.ordenTracking >= :ordenTerminal
+            """)
+    long countEntregadosSinDespacho(@Param("ordenTerminal") Integer ordenTerminal);
+
+    @Query("""
+            SELECT p
+            FROM Paquete p
+            JOIN FETCH p.estadoRastreo
+            JOIN FETCH p.consignatario
+            LEFT JOIN FETCH p.guiaMaster
+            LEFT JOIN FETCH p.saca s
+            LEFT JOIN FETCH s.despacho
+            WHERE (p.saca IS NULL OR s.despacho IS NULL)
+              AND p.estadoRastreo.ordenTracking >= :ordenTerminal
+            ORDER BY p.createdAt ASC, p.id ASC
+            """)
+    List<Paquete> findEntregadosSinDespacho(
+            @Param("ordenTerminal") Integer ordenTerminal,
+            org.springframework.data.domain.Pageable pageable);
 
     @Query("""
             SELECT COUNT(p)
@@ -117,6 +149,15 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
             """)
     long countRegistradosEntre(@Param("desde") LocalDateTime desde,
                                @Param("hasta") LocalDateTime hasta);
+
+    @Query("""
+            SELECT COALESCE(SUM(p.pesoLbs), 0)
+            FROM Paquete p
+            WHERE p.createdAt >= :desde
+              AND p.createdAt < :hasta
+            """)
+    BigDecimal sumPesoRegistradoEntre(@Param("desde") LocalDateTime desde,
+                                      @Param("hasta") LocalDateTime hasta);
 
     /**
      * Promedio de días entre el registro del paquete y la fecha del despacho,

@@ -14,7 +14,9 @@ public record EstadisticasDashboardDTO(
         List<SerieMensual> despachosPorMes,
         List<SerieMensual> paquetesRegistradosPorMes,
         List<DistribucionEstado> paquetesPorEstado,
-        List<PaqueteDemorado> paquetesDemorados
+        List<PaqueteDemorado> paquetesDemorados,
+        List<PaqueteInconsistente> paquetesEntregadosSinDespacho,
+        List<ExcepcionOperativa> excepcionesOperativas
 ) {
     public record Resumen(
             long totalDespachos,
@@ -22,8 +24,13 @@ public record EstadisticasDashboardDTO(
             long paquetesRegistrados,
             long pendientesDespacho,
             long demoradosSinDespachar,
+            long entregadosSinDespacho,
+            long excepcionesOperativas,
             BigDecimal pesoDespachadoLbs,
-            Double tiempoPromedioDespachoDias
+            Double tiempoPromedioDespachoDias,
+            BigDecimal margenBruto,
+            BigDecimal costoDistribucion,
+            BigDecimal ingresoNetoAproximado
     ) {
     }
 
@@ -55,6 +62,31 @@ public record EstadisticasDashboardDTO(
             LocalDateTime registradoEn,
             long diasSinDespachar,
             long diasAtraso
+    ) {
+    }
+
+    public record PaqueteInconsistente(
+            Long id,
+            String numeroGuia,
+            String referencia,
+            String guiaMaster,
+            Long guiaMasterId,
+            String consignatario,
+            String estado,
+            LocalDateTime registradoEn
+    ) {
+    }
+
+    public record ExcepcionOperativa(
+            String severidad,
+            String modulo,
+            String entidadTipo,
+            Long entidadId,
+            String referencia,
+            String codigo,
+            String titulo,
+            String detalle,
+            String ruta
     ) {
     }
 }

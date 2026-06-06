@@ -2,13 +2,18 @@ package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.EstadisticasDashboardDTO;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.repository.DespachoRepository;
+import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
+import com.ecubox.ecubox_backend.repository.EstadisticasExcepcionRepository;
+import com.ecubox.ecubox_backend.repository.LiquidacionRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.util.Pageables;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,13 +36,22 @@ public class EstadisticasService {
 
     private final DespachoRepository despachoRepository;
     private final PaqueteRepository paqueteRepository;
+    private final EstadoRastreoRepository estadoRastreoRepository;
+    private final EstadisticasExcepcionRepository excepcionRepository;
+    private final LiquidacionRepository liquidacionRepository;
     private final ParametroSistemaService parametroSistemaService;
 
     public EstadisticasService(DespachoRepository despachoRepository,
                                PaqueteRepository paqueteRepository,
+                               EstadoRastreoRepository estadoRastreoRepository,
+                               EstadisticasExcepcionRepository excepcionRepository,
+                               LiquidacionRepository liquidacionRepository,
                                ParametroSistemaService parametroSistemaService) {
         this.despachoRepository = despachoRepository;
         this.paqueteRepository = paqueteRepository;
+        this.estadoRastreoRepository = estadoRastreoRepository;
+        this.excepcionRepository = excepcionRepository;
+        this.liquidacionRepository = liquidacionRepository;
         this.parametroSistemaService = parametroSistemaService;
     }
 
@@ -50,6 +64,13 @@ public class EstadisticasService {
         LocalDateTime hasta = YearMonth.from(hoy).plusMonths(1).atDay(1).atStartOfDay();
         int diasMaxSinDespachar = parametroSistemaService.getDiasMaxSinDespachar();
         LocalDateTime limiteDemora = LocalDateTime.now(ZONA_ECUADOR).minusDays(diasMaxSinDespachar);
+        int ordenTerminal = estadoRastreoRepository
+                .findMaxOrdenTrackingActivoByTipoFlujo(TipoFlujoEstado.NORMAL);
+        Long estadoDespachoId = parametroSistemaService.getEstadosRastreoPorPunto()
+                .getEstadoRastreoEnDespachoId();
+        int ordenDespacho = estadoRastreoRepository.findById(estadoDespachoId)
+                .map(estado -> estado.getOrdenTracking() != null ? estado.getOrdenTracking() : 0)
+                .orElse(0);
 
         Map<YearMonth, EstadisticasDashboardDTO.SerieMensual> despachos =
                 initializeMonths(primerMes, meses);
@@ -79,6 +100,15 @@ public class EstadisticasService {
         Double tiempoPromedioDespachoDias = avgDiasDespacho != null
                 ? Math.round(avgDiasDespacho * 10.0) / 10.0
                 : null;
+        BigDecimal pesoRegistrado = paqueteRepository.sumPesoRegistradoEntre(desde, hasta);
+        LiquidacionRepository.TasasEstimacionProjection tasasEstimacion =
+                liquidacionRepository.findTasasEstimacionHistoricas();
+        BigDecimal margenBruto = estimarPorPeso(
+                pesoRegistrado, tasasEstimacion.getMargenPorLibra());
+        BigDecimal costoDistribucion = estimarPorPeso(
+                pesoRegistrado, tasasEstimacion.getCostoDistribucionPorLibra());
+        BigDecimal ingresoNetoAproximado =
+                margenBruto.subtract(costoDistribucion).setScale(4, RoundingMode.HALF_UP);
 
         List<EstadisticasDashboardDTO.DistribucionEstado> estados =
                 paqueteRepository.aggregateByEstado().stream()
@@ -89,9 +119,20 @@ public class EstadisticasService {
         LocalDate hoyLocal = LocalDate.now(ZONA_ECUADOR);
         List<EstadisticasDashboardDTO.PaqueteDemorado> demorados =
                 paqueteRepository.findDemoradosSinDespachar(
-                                limiteDemora, Pageables.bounded(0, 100, 100))
+                                limiteDemora, ordenTerminal, Pageables.bounded(0, 100, 100))
                         .stream()
                         .map(paquete -> toDemorado(paquete, hoyLocal, diasMaxSinDespachar))
+                        .toList();
+        List<EstadisticasDashboardDTO.PaqueteInconsistente> entregadosSinDespacho =
+                paqueteRepository.findEntregadosSinDespacho(
+                                ordenTerminal, Pageables.bounded(0, 100, 100))
+                        .stream()
+                        .map(EstadisticasService::toInconsistente)
+                        .toList();
+        List<EstadisticasDashboardDTO.ExcepcionOperativa> excepciones =
+                excepcionRepository.findExcepciones(ordenDespacho, ordenTerminal, 200)
+                        .stream()
+                        .map(EstadisticasService::toExcepcion)
                         .toList();
 
         return new EstadisticasDashboardDTO(
@@ -103,14 +144,21 @@ public class EstadisticasService {
                         totalDespachos,
                         paquetesDespachados,
                         paquetesRegistrados,
-                        paqueteRepository.countPendientesDespacho(),
-                        paqueteRepository.countDemoradosSinDespachar(limiteDemora),
+                        paqueteRepository.countPendientesDespacho(ordenTerminal),
+                        paqueteRepository.countDemoradosSinDespachar(limiteDemora, ordenTerminal),
+                        paqueteRepository.countEntregadosSinDespacho(ordenTerminal),
+                        excepcionRepository.countExcepciones(ordenDespacho, ordenTerminal),
                         pesoDespachado,
-                        tiempoPromedioDespachoDias),
+                        tiempoPromedioDespachoDias,
+                        margenBruto,
+                        costoDistribucion,
+                        ingresoNetoAproximado),
                 despachosSerie,
                 registrosSerie,
                 estados,
-                demorados);
+                demorados,
+                entregadosSinDespacho,
+                excepciones);
     }
 
     private static Map<YearMonth, EstadisticasDashboardDTO.SerieMensual> initializeMonths(
@@ -150,6 +198,32 @@ public class EstadisticasService {
                 Math.max(0, dias - diasMax));
     }
 
+    private static EstadisticasDashboardDTO.PaqueteInconsistente toInconsistente(
+            Paquete paquete) {
+        return new EstadisticasDashboardDTO.PaqueteInconsistente(
+                paquete.getId(),
+                paquete.getNumeroGuia(),
+                paquete.getRef(),
+                paquete.getGuiaMaster() != null ? paquete.getGuiaMaster().getTrackingBase() : null,
+                paquete.getGuiaMaster() != null ? paquete.getGuiaMaster().getId() : null,
+                paquete.getConsignatario() != null ? paquete.getConsignatario().getNombre() : null,
+                paquete.getEstadoRastreo() != null ? paquete.getEstadoRastreo().getNombre() : null,
+                paquete.getCreatedAt());
+    }
+
+    private static EstadisticasDashboardDTO.ExcepcionOperativa toExcepcion(Object[] row) {
+        return new EstadisticasDashboardDTO.ExcepcionOperativa(
+                string(row[0]),
+                string(row[1]),
+                string(row[2]),
+                nullableLong(row[3]),
+                string(row[4]),
+                string(row[5]),
+                string(row[6]),
+                string(row[7]),
+                string(row[8]));
+    }
+
     private static YearMonth toYearMonth(Object value) {
         if (value instanceof Timestamp timestamp) {
             return YearMonth.from(timestamp.toLocalDateTime());
@@ -171,6 +245,12 @@ public class EstadisticasService {
         if (value instanceof BigDecimal decimal) return decimal;
         if (value instanceof Number number) return BigDecimal.valueOf(number.doubleValue());
         return BigDecimal.ZERO;
+    }
+
+    private static BigDecimal estimarPorPeso(BigDecimal pesoLbs, BigDecimal tasaPorLibra) {
+        return decimal(pesoLbs)
+                .multiply(decimal(tasaPorLibra))
+                .setScale(4, RoundingMode.HALF_UP);
     }
 
     private static Long nullableLong(Object value) {

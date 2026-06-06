@@ -5,7 +5,10 @@ import {
   Boxes,
   CalendarRange,
   ChartNoAxesCombined,
+  CircleAlert,
+  ShieldAlert,
   Clock3,
+  DollarSign,
   FileDown,
   PackageSearch,
   PackageCheck,
@@ -48,6 +51,15 @@ function formatDate(value: string) {
 function formatNumber(value: number, digits = 0) {
   return new Intl.NumberFormat('es-EC', {
     maximumFractionDigits: digits,
+  }).format(value);
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('es-EC', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -228,7 +240,7 @@ export function EstadisticasPage() {
 
       {isLoading && !data ? (
         <>
-          <KpiCardsGridSkeleton count={7} />
+          <KpiCardsGridSkeleton count={11} />
           <SurfaceCardSkeleton />
           <div className="grid gap-4 xl:grid-cols-3">
             <SurfaceCardSkeleton className="xl:col-span-2" />
@@ -274,6 +286,20 @@ export function EstadisticasPage() {
               tone={data.resumen.demoradosSinDespachar > 0 ? 'danger' : 'neutral'}
             />
             <KpiCard
+              icon={<CircleAlert />}
+              label="Entregados sin despacho"
+              value={formatNumber(data.resumen.entregadosSinDespacho)}
+              hint="Estado final sin despacho registrado"
+              tone={data.resumen.entregadosSinDespacho > 0 ? 'warning' : 'neutral'}
+            />
+            <KpiCard
+              icon={<ShieldAlert />}
+              label="Otras excepciones"
+              value={formatNumber(data.resumen.excepcionesOperativas)}
+              hint="Inconsistencias operativas o de integridad"
+              tone={data.resumen.excepcionesOperativas > 0 ? 'danger' : 'neutral'}
+            />
+            <KpiCard
               icon={<Scale />}
               label="Peso despachado"
               value={`${formatNumber(data.resumen.pesoDespachadoLbs, 1)} lb`}
@@ -291,7 +317,52 @@ export function EstadisticasPage() {
               hint="Desde el registro hasta el despacho"
               tone="info"
             />
+            <KpiCard
+              icon={<CalendarRange />}
+              label="Tiempo estimado de entrega"
+              value="7 a 12 días"
+              hint="Días laborables desde el despacho"
+              tone="info"
+            />
+            <KpiCard
+              icon={<TrendingUp />}
+              label="Margen bruto estimado"
+              value={formatMoney(data.resumen.margenBruto)}
+              hint="Peso registrado × margen histórico por libra"
+              tone="primary"
+              to="/liquidaciones"
+            />
+            <KpiCard
+              icon={<TrendingDown />}
+              label="Costo de distribución"
+              value={formatMoney(data.resumen.costoDistribucion)}
+              hint="Estimado con costos por libra de liquidaciones"
+              tone="warning"
+              to="/liquidaciones"
+            />
+            <KpiCard
+              icon={<DollarSign />}
+              label="Ingreso neto aproximado"
+              value={formatMoney(data.resumen.ingresoNetoAproximado)}
+              hint="Margen estimado menos distribución estimada"
+              tone="success"
+              to="/liquidaciones"
+            />
           </KpiCardsGrid>
+
+          {data.resumen.entregadosSinDespacho > 0 && (
+            <div className="ui-alert ui-alert-warning">
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <div>
+                <p className="text-[13px] font-medium text-[var(--color-foreground)]">
+                  Hay {data.resumen.entregadosSinDespacho} paquete(s) entregado(s) sin despacho registrado
+                </p>
+                <p className="text-[12px] text-[var(--color-muted-foreground)]">
+                  No se consideran demorados, pero conviene revisar y corregir su trazabilidad histórica.
+                </p>
+              </div>
+            </div>
+          )}
 
           {proyeccion && (
             <SurfaceCard className="p-4">
@@ -355,6 +426,161 @@ export function EstadisticasPage() {
               <StatusDistributionChart data={data.paquetesPorEstado} />
             </SurfaceCard>
           </div>
+
+          {data.resumen.entregadosSinDespacho > 0 && (
+            <SurfaceCard className="overflow-hidden border-[var(--color-warning)]/40">
+              <div className="border-b border-[var(--color-border)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-[14px] font-semibold text-[var(--color-foreground)]">
+                      Entregados sin despacho registrado
+                    </h2>
+                    <p className="mt-1 text-[12px] text-[var(--color-muted-foreground)]">
+                      Alcanzaron el estado final del flujo, pero no conservan una relación con un despacho.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[var(--color-warning)]/15 px-2.5 py-1 text-[12px] font-medium text-[var(--color-warning)]">
+                    {data.resumen.entregadosSinDespacho} inconsistencias
+                  </span>
+                </div>
+              </div>
+              <div className="table-responsive">
+                <Table className="min-w-[760px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Guía / referencia</TableHead>
+                      <TableHead>Guía master</TableHead>
+                      <TableHead>Consignatario</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Registrado</TableHead>
+                      <TableHead>Señal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.paquetesEntregadosSinDespacho.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <Link
+                            to="/tracking"
+                            search={{ codigo: item.numeroGuia } as never}
+                            className="inline-flex items-center gap-1 font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
+                          >
+                            <PackageSearch className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            {item.numeroGuia}
+                          </Link>
+                          <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                            {item.referencia}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          {item.guiaMasterId != null ? (
+                            <Link
+                              to="/guias-master/$id"
+                              params={{ id: String(item.guiaMasterId) }}
+                              className="font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
+                            >
+                              {item.guiaMaster ?? `#${item.guiaMasterId}`}
+                            </Link>
+                          ) : (
+                            item.guiaMaster ?? '—'
+                          )}
+                        </TableCell>
+                        <TableCell>{item.consignatario ?? '—'}</TableCell>
+                        <TableCell>{item.estado ?? '—'}</TableCell>
+                        <TableCell>{formatDate(item.registradoEn)}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex rounded-full bg-[var(--color-warning)]/15 px-2 py-1 text-[11px] font-semibold text-[var(--color-warning)]">
+                            Entregado sin despacho
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {data.resumen.entregadosSinDespacho >
+                data.paquetesEntregadosSinDespacho.length && (
+                <p className="border-t border-[var(--color-border)] px-4 py-2 text-[11px] text-[var(--color-muted-foreground)]">
+                  Se muestran las 100 inconsistencias más antiguas.
+                </p>
+              )}
+            </SurfaceCard>
+          )}
+
+          {data.resumen.excepcionesOperativas > 0 && (
+            <SurfaceCard className="overflow-hidden border-[var(--color-destructive)]/35">
+              <div className="border-b border-[var(--color-border)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="h-4 w-4 text-[var(--color-destructive)]" />
+                      <h2 className="text-[14px] font-semibold text-[var(--color-foreground)]">
+                        Excepciones operativas y de integridad
+                      </h2>
+                    </div>
+                    <p className="mt-1 text-[12px] text-[var(--color-muted-foreground)]">
+                      Casos que contradicen las reglas normales del flujo y requieren revisión.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[var(--color-destructive)]/10 px-2.5 py-1 text-[12px] font-medium text-[var(--color-destructive)]">
+                    {data.resumen.excepcionesOperativas} excepciones
+                  </span>
+                </div>
+              </div>
+              <div className="table-responsive">
+                <Table className="min-w-[920px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Severidad</TableHead>
+                      <TableHead>Módulo</TableHead>
+                      <TableHead>Referencia</TableHead>
+                      <TableHead>Excepción</TableHead>
+                      <TableHead>Detalle</TableHead>
+                      <TableHead>Acción</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.excepcionesOperativas.map((item, index) => (
+                      <TableRow key={`${item.codigo}-${item.entidadId}-${index}`}>
+                        <TableCell>
+                          <span
+                            className={
+                              item.severidad === 'ALTA'
+                                ? 'inline-flex rounded-full bg-[var(--color-destructive)]/10 px-2 py-1 text-[11px] font-semibold text-[var(--color-destructive)]'
+                                : 'inline-flex rounded-full bg-[var(--color-warning)]/15 px-2 py-1 text-[11px] font-semibold text-[var(--color-warning)]'
+                            }
+                          >
+                            {item.severidad}
+                          </span>
+                        </TableCell>
+                        <TableCell>{item.modulo}</TableCell>
+                        <TableCell className="font-mono text-[12px]">
+                          {item.referencia}
+                        </TableCell>
+                        <TableCell className="font-medium">{item.titulo}</TableCell>
+                        <TableCell className="max-w-sm text-[12px] text-[var(--color-muted-foreground)]">
+                          {item.detalle}
+                        </TableCell>
+                        <TableCell>
+                          <a
+                            href={item.ruta}
+                            className="font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
+                          >
+                            Revisar
+                          </a>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {data.resumen.excepcionesOperativas > data.excepcionesOperativas.length && (
+                <p className="border-t border-[var(--color-border)] px-4 py-2 text-[11px] text-[var(--color-muted-foreground)]">
+                  Se muestran las primeras 200 excepciones priorizadas por severidad.
+                </p>
+              )}
+            </SurfaceCard>
+          )}
 
           <SurfaceCard className="overflow-hidden">
             <div className="border-b border-[var(--color-border)] p-4">

@@ -3,6 +3,8 @@ import type {
   EstadisticasDashboard,
   EstadisticaSerieMensual,
   PaqueteDemorado,
+  PaqueteInconsistente,
+  ExcepcionOperativa,
 } from '@/types/estadisticas';
 import { ECUBOX_PDF_COLORS } from '@/lib/pdf/theme';
 import {
@@ -15,6 +17,7 @@ import {
   drawTable,
   fmtFechaCorta,
   fmtFechaHora,
+  fmtMoneda,
   fmtNumero,
   safeStr,
   type ColumnDef,
@@ -93,6 +96,25 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
           ? `${fmtNumero(data.resumen.tiempoPromedioDespachoDias, 1)} días`
           : '—',
     },
+    {
+      label: 'Entrega estimada',
+      value: '7 a 12 días laborables',
+    },
+  ]);
+
+  drawInlineMetrics(ctx, 'Estimación según paquetes registrados', [
+    {
+      label: 'Margen bruto estimado',
+      value: fmtMoneda(data.resumen.margenBruto),
+    },
+    {
+      label: 'Costo de distribución',
+      value: fmtMoneda(data.resumen.costoDistribucion),
+    },
+    {
+      label: 'Ingreso neto aproximado',
+      value: fmtMoneda(data.resumen.ingresoNetoAproximado),
+    },
   ]);
 
   // ── Proyección del próximo mes (media de los últimos 3 meses) ──
@@ -105,6 +127,32 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
     { label: 'Registrados', value: fmtNumero(proyeccionProximoMes(data.paquetesRegistradosPorMes), 0) },
     { label: 'Tasa de despacho', value: `${fmtNumero(tasaDespacho, 0)}%` },
   ]);
+
+  if (data.resumen.entregadosSinDespacho > 0) {
+    drawInlineMetrics(ctx, 'Alerta de integridad', [
+      {
+        label: 'Entregados sin despacho',
+        value: fmtNumero(data.resumen.entregadosSinDespacho, 0),
+      },
+      {
+        label: 'Acción',
+        value: 'Revisar trazabilidad',
+      },
+    ]);
+  }
+
+  if (data.resumen.excepcionesOperativas > 0) {
+    drawInlineMetrics(ctx, 'Excepciones del sistema', [
+      {
+        label: 'Total detectado',
+        value: fmtNumero(data.resumen.excepcionesOperativas, 0),
+      },
+      {
+        label: 'Prioridad',
+        value: 'Revisión operativa',
+      },
+    ]);
+  }
 
   // ── Evolución mensual ──
   const meses = combinarMeses(data.despachosPorMes, data.paquetesRegistradosPorMes);
@@ -167,6 +215,40 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
       ctx.y + 4,
     );
     ctx.y += 8;
+  }
+
+  if (data.resumen.entregadosSinDespacho > 0) {
+    drawSectionTitle(ctx, 'Entregados sin despacho registrado');
+    const inconsistenteCols: ColumnDef<PaqueteInconsistente>[] = [
+      { key: 'idx', label: '#', weight: 0.05, align: 'center', render: (_, i) => String(i + 1) },
+      { key: 'guia', label: 'GUÍA', weight: 0.2, align: 'left', render: (r) => safeStr(r.numeroGuia), mono: true },
+      { key: 'ref', label: 'REFERENCIA', weight: 0.14, align: 'left', render: (r) => safeStr(r.referencia), mono: true },
+      { key: 'master', label: 'GUÍA MASTER', weight: 0.18, align: 'left', render: (r) => safeStr(r.guiaMaster), mono: true },
+      { key: 'cons', label: 'CONSIGNATARIO', weight: 0.22, align: 'left', render: (r) => safeStr(r.consignatario) },
+      { key: 'estado', label: 'ESTADO FINAL', weight: 0.14, align: 'left', render: (r) => safeStr(r.estado) },
+      { key: 'reg', label: 'REGISTRADO', weight: 0.1, align: 'left', render: (r) => fmtFechaCorta(r.registradoEn) },
+    ];
+    drawTable<PaqueteInconsistente>(ctx, {
+      columns: inconsistenteCols,
+      rows: data.paquetesEntregadosSinDespacho,
+      empty: 'No hay inconsistencias de entrega sin despacho.',
+    });
+  }
+
+  if (data.resumen.excepcionesOperativas > 0) {
+    drawSectionTitle(ctx, 'Excepciones operativas y de integridad');
+    const excepcionCols: ColumnDef<ExcepcionOperativa>[] = [
+      { key: 'sev', label: 'SEV.', weight: 0.07, align: 'center', render: (r) => r.severidad },
+      { key: 'mod', label: 'MÓDULO', weight: 0.14, align: 'left', render: (r) => safeStr(r.modulo) },
+      { key: 'ref', label: 'REFERENCIA', weight: 0.15, align: 'left', render: (r) => safeStr(r.referencia), mono: true },
+      { key: 'exc', label: 'EXCEPCIÓN', weight: 0.24, align: 'left', render: (r) => safeStr(r.titulo) },
+      { key: 'det', label: 'DETALLE', weight: 0.4, align: 'left', render: (r) => safeStr(r.detalle) },
+    ];
+    drawTable<ExcepcionOperativa>(ctx, {
+      columns: excepcionCols,
+      rows: data.excepcionesOperativas,
+      empty: 'No se detectaron otras excepciones.',
+    });
   }
 
   drawDocFooter(doc, {
