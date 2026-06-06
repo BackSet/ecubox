@@ -1,78 +1,39 @@
 import {
-  keepPreviousData,
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
-import {
-  getUsuarios,
-  getUsuario,
   createUsuario,
-  updateUsuario,
   deleteUsuario,
+  getUsuario,
+  getUsuarios,
   listarUsuariosPaginado,
+  updateUsuario,
 } from '@/lib/api/usuario.service';
 import type {
   UsuarioCreateRequest,
+  UsuarioDTO,
   UsuarioUpdateRequest,
 } from '@/types/usuario';
-import type { PageQuery } from '@/types/page';
+import { createCrudQueryHooks } from './createCrudQueryHooks';
 
 const QUERY_KEY = ['usuarios'] as const;
 
-export function useUsuarios() {
-  return useQuery({
-    queryKey: QUERY_KEY,
-    queryFn: getUsuarios,
-  });
-}
+const hooks = createCrudQueryHooks<
+  UsuarioDTO,
+  UsuarioCreateRequest,
+  UsuarioUpdateRequest
+>({
+  queryKey: QUERY_KEY,
+  api: {
+    list: getUsuarios,
+    listPage: listarUsuariosPaginado,
+    get: getUsuario,
+    create: createUsuario,
+    update: updateUsuario,
+    remove: deleteUsuario,
+  },
+});
 
-export function useUsuariosPaginados(params: PageQuery = {}) {
-  return useQuery({
-    queryKey: [
-      ...QUERY_KEY,
-      'page',
-      params.q ?? '',
-      params.page ?? 0,
-      params.size ?? 25,
-    ] as const,
-    queryFn: () => listarUsuariosPaginado(params),
-    placeholderData: keepPreviousData,
-  });
-}
-
-export function useUsuario(id: number | undefined | null) {
-  return useQuery({
-    queryKey: [...QUERY_KEY, id],
-    queryFn: () => getUsuario(id!),
-    enabled: id != null,
-  });
-}
-
-export function useCreateUsuario() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: UsuarioCreateRequest) => createUsuario(body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
-  });
-}
-
-export function useUpdateUsuario() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, body }: { id: number; body: UsuarioUpdateRequest }) =>
-      updateUsuario(id, body),
-    onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: QUERY_KEY });
-      qc.invalidateQueries({ queryKey: [...QUERY_KEY, id] });
-    },
-  });
-}
-
-export function useDeleteUsuario() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => deleteUsuario(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
-  });
-}
+export const useUsuarios = hooks.useAll;
+export const useUsuariosPaginados = hooks.usePage;
+export const useUsuario = hooks.useDetail;
+export const useCreateUsuario = hooks.useCreate;
+export const useUpdateUsuario = hooks.useUpdate;
+export const useDeleteUsuario = hooks.useDelete;

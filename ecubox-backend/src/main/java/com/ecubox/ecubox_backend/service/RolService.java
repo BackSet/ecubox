@@ -10,8 +10,8 @@ import com.ecubox.ecubox_backend.mapper.RolMapper;
 import com.ecubox.ecubox_backend.repository.PermisoRepository;
 import com.ecubox.ecubox_backend.repository.RolRepository;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
+import com.ecubox.ecubox_backend.util.Pageables;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -51,8 +51,7 @@ public class RolService {
      */
     @Transactional(readOnly = true)
     public Page<RolDTO> findAllPaginated(String q, int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page),
-                Math.max(1, Math.min(100, size)),
+        Pageable pageable = Pageables.bounded(page, size, 100,
                 Sort.by(Sort.Direction.ASC, "nombre").and(Sort.by(Sort.Direction.ASC, "id")));
         Specification<Rol> spec = SearchSpecifications.tokensLikeDistinct(q,
                 SearchSpecifications.field("nombre"),

@@ -5,8 +5,8 @@ import com.ecubox.ecubox_backend.entity.Permiso;
 import com.ecubox.ecubox_backend.mapper.PermisoMapper;
 import com.ecubox.ecubox_backend.repository.PermisoRepository;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
+import com.ecubox.ecubox_backend.util.Pageables;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -41,8 +41,7 @@ public class PermisoService {
      */
     @Transactional(readOnly = true)
     public Page<PermisoDTO> findAllPaginated(String q, int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page),
-                Math.max(1, Math.min(100, size)),
+        Pageable pageable = Pageables.bounded(page, size, 100,
                 Sort.by(Sort.Direction.ASC, "codigo").and(Sort.by(Sort.Direction.ASC, "id")));
         Specification<Permiso> spec = SearchSpecifications.tokensLike(q,
                 SearchSpecifications.field("codigo"),

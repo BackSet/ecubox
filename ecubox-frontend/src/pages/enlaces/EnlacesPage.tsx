@@ -10,13 +10,17 @@ import {
   type LucideIcon,
   LogIn,
   Mail,
+  Monitor,
+  Moon,
   PackageSearch,
   Phone,
   Share2,
+  Sun,
   UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EcuboxLogo } from '@/components/brand';
+import { useThemeStore } from '@/stores/themeStore';
 import {
   getSocialBrandStyle,
   SocialBrandIcon,
@@ -30,6 +34,7 @@ import {
 import { absoluteUrl } from '@/lib/seo';
 import { notify } from '@/lib/notify';
 import { copyText } from '@/lib/clipboard';
+import { downloadBlob } from '@/lib/download';
 import { cn } from '@/lib/utils';
 
 /** Orden y subtítulos de los canales configurables en el sistema. */
@@ -177,6 +182,12 @@ export function EnlacesPage() {
   const qrWrapRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
+  const theme = useThemeStore((s) => s.theme);
+  const toggleTheme = useThemeStore((s) => s.toggleTheme);
+  const ThemeIcon = theme === 'dark' ? Moon : theme === 'system' ? Monitor : Sun;
+  const themeLabel =
+    theme === 'dark' ? 'Tema oscuro' : theme === 'light' ? 'Tema claro' : 'Tema del sistema';
+
   const pageUrl = useMemo(() => absoluteUrl('/enlaces'), []);
 
   const contactos = useMemo(
@@ -229,20 +240,22 @@ export function EnlacesPage() {
     if (!svg) return;
     const serialized = new XMLSerializer().serializeToString(svg);
     const blob = new Blob([serialized], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ecubox-qr.svg';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, 'ecubox-qr.svg');
   }
 
   return (
     <div className="landing-shell">
       <div className="landing-overlay" aria-hidden="true" />
       <main className="relative z-10 mobile-safe-inline flex flex-1 flex-col items-center py-10 sm:py-14">
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={`Cambiar tema (actual: ${themeLabel})`}
+        title={themeLabel}
+        className="absolute right-4 top-4 z-20 inline-flex size-10 items-center justify-center rounded-full border border-[var(--color-landing-border)] bg-[var(--color-landing-card)] landing-text shadow-sm transition hover:bg-[var(--color-landing-card-muted)] hover:text-[var(--color-primary)]"
+      >
+        <ThemeIcon className="size-5" aria-hidden />
+      </button>
       <div className="mx-auto w-full max-w-md space-y-6">
         {/* Encabezado */}
         <header className="flex flex-col items-center gap-3 text-center">

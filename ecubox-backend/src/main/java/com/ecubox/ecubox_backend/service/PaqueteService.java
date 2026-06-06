@@ -38,9 +38,9 @@ import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
 import com.ecubox.ecubox_backend.util.WeightUtil;
+import com.ecubox.ecubox_backend.util.Pageables;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -157,7 +157,7 @@ public class PaqueteService {
      */
     @Transactional(readOnly = true)
     public Page<PaqueteDTO> findAllPaginated(String q, PaqueteListFilters filters, int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
+        Pageable pageable = Pageables.bounded(page, size, 200,
                 Sort.by(Sort.Direction.ASC, "estadoRastreo.orden").and(Sort.by(Sort.Direction.ASC, "id")));
         Specification<Paquete> spec = buildSpec(q, filters);
         return paqueteRepository.findAll(spec, pageable).map(this::toDTO);
@@ -167,7 +167,7 @@ public class PaqueteService {
     @Transactional(readOnly = true)
     public Page<PaqueteDTO> findAllByUsuarioIdPaginated(Long usuarioId, String q,
                                                        PaqueteListFilters filters, int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
+        Pageable pageable = Pageables.bounded(page, size, 200,
                 Sort.by(Sort.Direction.ASC, "estadoRastreo.orden").and(Sort.by(Sort.Direction.ASC, "id")));
         Specification<Paquete> ownership = (root, query, cb) ->
                 cb.equal(root.get("consignatario").get("usuario").get("id"), usuarioId);

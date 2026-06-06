@@ -9,6 +9,7 @@
  *  - es claramente más liviana y rápida en árboles complejos.
  */
 import { toBlob, toCanvas, toJpeg, toPng } from 'html-to-image';
+export { downloadBlob } from '@/lib/download';
 
 export type SnapshotFormat = 'png' | 'jpeg';
 
@@ -95,18 +96,6 @@ export async function snapshotToCanvas(
   opts?: SnapshotOptions,
 ): Promise<HTMLCanvasElement> {
   return toCanvas(node, buildOptions(node, opts));
-}
-
-/** Descarga un blob como archivo en el navegador. */
-export function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 /** Copia un blob (PNG) al portapapeles. Lanza error si no es soportado. */

@@ -16,9 +16,9 @@ import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
+import com.ecubox.ecubox_backend.util.Pageables;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -81,7 +81,7 @@ public class EnvioConsolidadoService {
      */
     @Transactional(readOnly = true)
     public Page<EnvioConsolidado> findDisponiblesParaRecepcion(String q, int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)));
+        Pageable pageable = Pageables.bounded(page, size, 200);
         String search = Strings.trimOrNull(q);
         return envioConsolidadoRepository.findDisponiblesParaRecepcion(
                 search != null ? search : "",
@@ -99,7 +99,7 @@ public class EnvioConsolidadoService {
     public Page<EnvioConsolidado> findAll(Boolean cerrado,
                                           com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado estadoPago,
                                           String q, int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)),
+        Pageable pageable = Pageables.bounded(page, size, 100,
                 Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
         Specification<EnvioConsolidado> spec = (root, query, cb) -> cb.conjunction();

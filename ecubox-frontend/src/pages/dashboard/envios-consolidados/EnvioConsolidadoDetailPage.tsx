@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { notify } from '@/lib/notify';
+import { downloadBlob } from '@/lib/download';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { BulkGuiaInputPanel } from '@/components/BulkGuiaInputPanel';
@@ -72,17 +73,6 @@ import { EnvioConsolidadoBadge } from './EnvioConsolidadoBadge';
 import { useAuthStore } from '@/stores/authStore';
 
 import { formatWeightFromValues, formatWeightInline, LBS_TO_KG } from '@/lib/utils/weight';
-
-function descargarBlob(blob: Blob, filename: string) {
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
-}
 
 export function EnvioConsolidadoDetailPage() {
   const navigate = useNavigate();
@@ -264,7 +254,7 @@ export function EnvioConsolidadoDetailPage() {
                     success: 'PDF generado',
                     error: 'No se pudo generar el PDF',
                   });
-                  descargarBlob(blob, `manifiesto-${envio.codigo}.pdf`);
+                  downloadBlob(blob, `manifiesto-${envio.codigo}.pdf`);
                 } catch {
                   // notificado por notify.run
                 }
@@ -288,7 +278,7 @@ export function EnvioConsolidadoDetailPage() {
                     success: 'Excel generado',
                     error: 'No se pudo generar el Excel',
                   });
-                  descargarBlob(blob, `manifiesto-${envio.codigo}.xlsx`);
+                  downloadBlob(blob, `manifiesto-${envio.codigo}.xlsx`);
                 } catch {
                   // notificado por notify.run
                 }
@@ -941,4 +931,3 @@ function AgregarPaquetesDialog({
     </Dialog>
   );
 }
-

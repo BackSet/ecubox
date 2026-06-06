@@ -43,6 +43,7 @@ import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleto
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { cn } from '@/lib/utils';
+import { downloadBlob } from '@/lib/download';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import {
   descargarLiquidacionPdf,
@@ -66,17 +67,6 @@ import { formatMoney, formatNumber } from './moneyFormat';
 import { liquidacionHeaderSchema } from '@/lib/schemas/liquidacion';
 
 type HeaderFormValues = z.infer<typeof liquidacionHeaderSchema>;
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 function formatDateTime(value?: string | null): string | null {
   if (!value) return null;

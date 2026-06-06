@@ -13,8 +13,8 @@ import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.RolRepository;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
+import com.ecubox.ecubox_backend.util.Pageables;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -58,8 +58,7 @@ public class UsuarioService {
      */
     @Transactional(readOnly = true)
     public Page<UsuarioDTO> findAllPaginated(String q, int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page),
-                Math.max(1, Math.min(100, size)),
+        Pageable pageable = Pageables.bounded(page, size, 100,
                 Sort.by(Sort.Direction.ASC, "username").and(Sort.by(Sort.Direction.ASC, "id")));
         Specification<Usuario> spec = SearchSpecifications.tokensLikeDistinct(q,
                 SearchSpecifications.field("username"),

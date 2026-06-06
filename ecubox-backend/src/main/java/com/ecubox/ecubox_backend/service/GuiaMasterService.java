@@ -36,6 +36,7 @@ import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
+import com.ecubox.ecubox_backend.util.Pageables;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -514,7 +515,7 @@ public class GuiaMasterService {
     @Transactional(readOnly = true)
     public Page<GuiaMaster> findAllPaginated(String q, java.util.Collection<EstadoGuiaMaster> estados,
                                              int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
+        Pageable pageable = Pageables.bounded(page, size, 200,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
         Specification<GuiaMaster> spec = SearchSpecifications.tokensLike(q,
                 SearchSpecifications.field("trackingBase"),
@@ -536,7 +537,7 @@ public class GuiaMasterService {
         if (clienteUsuarioId == null) {
             return Page.empty();
         }
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(200, size)),
+        Pageable pageable = Pageables.bounded(page, size, 200,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
         Specification<GuiaMaster> ownership = (root, query, cb) ->
                 cb.equal(root.get("clienteUsuario").get("id"), clienteUsuarioId);
