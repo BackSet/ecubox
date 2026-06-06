@@ -18,6 +18,22 @@ public interface DespachoRepository extends JpaRepository<Despacho, Long>,
 
     List<Despacho> findByFechaHoraBetweenOrderByFechaHoraAscIdAsc(LocalDateTime desde, LocalDateTime hasta);
 
+    @Query(value = """
+            SELECT date_trunc('month', d.fecha_hora) AS periodo,
+                   COUNT(DISTINCT d.id) AS total_despachos,
+                   COUNT(p.id) AS total_paquetes,
+                   COALESCE(SUM(p.peso_lbs), 0) AS peso_lbs
+            FROM despacho d
+            LEFT JOIN saca s ON s.despacho_id = d.id
+            LEFT JOIN paquete p ON p.saca_id = s.id
+            WHERE d.fecha_hora >= :desde
+              AND d.fecha_hora < :hasta
+            GROUP BY date_trunc('month', d.fecha_hora)
+            ORDER BY periodo
+            """, nativeQuery = true)
+    List<Object[]> aggregateByMonth(@Param("desde") LocalDateTime desde,
+                                    @Param("hasta") LocalDateTime hasta);
+
     @Query("""
             SELECT d
             FROM Despacho d

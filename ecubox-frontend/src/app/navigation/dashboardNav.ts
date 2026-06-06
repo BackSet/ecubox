@@ -19,6 +19,7 @@ import {
   Plane,
   Contact,
   Wallet,
+  ChartNoAxesCombined,
 } from 'lucide-react';
 
 export type NavItem = {
@@ -69,6 +70,13 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         icon: LayoutDashboard,
         exact: true,
         keywords: ['dashboard', 'home', 'panel'],
+      },
+      {
+        to: '/estadisticas',
+        label: 'Estadísticas',
+        icon: ChartNoAxesCombined,
+        permission: 'ESTADISTICAS_READ',
+        keywords: ['estadisticas', 'graficas', 'indicadores', 'demorados', 'kpi'],
       },
       {
         to: '/casillero',

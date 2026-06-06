@@ -46,6 +46,8 @@ public class ParametroSistemaService {
     public static final String CLAVE_GM_DIAS_AUTO_CIERRE = "guia_master.dias_para_auto_cierre_con_faltante";
     public static final String CLAVE_GM_REQUIERE_CONFIRMACION_DESPACHO_PARCIAL =
             "guia_master.requiere_confirmacion_despacho_parcial";
+    public static final String CLAVE_ESTADISTICAS_DIAS_MAX_SIN_DESPACHAR =
+            "estadisticas.dias_max_sin_despachar";
 
     private final ParametroSistemaRepository parametroSistemaRepository;
     private final EstadoRastreoRepository estadoRastreoRepository;
@@ -55,6 +57,22 @@ public class ParametroSistemaService {
                                    EstadoRastreoRepository estadoRastreoRepository) {
         this.parametroSistemaRepository = parametroSistemaRepository;
         this.estadoRastreoRepository = estadoRastreoRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public int getDiasMaxSinDespachar() {
+        return parametroSistemaRepository.findById(CLAVE_ESTADISTICAS_DIAS_MAX_SIN_DESPACHAR)
+                .map(ParametroSistema::getValor)
+                .map(String::trim)
+                .filter(valor -> !valor.isEmpty())
+                .map(valor -> {
+                    try {
+                        return Math.max(1, Math.min(365, Integer.parseInt(valor)));
+                    } catch (NumberFormatException ignored) {
+                        return 7;
+                    }
+                })
+                .orElse(7);
     }
 
     @Transactional(readOnly = true)

@@ -60,6 +60,9 @@ public class Paquete {
     @Column(name = "fecha_estado_actual_desde")
     private LocalDateTime fechaEstadoActualDesde;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
     @Column(name = "en_flujo_alterno", nullable = false)
     @Builder.Default
     private Boolean enFlujoAlterno = false;
@@ -77,6 +80,13 @@ public class Paquete {
     @Version
     @Column(nullable = false)
     private Long version;
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 
     /**
      * Genera el {@code numeroGuia} canonico de un paquete a partir del tracking base

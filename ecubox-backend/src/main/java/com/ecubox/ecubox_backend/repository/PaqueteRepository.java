@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpecificationExecutor<Paquete> {
     Optional<Paquete> findByNumeroGuiaIgnoreCase(String numeroGuia);
@@ -52,6 +53,87 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     long countByEstadoRastreoId(Long estadoRastreoId);
 
     long countByGuiaMasterId(Long guiaMasterId);
+
+    @Query(value = """
+            SELECT date_trunc('month', p.created_at) AS periodo,
+                   COUNT(*) AS total
+            FROM paquete p
+            WHERE p.created_at >= :desde
+              AND p.created_at < :hasta
+            GROUP BY date_trunc('month', p.created_at)
+            ORDER BY periodo
+            """, nativeQuery = true)
+    List<Object[]> aggregateRegistradosByMonth(@Param("desde") LocalDateTime desde,
+                                               @Param("hasta") LocalDateTime hasta);
+
+    @Query("""
+            SELECT p.estadoRastreo.id, p.estadoRastreo.codigo,
+                   p.estadoRastreo.nombre, COUNT(p)
+            FROM Paquete p
+            GROUP BY p.estadoRastreo.id, p.estadoRastreo.codigo,
+                     p.estadoRastreo.nombre, p.estadoRastreo.orden
+            ORDER BY p.estadoRastreo.orden, p.estadoRastreo.nombre
+            """)
+    List<Object[]> aggregateByEstado();
+
+    @Query("""
+            SELECT COUNT(p)
+            FROM Paquete p
+            LEFT JOIN p.saca s
+            LEFT JOIN s.despacho d
+            WHERE s IS NULL OR d IS NULL
+            """)
+    long countPendientesDespacho();
+
+    @Query("""
+            SELECT COUNT(p)
+            FROM Paquete p
+            LEFT JOIN p.saca s
+            LEFT JOIN s.despacho d
+            WHERE (s IS NULL OR d IS NULL)
+              AND p.createdAt < :limite
+            """)
+    long countDemoradosSinDespachar(@Param("limite") LocalDateTime limite);
+
+    @Query("""
+            SELECT p
+            FROM Paquete p
+            JOIN FETCH p.estadoRastreo
+            JOIN FETCH p.consignatario
+            LEFT JOIN FETCH p.guiaMaster
+            LEFT JOIN FETCH p.saca s
+            LEFT JOIN FETCH s.despacho
+            WHERE (p.saca IS NULL OR s.despacho IS NULL)
+              AND p.createdAt < :limite
+            ORDER BY p.createdAt ASC, p.id ASC
+            """)
+    List<Paquete> findDemoradosSinDespachar(@Param("limite") LocalDateTime limite,
+                                            org.springframework.data.domain.Pageable pageable);
+
+    @Query("""
+            SELECT COUNT(p)
+            FROM Paquete p
+            WHERE p.createdAt >= :desde AND p.createdAt < :hasta
+            """)
+    long countRegistradosEntre(@Param("desde") LocalDateTime desde,
+                               @Param("hasta") LocalDateTime hasta);
+
+    /**
+     * Promedio de días entre el registro del paquete y la fecha del despacho,
+     * para los paquetes despachados dentro del período. Devuelve {@code null}
+     * cuando no hay despachos con fechas válidas.
+     */
+    @Query(value = """
+            SELECT AVG(EXTRACT(EPOCH FROM (d.fecha_hora - p.created_at)) / 86400.0)
+            FROM paquete p
+            JOIN saca s ON p.saca_id = s.id
+            JOIN despacho d ON s.despacho_id = d.id
+            WHERE d.fecha_hora >= :desde
+              AND d.fecha_hora < :hasta
+              AND d.fecha_hora >= p.created_at
+            """, nativeQuery = true)
+    Double avgDiasDespachoEntre(@Param("desde") LocalDateTime desde,
+                                @Param("hasta") LocalDateTime hasta);
 
     List<Paquete> findByConsignatarioUsuarioIdOrderByEstadoRastreo_OrdenAscIdAsc(Long usuarioId);
 

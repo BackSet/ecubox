@@ -39,6 +39,10 @@ const DashboardLayout = lazyNamed(
   'DashboardLayout',
 );
 const DashboardPage = lazyNamed(() => import('@/pages/dashboard/DashboardPage'), 'DashboardPage');
+const EstadisticasPage = lazyNamed(
+  () => import('@/pages/dashboard/estadisticas/EstadisticasPage'),
+  'EstadisticasPage',
+);
 const UsuarioList = lazyNamed(() => import('@/pages/dashboard/usuarios/UsuarioList'), 'UsuarioList');
 const RolList = lazyNamed(() => import('@/pages/dashboard/roles/RolList'), 'RolList');
 const PermisoList = lazyNamed(() => import('@/pages/dashboard/permisos/PermisoList'), 'PermisoList');
@@ -388,6 +392,13 @@ const inicioRoute = createRoute({
   component: withDashboardLayout(DashboardPage),
 });
 
+const estadisticasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/estadisticas',
+  beforeLoad: requirePermission('ESTADISTICAS_READ'),
+  component: withDashboardLayout(EstadisticasPage),
+});
+
 const casilleroRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/casillero',
@@ -641,6 +652,7 @@ const routeTree = rootRoute.addChildren([
   terminosRoute,
   privacidadRoute,
   inicioRoute,
+  estadisticasRoute,
   casilleroRoute,
   agenciaEeuuLegacyRedirect,
   perfilRoute,

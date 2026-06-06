@@ -41,4 +41,5 @@ export const API_ENDPOINTS = {
   push: '/push',
   configTarifaDistribucion: '/config/tarifa-distribucion',
   liquidaciones: '/liquidaciones',
+  estadisticas: '/estadisticas',
 } as const;
