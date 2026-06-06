@@ -1,6 +1,8 @@
 /// <reference lib="webworker" />
 
 import { clientsClaim } from 'workbox-core';
+import { CacheableResponsePlugin } from 'workbox-cacheable-response';
+import { ExpirationPlugin } from 'workbox-expiration';
 import {
   cleanupOutdatedCaches,
   createHandlerBoundToURL,
@@ -8,7 +10,7 @@ import {
   type PrecacheEntry,
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { NetworkOnly } from 'workbox-strategies';
+import { CacheFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
 
 declare let self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<PrecacheEntry | string>;
@@ -33,6 +35,69 @@ registerRoute(
 
 // Las peticiones a la API nunca deben pasar por la cache del SW.
 registerRoute(({ url }) => url.pathname.startsWith('/api/'), new NetworkOnly());
+
+// Los modulos pesados excluidos del precache y los recursos estaticos se
+// conservan despues del primer uso. Los nombres con hash hacen CacheFirst
+// seguro, y los limites evitan que la PWA crezca sin control.
+registerRoute(
+  ({ request, url }) =>
+    url.origin === self.location.origin &&
+    ['script', 'style', 'worker'].includes(request.destination),
+  new CacheFirst({
+    cacheName: 'ecubox-static-v1',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [200] }),
+      new ExpirationPlugin({
+        maxEntries: 80,
+        maxAgeSeconds: 30 * 24 * 60 * 60,
+        purgeOnQuotaError: true,
+      }),
+    ],
+  })
+);
+
+registerRoute(
+  ({ request, url }) =>
+    url.origin === self.location.origin &&
+    ['image', 'font'].includes(request.destination),
+  new CacheFirst({
+    cacheName: 'ecubox-media-v1',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [200] }),
+      new ExpirationPlugin({
+        maxEntries: 60,
+        maxAgeSeconds: 60 * 24 * 60 * 60,
+        purgeOnQuotaError: true,
+      }),
+    ],
+  })
+);
+
+registerRoute(
+  ({ url }) => url.origin === 'https://fonts.googleapis.com',
+  new StaleWhileRevalidate({
+    cacheName: 'ecubox-google-fonts-css-v1',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 4, maxAgeSeconds: 7 * 24 * 60 * 60 }),
+    ],
+  })
+);
+
+registerRoute(
+  ({ url }) => url.origin === 'https://fonts.gstatic.com',
+  new CacheFirst({
+    cacheName: 'ecubox-google-fonts-v1',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({
+        maxEntries: 12,
+        maxAgeSeconds: 365 * 24 * 60 * 60,
+        purgeOnQuotaError: true,
+      }),
+    ],
+  })
+);
 
 // Flujo "prompt": el SW nuevo espera hasta que el cliente confirme la
 // actualizacion (boton "Actualizar"), momento en que virtual:pwa-register envia

@@ -43,8 +43,11 @@ export function requiresManualInstallGuide(
   return !hasDeferredPrompt;
 }
 
+const PWA_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
+
 function promptForUpdate(reload: () => void) {
   toast('Hay una nueva version disponible', {
+    id: 'ecubox-pwa-update',
     description: 'Recarga para actualizar ECUBOX.',
     duration: Infinity,
     action: {
@@ -52,6 +55,30 @@ function promptForUpdate(reload: () => void) {
       onClick: reload,
     },
   });
+}
+
+export function setupServiceWorkerUpdateChecks(
+  registration: ServiceWorkerRegistration,
+  intervalMs = PWA_UPDATE_INTERVAL_MS
+): () => void {
+  const checkForUpdate = () => {
+    if (navigator.onLine && document.visibilityState === 'visible') {
+      void registration.update().catch(() => undefined);
+    }
+  };
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') checkForUpdate();
+  };
+
+  const intervalId = window.setInterval(checkForUpdate, intervalMs);
+  window.addEventListener('online', checkForUpdate);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  return () => {
+    window.clearInterval(intervalId);
+    window.removeEventListener('online', checkForUpdate);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
 }
 
 export function registerServiceWorker() {
@@ -69,10 +96,21 @@ export function registerServiceWorker() {
             void updateSW(true);
           });
         },
+        onOfflineReady() {
+          toast.success('ECUBOX esta listo para funcionar sin conexion', {
+            id: 'ecubox-pwa-offline-ready',
+          });
+        },
+        onRegisteredSW(_swUrl, registration) {
+          if (registration) setupServiceWorkerUpdateChecks(registration);
+        },
+        onRegisterError(error) {
+          console.warn('No se pudo registrar el service worker', error);
+        },
       });
     })
-    .catch(() => {
-      // El portal sigue siendo usable aunque el navegador rechace el SW.
+    .catch((error) => {
+      console.warn('No se pudo cargar el registro de la PWA', error);
     });
 }
 

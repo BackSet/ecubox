@@ -74,13 +74,15 @@ Puntos clave:
 
 - **Solo en producción:** el SW no se registra en `npm run dev`
   (ver `registerServiceWorker` en [`src/lib/pwa.ts`](src/lib/pwa.ts)).
-- **Estrategia de caché:** precache del manifiesto de build (app shell + assets
-  con hash) y navegación SPA servida desde `index.html` precacheado. Las
-  peticiones a `/api/` nunca se cachean.
+- **Estrategia de caché:** precache del app shell y rutas habituales; los
+  exportadores pesados de PDF/Excel y la imagen social se cachean solo al
+  usarse. Fuentes, imágenes y assets con hash usan cachés de runtime con límites
+  de edad y cantidad. Las peticiones a `/api/` nunca se cachean.
 - **Actualizaciones (`registerType: 'prompt'`):** cuando hay una versión nueva,
   se muestra un toast "Hay una nueva versión disponible" con botón Actualizar;
   al confirmar se envía `SKIP_WAITING` y la página recarga. Esto evita servir
-  chunks inconsistentes tras un deploy.
+  chunks inconsistentes tras un deploy. También se comprueba una versión nueva
+  cada hora, al recuperar conexión y al volver a la pestaña.
 - **Cabeceras de caché (`Caddyfile`):** `/assets/*` es inmutable (hash por
   build); `sw.js`, `index.html`, `manifest.webmanifest` e iconos en `/icons/*`
   usan `no-cache` para revalidar en cada deploy.

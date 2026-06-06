@@ -7,7 +7,6 @@ import {
 import {
   getAgenciasCourierEntregaAll,
   getAgenciaCourierEntrega,
-  getAgenciasCourierEntregaByCourierEntregaId,
   createAgenciaCourierEntrega,
   updateAgenciaCourierEntrega,
   deleteAgenciaCourierEntrega,
@@ -36,14 +35,6 @@ export function useAgenciasCourierEntregaPaginadas(params: PageQuery = {}) {
     ] as const,
     queryFn: () => listarAgenciasCourierEntregaPaginado(params),
     placeholderData: keepPreviousData,
-  });
-}
-
-export function useAgenciasCourierEntregaByCourierEntrega(courierEntregaId: number | undefined | null) {
-  return useQuery({
-    queryKey: [...AGENCIAS_COURIER_ENTREGA_ADMIN_QUERY_KEY, 'por-courierEntrega', courierEntregaId],
-    queryFn: () => getAgenciasCourierEntregaByCourierEntregaId(courierEntregaId!),
-    enabled: courierEntregaId != null && !Number.isNaN(courierEntregaId),
   });
 }
 

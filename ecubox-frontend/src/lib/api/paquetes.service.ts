@@ -1,7 +1,6 @@
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 import type { Paquete, PaqueteCreateRequest, PaqueteUpdateRequest } from '@/types/paquete';
-import type { EstadoRastreo } from '@/types/estado-rastreo';
 import type { PageResponse, PageQuery } from '@/types/page';
 
 const BASE = API_ENDPOINTS.misPaquetes;
@@ -129,19 +128,6 @@ export async function bulkUpdatePesos(
   return data;
 }
 
-/** Actualizar estado de rastreo de un paquete (operario). */
-export async function updateEstadoRastreo(
-  paqueteId: number,
-  estadoRastreoId: number,
-  motivoAlterno?: string
-): Promise<Paquete> {
-  const { data } = await apiClient.patch<Paquete>(
-    `${OPERARIO_BASE}/${paqueteId}/estado-rastreo`,
-    { estadoRastreoId, motivoAlterno }
-  );
-  return data;
-}
-
 export interface CambiarEstadoRastreoBulkResponse {
   actualizados: number;
   rechazados: { paqueteId: number; motivo: string }[];
@@ -159,44 +145,6 @@ export async function cambiarEstadoRastreoBulk(
   return data;
 }
 
-export async function getEstadosDestinoPermitidos(
-  paqueteIds: number[]
-): Promise<EstadoRastreo[]> {
-  const { data } = await apiClient.post<EstadoRastreo[]>(
-    `${OPERARIO_BASE}/estados-destino-permitidos`,
-    { paqueteIds }
-  );
-  return data;
-}
-
-/**
- * Asignar (o desvincular) un paquete a una guía master específica (operario).
- * Pasar `guiaMasterId=null` para desvincular la pieza del master.
- */
-export async function asignarPaqueteAGuiaMaster(
-  paqueteId: number,
-  guiaMasterId: number | null,
-  piezaNumero?: number | null
-): Promise<Paquete> {
-  const { data } = await apiClient.patch<Paquete>(
-    `${OPERARIO_BASE}/${paqueteId}/guia-master`,
-    { guiaMasterId, piezaNumero }
-  );
-  return data;
-}
-
-/** Asignar varios paquetes como piezas de la misma guía master (operario). */
-export async function asignarGuiaMasterBulk(
-  guiaMasterId: number,
-  paqueteIds: number[]
-): Promise<Paquete[]> {
-  const { data } = await apiClient.post<Paquete[]>(
-    `${OPERARIO_BASE}/asignar-guia-master`,
-    { guiaMasterId, paqueteIds }
-  );
-  return data;
-}
-
 /** Buscar paquetes por lista de números de guía ECUBOX (operario). */
 export async function buscarPaquetesPorGuias(
   numeroGuias: string[]
@@ -207,4 +155,3 @@ export async function buscarPaquetesPorGuias(
   );
   return data;
 }
-

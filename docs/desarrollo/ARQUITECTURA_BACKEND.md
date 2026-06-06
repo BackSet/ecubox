@@ -2,7 +2,7 @@
 
 Documento de referencia de la arquitectura del backend del proyecto ECUBOX (ecubox-backend). Sirve como guía para desarrolladores y onboarding.
 
-**Alcance:** backend Java/Spring Boot. Para tecnologías y versiones exactas, ver [TECH-STACK.md](TECH-STACK.md) (Java 25, Spring Boot 4.0.3, PostgreSQL, jjwt 0.13.0, etc.).
+**Alcance:** backend Java/Spring Boot. Para tecnologías y versiones exactas, ver [TECH-STACK.md](TECH-STACK.md) (Java 25, Spring Boot 4.0.6, PostgreSQL, jjwt 0.13.0, etc.).
 
 ---
 
@@ -31,7 +31,7 @@ Base: `com.ecubox.ecubox_backend` bajo `ecubox-backend/src/main/java/`.
 | **entity** | Entidades JPA |
 | **entity/enums** | Enums de dominio (EstadoPaquete, TipoPaquete, etc.) |
 | **dto** | DTOs de request/response |
-| **config** | SecurityConfig, CorsConfig, JwtAuthenticationFilter, JwtAuthenticationEntryPoint, CustomAccessDeniedHandler, SwaggerConfig, DataInitializer, etc. |
+| **config** | SecurityConfig, CorsConfig, JwtAuthenticationFilter, JwtAuthenticationEntryPoint, CustomAccessDeniedHandler, OpenApiConfig, etc. |
 | **security** | CustomUserDetailsService, CustomUserDetails, CurrentUserService |
 | **exception** | GlobalExceptionHandler, ApiErrorResponse, ResourceNotFoundException, BadRequestException |
 | **util** | PermissionConstants, helpers |
@@ -99,7 +99,7 @@ sequenceDiagram
   - Sesión **stateless** (sin sesión HTTP).
   - CSRF deshabilitado (API REST con JWT).
   - CORS mediante `CorsConfigurationSource` (CorsConfig).
-  - **Endpoints públicos:** `/api/auth/login`, `/api/auth/register`, `/api/health`, `/swagger-ui/**`, `/v3/api-docs/**`.
+  - **Endpoints públicos:** `POST /api/auth/login`, `POST /api/auth/register/simple`, `GET /api/health`, tracking y configuración pública. Scalar y `/v3/api-docs/**` solo se habilitan en desarrollo.
   - Resto de peticiones: `anyRequest().authenticated()`.
   - Control fino con `@PreAuthorize` en controllers (roles y permisos).
 
@@ -186,8 +186,8 @@ Se usa un DTO propio `ApiErrorResponse` con:
 
 ## 7. API y documentación
 
-- **Springdoc OpenAPI 3.0.2:** Swagger UI en `/swagger-ui.html`, OpenAPI spec en `/v3/api-docs`.
-- **SwaggerConfig:** Bean `OpenAPI` con título "ECUBOX Backend API", esquema de seguridad Bearer JWT.
+- **Springdoc OpenAPI 3.0.3:** Scalar UI en `/scalar` y OpenAPI spec en `/v3/api-docs`.
+- **OpenApiConfig:** único bean `OpenAPI`, con esquema Bearer JWT y grupos por área funcional.
 
 ---
 

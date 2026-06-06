@@ -17,7 +17,7 @@ export function PublicPageLayout({
   children,
   headerVariant = 'default',
   showOverlay = true,
-  skipLink = false,
+  skipLink = true,
   mainClassName,
   mainId = 'contenido-principal',
   topSlot,

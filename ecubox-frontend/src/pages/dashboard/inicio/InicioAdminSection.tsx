@@ -9,6 +9,7 @@ import {
   Clock,
   DollarSign,
   Key,
+  MessageSquare,
   PackageCheck,
   Plane,
   Settings,
@@ -32,6 +33,8 @@ import { useCouriersEntregaAdmin } from '@/hooks/useCouriersEntregaAdmin';
 import { useDashboardGuiasMaster } from '@/hooks/useGuiasMaster';
 import { usePaquetes } from '@/hooks/usePaquetes';
 import { useDespachos } from '@/hooks/useOperarioDespachos';
+import { useEnviosConsolidados } from '@/hooks/useEnviosConsolidados';
+import { useCanalesComunicacion } from '@/hooks/useCanalesComunicacion';
 
 const ADMIN_QUICK_ACTIONS = [
   {
@@ -83,7 +86,14 @@ export function InicioAdminSection() {
   const { data: dashGM } = useDashboardGuiasMaster(5, true);
   const { data: paquetes, isLoading: loadingPaquetes } = usePaquetes();
   const { data: despachos, isLoading: loadingDespachos } = useDespachos();
+  // Solo necesitamos el conteo total: pedimos una página mínima.
+  const { data: enviosConsolidadosPage } = useEnviosConsolidados({ page: 0, size: 1 });
+  const { data: canales } = useCanalesComunicacion();
 
+  const totalEnviosConsolidados = enviosConsolidadosPage?.totalElements ?? 0;
+  const canalesConfigurados = canales
+    ? Object.values(canales).filter((c) => c.valor.trim().length > 0).length
+    : 0;
   const totalUsuarios = usuarios?.length ?? 0;
   const usuariosActivos = usuarios?.filter((u) => u.enabled).length ?? 0;
   const usuariosInactivos = totalUsuarios - usuariosActivos;
@@ -176,11 +186,11 @@ export function InicioAdminSection() {
               to="/couriers-entrega"
             />
             <KpiCard
-              icon={<Settings className="h-5 w-5" strokeWidth={1.75} />}
-              label="Parámetros"
-              value="—"
-              tone="neutral"
-              hint="Configuración del sistema"
+              icon={<MessageSquare className="h-5 w-5" strokeWidth={1.75} />}
+              label="Canales de contacto"
+              value={canalesConfigurados}
+              tone={canalesConfigurados > 0 ? 'success' : 'neutral'}
+              hint="Configurados en parámetros"
               to="/parametros-sistema"
             />
           </KpiCardsGrid>
@@ -206,9 +216,9 @@ export function InicioAdminSection() {
               <KpiCard
                 icon={<Plane className="h-5 w-5" strokeWidth={1.75} />}
                 label="Envíos consolidados"
-                value="—"
-                hint="Manifiestos aéreos"
-                tone="neutral"
+                value={totalEnviosConsolidados}
+                hint="Manifiestos aéreos creados"
+                tone={totalEnviosConsolidados > 0 ? 'primary' : 'neutral'}
                 to="/envios-consolidados"
               />
             </KpiCardsGrid>

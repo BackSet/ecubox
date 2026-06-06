@@ -9,7 +9,6 @@ import { E_PATH, E_TRANSFORM, GRAD_LIGHT } from './brand-glyphs.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'public/icons');
-const publicDir = path.join(root, 'public');
 
 /**
  * @param {number} size
@@ -42,14 +41,5 @@ await render(192, 22, 1, 'ecubox-monogram-192.png');
 await render(512, 22, 1, 'ecubox-monogram-512.png');
 await render(180, 0, 1, 'ecubox-monogram-180.png');
 await render(512, 0, 0.88, 'ecubox-monogram-maskable-512.png');
-
-const legacy = [
-  ['ecubox-monogram-192.png', 'pwa-icon-192.png'],
-  ['ecubox-monogram-512.png', 'pwa-icon-512.png'],
-  ['ecubox-monogram-180.png', 'apple-touch-icon.png'],
-];
-for (const [src, dest] of legacy) {
-  fs.copyFileSync(path.join(outDir, src), path.join(publicDir, dest));
-}
 
 console.log('Iconos PWA generados desde brand-glyphs.mjs');

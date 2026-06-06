@@ -31,8 +31,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { ListToolbar } from '@/components/ListToolbar';
+import { PiezasProgress } from '@/components/PiezasProgress';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
@@ -552,99 +552,14 @@ function PersonaCell({
 }
 
 function PiezasProgressCell({ guia: g }: { guia: GuiaMaster }) {
-  const total = g.totalPiezasEsperadas;
-  const registradas = g.piezasRegistradas ?? 0;
-  const recibidas = g.piezasRecibidas ?? 0;
-  const despachadas = g.piezasDespachadas ?? 0;
-
-  if (total == null) {
-    return (
-      <div className="space-y-1">
-        <Badge variant="outline" className="text-[var(--color-warning)] border-[var(--color-warning)]/30">
-          Total pendiente
-        </Badge>
-        <p className="text-[11px] text-muted-foreground">
-          {registradas} registrada{registradas === 1 ? '' : 's'}
-          {recibidas > 0 ? ` · ${recibidas} recibida${recibidas === 1 ? '' : 's'}` : ''}
-          {despachadas > 0 ? ` · ${despachadas} despachada${despachadas === 1 ? '' : 's'}` : ''}
-        </p>
-      </div>
-    );
-  }
-
-  const safeTotal = Math.max(total, 1);
-  const pctRegistradas = Math.min(100, (registradas / safeTotal) * 100);
-  const pctRecibidas = Math.min(100, (recibidas / safeTotal) * 100);
-  const pctDespachadas = Math.min(100, (despachadas / safeTotal) * 100);
-
   return (
-    <div className="min-w-[12rem] space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="font-medium text-foreground">
-          {registradas} / {total}
-        </span>
-        <span className="text-muted-foreground">piezas</span>
-      </div>
-      {/*
-       * Usamos bg-muted (no la variable directa) para que el track del progreso
-       * tenga mas contraste sobre la fila y respete el modo oscuro/claro.
-       */}
-      <div
-        className="relative h-2 overflow-hidden rounded-full bg-muted"
-        role="img"
-        aria-label={`Progreso: ${registradas} registradas, ${recibidas} recibidas, ${despachadas} despachadas de ${total}`}
-      >
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-info)]/70"
-          style={{ width: `${pctRegistradas}%` }}
-          title={`Registradas: ${registradas}/${total}`}
-        />
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-warning)]/85"
-          style={{ width: `${pctRecibidas}%` }}
-          title={`Recibidas: ${recibidas}/${total}`}
-        />
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-success)]/90"
-          style={{ width: `${pctDespachadas}%` }}
-          title={`Despachadas: ${despachadas}/${total}`}
-        />
-      </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-        <Dot
-          color="bg-[var(--color-info)]"
-          label={`Registradas ${registradas}`}
-          title="Piezas creadas en el sistema (no necesariamente recibidas)"
-        />
-        <Dot
-          color="bg-[var(--color-warning)]"
-          label={`Recibidas ${recibidas}`}
-          title="Piezas marcadas como recibidas en bodega"
-        />
-        <Dot
-          color="bg-[var(--color-success)]"
-          label={`Despachadas ${despachadas}`}
-          title="Piezas despachadas al destino final"
-        />
-      </div>
-    </div>
-  );
-}
-
-function Dot({
-  color,
-  label,
-  title,
-}: {
-  color: string;
-  label: string;
-  title?: string;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1" title={title}>
-      <span className={`h-1.5 w-1.5 rounded-full ${color}`} aria-hidden />
-      {label}
-    </span>
+    <PiezasProgress
+      total={g.totalPiezasEsperadas}
+      registradas={g.piezasRegistradas ?? 0}
+      recibidas={g.piezasRecibidas ?? 0}
+      despachadas={g.piezasDespachadas ?? 0}
+      size="sm"
+    />
   );
 }
 

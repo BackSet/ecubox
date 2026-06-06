@@ -12,6 +12,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.atLeastOnce;
@@ -32,6 +33,11 @@ class RateLimitFilterTest {
         ReflectionTestUtils.setField(filter, "refillTokens", 3);
         ReflectionTestUtils.setField(filter, "refillPeriodSeconds", 60);
         ReflectionTestUtils.setField(filter, "enabled", true);
+        ReflectionTestUtils.setField(filter, "authEnabled", true);
+        ReflectionTestUtils.setField(filter, "authCapacity", 3);
+        ReflectionTestUtils.setField(filter, "authRefillTokens", 3);
+        ReflectionTestUtils.setField(filter, "authRefillPeriodSeconds", 60);
+        ReflectionTestUtils.setField(filter, "trustForwardedHeaders", false);
     }
 
     private MockHttpServletRequest reqV1(String ip) {
@@ -67,9 +73,9 @@ class RateLimitFilterTest {
     }
 
     @Test
-    void noAplicaAEndpointsNoTracking() throws ServletException, IOException {
-        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/api/auth/login");
-        req.setRequestURI("/api/auth/login");
+    void noAplicaAEndpointsNoProtegidos() {
+        MockHttpServletRequest req = new MockHttpServletRequest("GET", "/api/auth/me");
+        req.setRequestURI("/api/auth/me");
         assertTrue(filter.shouldNotFilter(req));
     }
 
@@ -96,6 +102,7 @@ class RateLimitFilterTest {
 
     @Test
     void usaXForwardedForCuandoEstaPresente() throws ServletException, IOException {
+        ReflectionTestUtils.setField(filter, "trustForwardedHeaders", true);
         for (int i = 0; i < 3; i++) {
             MockHttpServletRequest req = reqV1("127.0.0.1");
             req.addHeader("X-Forwarded-For", "203.0.113.5, 10.0.0.1");
@@ -112,6 +119,39 @@ class RateLimitFilterTest {
         MockHttpServletResponse other = new MockHttpServletResponse();
         filter.doFilter(otherReq, other, chain);
         assertEquals(200, other.getStatus());
+    }
+
+    @Test
+    void ignoraForwardedForSiNoSeConfiaEnProxy() throws ServletException, IOException {
+        for (int i = 0; i < 3; i++) {
+            MockHttpServletRequest req = reqV1("127.0.0.1");
+            req.addHeader("X-Forwarded-For", "203.0.113." + i);
+            filter.doFilter(req, new MockHttpServletResponse(), chain);
+        }
+        MockHttpServletRequest blockedReq = reqV1("127.0.0.1");
+        blockedReq.addHeader("X-Forwarded-For", "198.51.100.7");
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
+        filter.doFilter(blockedReq, blocked, chain);
+        assertEquals(429, blocked.getStatus());
+    }
+
+    @Test
+    void limitaLoginPorIpConCupoSeparado() throws ServletException, IOException {
+        MockHttpServletRequest login = new MockHttpServletRequest("POST", "/api/auth/login");
+        login.setRequestURI("/api/auth/login");
+        login.setRemoteAddr("10.0.0.70");
+        assertFalse(filter.shouldNotFilter(login));
+
+        for (int i = 0; i < 3; i++) {
+            filter.doFilter(login, new MockHttpServletResponse(), chain);
+        }
+        MockHttpServletResponse blocked = new MockHttpServletResponse();
+        filter.doFilter(login, blocked, chain);
+        assertEquals(429, blocked.getStatus());
+
+        MockHttpServletResponse trackingStillAvailable = new MockHttpServletResponse();
+        filter.doFilter(reqV1("10.0.0.70"), trackingStillAvailable, chain);
+        assertEquals(200, trackingStillAvailable.getStatus());
     }
 
     @Test

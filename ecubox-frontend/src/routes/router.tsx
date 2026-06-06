@@ -148,6 +148,7 @@ const CalculadoraPage = lazyNamed(
   () => import('@/pages/calculadora/CalculadoraPage'),
   'CalculadoraPage',
 );
+const EnlacesPage = lazyNamed(() => import('@/pages/enlaces/EnlacesPage'), 'EnlacesPage');
 const TarifaCalculadoraPage = lazyNamed(
   () => import('@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraPage'),
   'TarifaCalculadoraPage',
@@ -337,6 +338,19 @@ const calculadoraRoute = createRoute({
       description:
         'Cotiza el costo aproximado de tu envío desde Estados Unidos a Ecuador según peso y servicio. Sin sorpresas antes de comprar en tiendas online.',
       path: '/calculadora',
+    }) as RouteHeadResult,
+});
+
+const enlacesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/enlaces',
+  component: EnlacesPage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Enlaces y contacto | ECUBOX',
+      description:
+        'Todos los enlaces de ECUBOX en un solo lugar: rastreo, calculadora de tarifas, registro, contacto y redes sociales oficiales. Escanea el QR para compartir.',
+      path: '/enlaces',
     }) as RouteHeadResult,
 });
 
@@ -623,6 +637,7 @@ const routeTree = rootRoute.addChildren([
   trackingRoute,
   trackingEjemploRoute,
   calculadoraRoute,
+  enlacesRoute,
   terminosRoute,
   privacidadRoute,
   inicioRoute,

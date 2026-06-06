@@ -25,11 +25,6 @@ export async function getAgenciaCourierEntrega(id: number): Promise<AgenciaCouri
   return data;
 }
 
-export async function getAgenciasCourierEntregaByCourierEntregaId(courierEntregaId: number): Promise<AgenciaCourierEntrega[]> {
-  const { data } = await apiClient.get<AgenciaCourierEntrega[]>(`${BASE}/por-courierEntrega/${courierEntregaId}`);
-  return data;
-}
-
 export async function createAgenciaCourierEntrega(body: AgenciaCourierEntregaRequest): Promise<AgenciaCourierEntrega> {
   const { data } = await apiClient.post<AgenciaCourierEntrega>(BASE, body);
   return data;

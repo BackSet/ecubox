@@ -21,11 +21,6 @@ export async function getEstadosRastreoActivos(): Promise<EstadoRastreo[]> {
   return data;
 }
 
-export async function getEstadoRastreoById(id: number): Promise<EstadoRastreo> {
-  const { data } = await apiClient.get<EstadoRastreo>(`${BASE}/${id}`);
-  return data;
-}
-
 export async function createEstadoRastreo(
   body: EstadoRastreoRequest
 ): Promise<EstadoRastreo> {

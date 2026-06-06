@@ -3,6 +3,7 @@ User-agent: *
 Allow: /
 Allow: /tracking
 Allow: /calculadora
+Allow: /enlaces
 Allow: /login
 Allow: /registro
 Disallow: /inicio

@@ -1,36 +1,64 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# Build outputs and caches
+**/target/
+**/dist/
+**/dist-ssr/
+**/node_modules/
+**/coverage/
+**/.nyc_output/
+**/*.tsbuildinfo
+**/.vite/
+
+# Logs and runtime files
+*.log
+**/logs/
+*.pid
+*.pid.lock
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # Editors and local tools
-.cursor/
 .idea/
+.vscode/
+.cursor/
+.obsidian/
+.antigravitycli/
+**/.agents/
+**/skills-lock.json
 *.swp
 *.swo
 *~
 
-# Obsidian (metadata si el repo se abre como vault)
-.obsidian/
+# Java IDE metadata
+**/.classpath
+**/.factorypath
+**/.project
+**/.settings/
+**/.apt_generated/
+**/.springBeans
+**/.sts4-cache/
+*.iml
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 Desktop.ini
 
-# Monorepo build outputs and caches
-**/target/
-**/dist/
-**/node_modules/
-**/*.tsbuildinfo
-
-# Local env and secrets (never commit)
-**/.env
-**/.env.local
-**/.env.*.local
-*.pem
-*.key
-
-# Logs
-*.log
-**/logs/
-
-# Temporary / backup
+# Temporary and backup files
 *.orig
 *.bak
 *.tmp
+*.temp

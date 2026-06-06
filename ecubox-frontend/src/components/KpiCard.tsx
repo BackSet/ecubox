@@ -85,7 +85,7 @@ export function KpiCard({
             {icon}
           </span>
           <p
-            className="pt-0.5 text-[13px] font-medium leading-snug text-[var(--color-foreground)] line-clamp-2"
+            className="pt-0.5 text-[13px] font-medium leading-snug text-[var(--color-foreground)] line-clamp-2 [overflow-wrap:anywhere]"
             title={label}
           >
             {label}

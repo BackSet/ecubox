@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -15,6 +16,7 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 
 @Configuration
 @EnableWebSecurity
@@ -51,18 +53,24 @@ public class SecurityConfig {
                     headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny);
                     headers.contentTypeOptions(c -> {});
                     headers.xssProtection(xss -> xss.disable());
+                    headers.referrerPolicy(referrer ->
+                            referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
+                    headers.permissionsPolicyHeader(permissions ->
+                            permissions.policy("camera=(), microphone=(), geolocation=(), payment=()"));
                     if (hstsEnabled) {
                         headers.httpStrictTransportSecurity(hsts ->
                                 hsts.maxAgeInSeconds(31536000).includeSubDomains(true).preload(true));
                     }
                 })
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/health").permitAll()
-                        .requestMatchers("/api/v1/tracking").permitAll()
-                        .requestMatchers("/api/config/tarifa-calculadora").permitAll()
-                        .requestMatchers("/api/config/canales-comunicacion").permitAll()
-                        .requestMatchers("/scalar/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register/simple").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/health",
+                                "/api/v1/tracking",
+                                "/api/config/tarifa-calculadora",
+                                "/api/config/canales-comunicacion",
+                                "/scalar/**",
+                                "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(e -> e

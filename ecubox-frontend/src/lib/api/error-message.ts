@@ -4,10 +4,6 @@ type ApiErrorPayload = {
   message?: string;
 };
 
-type ApiErrorResponse = {
-  data?: ApiErrorPayload;
-};
-
 export function getApiErrorMessage(error: unknown): string | undefined {
   const axiosError = error as AxiosError<ApiErrorPayload> | undefined;
   const message = axiosError?.response?.data?.message;
@@ -24,9 +20,4 @@ export function getApiErrorMessage(error: unknown): string | undefined {
 export function getApiStatus(error: unknown): number | undefined {
   const axiosError = error as AxiosError<ApiErrorPayload> | undefined;
   return axiosError?.response?.status;
-}
-
-export function getApiResponse(error: unknown): ApiErrorResponse | undefined {
-  const axiosError = error as AxiosError<ApiErrorPayload> | undefined;
-  return axiosError?.response;
 }

@@ -2,7 +2,8 @@
 
 > **Documentación interactiva (recomendada):** con el backend en perfil `dev`, abre [Scalar UI](http://localhost:8080/scalar) o el spec OpenAPI en `http://localhost:8080/v3/api-docs`. Esta referencia en Markdown es complementaria y puede quedar desactualizada respecto al spec generado desde el código.
 
-Documentación completa de los endpoints del backend ECUBOX (99 endpoints en 23 controllers).
+Referencia funcional de los endpoints del backend ECUBOX. La fuente de verdad
+ejecutable es el spec OpenAPI generado por el backend.
 
 ---
 

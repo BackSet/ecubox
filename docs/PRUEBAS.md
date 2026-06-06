@@ -115,28 +115,14 @@ El pipeline de build (`npm run build`) usa **TypeScript** + **Vite** y no ejecut
 
 ---
 
-## Integración continua (sugerencia)
+## Integración continua
 
-Si se añade un workflow (GitHub Actions, etc.), un job mínimo puede ser:
+El workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ejecuta:
 
-```yaml
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '25'
-      - name: Backend tests
-        run: cd ecubox-backend && ./mvnw -B test
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Frontend tests
-        run: cd ecubox-frontend && npm ci && npm run test
-```
+1. Tests del backend con JDK 25.
+2. Instalación reproducible del frontend mediante `npm ci`.
+3. Tests Vitest.
+4. Build de producción.
 
 El test de contexto Spring solo se ejecutará si el job exporta `ECUBOX_RUN_BOOT_CONTEXT_TEST=true` **y** proporciona PostgreSQL (servicio Docker o similar).
 

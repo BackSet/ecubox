@@ -2,7 +2,8 @@
 
 **Todos los valores de la tabla y los bloques de código son tentativos y ficticios:** sirven solo para ilustrar el formato. No representan servicios, hosts ni credenciales reales. En producción debes generar URLs y secretos propios.
 
-Para plantillas mínimas, usa `ecubox-backend/.env.example` y `ecubox-frontend/.env.example`.
+Para plantillas mínimas, usa `.env.example` en la raíz para Docker Compose,
+`ecubox-backend/.env.example` y `ecubox-frontend/.env.example`.
 
 ---
 
@@ -18,6 +19,7 @@ Cargado automáticamente al arrancar Spring Boot desde el directorio de trabajo 
 | `DB_PASSWORD` | Sí | Contraseña de la base. | `contraseña_ficticia_solo_documentación` | Igual que `DB_PASSWORD` en el `.env` de la raíz | Secreto definido en tu plataforma |
 | `JWT_SECRET` | Sí | Firma HS256; **mínimo 32 caracteres**. | `cadena_ficticia_minimo_32_caracteres_xx` | Secreto del `.env` raíz (≥32 caracteres) | Cadena aleatoria larga generada por ti |
 | `JWT_EXPIRATION` | No | Validez del token en ms. | `86400000` | `86400000` | `86400000` |
+| `JWT_ISSUER` | No | Emisor que se incluye y valida en cada JWT. Cambiarlo invalida tokens anteriores. | `ecubox-backend` | `ecubox-backend` | Identificador estable del servicio |
 | `CORS_ALLOWED_ORIGINS` | No | Orígenes del navegador separados por coma. | `http://localhost:5173` | `http://localhost` | `https://origen-frontend-ejemplo.invalid` |
 | `ADMIN_BOOTSTRAP_ENABLED` | No | Crear usuario admin en el primer arranque. | `true` | `true` o `false` | `false` tras el primer arranque |
 | `ADMIN_USERNAME` | No | Nombre del admin inicial. | `usuario_admin_ejemplo` | `usuario_admin_ejemplo` | — |
@@ -26,6 +28,13 @@ Cargado automáticamente al arrancar Spring Boot desde el directorio de trabajo 
 | `TRACKING_TIMELINE_USE_EVENTS` | No | Línea de tiempo basada en eventos. Por defecto en [application.properties](../../ecubox-backend/src/main/resources/application.properties). | `true` | `true` | `true` |
 | `TRACKING_OUTBOX_RELAY_DELAY_MS` | No | Retardo del relay de outbox (ms). | `5000` | `5000` | `5000` |
 | `TRACKING_OUTBOX_MAX_ATTEMPTS` | No | Reintentos máximos outbox. | `6` | `6` | `6` |
+| `AUTH_RATELIMIT_ENABLED` | No | Activa límites por IP para login y registro. | `true` | `true` | `true` |
+| `AUTH_RATELIMIT_CAPACITY` | No | Solicitudes permitidas por ventana para autenticación. | `10` | `10` | Ajustar según tráfico |
+| `AUTH_RATELIMIT_REFILL_TOKENS` | No | Tokens repuestos en cada ventana. | `10` | `10` | Ajustar según tráfico |
+| `AUTH_RATELIMIT_REFILL_PERIOD_SECONDS` | No | Duración de la ventana del límite. | `60` | `60` | `60` |
+| `TRUST_FORWARDED_HEADERS` | No | Confía en `X-Forwarded-For` y `X-Real-IP`. Solo activar detrás de un proxy que sobrescriba esas cabeceras. | `false` | `false` | Depende del proxy |
+| `HIBERNATE_JDBC_BATCH_SIZE` | No | Tamaño máximo de lote JDBC. | `50` | `50` | Medir antes de cambiar |
+| `HIBERNATE_BATCH_FETCH_SIZE` | No | Carga agrupada de asociaciones lazy. | `32` | `32` | Medir antes de cambiar |
 | `WEB_PUSH_ENABLED` | No | Activa envio Web Push real para la PWA. Si falta alguna clave VAPID, el backend lo trata como desactivado. | `false` o `true` | `false` o `true` | `true` |
 | `WEB_PUSH_SUBJECT` | Condicional | Contacto VAPID del servidor. Debe ser URL o `mailto:`. | `mailto:dev@ecubox.local` | `mailto:soporte@ecubox.com` | `mailto:soporte@ecubox.com` |
 | `WEB_PUSH_PUBLIC_KEY` | Condicional | Clave publica VAPID que el frontend usa para suscribirse. No es secreta. | Generada por ti | Generada por ti | Secreto/variable de plataforma |
@@ -70,6 +79,11 @@ Compose exige al menos:
 |----------|-----|
 | `DB_PASSWORD` | Contraseña del servicio `db` y del backend. |
 | `JWT_SECRET` | Mínimo 32 caracteres. |
+
+La plantilla raíz también incluye el bootstrap administrativo desactivado. Para
+usarlo, define explícitamente `ADMIN_BOOTSTRAP_ENABLED=true`,
+`ADMIN_EMAIL` y una contraseña fuerte en `ADMIN_INITIAL_PASSWORD`; vuelve a
+desactivarlo después del primer arranque.
 
 **Ejemplo mínimo ficticio (solo forma; genera valores propios):**
 

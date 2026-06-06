@@ -14,9 +14,3 @@ export async function registrarWebPushSubscription(
 ): Promise<void> {
   await apiClient.post(`${BASE}/subscriptions`, subscription);
 }
-
-export async function desactivarWebPushSubscription(
-  subscription: WebPushSubscriptionPayload
-): Promise<void> {
-  await apiClient.delete(`${BASE}/subscriptions`, { data: subscription });
-}

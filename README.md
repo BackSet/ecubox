@@ -1,127 +1,110 @@
 # ECUBOX
 
-Sistema de gestión logística para envíos internacionales USA — Ecuador. Gestiona paquetes, despachos, manifiestos, lotes de recepción y tracking en tiempo real.
+Sistema de gestión logística para envíos entre Estados Unidos y Ecuador.
+Incluye administración de paquetes, guías master, despachos, manifiestos,
+liquidaciones, recepción, tracking público y notificaciones PWA.
 
 ## Arquitectura
 
-Monorepo con **dos** aplicaciones versionadas (API y SPA web) y una base de datos PostgreSQL. El antiguo cliente Flutter (`ecubox_mobile`) ya no forma parte de este repositorio.
-
-```
+```text
 ECUBOX/
-├── ecubox-backend/    # API REST — Java 25, Spring Boot 4.0.3
-├── ecubox-frontend/   # SPA — React 19, Vite 8, TypeScript 6
-├── docker-compose.yml # Orquestación local (backend + frontend + PostgreSQL)
-├── docs/              # Documentación (usuario, desarrollo, despliegue, branding)
-│   ├── README.md      # Índice
-│   ├── usuario/
-│   ├── desarrollo/
-│   ├── despliegue/
-│   └── branding/
-└── README.md            # Inicio rápido del monorepo
+├── ecubox-backend/     API REST con Java 25 y Spring Boot 4.0.6
+├── ecubox-frontend/    SPA/PWA con React 19, TypeScript 6 y Vite 8
+├── docs/               Documentación técnica, operativa y de despliegue
+├── docker-compose.yml  PostgreSQL 18, backend y frontend
+└── .github/workflows/  Integración continua
 ```
 
-## Prerequisitos
+## Requisitos
 
-| Herramienta | Versión mínima | Notas |
-|-------------|---------------|-------|
-| Java (JDK) | 25 | Temurin recomendado |
-| Node.js | 22 | LTS |
-| PostgreSQL | 17 | O usar Docker |
-| Docker + Compose | 27+ / v2 | Solo si se usa inicio con Docker |
+| Herramienta | Versión |
+|-------------|---------|
+| Java | 25 |
+| Node.js | 22 |
+| PostgreSQL | 18 |
+| Docker Compose | v2, opcional |
 
-## Inicio rápido con Docker
+El repositorio incluye Maven Wrapper y `package-lock.json`.
+
+## Inicio con Docker
 
 ```bash
-# 1. Crear .env en la raíz (valores de ejemplo; sustituir por secretos propios)
-cat > .env <<EOF
-DB_PASSWORD=definir_contraseña_ficticia_aqui
-JWT_SECRET=definir_cadena_minimo_32_caracteres_ficticia
-EOF
-
-# 2. Levantar todo
-docker compose up --build -d
-
-# 3. Acceder
-# Frontend: http://localhost
-# API:      http://localhost:8080
-# Swagger:  http://localhost:8080/swagger-ui.html (solo perfil dev)
+cp .env.example .env
+# Edita .env y reemplaza todos los valores CHANGE_ME.
+docker compose up --build
 ```
 
-## Inicio rápido manual
+Servicios:
+
+- Frontend: http://localhost
+- API: http://localhost:8080
+- Scalar, solo perfil `dev`: http://localhost:8080/scalar
+- OpenAPI JSON, solo perfil `dev`: http://localhost:8080/v3/api-docs
+
+Docker Compose ejecuta el backend con perfil `prod`, por lo que la documentación
+OpenAPI permanece desactivada en ese flujo.
+
+## Desarrollo local
 
 ### Backend
 
 ```bash
 cd ecubox-backend
-cp .env.example .env          # Editar con tus valores
-./mvnw spring-boot:run        # Linux/Mac
-.\mvnw.cmd spring-boot:run    # Windows
+cp .env.example .env
+./mvnw spring-boot:run
 ```
-
-El backend arranca en `http://localhost:8080` con perfil `dev` por defecto.
 
 ### Frontend
 
 ```bash
 cd ecubox-frontend
-cp .env.example .env          # Editar VITE_API_URL si es necesario
-npm install
+cp .env.example .env
+npm ci
 npm run dev
 ```
 
-El frontend arranca en `http://localhost:5173`.
+Vite sirve la aplicación en http://localhost:5173 y redirige `/api` al backend
+local.
 
-## Variables de entorno
-
-### Backend (`ecubox-backend/.env`)
-
-| Variable | Requerida | Descripción |
-|----------|-----------|-------------|
-| `DB_URL` | Sí | URL JDBC de PostgreSQL |
-| `DB_USERNAME` | Sí | Usuario de la base de datos |
-| `DB_PASSWORD` | Sí | Contraseña de la base de datos |
-| `JWT_SECRET` | Sí | Clave para firmar tokens JWT (mín. 32 caracteres) |
-| `JWT_EXPIRATION` | No | Duración del token en ms (default: 86400000 = 24h) |
-| `CORS_ALLOWED_ORIGINS` | No | Orígenes permitidos separados por coma |
-| `ADMIN_BOOTSTRAP_ENABLED` | No | `true` para crear usuario admin en primer arranque |
-| `ADMIN_USERNAME` | No | Username del admin inicial (default: `admin`) |
-| `ADMIN_INITIAL_PASSWORD` | No | Contraseña del admin inicial |
-| `ADMIN_EMAIL` | Si bootstrap activo | Email del usuario admin inicial |
-
-### Frontend (`ecubox-frontend/.env`)
-
-| Variable | Requerida | Descripción |
-|----------|-----------|-------------|
-| `VITE_API_URL` | Sí | URL del backend (origen solo o con `/api`; el frontend normaliza el prefijo `/api` cuando aplica — ver guía) |
-
-Tablas ampliadas con **ejemplos** por entorno: [docs/despliegue/VARIABLES_ENTORNO.md](docs/despliegue/VARIABLES_ENTORNO.md).
-
-## Pruebas automatizadas
+## Verificación
 
 ```bash
-cd ecubox-frontend && npm run test
-cd ecubox-backend && ./mvnw test    # o .\mvnw.cmd test en Windows
+cd ecubox-backend
+./mvnw test
+
+cd ../ecubox-frontend
+npm test
+npm run build
 ```
 
-Detalle, variables y convenciones: [docs/PRUEBAS.md](docs/PRUEBAS.md).
+GitHub Actions ejecuta estas verificaciones en cada pull request.
+
+## Configuración
+
+Los secretos nunca deben versionarse. Usa:
+
+- `.env.example` para Docker Compose.
+- `ecubox-backend/.env.example` para el backend.
+- `ecubox-frontend/.env.example` para el frontend.
+
+La referencia completa está en
+[docs/despliegue/VARIABLES_ENTORNO.md](docs/despliegue/VARIABLES_ENTORNO.md).
 
 ## Documentación
 
-Índice completo: [docs/README.md](docs/README.md).
+- [Índice de documentación](docs/README.md)
+- [Referencia de la API](docs/desarrollo/API_REFERENCE.md)
+- [Arquitectura backend](docs/desarrollo/ARQUITECTURA_BACKEND.md)
+- [Stack tecnológico](docs/desarrollo/TECH-STACK.md)
+- [Pruebas](docs/PRUEBAS.md)
+- [Manual de usuario](docs/usuario/MANUAL_USUARIO.md)
+- [Despliegue en Railway](docs/despliegue/RAILWAY_PRODUCCION_GUIA.md)
 
-| Área | Enlaces |
-|------|---------|
-| Usuario | [Manual de usuario](docs/usuario/MANUAL_USUARIO.md), [Guía de estados y seguimiento](docs/usuario/GUIA_ESTADOS_Y_SEGUIMIENTO.md) |
-| Desarrollo | [Pruebas](docs/PRUEBAS.md), [API](docs/desarrollo/API_REFERENCE.md), [TECH-STACK](docs/desarrollo/TECH-STACK.md), [Arquitectura backend](docs/desarrollo/ARQUITECTURA_BACKEND.md), [UX/UI](docs/desarrollo/UX-UI-DESIGN.md) |
-| Despliegue | [Variables de entorno](docs/despliegue/VARIABLES_ENTORNO.md), [Railway](docs/despliegue/RAILWAY_PRODUCCION_GUIA.md) |
-| Branding | [docs/branding/ecubox-branding.html](docs/branding/ecubox-branding.html) |
+## Colaboración y seguridad
 
-### Nota de despliegue Railway
-
-Cada servicio debe desplegarse con su propio `Root Directory` y su propia configuración:
-
-- Backend: `Root Directory = ecubox-backend`, `Builder = Dockerfile`, `Dockerfile path = ecubox-backend/Dockerfile`
-- Frontend: `Root Directory = ecubox-frontend`, `Builder = Dockerfile`, `Dockerfile path = ecubox-frontend/Dockerfile`
+- [Guía de contribución](CONTRIBUTING.md)
+- [Política de seguridad](SECURITY.md)
+- [Nomenclatura del dominio](docs/nomenclatura.md)
 
 ## Licencia
 

@@ -6,6 +6,7 @@ import {
   isMobileDevice,
   notifyUser,
   requiresManualInstallGuide,
+  setupServiceWorkerUpdateChecks,
 } from './pwa';
 
 vi.mock('sonner', () => ({
@@ -143,5 +144,38 @@ describe('hasActivePushSubscription', () => {
   it('devuelve true cuando existe una suscripcion', async () => {
     getSubscription.mockResolvedValue({ endpoint: 'https://push.example/abc' });
     await expect(hasActivePushSubscription()).resolves.toBe(true);
+  });
+});
+
+describe('setupServiceWorkerUpdateChecks', () => {
+  it('comprueba actualizaciones periodicamente y al recuperar conexion', () => {
+    vi.useFakeTimers();
+    const update = vi.fn().mockResolvedValue(undefined);
+    const registration = { update } as unknown as ServiceWorkerRegistration;
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    setVisibility('visible');
+
+    const cleanup = setupServiceWorkerUpdateChecks(registration, 1_000);
+    vi.advanceTimersByTime(1_000);
+    window.dispatchEvent(new Event('online'));
+
+    expect(update).toHaveBeenCalledTimes(2);
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  it('no consulta mientras la app esta oculta o sin conexion', () => {
+    vi.useFakeTimers();
+    const update = vi.fn().mockResolvedValue(undefined);
+    const registration = { update } as unknown as ServiceWorkerRegistration;
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    setVisibility('hidden');
+
+    const cleanup = setupServiceWorkerUpdateChecks(registration, 1_000);
+    vi.advanceTimersByTime(2_000);
+
+    expect(update).not.toHaveBeenCalled();
+    cleanup();
+    vi.useRealTimers();
   });
 });

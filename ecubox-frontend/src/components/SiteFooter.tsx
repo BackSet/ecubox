@@ -39,6 +39,7 @@ export function SiteFooter() {
               <ul className="flex flex-col gap-2 text-sm landing-text">
                 <li><Link to="/tracking" className="transition hover:text-[var(--color-primary)]">Rastreo</Link></li>
                 <li><Link to="/calculadora" className="transition hover:text-[var(--color-primary)]">Calculadora</Link></li>
+                <li><Link to="/enlaces" className="transition hover:text-[var(--color-primary)]">Enlaces y contacto</Link></li>
               </ul>
             </div>
             <div>

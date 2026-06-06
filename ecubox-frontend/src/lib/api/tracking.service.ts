@@ -236,25 +236,3 @@ export async function getTrackingByCodigo(
   }
   return res.json();
 }
-
-/**
- * Alias historico por compatibilidad con codigo existente. Internamente usa el
- * endpoint unificado; si el codigo resuelve a guia master lanza error para no
- * romper consumidores que esperan estrictamente una pieza individual.
- *
- * @deprecated usar getTrackingByCodigo
- */
-export async function getTrackingByNumeroGuia(
-  numeroGuia: string,
-  options?: { signal?: AbortSignal }
-): Promise<TrackingResponse> {
-  const resolved = await getTrackingByCodigo(numeroGuia, options);
-  if (resolved.tipo !== 'PIEZA' || !resolved.pieza) {
-    const err = new Error(
-      'El código corresponde a una guía master, no a una pieza individual.'
-    );
-    (err as Error & { status?: number }).status = 404;
-    throw err;
-  }
-  return resolved.pieza;
-}

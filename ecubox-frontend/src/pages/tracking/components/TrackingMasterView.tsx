@@ -19,6 +19,7 @@ import type {
   TrackingPiezaItem,
 } from '@/lib/api/tracking.service';
 import { getDomainStatusTone } from '@/components/ui/StatusBadge';
+import { PiezasProgress } from '@/components/PiezasProgress';
 import { TrackingPiezasList } from '@/pages/tracking/components/TrackingPiezasList';
 
 interface TrackingMasterViewProps {
@@ -114,8 +115,6 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
   const piezas: TrackingPiezaItem[] = master.piezas ?? [];
 
   const safeTotal = Math.max(total, 1);
-  const pctRegistradas = total > 0 ? Math.min(100, (registradas / safeTotal) * 100) : 0;
-  const pctRecibidas = total > 0 ? Math.min(100, (recibidas / safeTotal) * 100) : 0;
   const pctDespachadas = total > 0 ? Math.min(100, (despachadas / safeTotal) * 100) : 0;
   const pctDespachadasRedondeado = Math.round(pctDespachadas);
 
@@ -183,34 +182,15 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
                   {pctDespachadasRedondeado}%
                 </p>
               </div>
-              {/* Barra segmentada: registradas → recibidas → despachadas sobre el total */}
-              <div
-                className="relative h-2.5 w-full overflow-hidden rounded-full bg-[var(--color-muted)]"
-                role="img"
-                aria-label={`${registradas} registradas, ${recibidas} recibidas, ${despachadas} despachadas de ${total}`}
-              >
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-info)]/70 transition-all duration-500"
-                  style={{ width: `${pctRegistradas}%` }}
-                />
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-warning)]/85 transition-all duration-500"
-                  style={{ width: `${pctRecibidas}%` }}
-                />
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-success)]/90 transition-all duration-500"
-                  style={{ width: `${pctDespachadas}%` }}
-                />
-              </div>
-              {/* Leyenda con los conteos (única fuente, no se repiten arriba) */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                <Dot color="bg-[var(--color-info)]" label="Registradas" value={registradas} />
-                <Dot color="bg-[var(--color-warning)]" label="Recibidas" value={recibidas} />
-                <Dot color="bg-[var(--color-success)]" label="Despachadas" value={despachadas} />
-                <span className="text-[var(--color-muted-foreground)]/70">
-                  Esperadas {total}
-                </span>
-              </div>
+              {/* Barra + leyenda compartidas (el encabezado/porcentaje ya se muestra arriba). */}
+              <PiezasProgress
+                total={total}
+                registradas={registradas}
+                recibidas={recibidas}
+                despachadas={despachadas}
+                size="md"
+                headingMode="none"
+              />
             </div>
           ) : (
             <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-dashed border-[var(--color-border)] p-3 text-xs text-[var(--color-muted-foreground)]">
@@ -338,28 +318,6 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
         </div>
       ) : null}
     </section>
-  );
-}
-
-function Dot({
-  color,
-  label,
-  value,
-}: {
-  color: string;
-  label: string;
-  value: number;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`h-2 w-2 rounded-full ${color}`} aria-hidden />
-      <span>
-        {label}{' '}
-        <span className="font-semibold text-[var(--color-foreground)] tabular-nums">
-          {value}
-        </span>
-      </span>
-    </span>
   );
 }
 

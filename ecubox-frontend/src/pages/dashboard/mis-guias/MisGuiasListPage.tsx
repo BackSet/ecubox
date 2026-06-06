@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { PiezasProgress } from '@/components/PiezasProgress';
 import { Button } from '@/components/ui/button';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -603,76 +604,32 @@ function MiGuiaCardSkeleton() {
 }
 
 function PiezasMiniProgress({ guia: g }: { guia: GuiaMaster }) {
-  const total = g.totalPiezasEsperadas;
-  const registradas = g.piezasRegistradas ?? 0;
   const recibidas = g.piezasRecibidas ?? 0;
   const despachadas = g.piezasDespachadas ?? 0;
-
-  if (total == null) {
-    return (
-      <div className="space-y-1">
-        <Badge
-          variant="outline"
-          className="border-[var(--color-warning)]/30 text-[var(--color-warning)]"
-          title="Aún no sabemos cuántas piezas en total tendrá esta guía. El operario lo confirmará al recibir el primer paquete."
-        >
-          Total por confirmar
-        </Badge>
-        <p className="text-[11px] text-muted-foreground">
-          {recibidas > 0
-            ? `${recibidas} en bodega EE.UU.`
-            : 'Sin piezas en bodega aún'}
-          {despachadas > 0 ? ` · ${despachadas} en camino a Ecuador` : ''}
-        </p>
-      </div>
-    );
-  }
-
-  const safeTotal = Math.max(total, 1);
-  const pctRegistradas = Math.min(100, (registradas / safeTotal) * 100);
-  const pctRecibidas = Math.min(100, (recibidas / safeTotal) * 100);
-  const pctDespachadas = Math.min(100, (despachadas / safeTotal) * 100);
-
   return (
-    <div className="min-w-[10rem] space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="font-medium text-foreground">
-          {registradas} / {total}
-        </span>
-        <span className="text-muted-foreground">piezas</span>
-      </div>
-      <div className="relative h-1.5 overflow-hidden rounded-full bg-[var(--color-muted)]">
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-info)]/70"
-          style={{ width: `${pctRegistradas}%` }}
-          title={`Anunciadas: ${registradas} de ${total}`}
-        />
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-warning)]/80"
-          style={{ width: `${pctRecibidas}%` }}
-          title={`En bodega EE.UU.: ${recibidas} de ${total}`}
-        />
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-success)]/80"
-          style={{ width: `${pctDespachadas}%` }}
-          title={`En camino a Ecuador: ${despachadas} de ${total}`}
-        />
-      </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-        <Dot color="bg-[var(--color-info)]" label={`${registradas} anunciadas`} />
-        <Dot color="bg-[var(--color-warning)]" label={`${recibidas} en bodega`} />
-        <Dot color="bg-[var(--color-success)]" label={`${despachadas} en camino`} />
-      </div>
-    </div>
-  );
-}
-
-function Dot({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span className={`h-1.5 w-1.5 rounded-full ${color}`} aria-hidden />
-      {label}
-    </span>
+    <PiezasProgress
+      total={g.totalPiezasEsperadas}
+      registradas={g.piezasRegistradas ?? 0}
+      recibidas={recibidas}
+      despachadas={despachadas}
+      size="sm"
+      labels={{ registradas: 'Anunciadas', recibidas: 'En bodega', despachadas: 'En camino' }}
+      pending={
+        <div className="space-y-1">
+          <Badge
+            variant="outline"
+            className="border-[var(--color-warning)]/30 text-[var(--color-warning)]"
+            title="Aún no sabemos cuántas piezas en total tendrá esta guía. El operario lo confirmará al recibir el primer paquete."
+          >
+            Total por confirmar
+          </Badge>
+          <p className="text-[11px] text-muted-foreground">
+            {recibidas > 0 ? `${recibidas} en bodega EE.UU.` : 'Sin piezas en bodega aún'}
+            {despachadas > 0 ? ` · ${despachadas} en camino a Ecuador` : ''}
+          </p>
+        </div>
+      }
+    />
   );
 }
 

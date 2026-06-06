@@ -173,7 +173,7 @@ Si usas dominio propio:
 - Usar contrasenas fuertes en DB y admin inicial.
 - Desactivar bootstrap admin tras primer uso.
 - Limitar `CORS_ALLOWED_ORIGINS` a dominios exactos (sin comodines).
-- Mantener Swagger deshabilitado en prod (`springdoc.swagger-ui.enabled=false`).
+- Mantener Scalar y OpenAPI deshabilitados en prod (`scalar.enabled=false` y `springdoc.api-docs.enabled=false`).
 
 ## 13) Limpieza aplicada al repositorio
 

@@ -42,6 +42,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import { PiezasProgress } from '@/components/PiezasProgress';
 import { ListTableShell } from '@/components/ListTableShell';
 import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
 import { DetailHeaderSkeleton } from '@/components/skeletons/DetailHeaderSkeleton';
@@ -305,7 +306,15 @@ export function GuiaMasterDetailPage() {
           </div>
         )}
 
-        <PiezasProgress guia={guia} />
+        <PiezasProgress
+          total={guia.totalPiezasEsperadas}
+          registradas={guia.piezasRegistradas ?? 0}
+          recibidas={guia.piezasRecibidas ?? 0}
+          despachadas={guia.piezasDespachadas ?? 0}
+          size="md"
+          headingMode="progress"
+          pending={null}
+        />
 
         {guia.totalPiezasEsperadas == null && (
           <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
@@ -604,63 +613,6 @@ function CopyButton({ text, label = 'Copiar guía' }: { text: string; label?: st
         <Copy className="h-3.5 w-3.5" />
       )}
     </button>
-  );
-}
-
-function PiezasProgress({ guia }: { guia: GuiaMaster }) {
-  const total = guia.totalPiezasEsperadas ?? 0;
-  const registradas = guia.piezasRegistradas ?? 0;
-  const recibidas = guia.piezasRecibidas ?? 0;
-  const despachadas = guia.piezasDespachadas ?? 0;
-
-  if (total <= 0) {
-    return (
-      <div className="rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-xs text-[var(--color-warning)]">
-        Total de piezas pendiente. Se definirá al registrar el primer paquete.
-      </div>
-    );
-  }
-
-  const pct = (n: number) => Math.min(100, Math.round((n / total) * 100));
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-        <span className="font-medium text-muted-foreground">Progreso de piezas</span>
-        <span className="text-muted-foreground">
-          <span className="font-semibold text-foreground">{despachadas}</span> de {total}{' '}
-          despachadas
-        </span>
-      </div>
-      <div className="relative h-2 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-info)] dark:bg-[var(--color-info)]/30"
-          style={{ width: `${pct(registradas)}%` }}
-        />
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-warning)] dark:bg-[var(--color-warning)]/50"
-          style={{ width: `${pct(recibidas)}%` }}
-        />
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-success)]"
-          style={{ width: `${pct(despachadas)}%` }}
-        />
-      </div>
-      <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-[var(--color-info)] dark:bg-[var(--color-info)]/60" />
-          Registradas {registradas}/{total}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-[var(--color-warning)] dark:bg-[var(--color-warning)]" />
-          Recibidas {recibidas}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
-          Despachadas {despachadas}
-        </span>
-      </div>
-    </div>
   );
 }
 

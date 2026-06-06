@@ -1,6 +1,6 @@
 # ECUBOX Backend
 
-API REST construida con Java 25 y Spring Boot 4.0.3. Gestiona autenticación JWT, paquetes, despachos, manifiestos, tracking y más.
+API REST construida con Java 25 y Spring Boot 4.0.6. Gestiona autenticación JWT, paquetes, despachos, manifiestos, tracking y más.
 
 ## Configuración local
 
@@ -75,7 +75,7 @@ Para exportar el spec a `docs/openapi/openapi.json` con el servidor en marcha:
 
 ## Documentación detallada
 
-- [API_REFERENCE.md](../docs/desarrollo/API_REFERENCE.md) — Referencia completa de la API (99 endpoints)
+- [API_REFERENCE.md](../docs/desarrollo/API_REFERENCE.md) — Referencia funcional de la API
 - [ARQUITECTURA_BACKEND.md](../docs/desarrollo/ARQUITECTURA_BACKEND.md) — Arquitectura en capas, seguridad y dominio
 - [TECH-STACK.md](../docs/desarrollo/TECH-STACK.md) — Stack tecnológico completo
 - [Variables de entorno](../docs/despliegue/VARIABLES_ENTORNO.md) — Ejemplos por entorno

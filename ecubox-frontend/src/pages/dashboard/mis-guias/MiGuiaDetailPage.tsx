@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { PiezasProgress } from '@/components/PiezasProgress';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { ListTableShell } from '@/components/ListTableShell';
 import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/components/PesoCell';
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/table';
 import { useEliminarMiGuia, useMiGuia, useMiGuiaPiezas } from '@/hooks/useMisGuias';
 import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
-import type { EstadoGuiaMaster, GuiaMaster } from '@/types/guia-master';
+import type { EstadoGuiaMaster } from '@/types/guia-master';
 import type { Paquete } from '@/types/paquete';
 import { ConsignatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
 import { EditarMiGuiaDialog } from './EditarMiGuiaDialog';
@@ -162,7 +163,18 @@ export function MiGuiaDetailPage() {
           </div>
         </div>
 
-        <PiezasProgress guia={guia} />
+        <PiezasProgress
+          total={guia.totalPiezasEsperadas}
+          registradas={guia.piezasRegistradas ?? 0}
+          recibidas={guia.piezasRecibidas ?? 0}
+          despachadas={guia.piezasDespachadas ?? 0}
+          size="md"
+          headingMode="progress"
+          heading="Avance de tu envío"
+          progressVerb="en camino a Ecuador"
+          labels={{ registradas: 'Anunciadas', recibidas: 'En bodega EE.UU.', despachadas: 'En camino' }}
+          pending={null}
+        />
 
         {totalPendiente && (
           <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
@@ -350,71 +362,6 @@ function CopyButton({ text, label = 'Copiar guía' }: { text: string; label?: st
         <Copy className="h-3.5 w-3.5" />
       )}
     </button>
-  );
-}
-
-function PiezasProgress({ guia }: { guia: GuiaMaster }) {
-  const total = guia.totalPiezasEsperadas ?? 0;
-  const registradas = guia.piezasRegistradas ?? 0;
-  const recibidas = guia.piezasRecibidas ?? 0;
-  const despachadas = guia.piezasDespachadas ?? 0;
-
-  if (total <= 0) {
-    return null;
-  }
-
-  const pct = (n: number) => Math.min(100, Math.round((n / total) * 100));
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-        <span className="font-medium text-muted-foreground">Avance de tu envío</span>
-        <span className="text-muted-foreground">
-          <span className="font-semibold text-foreground">{despachadas}</span> de {total}{' '}
-          en camino a Ecuador
-        </span>
-      </div>
-      <div className="relative h-2 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-info)] dark:bg-[var(--color-info)]/30"
-          style={{ width: `${pct(registradas)}%` }}
-          title={`Anunciadas: ${registradas} de ${total}`}
-        />
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-warning)] dark:bg-[var(--color-warning)]/50"
-          style={{ width: `${pct(recibidas)}%` }}
-          title={`En bodega EE.UU.: ${recibidas} de ${total}`}
-        />
-        <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-success)]"
-          style={{ width: `${pct(despachadas)}%` }}
-          title={`En camino a Ecuador: ${despachadas} de ${total}`}
-        />
-      </div>
-      <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-        <span
-          className="inline-flex items-center gap-1"
-          title="Piezas que registraste y aún no llegan a la bodega de EE.UU."
-        >
-          <span className="h-2 w-2 rounded-full bg-[var(--color-info)] dark:bg-[var(--color-info)]/60" />
-          {registradas} de {total} anunciadas
-        </span>
-        <span
-          className="inline-flex items-center gap-1"
-          title="Piezas ya recibidas en la bodega de EE.UU."
-        >
-          <span className="h-2 w-2 rounded-full bg-[var(--color-warning)] dark:bg-[var(--color-warning)]" />
-          {recibidas} en bodega EE.UU.
-        </span>
-        <span
-          className="inline-flex items-center gap-1"
-          title="Piezas que ya están en camino a Ecuador."
-        >
-          <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
-          {despachadas} en camino a Ecuador
-        </span>
-      </div>
-    </div>
   );
 }
 

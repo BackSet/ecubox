@@ -24,9 +24,13 @@ export function absoluteUrl(path: string): string {
   return `${origin}${p}`;
 }
 
-export const SEO_DEFAULT_TITLE = 'ECUBOX | Casillero USA y envíos a Ecuador';
+export const SEO_DEFAULT_TITLE = 'ECUBOX | Casillero en USA y envíos a Ecuador con rastreo';
 export const SEO_DEFAULT_DESCRIPTION =
-  'ECUBOX: casillero en Estados Unidos, envíos a Ecuador, rastreo por pieza y tarifas transparentes. Tus compras en USA llegan a casa.';
+  'Compra en Amazon, eBay o Shein y recíbelo en Ecuador. ECUBOX te da un casillero gratis en USA, envíos en 8–12 días, rastreo por pieza y tarifas transparentes.';
+
+/** Dimensiones reales de /og-image.png. Declararlas evita previsualizaciones rotas. */
+export const OG_IMAGE_WIDTH = 1376;
+export const OG_IMAGE_HEIGHT = 768;
 
 export const OG_IMAGE_PATH = '/og-image.png';
 
@@ -62,9 +66,11 @@ export function buildPublicPageHead(payload: PublicSeoPayload): {
     { property: 'og:url', content: url },
     { property: 'og:locale', content: 'es_EC' },
     { property: 'og:image', content: image },
+    { property: 'og:image:secure_url', content: image },
+    { property: 'og:image:type', content: 'image/png' },
     { property: 'og:image:alt', content: imageAlt },
-    { property: 'og:image:width', content: '1200' },
-    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:width', content: String(OG_IMAGE_WIDTH) },
+    { property: 'og:image:height', content: String(OG_IMAGE_HEIGHT) },
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: payload.title },
     { name: 'twitter:description', content: payload.description },

@@ -16,6 +16,15 @@ export default defineConfig({
       manifest: false,
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        // Los exportadores se cargan bajo demanda y pueden superar 1.5 MB.
+        // Cachearlos al usarlos evita inflar la primera instalacion del SW.
+        globIgnores: [
+          'og-image.png',
+          'assets/builders-*.js',
+          'assets/html2canvas-*.js',
+          'assets/index.es-*.js',
+          'assets/jspdf*.js',
+        ],
       },
       devOptions: {
         enabled: false,
@@ -23,24 +32,21 @@ export default defineConfig({
     }),
   ],
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return;
-          if (id.includes('react') || id.includes('@tanstack')) return 'vendor-react';
-          if (id.includes('exceljs')) return 'vendor-xlsx';
-          if (id.includes('jspdf')) return 'vendor-pdf';
-          if (id.includes('html2canvas') || id.includes('html-to-image')) return 'vendor-snapshot';
-          if (id.includes('@radix-ui')) return 'vendor-radix';
-          if (id.includes('lucide-react')) return 'vendor-icons';
-          if (
-            id.includes('react-hook-form') ||
-            id.includes('@hookform') ||
-            id.includes('zod')
-          ) {
-            return 'vendor-forms';
-          }
-          return 'vendor';
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor-forms',
+              test: /node_modules\/(?:react-hook-form|@hookform|zod)/,
+            },
+            {
+              name: 'vendor-react',
+              test: /node_modules\/(?:react|react-dom|scheduler|@tanstack)\//,
+            },
+            { name: 'vendor-radix', test: /node_modules\/@radix-ui\// },
+            { name: 'vendor-icons', test: /node_modules\/lucide-react\// },
+          ],
         },
       },
     },
