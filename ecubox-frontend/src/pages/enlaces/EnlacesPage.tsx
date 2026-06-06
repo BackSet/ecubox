@@ -29,6 +29,7 @@ import {
 } from '@/types/canales-comunicacion';
 import { absoluteUrl } from '@/lib/seo';
 import { notify } from '@/lib/notify';
+import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 
 /** Orden y subtítulos de los canales configurables en el sistema. */
@@ -198,7 +199,7 @@ export function EnlacesPage() {
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(pageUrl);
+      await copyText(pageUrl);
       setCopied(true);
       notify.success('Enlace copiado al portapapeles');
       window.setTimeout(() => setCopied(false), 2000);

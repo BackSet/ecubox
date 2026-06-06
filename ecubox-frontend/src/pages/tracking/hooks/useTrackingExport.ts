@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { RefObject } from 'react';
 import type { TrackingResolveResponse } from '@/lib/api/tracking.service';
+import { copyText } from '@/lib/clipboard';
 import { notify } from '@/lib/notify';
 import type { SnapshotFormat } from '@/lib/exporters/domSnapshot';
 import { TRACKING_SNAPSHOT_OPTIONS } from '@/lib/exporters/trackingSnapshotOptions';
@@ -69,7 +70,7 @@ export function useTrackingExport(
     }
 
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await copyText(shareUrl);
       return 'copied';
     } catch {
       notify.error('No se pudo copiar el enlace.');

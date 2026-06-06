@@ -43,4 +43,33 @@ describe('usePwaInstall', () => {
 
     expect(result.current.guideOpen).toBe(true);
   });
+
+  it('usa el instalador nativo en Windows cuando beforeinstallprompt esta disponible', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125',
+      platform: 'Win32',
+      maxTouchPoints: 0,
+    });
+    const prompt = vi.fn().mockResolvedValue(undefined);
+    const installEvent = new Event('beforeinstallprompt') as Event & {
+      prompt: () => Promise<void>;
+      userChoice: Promise<{ outcome: 'accepted'; platform: string }>;
+    };
+    installEvent.prompt = prompt;
+    installEvent.userChoice = Promise.resolve({ outcome: 'accepted', platform: 'web' });
+
+    const { result } = renderHook(() => usePwaInstall());
+    act(() => {
+      window.dispatchEvent(installEvent);
+    });
+
+    await act(async () => {
+      await result.current.requestInstall();
+    });
+
+    expect(result.current.platform).toBe('windows');
+    expect(prompt).toHaveBeenCalledOnce();
+    expect(result.current.isInstalled).toBe(true);
+    expect(result.current.guideOpen).toBe(false);
+  });
 });

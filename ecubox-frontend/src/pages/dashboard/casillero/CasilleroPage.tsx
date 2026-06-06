@@ -6,6 +6,7 @@ import {
   Copy,
   Info,
   MapPin,
+  MonitorDown,
   Smartphone,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,7 +21,7 @@ import { cn } from '@/lib/utils';
 import { PwaInstallGuideDialog } from '@/components/pwa/PwaInstallGuideDialog';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { useActivarNotificaciones } from '@/hooks/useWebPush';
-import { isMobileDevice } from '@/lib/pwa';
+import { copyText } from '@/lib/clipboard';
 
 export function CasilleroPage() {
   const { data, isLoading, error } = useMensajeAgenciaEeuu();
@@ -30,7 +31,7 @@ export function CasilleroPage() {
   const copiarMensaje = useCallback(async () => {
     if (!hayMensaje) return;
     try {
-      await navigator.clipboard.writeText(mensajePlano);
+      await copyText(mensajePlano);
       toast.success('Texto copiado al portapapeles');
     } catch {
       toast.error('No se pudo copiar. Intenta seleccionar el texto manualmente.');
@@ -99,7 +100,7 @@ export function CasilleroPage() {
         </SurfaceCard>
       )}
 
-      <MobilePortalPanel />
+      <PortalAppPanel />
 
       <PublicContactSection
         asCard
@@ -111,12 +112,20 @@ export function CasilleroPage() {
   );
 }
 
-function MobilePortalPanel() {
+function PortalAppPanel() {
   const pwa = usePwaInstall();
   const notificaciones = useActivarNotificaciones();
-  const showInstallHelp = !pwa.isInstalled && isMobileDevice();
+  const showInstallHelp = !pwa.isInstalled;
+  const isWindows = pwa.platform === 'windows';
 
   const requestNotifications = () => {
+    if (
+      notificaciones.permission === 'denied' ||
+      notificaciones.requiresInstall
+    ) {
+      pwa.openInstallGuide();
+      return;
+    }
     notificaciones.activate();
   };
 
@@ -124,15 +133,21 @@ function MobilePortalPanel() {
     <SurfaceCard className="overflow-hidden p-0">
       <div className="border-b border-[var(--color-border)] bg-[var(--color-muted)]/25 px-4 py-3.5 sm:px-5">
         <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
-          <Smartphone className="h-4 w-4 text-[var(--color-primary)]" />
-          Portal móvil
+          {isWindows ? (
+            <MonitorDown className="h-4 w-4 text-[var(--color-primary)]" />
+          ) : (
+            <Smartphone className="h-4 w-4 text-[var(--color-primary)]" />
+          )}
+          Aplicación ECUBOX
         </h2>
         <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-          Instala ECUBOX y activa avisos desde el celular.
+          Instala el portal y activa avisos en este dispositivo.
         </p>
         {showInstallHelp && (
           <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-            Agrega ECUBOX a tu pantalla de inicio.{' '}
+            {isWindows
+              ? 'Agrega ECUBOX al menu Inicio y a la barra de tareas. '
+              : 'Agrega ECUBOX a tu pantalla de inicio. '}
             <button
               type="button"
               className="font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
@@ -145,13 +160,17 @@ function MobilePortalPanel() {
       </div>
       <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
         <MobilePortalAction
-          icon={<Smartphone className="h-4 w-4" />}
+          icon={
+            isWindows ? <MonitorDown className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />
+          }
           completed={pwa.isInstalled}
           title={pwa.isInstalled ? 'App instalada' : 'Instalar ECUBOX'}
           description={
             pwa.isInstalled
               ? 'Abre el portal desde tu pantalla de inicio.'
-              : 'Acceso rápido a tracking, calculadora y casillero.'
+              : isWindows
+                ? 'Abre ECUBOX como una app desde Windows.'
+                : 'Acceso rápido a tracking, calculadora y casillero.'
           }
           action={
             <div className="flex flex-wrap gap-2">
@@ -187,7 +206,9 @@ function MobilePortalPanel() {
               size="sm"
               variant="outline"
               disabled={
-                !notificaciones.isSupported || notificaciones.isGranted || notificaciones.isPending
+                notificaciones.permission === 'unsupported' ||
+                notificaciones.isGranted ||
+                notificaciones.isPending
               }
               onClick={requestNotifications}
             >
@@ -195,7 +216,11 @@ function MobilePortalPanel() {
                 ? 'Activas'
                 : notificaciones.isPending
                   ? 'Activando...'
-                  : 'Activar'}
+                  : notificaciones.permission === 'denied'
+                    ? 'Habilitar'
+                    : notificaciones.requiresInstall
+                      ? 'Instalar primero'
+                    : 'Activar'}
             </Button>
           }
         />
@@ -203,9 +228,11 @@ function MobilePortalPanel() {
       <PwaInstallGuideDialog
         open={pwa.guideOpen}
         onOpenChange={pwa.setGuideOpen}
+        browser={pwa.browser}
         platform={pwa.platform}
         inAppBrowser={pwa.isInAppBrowser}
         nativeDismissed={pwa.nativeDismissed}
+        notificationPermission={notificaciones.permission}
       />
     </SurfaceCard>
   );

@@ -7,15 +7,23 @@ import {
 } from '@/lib/api/web-push.service';
 import {
   canUseNotifications,
+  detectInstallPlatform,
+  isStandalonePwa,
   requestNotificationPermission,
   serializePushSubscription,
   subscribeToWebPush,
 } from '@/lib/pwa';
 import { useAuthStore } from '@/stores/authStore';
 
-export type NotificationStatus = NotificationPermission | 'unsupported';
+export type NotificationStatus =
+  | NotificationPermission
+  | 'requires-install'
+  | 'unsupported';
 
 function currentStatus(): NotificationStatus {
+  if (detectInstallPlatform() === 'ios' && !isStandalonePwa()) {
+    return 'requires-install';
+  }
   if (typeof Notification === 'undefined') return 'unsupported';
   return Notification.permission;
 }
@@ -40,6 +48,9 @@ export function useActivarNotificaciones() {
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (permission === 'requires-install') {
+        throw new Error('En iPhone o iPad, instala ECUBOX antes de activar los avisos.');
+      }
       if (!canUseNotifications()) {
         throw new Error('Este navegador no admite notificaciones web.');
       }
@@ -75,7 +86,8 @@ export function useActivarNotificaciones() {
 
   return {
     permission,
-    isSupported: permission !== 'unsupported',
+    isSupported: permission !== 'unsupported' && permission !== 'requires-install',
+    requiresInstall: permission === 'requires-install',
     isGranted: permission === 'granted',
     activate: mutation.mutate,
     isPending: mutation.isPending,

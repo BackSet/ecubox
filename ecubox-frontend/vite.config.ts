@@ -32,6 +32,9 @@ export default defineConfig({
     }),
   ],
   build: {
+    // Politica explicita: navegadores Baseline con soporte completo de PWA,
+    // Web Push, CSS moderno y modulos ES.
+    target: ['chrome111', 'edge111', 'firefox114', 'safari16.4'],
     rolldownOptions: {
       output: {
         codeSplitting: {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  detectInstallBrowser,
   detectInstallPlatform,
   hasActivePushSubscription,
   isInAppBrowser,
@@ -97,8 +98,24 @@ describe('detectInstallPlatform', () => {
     expect(detectInstallPlatform('Mozilla/5.0 (Linux; Android 14; Pixel 7)')).toBe('android');
   });
 
-  it('detecta desktop en Windows', () => {
-    expect(detectInstallPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')).toBe('desktop');
+  it('detecta Windows como plataforma instalable', () => {
+    expect(detectInstallPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')).toBe('windows');
+  });
+});
+
+describe('detectInstallBrowser', () => {
+  it.each([
+    ['Chrome', 'Mozilla/5.0 Chrome/125.0 Safari/537.36', 'chrome'],
+    ['Edge', 'Mozilla/5.0 Chrome/125.0 Safari/537.36 Edg/125.0', 'edge'],
+    ['Safari', 'Mozilla/5.0 Version/17.5 Safari/605.1.15', 'safari'],
+    ['Firefox', 'Mozilla/5.0 Firefox/126.0', 'firefox'],
+    ['Samsung Internet', 'Mozilla/5.0 SamsungBrowser/25.0 Chrome/121.0', 'samsung'],
+    ['Opera', 'Mozilla/5.0 Chrome/125.0 OPR/110.0', 'opera'],
+    ['Chrome en iOS', 'Mozilla/5.0 (iPhone) CriOS/125.0 Mobile/15E148 Safari/604.1', 'chrome'],
+    ['Edge en iOS', 'Mozilla/5.0 (iPhone) EdgiOS/125.0 Mobile/15E148 Safari/605.1.15', 'edge'],
+    ['Firefox en iOS', 'Mozilla/5.0 (iPhone) FxiOS/126.0 Mobile/15E148 Safari/605.1.15', 'firefox'],
+  ])('detecta %s', (_name, userAgent, expected) => {
+    expect(detectInstallBrowser(userAgent)).toBe(expected);
   });
 });
 
@@ -116,6 +133,15 @@ describe('isMobileDevice', () => {
 describe('isInAppBrowser', () => {
   it('detecta Instagram', () => {
     expect(isInAppBrowser('Instagram 123.0')).toBe(true);
+  });
+
+  it('detecta WebView Android y Google App', () => {
+    expect(
+      isInAppBrowser(
+        'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP1A; wv) Version/4.0 Chrome/125 Mobile Safari/537.36'
+      )
+    ).toBe(true);
+    expect(isInAppBrowser('Mozilla/5.0 (iPhone) GSA/320.0 Mobile Safari/605.1')).toBe(true);
   });
 
   it('no marca Chrome Android', () => {

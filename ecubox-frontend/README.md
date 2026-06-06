@@ -70,8 +70,17 @@ La app es instalable como PWA. El Service Worker se genera con
 [`vite-plugin-pwa`](https://vite-pwa-org.netlify.app/) en modo `injectManifest`
 a partir de [`src/sw.ts`](src/sw.ts), que conserva la lógica de Web Push.
 
+En Windows, Edge y Chrome pueden instalar ECUBOX como aplicación independiente
+desde el botón del portal o el icono de instalación de la barra de direcciones.
+La aplicación aparece en Inicio y puede anclarse a la barra de tareas. Después
+de instalarla, el usuario debe activar los avisos para vincular Web Push con su
+cuenta.
+
 Puntos clave:
 
+- **Navegadores soportados:** Chrome/Edge 111+, Firefox 114+ y Safari/iOS
+  16.4+. El target está fijado en `vite.config.ts` para evitar cambios
+  silenciosos al actualizar Vite.
 - **Solo en producción:** el SW no se registra en `npm run dev`
   (ver `registerServiceWorker` en [`src/lib/pwa.ts`](src/lib/pwa.ts)).
 - **Estrategia de caché:** precache del app shell y rutas habituales; los

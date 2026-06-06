@@ -26,6 +26,7 @@ import { KeyValueGridSkeleton } from '@/components/skeletons/KeyValueGridSkeleto
 import { PublicPageHero } from '@/components/public/PublicPageHero';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 import { PublicSupportStrip } from '@/components/public/PublicSupportStrip';
+import { copyText } from '@/lib/clipboard';
 
 const MIN_PESO_LBS_RECARGO = 4;
 const RECARGO_ENVIO_MENOR_PESO = 3.5;
@@ -140,7 +141,7 @@ export function CalculadoraPage() {
       `Total: ${fmtMoneda(costoEstimado)}`,
     ].filter(Boolean);
     try {
-      await navigator.clipboard.writeText(lineas.join('\n'));
+      await copyText(lineas.join('\n'));
       setCopiado(true);
       toast.success('Cotización copiada');
       window.setTimeout(() => setCopiado(false), 1800);

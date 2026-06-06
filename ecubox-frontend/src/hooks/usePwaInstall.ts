@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
+  detectInstallBrowser,
   detectInstallPlatform,
   isInAppBrowser,
   isStandalonePwa,
   requiresManualInstallGuide,
+  type InstallBrowser,
   type InstallPlatform,
   type InstallPromptEvent,
 } from '@/lib/pwa';
@@ -14,12 +16,16 @@ export function usePwaInstall() {
   const [isInstalled, setIsInstalled] = useState(isStandalonePwa);
   const [guideOpen, setGuideOpen] = useState(false);
   const [nativeDismissed, setNativeDismissed] = useState(false);
+  const [browser, setBrowser] = useState<InstallBrowser>(() =>
+    typeof navigator !== 'undefined' ? detectInstallBrowser() : 'other'
+  );
   const [platform, setPlatform] = useState<InstallPlatform>(() =>
     typeof navigator !== 'undefined' ? detectInstallPlatform() : 'desktop'
   );
 
   useEffect(() => {
     setIsInstalled(isStandalonePwa());
+    setBrowser(detectInstallBrowser());
     setPlatform(detectInstallPlatform());
 
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -81,6 +87,7 @@ export function usePwaInstall() {
 
   return {
     isInstalled,
+    browser,
     platform,
     canUseNativeInstall: installPrompt !== null,
     guideOpen,

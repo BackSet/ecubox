@@ -5,7 +5,15 @@ export type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
 
-export type InstallPlatform = 'ios' | 'android' | 'desktop';
+export type InstallPlatform = 'ios' | 'android' | 'windows' | 'desktop';
+export type InstallBrowser =
+  | 'chrome'
+  | 'edge'
+  | 'firefox'
+  | 'opera'
+  | 'safari'
+  | 'samsung'
+  | 'other';
 
 function resolveUserAgent(userAgent?: string): string {
   if (userAgent !== undefined) return userAgent;
@@ -21,7 +29,19 @@ export function detectInstallPlatform(userAgent?: string): InstallPlatform {
       navigator.maxTouchPoints > 1);
   if (isIOS) return 'ios';
   if (/android/.test(ua)) return 'android';
+  if (/windows/.test(ua)) return 'windows';
   return 'desktop';
+}
+
+export function detectInstallBrowser(userAgent?: string): InstallBrowser {
+  const ua = resolveUserAgent(userAgent).toLowerCase();
+  if (/samsungbrowser/.test(ua)) return 'samsung';
+  if (/\b(?:edg|edga|edgios)\//.test(ua)) return 'edge';
+  if (/\b(?:opr|opera)\//.test(ua)) return 'opera';
+  if (/\b(?:crios|chrome)\//.test(ua)) return 'chrome';
+  if (/\b(?:fxios|firefox)\//.test(ua)) return 'firefox';
+  if (/safari\//.test(ua)) return 'safari';
+  return 'other';
 }
 
 export function isMobileDevice(userAgent?: string): boolean {
@@ -32,7 +52,9 @@ export function isMobileDevice(userAgent?: string): boolean {
 /** Navegadores embebidos (Instagram, Facebook, etc.) no permiten instalar PWA. */
 export function isInAppBrowser(userAgent?: string): boolean {
   const ua = resolveUserAgent(userAgent).toLowerCase();
-  return /instagram|fbav|fban|fb_iab|line\/|twitter|tiktok|snapchat|linkedinapp/.test(ua);
+  return /instagram|fbav|fban|fb_iab|line\/|twitter|tiktok|snapchat|linkedinapp|micromessenger|pinterest|telegram|gsa\/|;\s*wv\)/.test(
+    ua
+  );
 }
 
 export function requiresManualInstallGuide(

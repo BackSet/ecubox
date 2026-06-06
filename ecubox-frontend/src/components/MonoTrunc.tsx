@@ -1,6 +1,7 @@
 import { useState, type MouseEvent } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 
 export interface MonoTruncProps {
@@ -91,7 +92,7 @@ function CopyInline({ value, ariaLabel }: { value: string; ariaLabel: string }) 
     e.preventDefault();
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(value);
+      await copyText(value);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {

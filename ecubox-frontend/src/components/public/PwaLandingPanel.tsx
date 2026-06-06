@@ -1,16 +1,23 @@
-import { Bell, Download, Smartphone, WifiOff, type LucideIcon } from 'lucide-react';
+import { AppWindow, Bell, Download, WifiOff, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PwaInstallGuideDialog } from '@/components/pwa/PwaInstallGuideDialog';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { useActivarNotificaciones } from '@/hooks/useWebPush';
-import { isMobileDevice } from '@/lib/pwa';
 
 export function PwaLandingPanel() {
   const pwa = usePwaInstall();
   const notificaciones = useActivarNotificaciones();
-  const showInstallHelp = !pwa.isInstalled && isMobileDevice();
+  const showInstallHelp = !pwa.isInstalled;
+  const isWindows = pwa.platform === 'windows';
 
   function handleNotifications() {
+    if (
+      notificaciones.permission === 'denied' ||
+      notificaciones.requiresInstall
+    ) {
+      pwa.openInstallGuide();
+      return;
+    }
     notificaciones.activate();
   }
 
@@ -19,15 +26,15 @@ export function PwaLandingPanel() {
       <div className="grid gap-6 rounded-[8px] border border-[var(--color-landing-border)] bg-[var(--color-landing-card)] p-4 sm:p-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(300px,0.65fr)] lg:items-center">
         <div className="min-w-0">
           <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] px-3 py-1.5 text-xs font-semibold landing-text">
-            <Smartphone className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
-            Portal movil PWA
+            <AppWindow className="h-3.5 w-3.5 text-[var(--color-primary)]" aria-hidden />
+            Aplicacion PWA
           </div>
           <h2 id="pwa-heading" className="text-2xl font-bold landing-text sm:text-3xl">
-            Lleva ECUBOX como acceso directo en tu celular.
+            Instala ECUBOX en tu celular o computadora.
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed landing-text-muted sm:text-base">
-            Sin tienda de apps ni descarga pesada: abre el portal desde la pantalla de inicio,
-            mantiene tus accesos a mano y activa avisos cuando tu cuenta este lista.
+            En Windows funciona como una aplicacion independiente, aparece en Inicio y la barra de
+            tareas, y puede mostrar avisos de tus paquetes.
           </p>
           <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button
@@ -37,7 +44,11 @@ export function PwaLandingPanel() {
               disabled={pwa.isInstalled}
             >
               <Download className="h-4 w-4" aria-hidden />
-              {pwa.isInstalled ? 'Instalada' : 'Instalar portal'}
+              {pwa.isInstalled
+                ? 'Instalada'
+                : isWindows
+                  ? 'Instalar en Windows'
+                  : 'Instalar ECUBOX'}
             </Button>
             {showInstallHelp && (
               <Button
@@ -55,7 +66,9 @@ export function PwaLandingPanel() {
               className="h-11 gap-2 landing-text"
               onClick={handleNotifications}
               disabled={
-                !notificaciones.isSupported || notificaciones.isGranted || notificaciones.isPending
+                notificaciones.permission === 'unsupported' ||
+                notificaciones.isGranted ||
+                notificaciones.isPending
               }
             >
               <Bell className="h-4 w-4" aria-hidden />
@@ -63,7 +76,11 @@ export function PwaLandingPanel() {
                 ? 'Avisos activos'
                 : notificaciones.isPending
                   ? 'Activando...'
-                  : 'Activar avisos'}
+                  : notificaciones.permission === 'denied'
+                    ? 'Habilitar avisos'
+                    : notificaciones.requiresInstall
+                      ? 'Instalar para avisos'
+                    : 'Activar avisos'}
             </Button>
           </div>
         </div>
@@ -72,7 +89,7 @@ export function PwaLandingPanel() {
           <PwaBenefit
             icon={Download}
             title="Instalacion directa"
-            text="El navegador agrega ECUBOX a inicio cuando el dispositivo cumple los requisitos PWA."
+            text="Edge y Chrome pueden agregar ECUBOX a Windows, Android y otros sistemas compatibles."
           />
           <PwaBenefit
             icon={Bell}
@@ -89,9 +106,11 @@ export function PwaLandingPanel() {
       <PwaInstallGuideDialog
         open={pwa.guideOpen}
         onOpenChange={pwa.setGuideOpen}
+        browser={pwa.browser}
         platform={pwa.platform}
         inAppBrowser={pwa.isInAppBrowser}
         nativeDismissed={pwa.nativeDismissed}
+        notificationPermission={notificaciones.permission}
       />
     </section>
   );
