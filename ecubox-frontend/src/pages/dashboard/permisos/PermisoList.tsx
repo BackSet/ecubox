@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   BookOpen,
   Boxes,
+  ChartNoAxesCombined,
   Eye,
   Filter,
   Hash,
@@ -68,6 +69,7 @@ const MODULO_LABELS: Record<string, string> = {
   ENVIOS: 'Envíos consolidados',
   TRACKING: 'Tracking',
   REPORTES: 'Reportes',
+  ESTADISTICAS: 'Estadísticas',
 };
 
 const MODULO_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -81,6 +83,7 @@ const MODULO_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   MANIFIESTOS: BookOpen,
   DESPACHOS: BookOpen,
   TARIFA: Sparkles,
+  ESTADISTICAS: ChartNoAxesCombined,
 };
 
 function getModulo(codigo: string): string {

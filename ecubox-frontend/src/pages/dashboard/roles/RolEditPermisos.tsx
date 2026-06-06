@@ -58,6 +58,7 @@ const GROUP_LABELS: Record<string, string> = {
   ENVIOS: 'Envíos consolidados',
   TRACKING: 'Tracking',
   REPORTES: 'Reportes',
+  ESTADISTICAS: 'Estadísticas',
 };
 
 const GROUP_ORDER = [
@@ -74,6 +75,7 @@ const GROUP_ORDER = [
   'ENVIOS',
   'TRACKING',
   'TARIFA',
+  'ESTADISTICAS',
   'REPORTES',
 ];
 
