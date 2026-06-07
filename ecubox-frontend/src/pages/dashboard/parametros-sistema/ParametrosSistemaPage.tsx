@@ -114,6 +114,7 @@ import { parseWhatsAppPreviewToReact } from './whatsappFormatPreview';
 import { TarifaCalculadoraForm } from '@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraForm';
 import { TarifaDistribucionForm } from '@/pages/dashboard/parametros-sistema/TarifaDistribucionForm';
 import { CanalesComunicacionPanel } from '@/pages/dashboard/parametros-sistema/CanalesComunicacionPanel';
+import { TemaTemporadaPanel } from '@/pages/dashboard/parametros-sistema/TemaTemporadaPanel';
 import {
   useCanalesComunicacion,
   useUpdateCanalesComunicacion,
@@ -138,6 +139,7 @@ type OpcionActiva =
   | 'mensaje-whatsapp-despacho'
   | 'mensaje-agencia-eeuu'
   | 'canales-comunicacion'
+  | 'tema-temporada'
   | 'tarifa-calculadora'
   | 'tarifa-distribucion'
   | 'estados-rastreo'
@@ -269,6 +271,9 @@ export function ParametrosSistemaPage() {
   const canSeeEstadosRastreo =
     hasPermission('ESTADOS_RASTREO_READ') || hasRole('ADMIN') || hasRole('OPERARIO');
 
+  const canSeeTemaTemporada =
+    hasPermission('TEMA_TEMPORADA_WRITE') || hasRole('ADMIN') || hasRole('OPERARIO');
+
   const tabs: TabMeta[] = useMemo(
     () => [
       {
@@ -294,6 +299,14 @@ export function ParametrosSistemaPage() {
         description: 'Correo, teléfono y redes sociales visibles en el sitio público.',
         icon: Share2,
         visible: true,
+      },
+      {
+        key: 'tema-temporada',
+        label: 'Tema de temporada',
+        shortLabel: 'Temporada',
+        description: 'Tematiza el sitio público según días festivos (Día de la Madre, Navidad…).',
+        icon: Sparkles,
+        visible: canSeeTemaTemporada,
       },
       {
         key: 'tarifa-calculadora',
@@ -328,7 +341,7 @@ export function ParametrosSistemaPage() {
         visible: canSeeEstadosRastreo,
       },
     ],
-    [canSeeEstadosRastreo, canSeeTarifaCalculadora, canSeeTarifaDistribucion],
+    [canSeeEstadosRastreo, canSeeTarifaCalculadora, canSeeTarifaDistribucion, canSeeTemaTemporada],
   );
 
   const visibleTabs = useMemo(() => tabs.filter((t) => t.visible), [tabs]);
@@ -449,6 +462,7 @@ export function ParametrosSistemaPage() {
     'mensaje-whatsapp-despacho': whatsappDirty,
     'mensaje-agencia-eeuu': agenciaDirty,
     'canales-comunicacion': canalesDirty,
+    'tema-temporada': false,
     'tarifa-calculadora': false,
     'tarifa-distribucion': false,
     'estados-rastreo': false,
@@ -644,6 +658,8 @@ export function ParametrosSistemaPage() {
               onSave={handleGuardarCanales}
             />
           )}
+
+          {opcionActiva === 'tema-temporada' && <TemaTemporadaPanel />}
 
           {opcionActiva === 'tarifa-calculadora' && <TarifaCalculadoraPanel />}
 

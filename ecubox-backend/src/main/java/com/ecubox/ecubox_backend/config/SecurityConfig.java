@@ -69,6 +69,7 @@ public class SecurityConfig {
                                 "/api/v1/tracking",
                                 "/api/config/tarifa-calculadora",
                                 "/api/config/canales-comunicacion",
+                                "/api/config/tema-temporada",
                                 "/scalar/**",
                                 "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()

@@ -445,6 +445,39 @@
     color: var(--color-primary-foreground);
   }
 
+  /* ────────────────────────────────────────────────────────
+     TEMA DE TEMPORADA (días festivos)
+     Solo capa decorativa + banner. El color lo aportan los tokens
+     inyectados de forma inline sobre .landing-shell[data-season].
+     ──────────────────────────────────────────────────────── */
+  .season-ornament {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .season-ornament span {
+    position: absolute;
+    top: -8%;
+    font-size: var(--season-size, 1.25rem);
+    line-height: 1;
+    opacity: 0.5;
+    animation: season-fall var(--season-dur, 14s) linear infinite;
+    animation-delay: var(--season-delay, 0s);
+    will-change: transform;
+  }
+  .season-banner {
+    position: relative;
+    z-index: 30;
+    border-bottom: 1px solid color-mix(in oklab, var(--color-primary) 30%, var(--color-landing-border));
+    background: color-mix(in oklab, var(--color-primary) 10%, var(--color-landing-card));
+    color: var(--color-landing-text);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .season-ornament { display: none; }
+  }
+
   .page-stack {
     display: flex;
     flex-direction: column;
@@ -735,6 +768,12 @@
     background: color-mix(in oklab, var(--color-destructive) 6%, var(--color-background));
     color: var(--color-foreground);
   }
+}
+
+/* Caída suave de los ornamentos de temporada (pétalos, copos, confeti…). */
+@keyframes season-fall {
+  0% { transform: translateY(0) rotate(0deg); }
+  100% { transform: translateY(112vh) rotate(360deg); }
 }
 
 /* ────────────────────────────────────────────────────────

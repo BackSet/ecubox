@@ -7,6 +7,9 @@ import com.ecubox.ecubox_backend.dto.CanalesComunicacionRequest;
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeAgenciaEeuuDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoDTO;
+import com.ecubox.ecubox_backend.dto.TemaTemporadaDTO;
+import com.ecubox.ecubox_backend.dto.TemaTemporadaRequest;
+import com.ecubox.ecubox_backend.dto.TemaTemporadaVentanaDTO;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.ParametroSistema;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
@@ -25,6 +28,20 @@ public class ParametroSistemaService {
     public static final String CLAVE_MENSAJE_WHATSAPP_DESPACHO = "mensaje_whatsapp_despacho";
     public static final String CLAVE_MENSAJE_AGENCIA_EEUU = "mensaje_agencia_eeuu";
     public static final String CLAVE_CANALES_COMUNICACION = "canales_comunicacion";
+    public static final String CLAVE_TEMA_TEMPORADA = "tema_temporada_override";
+
+    private static final String TEMA_TEMPORADA_DEFAULT = "auto";
+    /** Ids de temporada configurables (sin los modos de control). Debe reflejar SEASONS del frontend. */
+    private static final java.util.Set<String> TEMA_TEMPORADA_SEASON_IDS = java.util.Set.of(
+            "ano-nuevo", "san-valentin", "carnaval", "dia-mujer", "semana-santa", "dia-madre",
+            "dia-nino", "dia-padre", "fiestas-patrias", "independencia-guayaquil", "halloween",
+            "black-friday", "fiestas-quito", "navidad");
+    /** Override admitidos: control automático, apagado o id de temporada concreta. */
+    private static final java.util.Set<String> TEMA_TEMPORADA_VALIDOS = java.util.stream.Stream
+            .concat(java.util.stream.Stream.of("auto", "off"), TEMA_TEMPORADA_SEASON_IDS.stream())
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    private static final int TEMA_TEMPORADA_MAX_DIAS_ANTES = 120;
+    private static final int TEMA_TEMPORADA_MAX_DIAS_DESPUES = 60;
 
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
@@ -104,6 +121,86 @@ public class ParametroSistemaService {
         return MensajeAgenciaEeuuDTO.builder()
                 .mensaje(valor != null ? valor : "")
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public TemaTemporadaDTO getTemaTemporada() {
+        String json = parametroSistemaRepository.findById(CLAVE_TEMA_TEMPORADA)
+                .map(ParametroSistema::getValor)
+                .map(String::trim)
+                .filter(v -> !v.isEmpty())
+                .orElse(null);
+        if (json == null) {
+            return TemaTemporadaDTO.builder()
+                    .override(TEMA_TEMPORADA_DEFAULT)
+                    .ventanas(new java.util.HashMap<>())
+                    .build();
+        }
+        // Compatibilidad: versiones previas guardaban solo el token (p. ej. "auto").
+        if (TEMA_TEMPORADA_VALIDOS.contains(json)) {
+            return TemaTemporadaDTO.builder()
+                    .override(json)
+                    .ventanas(new java.util.HashMap<>())
+                    .build();
+        }
+        try {
+            TemaTemporadaDTO parsed = objectMapper.readValue(json, TemaTemporadaDTO.class);
+            String override = parsed.getOverride() != null && TEMA_TEMPORADA_VALIDOS.contains(parsed.getOverride())
+                    ? parsed.getOverride()
+                    : TEMA_TEMPORADA_DEFAULT;
+            return TemaTemporadaDTO.builder()
+                    .override(override)
+                    .ventanas(sanitizeVentanas(parsed.getVentanas()))
+                    .build();
+        } catch (JsonProcessingException e) {
+            return TemaTemporadaDTO.builder()
+                    .override(TEMA_TEMPORADA_DEFAULT)
+                    .ventanas(new java.util.HashMap<>())
+                    .build();
+        }
+    }
+
+    @Transactional
+    public TemaTemporadaDTO updateTemaTemporada(TemaTemporadaRequest request) {
+        String override = request != null && request.getOverride() != null ? request.getOverride().trim() : "";
+        if (!TEMA_TEMPORADA_VALIDOS.contains(override)) {
+            throw new BadRequestException("El tema de temporada no es válido");
+        }
+        java.util.Map<String, TemaTemporadaVentanaDTO> ventanas =
+                sanitizeVentanas(request != null ? request.getVentanas() : null);
+        TemaTemporadaDTO dto = TemaTemporadaDTO.builder().override(override).ventanas(ventanas).build();
+        try {
+            saveParametro(CLAVE_TEMA_TEMPORADA, objectMapper.writeValueAsString(dto));
+        } catch (JsonProcessingException e) {
+            throw new BadRequestException("No se pudo guardar el tema de temporada");
+        }
+        return dto;
+    }
+
+    /** Acota las ventanas a rangos seguros e ignora ids de temporada desconocidos. */
+    private java.util.Map<String, TemaTemporadaVentanaDTO> sanitizeVentanas(
+            java.util.Map<String, TemaTemporadaVentanaDTO> raw) {
+        java.util.Map<String, TemaTemporadaVentanaDTO> out = new java.util.HashMap<>();
+        if (raw == null) {
+            return out;
+        }
+        for (var entry : raw.entrySet()) {
+            String id = entry.getKey();
+            TemaTemporadaVentanaDTO v = entry.getValue();
+            if (id == null || v == null || !TEMA_TEMPORADA_SEASON_IDS.contains(id)) {
+                continue;
+            }
+            out.put(id, TemaTemporadaVentanaDTO.builder()
+                    .diasAntes(clamp(v.getDiasAntes(), 0, TEMA_TEMPORADA_MAX_DIAS_ANTES))
+                    .diasDespues(clamp(v.getDiasDespues(), 0, TEMA_TEMPORADA_MAX_DIAS_DESPUES))
+                    .build());
+        }
+        return out;
+    }
+
+    private int clamp(Integer valor, int min, int max) {
+        int v = valor != null ? valor : min;
+        return Math.max(min, Math.min(max, v));
     }
 
     @Transactional(readOnly = true)

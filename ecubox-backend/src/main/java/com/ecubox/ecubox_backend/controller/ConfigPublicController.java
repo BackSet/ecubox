@@ -4,6 +4,7 @@ import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.dto.CanalesComunicacionPublicDTO;
 import com.ecubox.ecubox_backend.dto.MensajeAgenciaEeuuDTO;
 import com.ecubox.ecubox_backend.dto.TarifaCalculadoraDTO;
+import com.ecubox.ecubox_backend.dto.TemaTemporadaDTO;
 import com.ecubox.ecubox_backend.service.ConfigCalculadoraService;
 import com.ecubox.ecubox_backend.service.ParametroSistemaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -52,5 +53,13 @@ public class ConfigPublicController {
     @GetMapping("/canales-comunicacion")
     public ResponseEntity<CanalesComunicacionPublicDTO> getCanalesComunicacion() {
         return ResponseEntity.ok(parametroSistemaService.getCanalesComunicacionPublic());
+    }
+
+    @Operation(summary = "Tema de temporada", description = "Override del tema de temporada del sitio público")
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Tema de temporada activo")
+    @GetMapping("/tema-temporada")
+    public ResponseEntity<TemaTemporadaDTO> getTemaTemporada() {
+        return ResponseEntity.ok(parametroSistemaService.getTemaTemporada());
     }
 }

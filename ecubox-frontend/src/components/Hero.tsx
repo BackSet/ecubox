@@ -17,6 +17,8 @@ import {
   normalizeTrackingSampleCodigo,
 } from '@/lib/tracking/trackingSamples';
 import { HeroRouteIllustration } from '@/components/public/HeroRouteIllustration';
+import { useSeason } from '@/hooks/useSeason';
+import { useTemaTemporadaPublic } from '@/hooks/useTemaTemporada';
 
 const STATS = [
   { value: '8-12', label: 'Días promedio USA → EC' },
@@ -29,6 +31,8 @@ export function Hero() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { data: tema } = useTemaTemporadaPublic();
+  const season = useSeason({ override: tema?.override, ventanas: tema?.ventanas });
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -55,6 +59,11 @@ export function Hero() {
       <div className="content-container mobile-safe-inline landing-hero relative">
         <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.72fr)] lg:gap-10 xl:gap-14">
           <div className="flex min-w-0 flex-col items-center text-center lg:items-start lg:text-left">
+            {season ? (
+              <span className="landing-chip mb-4 inline-flex w-fit items-center gap-1.5 px-3 py-1 text-xs font-medium text-[var(--color-primary)]">
+                {season.season.badge}
+              </span>
+            ) : null}
             <h1 id="hero-heading" className="hero-title landing-text mb-5 max-w-3xl font-bold">
               Tu casillero en USA.{' '}
               <span className="brand-gradient-text">

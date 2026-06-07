@@ -28,6 +28,8 @@ export const API_ENDPOINTS = {
   configTarifaCalculadora: '/config/tarifa-calculadora',
   configMensajeAgenciaEeuu: '/config/mensaje-agencia-eeuu',
   configCanalesComunicacion: '/config/canales-comunicacion',
+  configTemaTemporada: '/config/tema-temporada',
+  operarioTemaTemporada: '/operario/config/tema-temporada',
   operarioConfigTarifaCalculadora: '/operario/config/tarifa-calculadora',
   operarioMensajeWhatsAppDespacho: '/operario/config/mensaje-whatsapp-despacho',
   operarioMensajeAgenciaEeuu: '/operario/config/mensaje-agencia-eeuu',

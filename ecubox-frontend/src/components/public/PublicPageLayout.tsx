@@ -1,6 +1,10 @@
 ﻿import type { ReactNode } from 'react';
 import { SiteHeader, type SiteHeaderVariant } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { SeasonBanner } from '@/components/public/SeasonBanner';
+import { SeasonOrnament } from '@/components/public/SeasonOrnament';
+import { useSeason } from '@/hooks/useSeason';
+import { useTemaTemporadaPublic } from '@/hooks/useTemaTemporada';
 import { cn } from '@/lib/utils';
 
 export interface PublicPageLayoutProps {
@@ -22,9 +26,16 @@ export function PublicPageLayout({
   mainId = 'contenido-principal',
   topSlot,
 }: PublicPageLayoutProps) {
+  const { data: tema } = useTemaTemporadaPublic();
+  const activeSeason = useSeason({ override: tema?.override, ventanas: tema?.ventanas });
   return (
-    <div className="landing-shell">
+    <div
+      className="landing-shell"
+      data-season={activeSeason?.season.id}
+      style={activeSeason?.style}
+    >
       {topSlot}
+      {activeSeason ? <SeasonOrnament ornamento={activeSeason.season.ornamento} /> : null}
       {skipLink && (
         <a
           href={`#${mainId}`}
@@ -35,6 +46,7 @@ export function PublicPageLayout({
       )}
       {showOverlay ? <div className="landing-overlay" aria-hidden="true" /> : null}
       <SiteHeader variant={headerVariant} />
+      {activeSeason ? <SeasonBanner season={activeSeason.season} /> : null}
       <main
         id={mainId}
         className={cn('relative z-10 flex-1', mainClassName)}

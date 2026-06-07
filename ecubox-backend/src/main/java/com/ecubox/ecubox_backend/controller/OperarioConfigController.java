@@ -11,6 +11,8 @@ import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoRequest;
 import com.ecubox.ecubox_backend.dto.TarifaCalculadoraDTO;
 import com.ecubox.ecubox_backend.dto.TarifaCalculadoraRequest;
+import com.ecubox.ecubox_backend.dto.TemaTemporadaDTO;
+import com.ecubox.ecubox_backend.dto.TemaTemporadaRequest;
 import com.ecubox.ecubox_backend.service.ConfigCalculadoraService;
 import com.ecubox.ecubox_backend.service.ParametroSistemaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -96,6 +98,23 @@ public class OperarioConfigController {
     public ResponseEntity<CanalesComunicacionDTO> updateCanalesComunicacion(
             @Valid @RequestBody CanalesComunicacionRequest request) {
         return ResponseEntity.ok(parametroSistemaService.updateCanalesComunicacion(request));
+    }
+
+    @GetMapping("/tema-temporada")
+    @PreAuthorize("hasAuthority('TEMA_TEMPORADA_WRITE')")
+    @Operation(summary = "Obtener tema de temporada", description = "Consulta el override del tema de temporada del sitio público")
+    @ApiResponse(responseCode = "200", description = "Tema configurado")
+    public ResponseEntity<TemaTemporadaDTO> getTemaTemporada() {
+        return ResponseEntity.ok(parametroSistemaService.getTemaTemporada());
+    }
+
+    @PutMapping("/tema-temporada")
+    @PreAuthorize("hasAuthority('TEMA_TEMPORADA_WRITE')")
+    @Operation(summary = "Actualizar tema de temporada", description = "Fija el override del tema de temporada (auto, off o id)")
+    @ApiResponse(responseCode = "200", description = "Tema actualizado")
+    public ResponseEntity<TemaTemporadaDTO> updateTemaTemporada(
+            @Valid @RequestBody TemaTemporadaRequest request) {
+        return ResponseEntity.ok(parametroSistemaService.updateTemaTemporada(request));
     }
 
     @GetMapping("/estados-rastreo-por-punto")
