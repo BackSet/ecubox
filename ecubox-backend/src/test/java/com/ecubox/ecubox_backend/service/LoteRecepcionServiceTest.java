@@ -54,6 +54,8 @@ class LoteRecepcionServiceTest {
     @Mock private PaqueteService paqueteService;
     @Mock private CurrentUserService currentUserService;
     @Mock private EnvioConsolidadoRepository envioConsolidadoRepository;
+    @Mock private EnvioConsolidadoService envioConsolidadoService;
+    @Mock private ParametroSistemaService parametroSistemaService;
     @Mock private GuiaMasterService guiaMasterService;
 
     private LoteRecepcionService service;
@@ -67,6 +69,8 @@ class LoteRecepcionServiceTest {
                 paqueteService,
                 currentUserService,
                 envioConsolidadoRepository,
+                envioConsolidadoService,
+                parametroSistemaService,
                 guiaMasterService);
         lenient().when(loteRecepcionRepository.save(any(LoteRecepcion.class)))
                 .thenAnswer(inv -> {
@@ -76,6 +80,8 @@ class LoteRecepcionServiceTest {
                 });
         lenient().when(currentUserService.getCurrentUsuario())
                 .thenReturn(Usuario.builder().id(99L).username("operario").build());
+        lenient().when(parametroSistemaService.getEstadoConsolidadoAgregadoLote())
+                .thenReturn("CERRADO");
     }
 
     private EnvioConsolidado envio(long id, String codigo, boolean cerrado, EstadoPagoConsolidado pago) {
@@ -106,6 +112,7 @@ class LoteRecepcionServiceTest {
         assertEquals(List.of("ENV-1"), dto.getNumeroGuiasEnvio(),
                 "el envio cerrado y pagado debe registrarse igual en el lote");
         verify(paqueteService).aplicarEstadoEnLoteRecepcion(eq(List.of(100L)), any());
+        verify(envioConsolidadoService).cerrar(eq(10L), any());
     }
 
     @Test
@@ -158,6 +165,7 @@ class LoteRecepcionServiceTest {
 
         verify(loteRecepcionGuiaRepository, times(1)).save(any(LoteRecepcionGuia.class));
         verify(paqueteService).aplicarEstadoEnLoteRecepcion(eq(List.of(200L)), any());
+        verify(envioConsolidadoService).cerrar(eq(20L), any());
     }
 
     @Test

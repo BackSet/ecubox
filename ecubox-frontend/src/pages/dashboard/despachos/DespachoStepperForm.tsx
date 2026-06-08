@@ -30,7 +30,7 @@ import {
 import { toast } from 'sonner';
 import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
 import type { Consignatario } from '@/types/consignatario';
-import type { Despacho, TipoEntrega, TamanioSaca } from '@/types/despacho';
+import type { Despacho, Saca, TipoEntrega, TamanioSaca } from '@/types/despacho';
 import { SelectionCard } from '@/components/ui/selection-card';
 import {
   ArrowLeft,
@@ -40,6 +40,7 @@ import {
   Calendar,
   Check,
   ClipboardList,
+  Copy,
   FileText,
   MapPin,
   Package,
@@ -65,11 +66,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { PROVINCIAS_ECUADOR, getCantonesByProvincia } from '@/data/provincias-cantones-ecuador';
 import { AgregarPaquetesSacaDialog } from './AgregarPaquetesSacaDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { QuickPresetChips } from '@/components/QuickPresetChips';
+import { copyText } from '@/lib/clipboard';
 import {
   formatDatetimeLocalNow,
   HORARIOS_PRESET,
@@ -202,6 +205,7 @@ export function DespachoStepperForm({
     guia: '',
   });
   const [confirmSalirOpen, setConfirmSalirOpen] = useState(false);
+  const [copiedResumenKey, setCopiedResumenKey] = useState<string | null>(null);
   const [modalCrearAgencia, setModalCrearAgencia] = useState({
     provincia: '',
     canton: '',
@@ -230,6 +234,7 @@ export function DespachoStepperForm({
       codigoPrecinto: '',
       sacaIds: [],
       sacasNuevas: [],
+      agenciaEnvioPorCourier: false,
     },
   });
 
@@ -261,10 +266,15 @@ export function DespachoStepperForm({
       codigoPrecinto: despacho.codigoPrecinto ?? '',
       sacaIds: despacho.sacaIds ?? [],
       sacasNuevas: [],
+      agenciaEnvioPorCourier:
+        despacho.tipoEntrega === 'AGENCIA' && despacho.courierEntregaId != null,
     });
   }, [despacho, isEdit, form]);
 
   const tipoEntrega = form.watch('tipoEntrega');
+  const agenciaEnvioPorCourier = form.watch('agenciaEnvioPorCourier') ?? false;
+  // ¿Se deben pedir courier + número de guía? Siempre salvo retiro en oficina.
+  const requiereCourierGuia = tipoEntrega !== 'AGENCIA' || agenciaEnvioPorCourier;
   const agenciaIdForm = form.watch('agenciaId');
   const agenciaCourierEntregaIdForm = form.watch('agenciaCourierEntregaId');
   const selectedAgencia = agencias.find((a) => a.id === agenciaIdForm);
@@ -276,9 +286,12 @@ export function DespachoStepperForm({
     } else if (tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
       form.setValue('consignatarioId', undefined);
       form.setValue('agenciaId', undefined);
+      // Fuera de agencia, la modalidad de retiro no aplica.
+      form.setValue('agenciaEnvioPorCourier', false);
     } else {
       form.setValue('agenciaId', undefined);
       form.setValue('agenciaCourierEntregaId', undefined);
+      form.setValue('agenciaEnvioPorCourier', false);
     }
   }, [tipoEntrega, form]);
 
@@ -525,6 +538,18 @@ export function DespachoStepperForm({
     }
   }
 
+  async function copiarResumenDato(key: string, value: string) {
+    if (!value.trim() || value === '—') return;
+    try {
+      await copyText(value);
+      setCopiedResumenKey(key);
+      window.setTimeout(() => setCopiedResumenKey((current) => (current === key ? null : current)), 1600);
+      toast.success('Copiado al portapapeles');
+    } catch {
+      toast.error('No se pudo copiar');
+    }
+  }
+
   function agregarPaqueteASacaNueva(index: number, paqueteId: number) {
     const current = form.getValues(`sacasNuevas.${index}.paqueteIds`) ?? [];
     if (current.includes(paqueteId)) return;
@@ -663,6 +688,10 @@ export function DespachoStepperForm({
   }
 
   async function onSubmit(values: FormValues) {
+    // Domicilio y punto de entrega siempre viajan por courier; agencia solo si
+    // se eligió "envío por courier" (retiro en oficina no lleva courier/guía).
+    const enviaPorCourier =
+      values.tipoEntrega !== 'AGENCIA' || (values.agenciaEnvioPorCourier ?? false);
     const consignatarioId =
       values.tipoEntrega === 'DOMICILIO' &&
       values.consignatarioId != null &&
@@ -779,8 +808,12 @@ export function DespachoStepperForm({
         await updateDespachoMutation.mutateAsync({
           id: despacho.id,
           body: {
-            numeroGuia: values.numeroGuia.trim(),
-            courierEntregaId: values.courierEntregaId,
+            // Retiro en oficina (agencia sin courier): guía autogenerada en backend.
+            numeroGuia: enviaPorCourier ? values.numeroGuia?.trim() || undefined : undefined,
+            courierEntregaId:
+              enviaPorCourier && values.courierEntregaId && values.courierEntregaId > 0
+                ? values.courierEntregaId
+                : undefined,
             tipoEntrega: values.tipoEntrega,
             consignatarioId: values.tipoEntrega === 'DOMICILIO' ? consignatarioId : undefined,
             agenciaId: values.tipoEntrega === 'AGENCIA' ? agenciaId : undefined,
@@ -798,8 +831,11 @@ export function DespachoStepperForm({
         toast.success('Despacho actualizado');
       } else {
         await createDespachoMutation.mutateAsync({
-          numeroGuia: values.numeroGuia.trim(),
-          courierEntregaId: values.courierEntregaId,
+          numeroGuia: enviaPorCourier ? values.numeroGuia?.trim() || undefined : undefined,
+          courierEntregaId:
+            enviaPorCourier && values.courierEntregaId && values.courierEntregaId > 0
+              ? values.courierEntregaId
+              : undefined,
           tipoEntrega: values.tipoEntrega,
           consignatarioId: values.tipoEntrega === 'DOMICILIO' ? consignatarioId : undefined,
           agenciaId: values.tipoEntrega === 'AGENCIA' ? agenciaId : undefined,
@@ -843,6 +879,84 @@ export function DespachoStepperForm({
     });
     return { kg, lbs };
   })();
+
+  const resumenSacas = [
+    ...sacasEnDespacho.map((s: Saca) => {
+      const pesoKg = s.pesoTotalKg ?? s.pesoKg;
+      const pesoLbs = s.pesoTotalLbs ?? s.pesoLbs;
+      return {
+        key: `saca-${s.id}`,
+        numeroOrden: s.numeroOrden,
+        tamanio: s.tamanio ? TAMANIO_LABELS[s.tamanio] : '—',
+        paquetes: s.paquetes?.length ?? 0,
+        pesoKg: pesoKg != null && pesoKg > 0 ? `${pesoKg.toFixed(2)} kg` : '—',
+        pesoLbs: pesoLbs != null && pesoLbs > 0 ? `${pesoLbs.toFixed(2)} lbs` : '—',
+      };
+    }),
+    ...sacasNuevas
+      .filter((s) => s.numeroOrden?.trim())
+      .map((s, idx) => {
+        const peso = pesoTotalFromPaquetes(s.paqueteIds ?? []);
+        const numeroOrden = (s.numeroOrden ?? '').trim() || `Saca nueva ${idx + 1}`;
+        return {
+          key: `nueva-${idx}`,
+          numeroOrden,
+          tamanio: s.tamanio ? TAMANIO_LABELS[s.tamanio] : '—',
+          paquetes: s.paqueteIds?.length ?? 0,
+          pesoKg: peso.kg > 0 ? `${peso.kg.toFixed(2)} kg` : '—',
+          pesoLbs: peso.lbs > 0 ? `${peso.lbs.toFixed(2)} lbs` : '—',
+        };
+      }),
+  ];
+  const resumenDestinoRows = (() => {
+    const ubicacion = (provincia?: string | null, canton?: string | null) => [provincia, canton].filter(Boolean).join(', ');
+    if (tipoEntrega === 'DOMICILIO' && autoDetectedDest) {
+      return [
+        { key: 'destino-nombre', label: 'Consignatario', value: autoDetectedDest.nombre },
+        { key: 'destino-direccion', label: 'Dirección', value: autoDetectedDest.direccion },
+        { key: 'destino-ubicacion', label: 'Provincia / cantón', value: ubicacion(autoDetectedDest.provincia, autoDetectedDest.canton) },
+        { key: 'destino-telefono', label: 'Teléfono', value: autoDetectedDest.telefono },
+        { key: 'destino-codigo', label: 'Código', value: autoDetectedDest.codigo },
+      ];
+    }
+    if (tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && selectedAgenciaCourierEntrega) {
+      return [
+        { key: 'destino-punto', label: 'Punto de entrega', value: agenciaCourierEntregaEtiqueta(selectedAgenciaCourierEntrega) },
+        { key: 'destino-codigo', label: 'Código', value: selectedAgenciaCourierEntrega.codigo },
+        { key: 'destino-direccion', label: 'Dirección', value: selectedAgenciaCourierEntrega.direccion },
+        { key: 'destino-ubicacion', label: 'Provincia / cantón', value: ubicacion(selectedAgenciaCourierEntrega.provincia, selectedAgenciaCourierEntrega.canton) },
+        { key: 'destino-horario', label: 'Horario', value: selectedAgenciaCourierEntrega.horarioAtencion },
+        {
+          key: 'destino-retiro',
+          label: 'Días máx. retiro',
+          value:
+            selectedAgenciaCourierEntrega.diasMaxRetiro != null
+              ? `${selectedAgenciaCourierEntrega.diasMaxRetiro} días`
+              : undefined,
+        },
+      ];
+    }
+    if (tipoEntrega === 'AGENCIA' && selectedAgencia) {
+      return [
+        { key: 'destino-agencia', label: 'Agencia', value: selectedAgencia.nombre },
+        { key: 'destino-codigo', label: 'Código', value: selectedAgencia.codigo },
+        { key: 'destino-direccion', label: 'Dirección', value: selectedAgencia.direccion },
+        { key: 'destino-ubicacion', label: 'Provincia / cantón', value: ubicacion(selectedAgencia.provincia, selectedAgencia.canton) },
+        { key: 'destino-horario', label: 'Horario', value: selectedAgencia.horarioAtencion },
+      ];
+    }
+    return [];
+  })().filter((row) => row.value != null && String(row.value).trim() !== '') as { key: string; label: string; value: string }[];
+  const resumenCompletoTexto = [
+    'Resumen del despacho',
+    'Sacas',
+    ...resumenSacas.map((s) => `${s.numeroOrden} | ${s.tamanio} | ${s.pesoKg} | ${s.pesoLbs} | ${s.paquetes} paquete(s)`),
+    '',
+    'Destino',
+    ...resumenDestinoRows.map((row) => `${row.label}: ${row.value}`),
+  ]
+    .filter((line, index, lines) => line !== '' || (lines[index - 1] !== '' && lines[index + 1] !== ''))
+    .join('\n');
 
   const paquetesYaAgregadosIdsParaDialog = (() => {
     const ids = new Set<number>(idsEnSacasNuevas);
@@ -1645,74 +1759,109 @@ export function DespachoStepperForm({
                   Revisa el resumen del despacho y completa la información requerida.
                 </p>
               </div>
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-5 py-4 space-y-4">
-                <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Resumen del despacho</h3>
-                <div className="grid gap-3 text-sm">
-                  <div className="flex flex-wrap gap-x-6 gap-y-1">
-                    <span><strong className="text-[var(--color-foreground)]">Tipo:</strong> {tipoEntrega === 'DOMICILIO' ? 'Domicilio' : tipoEntrega === 'AGENCIA_COURIER_ENTREGA' ? 'Punto de entrega' : 'Agencia'}</span>
-                    <span><strong className="text-[var(--color-foreground)]">Peso total:</strong> {pesoTotalDespacho.kg > 0 || pesoTotalDespacho.lbs > 0 ? [pesoTotalDespacho.kg > 0 ? `${pesoTotalDespacho.kg} kg` : null, pesoTotalDespacho.lbs > 0 ? `${pesoTotalDespacho.lbs} lbs` : null].filter(Boolean).join(' / ') : '—'}</span>
-                    <span><strong className="text-[var(--color-foreground)]">Total paquetes:</strong> {totalPaquetesDisplay}</span>
-                    <span><strong className="text-[var(--color-foreground)]">Sacas:</strong> {totalSacasDisplay}</span>
-                  </div>
-                  {totalSacasDisplay > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1.5">Sacas del lote y tamaño</p>
-                      <ul className="list-disc list-inside space-y-0.5 text-[var(--color-foreground)]">
-                        {sacasEnDespacho.map((s) => (
-                          <li key={s.id}>
-                            {s.numeroOrden} — {s.tamanio ? TAMANIO_LABELS[s.tamanio] : '—'}
-                          </li>
-                        ))}
-                        {sacasNuevas.filter((s) => s.numeroOrden?.trim()).map((s, idx) => (
-                          <li key={`nueva-${idx}`}>
-                            {(s.numeroOrden ?? '').trim() || `Saca nueva ${idx + 1}`} — {s.tamanio ? TAMANIO_LABELS[s.tamanio] : '—'}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {tipoEntrega === 'DOMICILIO' && autoDetectedDest && (
-                    <div>
-                      <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1.5">Consignatario</p>
-                      <div className="text-[var(--color-foreground)] rounded-md bg-[var(--color-background)]/60 p-3 space-y-0.5">
-                        <p className="font-medium">{autoDetectedDest.nombre}</p>
-                        {autoDetectedDest.direccion && <p className="text-xs">{autoDetectedDest.direccion}</p>}
-                        {(autoDetectedDest.provincia || autoDetectedDest.canton) && (
-                          <p className="text-xs">{[autoDetectedDest.provincia, autoDetectedDest.canton].filter(Boolean).join(', ')}</p>
-                        )}
-                        {autoDetectedDest.telefono && <p className="text-xs">{autoDetectedDest.telefono}</p>}
-                        {autoDetectedDest.codigo && <p className="text-xs">Código: {autoDetectedDest.codigo}</p>}
-                      </div>
-                    </div>
-                  )}
-                  {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') && !autoDetectedDest && (
-                    <p className="text-xs text-[var(--color-warning)]">No se ha detectado consignatario. Agrega paquetes en el paso anterior.</p>
-                  )}
-                  {tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && selectedAgenciaCourierEntrega && (
-                    <div>
-                      <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1.5">Punto de entrega</p>
-                      <div className="text-[var(--color-foreground)] rounded-md bg-[var(--color-background)]/60 p-3 space-y-0.5">
-                        <p className="font-medium">{agenciaCourierEntregaEtiqueta(selectedAgenciaCourierEntrega)}</p>
-                        {(selectedAgenciaCourierEntrega.provincia || selectedAgenciaCourierEntrega.canton) && (
-                          <p className="text-xs">{[selectedAgenciaCourierEntrega.provincia, selectedAgenciaCourierEntrega.canton].filter(Boolean).join(', ')}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {tipoEntrega === 'AGENCIA' && selectedAgencia && (
-                    <div>
-                      <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1.5">Agencia</p>
-                      <div className="text-[var(--color-foreground)] rounded-md bg-[var(--color-background)]/60 p-3 space-y-0.5">
-                        <p className="font-medium">{selectedAgencia.nombre}</p>
-                        <p className="text-xs">Código: {selectedAgencia.codigo}</p>
-                        {selectedAgencia.direccion && <p className="text-xs">{selectedAgencia.direccion}</p>}
-                        {(selectedAgencia.provincia || selectedAgencia.canton) && (
-                          <p className="text-xs">{[selectedAgencia.provincia, selectedAgencia.canton].filter(Boolean).join(', ')}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-4 sm:px-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Resumen del despacho</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copiarResumenDato('resumen-completo', resumenCompletoTexto)}
+                  >
+                    {copiedResumenKey === 'resumen-completo' ? (
+                      <Check className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Copy className="mr-2 h-4 w-4" />
+                    )}
+                    Copiar resumen
+                  </Button>
                 </div>
+
+                {resumenSacas.length > 0 && (
+                  <div className="overflow-x-auto rounded-md border border-[var(--color-border)] bg-[var(--color-background)]/70">
+                    <div className="min-w-[720px]">
+                      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-2 border-b border-[var(--color-border)] px-3 py-2 text-[11px] font-medium uppercase text-[var(--color-muted-foreground)]">
+                        <span>Saca</span>
+                        <span>Tipo</span>
+                        <span>Peso kg</span>
+                        <span>Peso lbs</span>
+                        <span>Paquetes</span>
+                      </div>
+                      {resumenSacas.map((s) => {
+                        return (
+                          <div
+                            key={s.key}
+                            className="grid min-h-12 grid-cols-[1fr_1fr_1fr_1fr_1fr] items-center gap-2 border-b border-[var(--color-border)] px-3 py-2 text-sm last:border-b-0"
+                          >
+                            {[
+                              { key: 'numero', label: 'número de saca', value: s.numeroOrden, className: 'font-semibold text-[var(--color-foreground)]' },
+                              { key: 'tipo', label: 'tipo de saca', value: s.tamanio, className: 'text-[var(--color-muted-foreground)]' },
+                              { key: 'peso-kg', label: 'peso en kg', value: s.pesoKg, className: 'text-[var(--color-foreground)]' },
+                              { key: 'peso-lbs', label: 'peso en lbs', value: s.pesoLbs, className: 'text-[var(--color-foreground)]' },
+                              { key: 'paquetes', label: 'número de paquetes', value: String(s.paquetes), className: 'text-[var(--color-foreground)]' },
+                            ].map((cell) => (
+                              <div key={cell.key} className="flex min-w-0 items-center justify-between gap-1">
+                                <span className={`truncate ${cell.className}`} title={cell.value}>
+                                  {cell.value}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 shrink-0"
+                                  title={`Copiar ${cell.label}`}
+                                  aria-label={`Copiar ${cell.label}`}
+                                  onClick={() => copiarResumenDato(`${s.key}-${cell.key}`, cell.value)}
+                                >
+                                  {copiedResumenKey === `${s.key}-${cell.key}` ? (
+                                    <Check className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {resumenDestinoRows.length > 0 && (
+                  <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-background)]/70 p-3">
+                    <p className="mb-2 text-[11px] font-medium uppercase text-[var(--color-muted-foreground)]">
+                      Datos del punto de entrega
+                    </p>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {resumenDestinoRows.map((row) => (
+                        <div key={row.key} className="flex min-h-11 items-center justify-between gap-2 rounded-md bg-[var(--color-muted)]/20 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-[var(--color-muted-foreground)]">{row.label}</p>
+                            <p className="truncate text-sm text-[var(--color-foreground)]" title={row.value}>
+                              {row.value}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            title={`Copiar ${row.label.toLowerCase()}`}
+                            aria-label={`Copiar ${row.label.toLowerCase()}`}
+                            onClick={() => copiarResumenDato(row.key, row.value)}
+                          >
+                            {copiedResumenKey === row.key ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') && !autoDetectedDest && (
+                  <p className="text-xs text-[var(--color-warning)]">No se ha detectado consignatario. Agrega paquetes en el paso anterior.</p>
+                )}
               </div>
               <div className="rounded-xl border border-border bg-[var(--color-muted)]/20 p-4 space-y-4">
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -1720,6 +1869,37 @@ export function DespachoStepperForm({
                   Datos logísticos
                 </h3>
 
+                {tipoEntrega === 'AGENCIA' && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">¿Cómo llega el paquete a la agencia?</Label>
+                    <SegmentedControl<'oficina' | 'courier'>
+                      value={agenciaEnvioPorCourier ? 'courier' : 'oficina'}
+                      onValueChange={(v) => {
+                        const porCourier = v === 'courier';
+                        form.setValue('agenciaEnvioPorCourier', porCourier, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                        if (!porCourier) {
+                          // Retiro en oficina: limpiar courier y guía (se autogenera).
+                          form.setValue('courierEntregaId', 0, { shouldValidate: true });
+                          form.setValue('numeroGuia', '', { shouldValidate: true });
+                        }
+                      }}
+                      options={[
+                        { value: 'oficina', label: 'Retiro en oficina' },
+                        { value: 'courier', label: 'Envío por courier' },
+                      ]}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {agenciaEnvioPorCourier
+                        ? 'Se envía a la agencia por un courier de entrega (indica courier y número de guía).'
+                        : 'El cliente retira en la oficina de la agencia; se genera un código interno automáticamente.'}
+                    </p>
+                  </div>
+                )}
+
+                {requiereCourierGuia && (
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label
@@ -1731,7 +1911,7 @@ export function DespachoStepperForm({
                     </Label>
                     <SearchableCombobox
                       id="courierEntrega"
-                      value={courierEntregaIdForm > 0 ? courierEntregaIdForm : undefined}
+                      value={courierEntregaIdForm != null && courierEntregaIdForm > 0 ? courierEntregaIdForm : undefined}
                       onChange={(v) => {
                         const num = typeof v === 'number' ? v : Number(v ?? 0);
                         form.setValue('courierEntregaId', Number.isFinite(num) ? num : 0, {
@@ -1782,6 +1962,7 @@ export function DespachoStepperForm({
                     )}
                   </div>
                 </div>
+                )}
 
                 {tipoEntrega === 'AGENCIA' && (
                   <div className="space-y-1.5">

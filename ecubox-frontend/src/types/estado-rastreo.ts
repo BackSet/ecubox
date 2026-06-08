@@ -1,4 +1,7 @@
 export type TipoFlujoEstado = 'NORMAL' | 'ALTERNO';
+import type { EstadoGuiaMaster } from '@/types/guia-master';
+
+export type EstadoConsolidadoOperativo = 'ABIERTO' | 'CERRADO';
 
 export interface EstadoRastreo {
   id: number;
@@ -41,6 +44,21 @@ export interface EstadosRastreoPorPunto {
   estadoRastreoAsociarGuiaMasterId?: number | null;
   estadoRastreoEnDespachoId: number;
   estadoRastreoEnTransitoId: number;
+  estadoRastreoEnviadoDesdeUsaId?: number | null;
+  estadoRastreoArribadoEcId?: number | null;
+  estadoGuiaMasterSinPiezas?: EstadoGuiaMaster | null;
+  estadoGuiaMasterEnEsperaRecepcion?: EstadoGuiaMaster | null;
+  estadoGuiaMasterRecepcionParcial?: EstadoGuiaMaster | null;
+  estadoGuiaMasterRecepcionCompleta?: EstadoGuiaMaster | null;
+  estadoGuiaMasterDespachoParcial?: EstadoGuiaMaster | null;
+  estadoGuiaMasterDespachoCompletado?: EstadoGuiaMaster | null;
+  estadoGuiaMasterDespachoIncompleto?: EstadoGuiaMaster | null;
+  estadoGuiaMasterCancelada?: EstadoGuiaMaster | null;
+  estadoGuiaMasterEnRevision?: EstadoGuiaMaster | null;
+  estadoConsolidadoCreado?: EstadoConsolidadoOperativo | null;
+  estadoConsolidadoAgregadoLote?: EstadoConsolidadoOperativo | null;
+  estadoConsolidadoCerrado?: EstadoConsolidadoOperativo | null;
+  estadoConsolidadoReabierto?: EstadoConsolidadoOperativo | null;
   estadoRastreoInicioCuentaRegresivaId?: number | null;
   estadoRastreoFinCuentaRegresivaId?: number | null;
 }
@@ -51,6 +69,21 @@ export interface EstadosRastreoPorPuntoRequest {
   estadoRastreoAsociarGuiaMasterId?: number | null;
   estadoRastreoEnDespachoId: number;
   estadoRastreoEnTransitoId: number;
+  estadoRastreoEnviadoDesdeUsaId?: number | null;
+  estadoRastreoArribadoEcId?: number | null;
+  estadoGuiaMasterSinPiezas: EstadoGuiaMaster;
+  estadoGuiaMasterEnEsperaRecepcion: EstadoGuiaMaster;
+  estadoGuiaMasterRecepcionParcial: EstadoGuiaMaster;
+  estadoGuiaMasterRecepcionCompleta: EstadoGuiaMaster;
+  estadoGuiaMasterDespachoParcial: EstadoGuiaMaster;
+  estadoGuiaMasterDespachoCompletado: EstadoGuiaMaster;
+  estadoGuiaMasterDespachoIncompleto: EstadoGuiaMaster;
+  estadoGuiaMasterCancelada: EstadoGuiaMaster;
+  estadoGuiaMasterEnRevision: EstadoGuiaMaster;
+  estadoConsolidadoCreado: EstadoConsolidadoOperativo;
+  estadoConsolidadoAgregadoLote: EstadoConsolidadoOperativo;
+  estadoConsolidadoCerrado: EstadoConsolidadoOperativo;
+  estadoConsolidadoReabierto: EstadoConsolidadoOperativo;
   estadoRastreoInicioCuentaRegresivaId?: number | null;
   estadoRastreoFinCuentaRegresivaId?: number | null;
 }

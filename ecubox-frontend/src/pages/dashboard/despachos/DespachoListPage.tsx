@@ -104,6 +104,11 @@ const TIPO_COLORS: Record<TipoEntrega, string> = {
     'border-[color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
 };
 
+/** Retiro presencial en oficina: entrega en agencia sin courier de entrega. */
+function esRetiroEnOficina(d: Despacho): boolean {
+  return d.tipoEntrega === 'AGENCIA' && d.courierEntregaId == null;
+}
+
 const SIN_FILTRO = '__all__';
 
 export function DespachoListPage() {
@@ -708,12 +713,19 @@ export function DespachoListPage() {
                       <DespachoCell despacho={d} />
                     </TableCell>
                     <TableCell className="hidden align-top lg:table-cell">
-                      <Badge
-                        variant="outline"
-                        className={`${TIPO_COLORS[d.tipoEntrega]} font-normal`}
-                      >
-                        {TIPO_LABELS[d.tipoEntrega] ?? d.tipoEntrega}
-                      </Badge>
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge
+                          variant="outline"
+                          className={`${TIPO_COLORS[d.tipoEntrega]} font-normal`}
+                        >
+                          {TIPO_LABELS[d.tipoEntrega] ?? d.tipoEntrega}
+                        </Badge>
+                        {esRetiroEnOficina(d) && (
+                          <Badge variant="outline" className="font-normal text-muted-foreground">
+                            Retiro en oficina
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="max-w-[18rem] align-top">
                       <DestinoCell despacho={d} />
@@ -953,11 +965,18 @@ function DestinoCell({ despacho }: { despacho: Despacho }) {
     return <span className="text-xs italic text-muted-foreground">—</span>;
   }
   return (
-    <div className="flex min-w-0 items-center gap-2 text-sm">
-      <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <span className="truncate" title={lugar}>
-        {lugar}
-      </span>
+    <div className="flex min-w-0 flex-col gap-0.5 text-sm">
+      <div className="flex min-w-0 items-center gap-2">
+        <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="truncate" title={lugar}>
+          {lugar}
+        </span>
+      </div>
+      {esRetiroEnOficina(despacho) && (
+        <span className="text-[11px] font-medium text-[var(--color-info)]">
+          Retiro en oficina (sin envío)
+        </span>
+      )}
     </div>
   );
 }

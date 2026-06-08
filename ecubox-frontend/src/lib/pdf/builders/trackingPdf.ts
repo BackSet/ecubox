@@ -262,6 +262,12 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
             label: 'Días máx. retiro agencia',
             value: String(op.diasMaxRetiroAgencia ?? 'No configurado'),
           },
+        ],
+        [
+          {
+            label: 'Encargado para el retiro',
+            value: pdfSafe(op.agenciaEncargado),
+          },
         ]
       );
     } else if (op.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {

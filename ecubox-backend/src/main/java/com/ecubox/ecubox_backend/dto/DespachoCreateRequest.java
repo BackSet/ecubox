@@ -1,7 +1,6 @@
 package com.ecubox.ecubox_backend.dto;
 
 import com.ecubox.ecubox_backend.enums.TipoEntrega;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,10 +16,13 @@ import java.util.List;
 @Builder
 public class DespachoCreateRequest {
 
-    @NotBlank(message = "El número de guía es obligatorio")
+    /**
+     * Número de guía del courier. Obligatorio salvo en retiro presencial en
+     * agencia (AGENCIA), donde el backend autogenera un código interno.
+     */
     private String numeroGuia;
 
-    @NotNull(message = "El courierEntrega es obligatorio")
+    /** Courier de entrega. Obligatorio salvo en retiro presencial en agencia. */
     private Long courierEntregaId;
 
     @NotNull(message = "El tipo de entrega es obligatorio")
@@ -52,5 +54,28 @@ public class DespachoCreateRequest {
             return agenciaCourierEntregaId != null && consignatarioId == null && agenciaId == null;
         }
         return true;
+    }
+
+    /**
+     * El courier de entrega y el número de guía son obligatorios para entregas
+     * que viajan (DOMICILIO y AGENCIA_COURIER_ENTREGA).
+     *
+     * Para entrega en agencia (AGENCIA) hay dos modalidades:
+     *   - Retiro en oficina: sin courier; la guía se autogenera (RET-AG-xxxxx).
+     *   - Envío por courier: si se indica courier, el número de guía es obligatorio.
+     */
+    @jakarta.validation.constraints.AssertTrue(
+            message = "El courier de entrega y el número de guía son obligatorios para este tipo de entrega")
+    public boolean isCourierYGuiaCoherentes() {
+        if (tipoEntrega == null) {
+            return true;
+        }
+        boolean tieneCourier = courierEntregaId != null;
+        boolean tieneGuia = numeroGuia != null && !numeroGuia.isBlank();
+        if (tipoEntrega == TipoEntrega.AGENCIA) {
+            // Retiro en oficina (sin courier) válido; si hay courier, exige guía.
+            return !tieneCourier || tieneGuia;
+        }
+        return tieneCourier && tieneGuia;
     }
 }

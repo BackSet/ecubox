@@ -16,6 +16,7 @@ import com.ecubox.ecubox_backend.dto.TrackingResponse;
 import com.ecubox.ecubox_backend.dto.TrackingSacaDTO;
 import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.Despacho;
+import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -39,6 +40,7 @@ import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
 import com.ecubox.ecubox_backend.util.WeightUtil;
 import com.ecubox.ecubox_backend.util.Pageables;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -80,6 +82,7 @@ public class PaqueteService {
     private final OwnershipValidator ownershipValidator;
     private final SacaEnDespachoValidator sacaEnDespachoValidator;
     private final CodigoSecuenciaService codigoSecuenciaService;
+    private final EnvioConsolidadoService envioConsolidadoService;
     private final boolean useEventTimeline;
 
     public PaqueteService(PaqueteRepository paqueteRepository,
@@ -96,6 +99,7 @@ public class PaqueteService {
                           OwnershipValidator ownershipValidator,
                           SacaEnDespachoValidator sacaEnDespachoValidator,
                           CodigoSecuenciaService codigoSecuenciaService,
+                          @Lazy EnvioConsolidadoService envioConsolidadoService,
                           @Value("${tracking.timeline.use-events:true}") boolean useEventTimeline) {
         this.paqueteRepository = paqueteRepository;
         this.consignatarioRepository = consignatarioRepository;
@@ -111,6 +115,7 @@ public class PaqueteService {
         this.ownershipValidator = ownershipValidator;
         this.sacaEnDespachoValidator = sacaEnDespachoValidator;
         this.codigoSecuenciaService = codigoSecuenciaService;
+        this.envioConsolidadoService = envioConsolidadoService;
         this.useEventTimeline = useEventTimeline;
     }
 
@@ -119,6 +124,23 @@ public class PaqueteService {
         return paqueteRepository.findByConsignatarioUsuarioIdOrderByEstadoRastreo_OrdenAscIdAsc(usuarioId).stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    private Long envioConsolidadoId(Paquete paquete) {
+        EnvioConsolidado envio = paquete != null ? paquete.getEnvioConsolidado() : null;
+        return envio != null ? envio.getId() : null;
+    }
+
+    private void sincronizarTotalesEnvio(Long envioId) {
+        if (envioId != null) {
+            envioConsolidadoService.sincronizarTotales(envioId);
+        }
+    }
+
+    private void cerrarEnvioPorCambioEstado(Long envioId, LocalDateTime fechaEvento) {
+        if (envioId != null) {
+            envioConsolidadoService.cerrarPorCambioEstadoPaquete(envioId, fechaEvento);
+        }
     }
 
     /** Lista todos los paquetes (para Admin/Operario). Orden por estado e id. */
@@ -448,6 +470,30 @@ public class PaqueteService {
     }
 
     /**
+     * Aplica el estado configurado "enviado desde USA" a los paquetes indicados.
+     */
+    @Transactional
+    public void aplicarEstadoEnviadoDesdeUsa(List<Long> paqueteIds, LocalDateTime fechaEvento) {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnviadoDesdeUsaId();
+        if (estadoId == null) return;
+        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+                TrackingEventType.ESTADO_APLICADO_ENVIADO_USA, "ENVIADO_USA_AUTO", "enviado-usa",
+                fechaEvento);
+    }
+
+    /**
+     * Aplica el estado configurado "arribado a Ecuador" a los paquetes indicados.
+     */
+    @Transactional
+    public void aplicarEstadoArribadoEc(List<Long> paqueteIds, LocalDateTime fechaEvento) {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoArribadoEcId();
+        if (estadoId == null) return;
+        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+                TrackingEventType.ESTADO_APLICADO_ARRIBADO_EC, "ARRIBADO_EC_AUTO", "arribado-ec",
+                fechaEvento);
+    }
+
+    /**
      * Aplica un mismo estado a un conjunto de paquetes en una sola unidad de trabajo
      * y registra el evento de tracking correspondiente.
      *
@@ -479,11 +525,16 @@ public class PaqueteService {
         List<Paquete> paquetes = paqueteRepository.findAllById(paqueteIds);
         if (paquetes.isEmpty()) return;
         Set<Long> guiasAfectadas = new HashSet<>();
+        Set<Long> enviosACerrar = new HashSet<>();
         List<TrackingEventService.PendingTransicion> pendientes = new ArrayList<>(paquetes.size());
         for (Paquete p : paquetes) {
             EstadoRastreo origen = p.getEstadoRastreo();
             aplicarEstadoConReglas(p, estado, null, fechaEfectiva);
             pendientes.add(new TrackingEventService.PendingTransicion(p, origen));
+            if (origen == null || !Objects.equals(origen.getId(), estado.getId())) {
+                Long envioId = envioConsolidadoId(p);
+                if (envioId != null) enviosACerrar.add(envioId);
+            }
             if (p.getGuiaMaster() != null) {
                 guiasAfectadas.add(p.getGuiaMaster().getId());
             }
@@ -505,6 +556,9 @@ public class PaqueteService {
         }
         for (Long gmId : guiasAfectadas) {
             guiaMasterService.recomputarEstado(gmId);
+        }
+        for (Long envioId : enviosACerrar) {
+            cerrarEnvioPorCambioEstado(envioId, fechaEfectiva);
         }
     }
 
@@ -545,6 +599,7 @@ public class PaqueteService {
             paquete.setBloqueado(false);
             paquete.setFechaBloqueoDesde(null);
             paqueteRepository.save(paquete);
+            paqueteEstadoEventoRepository.delete(ultimoEvento);
             reverted++;
         }
         return reverted;
@@ -555,7 +610,8 @@ public class PaqueteService {
         if (id != null) {
             return estadoRastreoService.findEntityById(id);
         }
-        return estadoRastreoService.findEntityByCodigo("REGISTRADO");
+        throw new BadRequestException(
+                "No hay un estado configurado para registrar paquetes. Configure este punto en parámetros del sistema.");
     }
 
     @Transactional
@@ -572,6 +628,7 @@ public class PaqueteService {
         }
         List<Paquete> aGuardar = new ArrayList<>(items.size());
         Set<Long> guiasAfectadas = new HashSet<>();
+        Set<Long> enviosAfectados = new HashSet<>();
         for (PaquetePesoItem item : items) {
             Paquete p = porId.get(item.getPaqueteId());
             BigDecimal lbs = item.getPesoLbs();
@@ -585,11 +642,18 @@ public class PaqueteService {
             if (pesoPrevio == null && p.getPesoLbs() != null && p.getGuiaMaster() != null) {
                 guiasAfectadas.add(p.getGuiaMaster().getId());
             }
+            if (!Objects.equals(pesoPrevio, p.getPesoLbs())) {
+                Long envioId = envioConsolidadoId(p);
+                if (envioId != null) enviosAfectados.add(envioId);
+            }
             aGuardar.add(p);
         }
         List<PaqueteDTO> result = paqueteRepository.saveAll(aGuardar).stream().map(this::toDTO).toList();
         for (Long gmId : guiasAfectadas) {
             guiaMasterService.recomputarEstado(gmId);
+        }
+        for (Long envioId : enviosAfectados) {
+            sincronizarTotalesEnvio(envioId);
         }
         return result;
     }
@@ -619,6 +683,7 @@ public class PaqueteService {
             }
         }
         boolean pesoCambioRecepcion = false;
+        Long envioPesoAfectadoId = null;
         if (canEditPeso) {
             BigDecimal pesoPrevio = p.getPesoLbs();
             if (request.getPesoLbs() != null) {
@@ -633,6 +698,9 @@ public class PaqueteService {
             boolean teniaPeso = pesoPrevio != null;
             boolean tienePeso = p.getPesoLbs() != null;
             pesoCambioRecepcion = teniaPeso != tienePeso;
+            if (!Objects.equals(pesoPrevio, p.getPesoLbs())) {
+                envioPesoAfectadoId = envioConsolidadoId(p);
+            }
             String newRef = request.getRef() != null ? request.getRef().trim() : null;
             // Si en la misma request se cambio el destinatario, ya regeneramos el
             // ref atomicamente con el codigoBase correcto: ignoramos cualquier ref
@@ -671,6 +739,7 @@ public class PaqueteService {
         if (pesoCambioRecepcion && p.getGuiaMaster() != null) {
             guiaMasterService.recomputarEstado(p.getGuiaMaster().getId());
         }
+        sincronizarTotalesEnvio(envioPesoAfectadoId);
         return toDTO(p);
     }
 
@@ -696,9 +765,11 @@ public class PaqueteService {
         Paquete p = paqueteRepository.findById(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
         ownershipValidator.requirePaqueteOwnership(p, currentUsuarioId, canManageAny);
+        Long envioId = envioConsolidadoId(p);
         paqueteEstadoEventoRepository.deleteByPaqueteId(paqueteId);
         outboxEventRepository.deleteByAggregateTypeAndAggregateId("PAQUETE", String.valueOf(paqueteId));
         paqueteRepository.delete(p);
+        sincronizarTotalesEnvio(envioId);
     }
 
     /**
@@ -1101,6 +1172,7 @@ public class PaqueteService {
                     .agenciaDireccion(d.getAgencia().getDireccion())
                     .agenciaProvincia(d.getAgencia().getProvincia())
                     .agenciaCanton(d.getAgencia().getCanton())
+                    .agenciaEncargado(d.getAgencia().getEncargado())
                     .horarioAtencionAgencia(d.getAgencia().getHorarioAtencion())
                     .diasMaxRetiroAgencia(d.getAgencia().getDiasMaxRetiro());
         }
@@ -1124,6 +1196,9 @@ public class PaqueteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoRastreoId);
         EstadoRastreo origen = p.getEstadoRastreo();
+        Long envioACerrarId = (origen == null || !Objects.equals(origen.getId(), estado.getId()))
+                ? envioConsolidadoId(p)
+                : null;
         aplicarEstadoConReglas(p, estado, motivoAlterno);
         p = paqueteRepository.save(p);
         trackingEventService.registrarTransicion(
@@ -1139,6 +1214,7 @@ public class PaqueteService {
         if (p.getGuiaMaster() != null) {
             guiaMasterService.recomputarEstado(p.getGuiaMaster().getId());
         }
+        cerrarEnvioPorCambioEstado(envioACerrarId, LocalDateTime.now());
         return toDTO(p);
     }
 
@@ -1151,6 +1227,7 @@ public class PaqueteService {
         }
         List<CambiarEstadoRastreoBulkResponse.RechazoBulk> rechazados = new ArrayList<>();
         Set<Long> guiasAfectadas = new HashSet<>();
+        Set<Long> enviosACerrar = new HashSet<>();
         int actualizados = 0;
         List<Paquete> cargados = paqueteRepository.findAllById(paqueteIds);
         Map<Long, Paquete> porId = new LinkedHashMap<>();
@@ -1173,6 +1250,10 @@ public class PaqueteService {
             }
             try {
                 EstadoRastreo origen = p.getEstadoRastreo();
+                if (origen == null || !Objects.equals(origen.getId(), estado.getId())) {
+                    Long envioId = envioConsolidadoId(p);
+                    if (envioId != null) enviosACerrar.add(envioId);
+                }
                 aplicarEstadoConReglas(p, estado, p.getMotivoAlterno());
                 trackingEventService.registrarTransicion(
                         p,
@@ -1199,6 +1280,10 @@ public class PaqueteService {
         }
         for (Long gmId : guiasAfectadas) {
             guiaMasterService.recomputarEstado(gmId);
+        }
+        LocalDateTime fechaCierre = LocalDateTime.now();
+        for (Long envioId : enviosACerrar) {
+            cerrarEnvioPorCambioEstado(envioId, fechaCierre);
         }
         return CambiarEstadoRastreoBulkResponse.builder()
                 .actualizados(actualizados)
@@ -1315,32 +1400,33 @@ public class PaqueteService {
                 .toList();
     }
 
-    /** Registro, lote, despacho y tránsito: solo se asignan en sus flujos automáticos. */
+    /** Estados configurados por punto operativo: solo se asignan desde sus flujos. */
     private Set<Long> idsEstadosRastreoGestionadosPorPunto() {
         var cfg = parametroSistemaService.getEstadosRastreoPorPunto();
         if (cfg == null) {
             return Set.of();
         }
         Set<Long> ids = new HashSet<>();
-        if (cfg.getEstadoRastreoRegistroPaqueteId() != null) {
-            ids.add(cfg.getEstadoRastreoRegistroPaqueteId());
-        }
-        if (cfg.getEstadoRastreoEnLoteRecepcionId() != null) {
-            ids.add(cfg.getEstadoRastreoEnLoteRecepcionId());
-        }
-        if (cfg.getEstadoRastreoEnDespachoId() != null) {
-            ids.add(cfg.getEstadoRastreoEnDespachoId());
-        }
-        if (cfg.getEstadoRastreoEnTransitoId() != null) {
-            ids.add(cfg.getEstadoRastreoEnTransitoId());
-        }
+        addIfNotNull(ids, cfg.getEstadoRastreoRegistroPaqueteId());
+        addIfNotNull(ids, cfg.getEstadoRastreoEnLoteRecepcionId());
+        addIfNotNull(ids, cfg.getEstadoRastreoAsociarGuiaMasterId());
+        addIfNotNull(ids, cfg.getEstadoRastreoEnDespachoId());
+        addIfNotNull(ids, cfg.getEstadoRastreoEnTransitoId());
+        addIfNotNull(ids, cfg.getEstadoRastreoEnviadoDesdeUsaId());
+        addIfNotNull(ids, cfg.getEstadoRastreoArribadoEcId());
         return ids;
+    }
+
+    private void addIfNotNull(Set<Long> ids, Long id) {
+        if (id != null) {
+            ids.add(id);
+        }
     }
 
     private void validarEstadoNoReservadoParaPuntosOperativos(Long estadoRastreoId) {
         if (estadoRastreoId != null && idsEstadosRastreoGestionadosPorPunto().contains(estadoRastreoId)) {
             throw new BadRequestException(
-                    "Ese estado lo asignan el registro de paquete, el lote de recepción, el despacho o el tránsito; no puede aplicarse manualmente.");
+                    "Ese estado está configurado como punto operativo del flujo; no puede aplicarse manualmente.");
         }
     }
 

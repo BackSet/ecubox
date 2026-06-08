@@ -152,6 +152,10 @@ export function refineTipoEntrega(
     consignatarioId?: number;
     agenciaId?: number;
     agenciaCourierEntregaId?: number;
+    courierEntregaId?: number;
+    numeroGuia?: string;
+    /** Solo para AGENCIA: true = se envía por courier; false = retiro en oficina. */
+    agenciaEnvioPorCourier?: boolean;
   },
   ctx: z.RefinementCtx,
   path: (string | number)[] = ['consignatarioId']
@@ -167,6 +171,32 @@ export function refineTipoEntrega(
   } else if (data.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
     if (data.agenciaCourierEntregaId == null || data.agenciaCourierEntregaId <= 0) {
       ctx.addIssue({ code: 'custom', message: UX_DESTINO_MESSAGE, path: ['agenciaCourierEntregaId'] });
+    }
+  }
+
+  // Courier + número de guía: obligatorios cuando la entrega viaja por courier.
+  // Domicilio y punto de entrega siempre viajan. La entrega en agencia viaja
+  // solo si se eligió "envío por courier" (retiro en oficina no lleva courier;
+  // la guía se autogenera en el backend). Si no se indicó la modalidad, se
+  // deriva de si hay courier seleccionado.
+  const viajaPorCourier =
+    data.tipoEntrega === 'AGENCIA'
+      ? (data.agenciaEnvioPorCourier ?? (data.courierEntregaId != null && data.courierEntregaId > 0))
+      : true;
+  if (viajaPorCourier) {
+    if (data.courierEntregaId == null || data.courierEntregaId <= 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Selecciona un courier de entrega',
+        path: ['courierEntregaId'],
+      });
+    }
+    if (!data.numeroGuia || data.numeroGuia.trim().length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'El número de guía es obligatorio',
+        path: ['numeroGuia'],
+      });
     }
   }
 }

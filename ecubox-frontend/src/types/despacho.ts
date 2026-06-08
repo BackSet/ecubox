@@ -91,7 +91,8 @@ export interface Despacho {
   operarioId?: number;
   operarioNombre?: string;
   fechaHora?: string;
-  courierEntregaId: number;
+  /** null en retiro presencial en agencia (sin courier). */
+  courierEntregaId?: number | null;
   courierEntregaNombre?: string;
   tipoEntrega: TipoEntrega;
   consignatarioId?: number;
@@ -122,8 +123,9 @@ export interface Despacho {
 }
 
 export interface DespachoCreateRequest {
-  numeroGuia: string;
-  courierEntregaId: number;
+  /** Opcionales en retiro presencial en agencia (AGENCIA): sin courier y guía autogenerada. */
+  numeroGuia?: string;
+  courierEntregaId?: number;
   tipoEntrega: TipoEntrega;
   consignatarioId?: number;
   agenciaId?: number;

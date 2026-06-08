@@ -70,6 +70,8 @@ class PaqueteServiceOp3Test {
     private GuiaMasterService guiaMasterService;
     @Mock
     private CodigoSecuenciaService codigoSecuenciaService;
+    @Mock
+    private EnvioConsolidadoService envioConsolidadoService;
 
     private PaqueteService createPaqueteService(boolean useEventTimeline) {
         return new PaqueteService(
@@ -87,6 +89,7 @@ class PaqueteServiceOp3Test {
                 new OwnershipValidator(),
                 new SacaEnDespachoValidator(),
                 codigoSecuenciaService,
+                envioConsolidadoService,
                 useEventTimeline
         );
     }

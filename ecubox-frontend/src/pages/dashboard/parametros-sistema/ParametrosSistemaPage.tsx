@@ -116,6 +116,10 @@ import { TarifaDistribucionForm } from '@/pages/dashboard/parametros-sistema/Tar
 import { CanalesComunicacionPanel } from '@/pages/dashboard/parametros-sistema/CanalesComunicacionPanel';
 import { TemaTemporadaPanel } from '@/pages/dashboard/parametros-sistema/TemaTemporadaPanel';
 import {
+  GUIA_MASTER_ESTADO_LABELS,
+  GUIA_MASTER_ESTADO_ORDEN,
+} from '@/pages/dashboard/guias-master/_estado';
+import {
   useCanalesComunicacion,
   useUpdateCanalesComunicacion,
 } from '@/hooks/useCanalesComunicacion';
@@ -129,7 +133,13 @@ import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import { estadoRastreoFormSchema, mensajePlantillaSchema } from '@/lib/schemas/maestros';
-import type { EstadoRastreo, EstadoRastreoRequest } from '@/types/estado-rastreo';
+import type {
+  EstadoRastreo,
+  EstadoRastreoRequest,
+  EstadoConsolidadoOperativo,
+  EstadosRastreoPorPunto,
+} from '@/types/estado-rastreo';
+import type { EstadoGuiaMaster } from '@/types/guia-master';
 
 // ============================================================================
 // Tipos y constantes
@@ -335,7 +345,7 @@ export function ParametrosSistemaPage() {
         key: 'estados-rastreo-por-punto',
         label: 'Estados por punto del flujo',
         shortLabel: 'Por punto',
-        description: 'Asignación de estados a hitos operativos del paquete.',
+        description: 'Asignación de estados a acciones operativas del flujo.',
         icon: PlugZap,
         visible: canSeeEstadosRastreo,
       },
@@ -2256,8 +2266,34 @@ function EstadosRastreoView() {
 // Panel Estados de rastreo por punto
 // ============================================================================
 
+type PuntoKey =
+  | 'registro'
+  | 'lote'
+  | 'consolidado'
+  | 'despacho'
+  | 'enviado-usa'
+  | 'arribado-ec'
+  | 'transito'
+  | 'gm-sin-piezas'
+  | 'gm-espera-recepcion'
+  | 'gm-recepcion-parcial'
+  | 'gm-recepcion-completa'
+  | 'gm-despacho-parcial'
+  | 'gm-despacho-completado'
+  | 'gm-despacho-incompleto'
+  | 'gm-cancelada'
+  | 'gm-en-revision'
+  | 'consolidado-creado'
+  | 'consolidado-lote'
+  | 'consolidado-cerrado'
+  | 'consolidado-reabierto'
+  | 'inicio-cuenta'
+  | 'fin';
+
 interface PuntoConfig {
-  key: 'registro' | 'lote' | 'consolidado' | 'despacho' | 'transito' | 'inicio-cuenta' | 'fin';
+  key: PuntoKey;
+  group: 'Paquetes' | 'Guías master' | 'Consolidados' | 'Tracking';
+  source: 'rastreo' | 'guia-master' | 'consolidado';
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -2268,127 +2304,362 @@ interface PuntoConfig {
 const PUNTOS_FLUJO: PuntoConfig[] = [
   {
     key: 'registro',
-    label: 'Al registrar paquete',
-    description: 'Estado inicial cuando el cliente o el operario registra el paquete.',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Cuando se registra el paquete',
+    description: 'Asigna el estado seleccionado al paquete al completar su registro.',
     icon: Package,
     required: true,
     tone: 'primary',
   },
   {
     key: 'lote',
-    label: 'En lote de recepción',
-    description: 'Estado al ingresar el paquete a un lote de recepción.',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Cuando se agrega a lote',
+    description: 'Asigna el estado seleccionado al paquete al agregarlo a un lote de recepción.',
     icon: Boxes,
     required: true,
     tone: 'primary',
   },
   {
     key: 'consolidado',
-    label: 'Al asociar guía de consolidado',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Cuando se asocia a guía master',
     description:
-      'Estado aplicado al paquete cuando se vincula con la guía master del consolidado (paquetes hijos).',
+      'Asigna el estado seleccionado al paquete al asociarlo a una guía master.',
     icon: Link2,
-    required: false,
+    required: true,
     tone: 'primary',
   },
   {
     key: 'despacho',
-    label: 'En despacho',
-    description: 'Estado cuando el paquete forma parte de un despacho.',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Cuando se agrega a despacho',
+    description: 'Asigna el estado seleccionado al paquete al agregarlo a un despacho.',
     icon: Truck,
     required: true,
     tone: 'success',
   },
   {
+    key: 'enviado-usa',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Cuando sale de origen',
+    description: 'Asigna el estado seleccionado al paquete cuando sale de la operación de origen.',
+    icon: ArrowUp,
+    required: true,
+    tone: 'success',
+  },
+  {
+    key: 'arribado-ec',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Cuando llega a destino',
+    description: 'Asigna el estado seleccionado al paquete cuando llega a la operación de destino.',
+    icon: ArrowDown,
+    required: true,
+    tone: 'success',
+  },
+  {
     key: 'transito',
-    label: 'En tránsito',
-    description: 'Estado cuando el despacho ya está en ruta hacia el destino.',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Cuando avanza después del despacho',
+    description: 'Asigna el estado seleccionado al paquete al aplicar avance masivo posterior al despacho.',
     icon: MapPin,
     required: true,
     tone: 'success',
   },
   {
+    key: 'gm-sin-piezas',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al crear guía sin piezas',
+    description: 'Detonador: se crea una guía master y todavía no tiene paquetes asociados.',
+    icon: Hash,
+    required: true,
+    tone: 'neutral',
+  },
+  {
+    key: 'gm-espera-recepcion',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al registrar primera pieza',
+    description: 'Detonador: se registra al menos un paquete de la guía y ninguno fue recibido en lote.',
+    icon: Hourglass,
+    required: true,
+    tone: 'neutral',
+  },
+  {
+    key: 'gm-recepcion-parcial',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al recibir algunas piezas',
+    description: 'Detonador: el lote recibe una parte de los paquetes esperados de la guía.',
+    icon: CircleDashed,
+    required: true,
+    tone: 'warning',
+  },
+  {
+    key: 'gm-recepcion-completa',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al recibir todas las piezas',
+    description: 'Detonador: el lote recibe todos los paquetes esperados de la guía.',
+    icon: Check,
+    required: true,
+    tone: 'success',
+  },
+  {
+    key: 'gm-despacho-parcial',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al despachar algunas piezas',
+    description: 'Detonador: se despacha una parte de los paquetes esperados de la guía.',
+    icon: CircleDashed,
+    required: true,
+    tone: 'warning',
+  },
+  {
+    key: 'gm-despacho-completado',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al despachar todas las piezas',
+    description: 'Detonador: se despachan todos los paquetes esperados de la guía.',
+    icon: CheckCircle2,
+    required: true,
+    tone: 'success',
+  },
+  {
+    key: 'gm-despacho-incompleto',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al cerrar con faltantes',
+    description: 'Detonador: se cierra la guía aceptando que faltaron paquetes por recibir o despachar.',
+    icon: AlertCircle,
+    required: true,
+    tone: 'warning',
+  },
+  {
+    key: 'gm-cancelada',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al cancelar la guía',
+    description: 'Detonador: el operario cancela la guía antes de completar el flujo.',
+    icon: X,
+    required: true,
+    tone: 'neutral',
+  },
+  {
+    key: 'gm-en-revision',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al marcar para revisión',
+    description: 'Detonador: el operario pausa la guía para validar datos o incidencias.',
+    icon: Eye,
+    required: true,
+    tone: 'warning',
+  },
+  {
+    key: 'consolidado-creado',
+    group: 'Consolidados',
+    source: 'consolidado',
+    label: 'Cuando se crea el consolidado',
+    description: 'Asigna el estado seleccionado al consolidado al completar su creación.',
+    icon: Layers,
+    required: true,
+    tone: 'primary',
+  },
+  {
+    key: 'consolidado-lote',
+    group: 'Consolidados',
+    source: 'consolidado',
+    label: 'Al agregarlo a lote',
+    description: 'Detonador: el consolidado se registra dentro de un lote de recepción.',
+    icon: Boxes,
+    required: true,
+    tone: 'success',
+  },
+  {
+    key: 'consolidado-cerrado',
+    group: 'Consolidados',
+    source: 'consolidado',
+    label: 'Cuando se cierra el consolidado',
+    description: 'Asigna el estado seleccionado al consolidado al completar su cierre.',
+    icon: PowerOff,
+    required: true,
+    tone: 'success',
+  },
+  {
+    key: 'consolidado-reabierto',
+    group: 'Consolidados',
+    source: 'consolidado',
+    label: 'Cuando se reabre el consolidado',
+    description: 'Asigna el estado seleccionado al consolidado al completar su reapertura.',
+    icon: Power,
+    required: true,
+    tone: 'primary',
+  },
+  {
     key: 'inicio-cuenta',
+    group: 'Tracking',
+    source: 'rastreo',
     label: 'Inicio de cuenta regresiva',
     description:
-      'Ancla el inicio del contador en la primera vez que el paquete llegó a este estado. Si se deja vacío, la cuenta se reinicia con cada cambio de estado.',
+      'Usa el estado seleccionado como punto de inicio para la cuenta regresiva del tracking.',
     icon: Hourglass,
     required: false,
     tone: 'warning',
   },
   {
     key: 'fin',
+    group: 'Tracking',
+    source: 'rastreo',
     label: 'Fin de cuenta regresiva',
-    description: 'Cuando el paquete llega aquí, se oculta la cuenta regresiva en el tracking.',
+    description: 'Usa el estado seleccionado como punto de cierre para la cuenta regresiva del tracking.',
     icon: CheckCircle2,
     required: false,
     tone: 'warning',
   },
 ];
 
+type PuntoValue = number | EstadoGuiaMaster | EstadoConsolidadoOperativo | '';
+type PuntoValues = Record<PuntoKey, PuntoValue>;
+
+const PUNTO_FIELD_BY_KEY: Record<PuntoKey, keyof EstadosRastreoPorPunto> = {
+  registro: 'estadoRastreoRegistroPaqueteId',
+  lote: 'estadoRastreoEnLoteRecepcionId',
+  consolidado: 'estadoRastreoAsociarGuiaMasterId',
+  despacho: 'estadoRastreoEnDespachoId',
+  'enviado-usa': 'estadoRastreoEnviadoDesdeUsaId',
+  'arribado-ec': 'estadoRastreoArribadoEcId',
+  transito: 'estadoRastreoEnTransitoId',
+  'gm-sin-piezas': 'estadoGuiaMasterSinPiezas',
+  'gm-espera-recepcion': 'estadoGuiaMasterEnEsperaRecepcion',
+  'gm-recepcion-parcial': 'estadoGuiaMasterRecepcionParcial',
+  'gm-recepcion-completa': 'estadoGuiaMasterRecepcionCompleta',
+  'gm-despacho-parcial': 'estadoGuiaMasterDespachoParcial',
+  'gm-despacho-completado': 'estadoGuiaMasterDespachoCompletado',
+  'gm-despacho-incompleto': 'estadoGuiaMasterDespachoIncompleto',
+  'gm-cancelada': 'estadoGuiaMasterCancelada',
+  'gm-en-revision': 'estadoGuiaMasterEnRevision',
+  'consolidado-creado': 'estadoConsolidadoCreado',
+  'consolidado-lote': 'estadoConsolidadoAgregadoLote',
+  'consolidado-cerrado': 'estadoConsolidadoCerrado',
+  'consolidado-reabierto': 'estadoConsolidadoReabierto',
+  'inicio-cuenta': 'estadoRastreoInicioCuentaRegresivaId',
+  fin: 'estadoRastreoFinCuentaRegresivaId',
+};
+
+const PUNTO_GROUPS: PuntoConfig['group'][] = ['Paquetes', 'Guías master', 'Consolidados', 'Tracking'];
+
+function emptyPuntoValues(): PuntoValues {
+  return Object.fromEntries(PUNTOS_FLUJO.map((p) => [p.key, ''])) as PuntoValues;
+}
+
+interface PuntoOption {
+  value: string;
+  label: string;
+  meta?: string;
+  variant?: 'normal' | 'alterno' | 'oculto';
+}
+
+const CONSOLIDADO_ESTADO_OPTIONS: PuntoOption[] = [
+  { value: 'ABIERTO', label: 'Abierto', meta: 'Admite cambios' },
+  { value: 'CERRADO', label: 'Cerrado', meta: 'Solo lectura' },
+];
+
+function optionsForPunto(punto: PuntoConfig, estados: EstadoRastreo[]): PuntoOption[] {
+  if (punto.source === 'guia-master') {
+    return GUIA_MASTER_ESTADO_ORDEN.map((estado) => ({
+      value: estado,
+      label: GUIA_MASTER_ESTADO_LABELS[estado],
+      meta: estado,
+    }));
+  }
+  if (punto.source === 'consolidado') {
+    return CONSOLIDADO_ESTADO_OPTIONS;
+  }
+  return estados.map((e) => ({
+    value: String(e.id),
+    label: e.nombre,
+    meta: e.codigo,
+    variant: e.tipoFlujo === 'ALTERNO' ? 'alterno' : !(e.publicoTracking ?? true) ? 'oculto' : 'normal',
+  }));
+}
+
+function selectedOptionLabel(punto: PuntoConfig, value: PuntoValue, estados: EstadoRastreo[]) {
+  if (value === '') return null;
+  return optionsForPunto(punto, estados).find((option) => option.value === String(value))?.label ?? String(value);
+}
+
 function EstadosRastreoPorPuntoView() {
   const { data: config, isLoading, error } = useEstadosRastreoPorPunto();
   const { data: estados = [] } = useEstadosRastreoActivos();
   const updateMutation = useUpdateEstadosRastreoPorPunto();
 
-  const [registroId, setRegistroId] = useState<number | ''>('');
-  const [enLoteId, setEnLoteId] = useState<number | ''>('');
-  const [asociarGuiaMasterId, setAsociarGuiaMasterId] = useState<number | ''>('');
-  const [enDespachoId, setEnDespachoId] = useState<number | ''>('');
-  const [enTransitoId, setEnTransitoId] = useState<number | ''>('');
-  const [inicioCuentaRegresivaId, setInicioCuentaRegresivaId] = useState<number | ''>('');
-  const [finCuentaRegresivaId, setFinCuentaRegresivaId] = useState<number | ''>('');
+  const [valuesByKey, setValuesByKey] = useState<PuntoValues>(() => emptyPuntoValues());
 
   useEffect(() => {
     if (config) {
-      setRegistroId(config.estadoRastreoRegistroPaqueteId ?? '');
-      setEnLoteId(config.estadoRastreoEnLoteRecepcionId ?? '');
-      setAsociarGuiaMasterId(config.estadoRastreoAsociarGuiaMasterId ?? '');
-      setEnDespachoId(config.estadoRastreoEnDespachoId ?? '');
-      setEnTransitoId(config.estadoRastreoEnTransitoId ?? '');
-      setInicioCuentaRegresivaId(config.estadoRastreoInicioCuentaRegresivaId ?? '');
-      setFinCuentaRegresivaId(config.estadoRastreoFinCuentaRegresivaId ?? '');
+      setValuesByKey(
+        Object.fromEntries(
+          PUNTOS_FLUJO.map((p) => [p.key, (config[PUNTO_FIELD_BY_KEY[p.key]] as PuntoValue | null | undefined) ?? '']),
+        ) as PuntoValues,
+      );
     }
   }, [config]);
 
   const isDirty =
     config != null &&
-    (registroId !== (config.estadoRastreoRegistroPaqueteId ?? '') ||
-      enLoteId !== (config.estadoRastreoEnLoteRecepcionId ?? '') ||
-      asociarGuiaMasterId !== (config.estadoRastreoAsociarGuiaMasterId ?? '') ||
-      enDespachoId !== (config.estadoRastreoEnDespachoId ?? '') ||
-      enTransitoId !== (config.estadoRastreoEnTransitoId ?? '') ||
-      inicioCuentaRegresivaId !== (config.estadoRastreoInicioCuentaRegresivaId ?? '') ||
-      finCuentaRegresivaId !== (config.estadoRastreoFinCuentaRegresivaId ?? ''));
+    PUNTOS_FLUJO.some(
+      (p) => valuesByKey[p.key] !== ((config[PUNTO_FIELD_BY_KEY[p.key]] as PuntoValue | null | undefined) ?? ''),
+    );
 
-  const allRequiredSelected =
-    registroId !== '' && enLoteId !== '' && enDespachoId !== '' && enTransitoId !== '';
+  const allRequiredSelected = PUNTOS_FLUJO.every((p) => !p.required || valuesByKey[p.key] !== '');
 
   const handleGuardar = async () => {
     if (!allRequiredSelected) {
-      toast.error('Seleccione los cuatro estados obligatorios');
+      toast.error('Seleccione todos los estados obligatorios');
       return;
     }
     if (
-      inicioCuentaRegresivaId !== '' &&
-      finCuentaRegresivaId !== '' &&
-      inicioCuentaRegresivaId === finCuentaRegresivaId
+      valuesByKey['inicio-cuenta'] !== '' &&
+      valuesByKey.fin !== '' &&
+      valuesByKey['inicio-cuenta'] === valuesByKey.fin
     ) {
       toast.error('El estado de inicio y fin de la cuenta regresiva deben ser distintos');
       return;
     }
+    const estadoId = (key: PuntoKey) => (valuesByKey[key] === '' ? null : Number(valuesByKey[key]));
+    const estadoTexto = <T extends string>(key: PuntoKey) => valuesByKey[key] as T;
     try {
       await updateMutation.mutateAsync({
-        estadoRastreoRegistroPaqueteId: Number(registroId),
-        estadoRastreoEnLoteRecepcionId: Number(enLoteId),
-        estadoRastreoAsociarGuiaMasterId:
-          asociarGuiaMasterId === '' ? null : Number(asociarGuiaMasterId),
-        estadoRastreoEnDespachoId: Number(enDespachoId),
-        estadoRastreoEnTransitoId: Number(enTransitoId),
-        estadoRastreoInicioCuentaRegresivaId:
-          inicioCuentaRegresivaId === '' ? null : Number(inicioCuentaRegresivaId),
-        estadoRastreoFinCuentaRegresivaId:
-          finCuentaRegresivaId === '' ? null : Number(finCuentaRegresivaId),
+        estadoRastreoRegistroPaqueteId: Number(valuesByKey.registro),
+        estadoRastreoEnLoteRecepcionId: Number(valuesByKey.lote),
+        estadoRastreoAsociarGuiaMasterId: Number(valuesByKey.consolidado),
+        estadoRastreoEnDespachoId: Number(valuesByKey.despacho),
+        estadoRastreoEnTransitoId: Number(valuesByKey.transito),
+        estadoRastreoEnviadoDesdeUsaId: Number(valuesByKey['enviado-usa']),
+        estadoRastreoArribadoEcId: Number(valuesByKey['arribado-ec']),
+        estadoGuiaMasterSinPiezas: estadoTexto<EstadoGuiaMaster>('gm-sin-piezas'),
+        estadoGuiaMasterEnEsperaRecepcion: estadoTexto<EstadoGuiaMaster>('gm-espera-recepcion'),
+        estadoGuiaMasterRecepcionParcial: estadoTexto<EstadoGuiaMaster>('gm-recepcion-parcial'),
+        estadoGuiaMasterRecepcionCompleta: estadoTexto<EstadoGuiaMaster>('gm-recepcion-completa'),
+        estadoGuiaMasterDespachoParcial: estadoTexto<EstadoGuiaMaster>('gm-despacho-parcial'),
+        estadoGuiaMasterDespachoCompletado: estadoTexto<EstadoGuiaMaster>('gm-despacho-completado'),
+        estadoGuiaMasterDespachoIncompleto: estadoTexto<EstadoGuiaMaster>('gm-despacho-incompleto'),
+        estadoGuiaMasterCancelada: estadoTexto<EstadoGuiaMaster>('gm-cancelada'),
+        estadoGuiaMasterEnRevision: estadoTexto<EstadoGuiaMaster>('gm-en-revision'),
+        estadoConsolidadoCreado: estadoTexto<EstadoConsolidadoOperativo>('consolidado-creado'),
+        estadoConsolidadoAgregadoLote: estadoTexto<EstadoConsolidadoOperativo>('consolidado-lote'),
+        estadoConsolidadoCerrado: estadoTexto<EstadoConsolidadoOperativo>('consolidado-cerrado'),
+        estadoConsolidadoReabierto: estadoTexto<EstadoConsolidadoOperativo>('consolidado-reabierto'),
+        estadoRastreoInicioCuentaRegresivaId: estadoId('inicio-cuenta'),
+        estadoRastreoFinCuentaRegresivaId: estadoId('fin'),
       });
       toast.success('Configuración guardada');
     } catch (err) {
@@ -2398,13 +2669,11 @@ function EstadosRastreoPorPuntoView() {
 
   const handleReset = () => {
     if (!config) return;
-    setRegistroId(config.estadoRastreoRegistroPaqueteId ?? '');
-    setEnLoteId(config.estadoRastreoEnLoteRecepcionId ?? '');
-    setAsociarGuiaMasterId(config.estadoRastreoAsociarGuiaMasterId ?? '');
-    setEnDespachoId(config.estadoRastreoEnDespachoId ?? '');
-    setEnTransitoId(config.estadoRastreoEnTransitoId ?? '');
-    setInicioCuentaRegresivaId(config.estadoRastreoInicioCuentaRegresivaId ?? '');
-    setFinCuentaRegresivaId(config.estadoRastreoFinCuentaRegresivaId ?? '');
+    setValuesByKey(
+      Object.fromEntries(
+        PUNTOS_FLUJO.map((p) => [p.key, (config[PUNTO_FIELD_BY_KEY[p.key]] as PuntoValue | null | undefined) ?? '']),
+      ) as PuntoValues,
+    );
   };
 
   if (isLoading) {
@@ -2423,27 +2692,6 @@ function EstadosRastreoPorPuntoView() {
       </div>
     );
 
-  const valuesByKey: Record<PuntoConfig['key'], number | ''> = {
-    registro: registroId,
-    lote: enLoteId,
-    consolidado: asociarGuiaMasterId,
-    despacho: enDespachoId,
-    transito: enTransitoId,
-    'inicio-cuenta': inicioCuentaRegresivaId,
-    fin: finCuentaRegresivaId,
-  };
-  const settersByKey: Record<PuntoConfig['key'], (v: number | '') => void> = {
-    registro: setRegistroId,
-    lote: setEnLoteId,
-    consolidado: setAsociarGuiaMasterId,
-    despacho: setEnDespachoId,
-    transito: setEnTransitoId,
-    'inicio-cuenta': setInicioCuentaRegresivaId,
-    fin: setFinCuentaRegresivaId,
-  };
-
-  const estadoById = new Map(estados.map((e) => [e.id, e]));
-
   return (
     <div className="page-stack">
       {/* Estado de la configuración */}
@@ -2452,7 +2700,7 @@ function EstadosRastreoPorPuntoView() {
           icon={<CheckCircle2 className="h-3.5 w-3.5" />}
           label="Configurados"
           value={
-            (Object.keys(valuesByKey) as PuntoConfig['key'][]).filter(
+            (Object.keys(valuesByKey) as PuntoKey[]).filter(
               (k) => valuesByKey[k] !== '',
             ).length
           }
@@ -2474,19 +2722,33 @@ function EstadosRastreoPorPuntoView() {
       </div>
 
       {/* Cards por punto */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        {PUNTOS_FLUJO.map((punto) => (
-          <PuntoCard
-            key={punto.key}
-            punto={punto}
-            value={valuesByKey[punto.key]}
-            onChange={settersByKey[punto.key]}
-            estados={estados}
-            estadoSeleccionado={
-              valuesByKey[punto.key] !== '' ? estadoById.get(Number(valuesByKey[punto.key])) : undefined
-            }
-          />
-        ))}
+      <div className="space-y-4">
+        {PUNTO_GROUPS.map((group) => {
+          const puntos = PUNTOS_FLUJO.filter((p) => p.group === group);
+          return (
+            <section key={group} className="space-y-2">
+              <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] pb-2">
+                <h3 className="text-sm font-semibold text-foreground">{group}</h3>
+                <span className="text-[11px] text-muted-foreground">
+                  {puntos.filter((p) => valuesByKey[p.key] !== '').length} / {puntos.length}
+                </span>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {puntos.map((punto) => (
+                  <PuntoCard
+                    key={punto.key}
+                    punto={punto}
+                    value={valuesByKey[punto.key]}
+                    onChange={(next) =>
+                      setValuesByKey((prev) => ({ ...prev, [punto.key]: next }))
+                    }
+                    options={optionsForPunto(punto, estados)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
 
       {/* Vista del flujo */}
@@ -2497,7 +2759,7 @@ function EstadosRastreoPorPuntoView() {
             Vista del flujo configurado
           </h3>
           <span className="text-[11px] text-muted-foreground">
-            {(Object.keys(valuesByKey) as PuntoConfig['key'][]).filter(
+            {(Object.keys(valuesByKey) as PuntoKey[]).filter(
               (k) => valuesByKey[k] !== '',
             ).length}
             {' / '}
@@ -2508,7 +2770,7 @@ function EstadosRastreoPorPuntoView() {
           {PUNTOS_FLUJO.map((punto, idx) => {
             const Icon = punto.icon;
             const value = valuesByKey[punto.key];
-            const estadoSel = value !== '' ? estadoById.get(Number(value)) : null;
+            const estadoLabel = selectedOptionLabel(punto, value, estados);
             const isLast = idx === PUNTOS_FLUJO.length - 1;
             const configured = value !== '';
             const isMissingRequired = punto.required && !configured;
@@ -2550,9 +2812,9 @@ function EstadosRastreoPorPuntoView() {
                     <p className="truncate text-xs font-medium text-foreground">
                       {punto.label}
                     </p>
-                    {estadoSel ? (
+                    {estadoLabel ? (
                       <p className="truncate text-[11px] text-muted-foreground">
-                        {estadoSel.nombre}
+                        {estadoLabel}
                       </p>
                     ) : (
                       <p className="truncate text-[11px] italic text-muted-foreground">
@@ -2613,13 +2875,12 @@ function EstadosRastreoPorPuntoView() {
 
 interface PuntoCardProps {
   punto: PuntoConfig;
-  value: number | '';
-  onChange: (v: number | '') => void;
-  estados: EstadoRastreo[];
-  estadoSeleccionado?: EstadoRastreo;
+  value: PuntoValue;
+  onChange: (v: PuntoValue) => void;
+  options: PuntoOption[];
 }
 
-function PuntoCard({ punto, value, onChange, estados, estadoSeleccionado }: PuntoCardProps) {
+function PuntoCard({ punto, value, onChange, options }: PuntoCardProps) {
   const Icon = punto.icon;
   const toneIcon: Record<PuntoConfig['tone'], string> = {
     primary: 'bg-[var(--color-muted)] text-[var(--color-primary)]',
@@ -2673,7 +2934,7 @@ function PuntoCard({ punto, value, onChange, estados, estadoSeleccionado }: Punt
         value={value === '' ? (punto.required ? '' : 'none') : String(value)}
         onValueChange={(v) => {
           if (v === 'none') onChange('');
-          else onChange(Number(v));
+          else onChange(punto.source === 'rastreo' ? Number(v) : (v as PuntoValue));
         }}
       >
         <SelectTrigger
@@ -2690,34 +2951,52 @@ function PuntoCard({ punto, value, onChange, estados, estadoSeleccionado }: Punt
               <span className="text-muted-foreground">Sin asignar</span>
             </SelectItem>
           )}
-          {estados.map((e) => (
-            <SelectItem key={e.id} value={String(e.id)}>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
               <span className="inline-flex items-center gap-1.5">
-                {e.tipoFlujo === 'ALTERNO' ? (
+                {option.variant === 'alterno' ? (
                   <AlertTriangle className="h-3 w-3 text-[var(--color-warning)]" />
+                ) : option.variant === 'oculto' ? (
+                  <EyeOff className="h-3 w-3 text-[var(--color-warning)]" />
                 ) : (
                   <Truck className="h-3 w-3 text-[var(--color-primary)]" />
                 )}
-                <span className="font-medium">{e.nombre}</span>
-                <span className="text-[11px] font-mono text-muted-foreground">
-                  ({e.codigo})
-                </span>
+                <span className="font-medium">{option.label}</span>
+                {option.meta && (
+                  <span className="text-[11px] font-mono text-muted-foreground">
+                    ({option.meta})
+                  </span>
+                )}
               </span>
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      {estadoSeleccionado && (
+      {value !== '' && (
         <div className="rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/15 p-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge
               variant="outline"
               className="h-5 rounded font-mono text-[10px] font-normal"
             >
-              {estadoSeleccionado.codigo}
+              {String(value)}
             </Badge>
-            {estadoSeleccionado.tipoFlujo === 'ALTERNO' ? (
+            {punto.source === 'guia-master' ? (
+              <Badge
+                variant="outline"
+                className="h-5 rounded border-[var(--color-primary)]/30 bg-[var(--color-muted)] px-1.5 text-[10px] font-medium text-[var(--color-primary)]"
+              >
+                Guía master
+              </Badge>
+            ) : punto.source === 'consolidado' ? (
+              <Badge
+                variant="outline"
+                className="h-5 rounded border-[var(--color-success)]/30 bg-[var(--color-success)]/10 px-1.5 text-[10px] font-medium text-[var(--color-success)]"
+              >
+                Consolidado
+              </Badge>
+            ) : options.find((option) => option.value === String(value))?.variant === 'alterno' ? (
               <Badge
                 variant="outline"
                 className="h-5 rounded border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-1.5 text-[10px] font-medium text-[var(--color-warning)]"
@@ -2734,7 +3013,7 @@ function PuntoCard({ punto, value, onChange, estados, estadoSeleccionado }: Punt
                 Normal
               </Badge>
             )}
-            {!(estadoSeleccionado.publicoTracking ?? true) && (
+            {options.find((option) => option.value === String(value))?.variant === 'oculto' && (
               <Badge
                 variant="outline"
                 className="h-5 rounded border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-1.5 text-[10px] font-medium text-[var(--color-warning)]"
@@ -2744,11 +3023,6 @@ function PuntoCard({ punto, value, onChange, estados, estadoSeleccionado }: Punt
               </Badge>
             )}
           </div>
-          {estadoSeleccionado.leyenda && (
-            <p className="mt-1 line-clamp-2 text-[11px] italic text-muted-foreground">
-              "{estadoSeleccionado.leyenda}"
-            </p>
-          )}
         </div>
       )}
 

@@ -58,6 +58,7 @@ class PaqueteServiceUpdateRefTest {
     @Mock private GuiaMasterRepository guiaMasterRepository;
     @Mock private GuiaMasterService guiaMasterService;
     @Mock private CodigoSecuenciaService codigoSecuenciaService;
+    @Mock private EnvioConsolidadoService envioConsolidadoService;
 
     private PaqueteService createService() {
         return new PaqueteService(
@@ -75,6 +76,7 @@ class PaqueteServiceUpdateRefTest {
                 new OwnershipValidator(),
                 new SacaEnDespachoValidator(),
                 codigoSecuenciaService,
+                envioConsolidadoService,
                 false);
     }
 

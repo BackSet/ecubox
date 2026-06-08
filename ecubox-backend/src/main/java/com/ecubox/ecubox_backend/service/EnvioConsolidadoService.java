@@ -252,9 +252,16 @@ public class EnvioConsolidadoService {
         if (envio.isCerrado()) {
             return envio;
         }
-        envio.setFechaCerrado(fechaEvento != null ? fechaEvento : LocalDateTime.now());
+        LocalDateTime fechaCierre = fechaEvento != null ? fechaEvento : LocalDateTime.now();
+        envio.setFechaCerrado(fechaCierre);
         recalcularTotales(envio);
-        return envioConsolidadoRepository.save(envio);
+        EnvioConsolidado guardado = envioConsolidadoRepository.save(envio);
+        List<Paquete> paquetes = paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(envio.getId());
+        if (!paquetes.isEmpty()) {
+            List<Long> ids = paquetes.stream().map(Paquete::getId).toList();
+            paqueteService.aplicarEstadoEnviadoDesdeUsa(ids, fechaCierre);
+        }
+        return guardado;
     }
 
     /**
@@ -295,7 +302,13 @@ public class EnvioConsolidadoService {
         if (envio.getEstadoPago() != EstadoPagoConsolidado.NO_PAGADO) {
             envio.setEstadoPago(EstadoPagoConsolidado.NO_PAGADO);
         }
-        return envioConsolidadoRepository.save(envio);
+        EnvioConsolidado guardado = envioConsolidadoRepository.save(envio);
+        List<Paquete> paquetes = paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(envio.getId());
+        if (!paquetes.isEmpty()) {
+            List<Long> ids = paquetes.stream().map(Paquete::getId).toList();
+            paqueteService.revertirEstadoSiUltimoEventoCoincide(ids, "ENVIADO_USA_AUTO");
+        }
+        return guardado;
     }
 
     /**
@@ -342,6 +355,25 @@ public class EnvioConsolidadoService {
         envio.setPesoTotalLbs(pesoTotal != null ? pesoTotal : BigDecimal.ZERO);
     }
 
+    @Transactional
+    public void sincronizarTotales(Long envioId) {
+        if (envioId == null) return;
+        EnvioConsolidado envio = envioConsolidadoRepository.findById(envioId).orElse(null);
+        if (envio == null) return;
+        recalcularTotales(envio);
+        envioConsolidadoRepository.save(envio);
+    }
+
+    @Transactional
+    public void cerrarPorCambioEstadoPaquete(Long envioId, LocalDateTime fechaEvento) {
+        if (envioId == null) return;
+        EnvioConsolidado envio = envioConsolidadoRepository.findById(envioId).orElse(null);
+        if (envio == null || envio.isCerrado()) return;
+        envio.setFechaCerrado(fechaEvento != null ? fechaEvento : LocalDateTime.now());
+        recalcularTotales(envio);
+        envioConsolidadoRepository.save(envio);
+    }
+
     @Transactional(readOnly = true)
     public EnvioConsolidadoDTO toDTO(EnvioConsolidado envio, boolean incluirPaquetes) {
         if (envio == null) return null;
@@ -351,13 +383,15 @@ public class EnvioConsolidadoService {
                     .map(paqueteService::toDTO)
                     .toList();
         }
+        long totalPaquetes = paqueteRepository.countByEnvioConsolidadoId(envio.getId());
+        BigDecimal pesoTotal = paqueteRepository.sumPesoLbsByEnvioConsolidadoId(envio.getId());
         return EnvioConsolidadoDTO.builder()
                 .id(envio.getId())
                 .codigo(envio.getCodigo())
                 .cerrado(envio.isCerrado())
                 .fechaCerrado(envio.getFechaCerrado())
-                .pesoTotalLbs(envio.getPesoTotalLbs())
-                .totalPaquetes(envio.getTotalPaquetes())
+                .pesoTotalLbs(pesoTotal != null ? pesoTotal : BigDecimal.ZERO)
+                .totalPaquetes((int) totalPaquetes)
                 .estadoPago(envio.getEstadoPago())
                 .createdAt(envio.getCreatedAt())
                 .updatedAt(envio.getUpdatedAt())

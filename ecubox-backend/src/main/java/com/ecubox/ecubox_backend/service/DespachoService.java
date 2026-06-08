@@ -57,6 +57,7 @@ public class DespachoService {
     private final ConsignatarioVersionService consignatarioVersionService;
     private final AgenciaVersionService agenciaVersionService;
     private final AgenciaCourierEntregaVersionService agenciaCourierEntregaVersionService;
+    private final CodigoSecuenciaService codigoSecuenciaService;
 
     public DespachoService(DespachoRepository despachoRepository,
                           CourierEntregaRepository courierEntregaRepository,
@@ -74,7 +75,8 @@ public class DespachoService {
                           GuiaMasterService guiaMasterService,
                           ConsignatarioVersionService consignatarioVersionService,
                           AgenciaVersionService agenciaVersionService,
-                          AgenciaCourierEntregaVersionService agenciaCourierEntregaVersionService) {
+                          AgenciaCourierEntregaVersionService agenciaCourierEntregaVersionService,
+                          CodigoSecuenciaService codigoSecuenciaService) {
         this.despachoRepository = despachoRepository;
         this.courierEntregaRepository = courierEntregaRepository;
         this.consignatarioRepository = consignatarioRepository;
@@ -92,6 +94,37 @@ public class DespachoService {
         this.consignatarioVersionService = consignatarioVersionService;
         this.agenciaVersionService = agenciaVersionService;
         this.agenciaCourierEntregaVersionService = agenciaCourierEntregaVersionService;
+        this.codigoSecuenciaService = codigoSecuenciaService;
+    }
+
+    /**
+     * Resuelve el courier de entrega: null cuando no se indica (permitido en
+     * retiro presencial en agencia).
+     */
+    private CourierEntrega resolverCourierEntrega(Long courierEntregaId) {
+        if (courierEntregaId == null) return null;
+        return courierEntregaRepository.findById(courierEntregaId)
+                .orElseThrow(() -> new ResourceNotFoundException("CourierEntrega", courierEntregaId));
+    }
+
+    /**
+     * Resuelve el número de guía. Si viene en blanco y el tipo es AGENCIA
+     * (retiro presencial), autogenera un código interno RET-AG-xxxxx;
+     * {@code existente} permite conservar el número en ediciones.
+     */
+    private String resolverNumeroGuia(DespachoCreateRequest request, String existente) {
+        String ng = request.getNumeroGuia() != null ? request.getNumeroGuia().trim() : "";
+        if (!ng.isBlank()) return ng;
+        if (existente != null && !existente.isBlank()) return existente;
+        // Retiro en oficina (agencia sin courier): autogenera el código interno.
+        if (request.getTipoEntrega() == TipoEntrega.AGENCIA && request.getCourierEntregaId() == null) {
+            long n = codigoSecuenciaService.siguiente(
+                    CodigoSecuenciaService.ENTITY_DESPACHO_RETIRO_AGENCIA,
+                    CodigoSecuenciaService.SCOPE_GLOBAL,
+                    1L);
+            return String.format("RET-AG-%05d", n);
+        }
+        throw new BadRequestException("El número de guía es obligatorio");
     }
 
     /**
@@ -138,8 +171,7 @@ public class DespachoService {
 
     @Transactional
     public DespachoDTO create(DespachoCreateRequest request) {
-        CourierEntrega courierEntrega = courierEntregaRepository.findById(request.getCourierEntregaId())
-                .orElseThrow(() -> new ResourceNotFoundException("CourierEntrega", request.getCourierEntregaId()));
+        CourierEntrega courierEntrega = resolverCourierEntrega(request.getCourierEntregaId());
         EntregaResuelta entrega = resolveEntrega(request);
 
         List<Long> sacaIds = request.getSacaIds() != null ? request.getSacaIds() : new ArrayList<>();
@@ -149,7 +181,7 @@ public class DespachoService {
         LocalDateTime fechaHora = request.getFechaHora() != null ? request.getFechaHora() : LocalDateTime.now();
 
         Despacho d = Despacho.builder()
-                .numeroGuia(request.getNumeroGuia().trim())
+                .numeroGuia(resolverNumeroGuia(request, null))
                 .observaciones(request.getObservaciones() != null ? request.getObservaciones().trim() : null)
                 .codigoPrecinto(request.getCodigoPrecinto() != null ? request.getCodigoPrecinto().trim() : null)
                 .operario(operario)
@@ -205,8 +237,7 @@ public class DespachoService {
         Despacho d = despachoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Despacho", id));
 
-        CourierEntrega courierEntrega = courierEntregaRepository.findById(request.getCourierEntregaId())
-                .orElseThrow(() -> new ResourceNotFoundException("CourierEntrega", request.getCourierEntregaId()));
+        CourierEntrega courierEntrega = resolverCourierEntrega(request.getCourierEntregaId());
         EntregaResuelta entrega = resolveEntrega(request);
 
         // SCD2: el destino del despacho es inmutable una vez creado. Si el
@@ -221,7 +252,7 @@ public class DespachoService {
 
         LocalDateTime fechaHora = request.getFechaHora() != null ? request.getFechaHora() : d.getFechaHora();
 
-        d.setNumeroGuia(request.getNumeroGuia().trim());
+        d.setNumeroGuia(resolverNumeroGuia(request, d.getNumeroGuia()));
         d.setObservaciones(request.getObservaciones() != null ? request.getObservaciones().trim() : null);
         d.setCodigoPrecinto(request.getCodigoPrecinto() != null ? request.getCodigoPrecinto().trim() : null);
         d.setFechaHora(fechaHora);

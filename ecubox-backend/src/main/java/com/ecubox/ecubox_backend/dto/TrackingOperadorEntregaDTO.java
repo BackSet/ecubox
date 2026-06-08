@@ -23,6 +23,8 @@ public class TrackingOperadorEntregaDTO {
     private String agenciaDireccion;
     private String agenciaProvincia;
     private String agenciaCanton;
+    /** Persona encargada de la agencia, a quien el cliente acude para el retiro presencial. */
+    private String agenciaEncargado;
     private String horarioAtencionAgencia;
     private Integer diasMaxRetiroAgencia;
 

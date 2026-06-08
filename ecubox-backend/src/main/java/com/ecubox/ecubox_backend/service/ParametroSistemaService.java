@@ -10,8 +10,8 @@ import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoDTO;
 import com.ecubox.ecubox_backend.dto.TemaTemporadaDTO;
 import com.ecubox.ecubox_backend.dto.TemaTemporadaRequest;
 import com.ecubox.ecubox_backend.dto.TemaTemporadaVentanaDTO;
-import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.ParametroSistema;
+import com.ecubox.ecubox_backend.enums.EstadoGuiaMaster;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
 import com.ecubox.ecubox_backend.repository.ParametroSistemaRepository;
@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
@@ -58,6 +59,20 @@ public class ParametroSistemaService {
 
     public static final String CLAVE_ESTADO_RASTREO_ENVIADO_DESDE_USA = "estado_rastreo_enviado_desde_usa";
     public static final String CLAVE_ESTADO_RASTREO_ARRIBADO_EC = "estado_rastreo_arribado_ec";
+    public static final String CLAVE_ESTADO_GM_SIN_PIEZAS = "estado_guia_master_sin_piezas";
+    public static final String CLAVE_ESTADO_GM_EN_ESPERA_RECEPCION = "estado_guia_master_en_espera_recepcion";
+    public static final String CLAVE_ESTADO_GM_RECEPCION_PARCIAL = "estado_guia_master_recepcion_parcial";
+    public static final String CLAVE_ESTADO_GM_RECEPCION_COMPLETA = "estado_guia_master_recepcion_completa";
+    public static final String CLAVE_ESTADO_GM_DESPACHO_PARCIAL = "estado_guia_master_despacho_parcial";
+    public static final String CLAVE_ESTADO_GM_DESPACHO_COMPLETADO = "estado_guia_master_despacho_completado";
+    public static final String CLAVE_ESTADO_GM_DESPACHO_INCOMPLETO = "estado_guia_master_despacho_incompleto";
+    public static final String CLAVE_ESTADO_GM_CANCELADA = "estado_guia_master_cancelada";
+    public static final String CLAVE_ESTADO_GM_EN_REVISION = "estado_guia_master_en_revision";
+    public static final String CLAVE_ESTADO_CONSOLIDADO_CREADO = "estado_consolidado_creado";
+    public static final String CLAVE_ESTADO_CONSOLIDADO_AGREGADO_LOTE = "estado_consolidado_agregado_lote";
+    public static final String CLAVE_ESTADO_CONSOLIDADO_CERRADO = "estado_consolidado_cerrado";
+    public static final String CLAVE_ESTADO_CONSOLIDADO_REABIERTO = "estado_consolidado_reabierto";
+    private static final Set<String> ESTADOS_CONSOLIDADO = Set.of("ABIERTO", "CERRADO");
 
     public static final String CLAVE_GM_MIN_PIEZAS_DESPACHO_PARCIAL = "guia_master.min_piezas_para_despacho_parcial";
     public static final String CLAVE_GM_DIAS_AUTO_CIERRE = "guia_master.dias_para_auto_cierre_con_faltante";
@@ -388,23 +403,23 @@ public class ParametroSistemaService {
         Long registro = getParametroAsLong(CLAVE_ESTADO_RASTREO_REGISTRO_PAQUETE);
         Long enLote = getParametroAsLong(CLAVE_ESTADO_RASTREO_EN_LOTE_RECEPCION);
         Long enDespacho = getParametroAsLong(CLAVE_ESTADO_RASTREO_EN_DESPACHO);
-        if (registro == null) {
-            registro = estadoRastreoRepository.findByCodigo("REGISTRADO")
-                    .map(er -> er.getId())
-                    .orElse(null);
-        }
-        if (registro == null && !estadoRastreoRepository.findAll().isEmpty()) {
-            registro = estadoRastreoRepository.findAll().get(0).getId();
-        }
-        if (enLote == null) enLote = registro;
-        if (enDespacho == null) enDespacho = registro;
         Long enTransito = getParametroAsLong(CLAVE_ESTADO_RASTREO_EN_TRANSITO);
-        if (enTransito == null) {
-            enTransito = estadoRastreoRepository.findByCodigo("EN_TRANSITO")
-                    .map(EstadoRastreo::getId)
-                    .orElse(enDespacho);
-        }
         Long asociarGuiaMaster = getParametroAsLong(CLAVE_ESTADO_RASTREO_ASOCIAR_GUIA_MASTER);
+        Long enviadoDesdeUsa = getParametroAsLong(CLAVE_ESTADO_RASTREO_ENVIADO_DESDE_USA);
+        Long arribadoEc = getParametroAsLong(CLAVE_ESTADO_RASTREO_ARRIBADO_EC);
+        String guiaMasterSinPiezas = getParametroAsString(CLAVE_ESTADO_GM_SIN_PIEZAS);
+        String guiaMasterEnEsperaRecepcion = getParametroAsString(CLAVE_ESTADO_GM_EN_ESPERA_RECEPCION);
+        String guiaMasterRecepcionParcial = getParametroAsString(CLAVE_ESTADO_GM_RECEPCION_PARCIAL);
+        String guiaMasterRecepcionCompleta = getParametroAsString(CLAVE_ESTADO_GM_RECEPCION_COMPLETA);
+        String guiaMasterDespachoParcial = getParametroAsString(CLAVE_ESTADO_GM_DESPACHO_PARCIAL);
+        String guiaMasterDespachoCompletado = getParametroAsString(CLAVE_ESTADO_GM_DESPACHO_COMPLETADO);
+        String guiaMasterDespachoIncompleto = getParametroAsString(CLAVE_ESTADO_GM_DESPACHO_INCOMPLETO);
+        String guiaMasterCancelada = getParametroAsString(CLAVE_ESTADO_GM_CANCELADA);
+        String guiaMasterEnRevision = getParametroAsString(CLAVE_ESTADO_GM_EN_REVISION);
+        String consolidadoCreado = getParametroAsString(CLAVE_ESTADO_CONSOLIDADO_CREADO);
+        String consolidadoAgregadoLote = getParametroAsString(CLAVE_ESTADO_CONSOLIDADO_AGREGADO_LOTE);
+        String consolidadoCerrado = getParametroAsString(CLAVE_ESTADO_CONSOLIDADO_CERRADO);
+        String consolidadoReabierto = getParametroAsString(CLAVE_ESTADO_CONSOLIDADO_REABIERTO);
         Long inicioCuentaRegresiva = getParametroAsLong(CLAVE_ESTADO_RASTREO_INICIO_CUENTA_REGRESIVA);
         Long finCuentaRegresiva = getParametroAsLong(CLAVE_ESTADO_RASTREO_FIN_CUENTA_REGRESIVA);
         return EstadosRastreoPorPuntoDTO.builder()
@@ -413,6 +428,21 @@ public class ParametroSistemaService {
                 .estadoRastreoAsociarGuiaMasterId(asociarGuiaMaster)
                 .estadoRastreoEnDespachoId(enDespacho)
                 .estadoRastreoEnTransitoId(enTransito)
+                .estadoRastreoEnviadoDesdeUsaId(enviadoDesdeUsa)
+                .estadoRastreoArribadoEcId(arribadoEc)
+                .estadoGuiaMasterSinPiezas(guiaMasterSinPiezas)
+                .estadoGuiaMasterEnEsperaRecepcion(guiaMasterEnEsperaRecepcion)
+                .estadoGuiaMasterRecepcionParcial(guiaMasterRecepcionParcial)
+                .estadoGuiaMasterRecepcionCompleta(guiaMasterRecepcionCompleta)
+                .estadoGuiaMasterDespachoParcial(guiaMasterDespachoParcial)
+                .estadoGuiaMasterDespachoCompletado(guiaMasterDespachoCompletado)
+                .estadoGuiaMasterDespachoIncompleto(guiaMasterDespachoIncompleto)
+                .estadoGuiaMasterCancelada(guiaMasterCancelada)
+                .estadoGuiaMasterEnRevision(guiaMasterEnRevision)
+                .estadoConsolidadoCreado(consolidadoCreado)
+                .estadoConsolidadoAgregadoLote(consolidadoAgregadoLote)
+                .estadoConsolidadoCerrado(consolidadoCerrado)
+                .estadoConsolidadoReabierto(consolidadoReabierto)
                 .estadoRastreoInicioCuentaRegresivaId(inicioCuentaRegresiva)
                 .estadoRastreoFinCuentaRegresivaId(finCuentaRegresiva)
                 .build();
@@ -430,35 +460,59 @@ public class ParametroSistemaService {
         }
     }
 
+    private String getParametroAsString(String clave) {
+        return parametroSistemaRepository.findById(clave)
+                .map(ParametroSistema::getValor)
+                .map(String::trim)
+                .filter(v -> !v.isEmpty())
+                .orElse(null);
+    }
+
     @Transactional
     public EstadosRastreoPorPuntoDTO updateEstadosRastreoPorPunto(Long registroPaqueteId,
                                                                   Long enLoteRecepcionId,
                                                                   Long asociarGuiaMasterId,
                                                                   Long enDespachoId,
                                                                   Long enTransitoId,
+                                                                  Long enviadoDesdeUsaId,
+                                                                  Long arribadoEcId,
+                                                                  String guiaMasterSinPiezas,
+                                                                  String guiaMasterEnEsperaRecepcion,
+                                                                  String guiaMasterRecepcionParcial,
+                                                                  String guiaMasterRecepcionCompleta,
+                                                                  String guiaMasterDespachoParcial,
+                                                                  String guiaMasterDespachoCompletado,
+                                                                  String guiaMasterDespachoIncompleto,
+                                                                  String guiaMasterCancelada,
+                                                                  String guiaMasterEnRevision,
+                                                                  String consolidadoCreado,
+                                                                  String consolidadoAgregadoLote,
+                                                                  String consolidadoCerrado,
+                                                                  String consolidadoReabierto,
                                                                   Long inicioCuentaRegresivaId,
                                                                   Long finCuentaRegresivaId) {
-        if (registroPaqueteId != null && estadoRastreoRepository.findById(registroPaqueteId).isEmpty()) {
-            throw new BadRequestException("Estado de rastreo para registro de paquete no encontrado");
-        }
-        if (enLoteRecepcionId != null && estadoRastreoRepository.findById(enLoteRecepcionId).isEmpty()) {
-            throw new BadRequestException("Estado de rastreo para lote de recepción no encontrado");
-        }
-        if (asociarGuiaMasterId != null && estadoRastreoRepository.findById(asociarGuiaMasterId).isEmpty()) {
-            throw new BadRequestException("Estado de rastreo para asociar guía master no encontrado");
-        }
-        if (enDespachoId != null && estadoRastreoRepository.findById(enDespachoId).isEmpty()) {
-            throw new BadRequestException("Estado de rastreo para despacho no encontrado");
-        }
-        if (enTransitoId != null && estadoRastreoRepository.findById(enTransitoId).isEmpty()) {
-            throw new BadRequestException("Estado de rastreo para en tránsito no encontrado");
-        }
-        if (inicioCuentaRegresivaId != null && estadoRastreoRepository.findById(inicioCuentaRegresivaId).isEmpty()) {
-            throw new BadRequestException("Estado de rastreo para inicio de cuenta regresiva no encontrado");
-        }
-        if (finCuentaRegresivaId != null && estadoRastreoRepository.findById(finCuentaRegresivaId).isEmpty()) {
-            throw new BadRequestException("Estado de rastreo para fin de cuenta regresiva no encontrado");
-        }
+        validarEstadoExiste(registroPaqueteId, "registro de paquete");
+        validarEstadoExiste(enLoteRecepcionId, "lote de recepción");
+        validarEstadoExiste(asociarGuiaMasterId, "asociar guía master");
+        validarEstadoExiste(enDespachoId, "despacho");
+        validarEstadoExiste(enTransitoId, "en tránsito");
+        validarEstadoExiste(enviadoDesdeUsaId, "salida de origen");
+        validarEstadoExiste(arribadoEcId, "llegada a destino");
+        guiaMasterSinPiezas = validarEstadoGuiaMaster(guiaMasterSinPiezas, "guía master sin piezas");
+        guiaMasterEnEsperaRecepcion = validarEstadoGuiaMaster(guiaMasterEnEsperaRecepcion, "guía master en espera de recepción");
+        guiaMasterRecepcionParcial = validarEstadoGuiaMaster(guiaMasterRecepcionParcial, "guía master con recepción parcial");
+        guiaMasterRecepcionCompleta = validarEstadoGuiaMaster(guiaMasterRecepcionCompleta, "guía master con recepción completa");
+        guiaMasterDespachoParcial = validarEstadoGuiaMaster(guiaMasterDespachoParcial, "guía master con despacho parcial");
+        guiaMasterDespachoCompletado = validarEstadoGuiaMaster(guiaMasterDespachoCompletado, "guía master con despacho completado");
+        guiaMasterDespachoIncompleto = validarEstadoGuiaMaster(guiaMasterDespachoIncompleto, "guía master con despacho incompleto");
+        guiaMasterCancelada = validarEstadoGuiaMaster(guiaMasterCancelada, "guía master cancelada");
+        guiaMasterEnRevision = validarEstadoGuiaMaster(guiaMasterEnRevision, "guía master en revisión");
+        consolidadoCreado = validarEstadoConsolidado(consolidadoCreado, "consolidado creado");
+        consolidadoAgregadoLote = validarEstadoConsolidado(consolidadoAgregadoLote, "consolidado agregado a lote");
+        consolidadoCerrado = validarEstadoConsolidado(consolidadoCerrado, "consolidado cerrado");
+        consolidadoReabierto = validarEstadoConsolidado(consolidadoReabierto, "consolidado reabierto");
+        validarEstadoExiste(inicioCuentaRegresivaId, "inicio de cuenta regresiva");
+        validarEstadoExiste(finCuentaRegresivaId, "fin de cuenta regresiva");
         EstadosRastreoPorPuntoDTO actuales = getEstadosRastreoPorPunto();
         Long registro = registroPaqueteId != null ? registroPaqueteId : actuales.getEstadoRastreoRegistroPaqueteId();
         Long enLote = enLoteRecepcionId != null ? enLoteRecepcionId : actuales.getEstadoRastreoEnLoteRecepcionId();
@@ -467,6 +521,8 @@ public class ParametroSistemaService {
                 : actuales.getEstadoRastreoAsociarGuiaMasterId();
         Long enDespacho = enDespachoId != null ? enDespachoId : actuales.getEstadoRastreoEnDespachoId();
         Long enTransito = enTransitoId != null ? enTransitoId : actuales.getEstadoRastreoEnTransitoId();
+        Long enviadoDesdeUsa = enviadoDesdeUsaId != null ? enviadoDesdeUsaId : actuales.getEstadoRastreoEnviadoDesdeUsaId();
+        Long arribadoEc = arribadoEcId != null ? arribadoEcId : actuales.getEstadoRastreoArribadoEcId();
         Long inicioCuentaRegresiva = inicioCuentaRegresivaId != null
                 ? inicioCuentaRegresivaId
                 : actuales.getEstadoRastreoInicioCuentaRegresivaId();
@@ -475,9 +531,12 @@ public class ParametroSistemaService {
         if (registro == null) {
             throw new BadRequestException("No existe un estado válido para registro de paquete");
         }
-        if (enLote == null) enLote = registro;
-        if (enDespacho == null) enDespacho = registro;
-        if (enTransito == null) enTransito = enDespacho;
+        if (enLote == null) throw new BadRequestException("No existe un estado válido para lote de recepción");
+        if (asociarGuia == null) throw new BadRequestException("No existe un estado válido para asociar guía master");
+        if (enDespacho == null) throw new BadRequestException("No existe un estado válido para despacho");
+        if (enTransito == null) throw new BadRequestException("No existe un estado válido para tránsito");
+        if (enviadoDesdeUsa == null) throw new BadRequestException("No existe un estado válido para salida de origen");
+        if (arribadoEc == null) throw new BadRequestException("No existe un estado válido para llegada a destino");
         if (inicioCuentaRegresiva != null && finCuentaRegresiva != null
                 && inicioCuentaRegresiva.equals(finCuentaRegresiva)) {
             throw new BadRequestException(
@@ -488,10 +547,48 @@ public class ParametroSistemaService {
         saveParametro(CLAVE_ESTADO_RASTREO_ASOCIAR_GUIA_MASTER, asociarGuia != null ? String.valueOf(asociarGuia) : "");
         saveParametro(CLAVE_ESTADO_RASTREO_EN_DESPACHO, String.valueOf(enDespacho));
         saveParametro(CLAVE_ESTADO_RASTREO_EN_TRANSITO, String.valueOf(enTransito));
+        saveParametro(CLAVE_ESTADO_RASTREO_ENVIADO_DESDE_USA, String.valueOf(enviadoDesdeUsa));
+        saveParametro(CLAVE_ESTADO_RASTREO_ARRIBADO_EC, String.valueOf(arribadoEc));
+        saveParametro(CLAVE_ESTADO_GM_SIN_PIEZAS, guiaMasterSinPiezas);
+        saveParametro(CLAVE_ESTADO_GM_EN_ESPERA_RECEPCION, guiaMasterEnEsperaRecepcion);
+        saveParametro(CLAVE_ESTADO_GM_RECEPCION_PARCIAL, guiaMasterRecepcionParcial);
+        saveParametro(CLAVE_ESTADO_GM_RECEPCION_COMPLETA, guiaMasterRecepcionCompleta);
+        saveParametro(CLAVE_ESTADO_GM_DESPACHO_PARCIAL, guiaMasterDespachoParcial);
+        saveParametro(CLAVE_ESTADO_GM_DESPACHO_COMPLETADO, guiaMasterDespachoCompletado);
+        saveParametro(CLAVE_ESTADO_GM_DESPACHO_INCOMPLETO, guiaMasterDespachoIncompleto);
+        saveParametro(CLAVE_ESTADO_GM_CANCELADA, guiaMasterCancelada);
+        saveParametro(CLAVE_ESTADO_GM_EN_REVISION, guiaMasterEnRevision);
+        saveParametro(CLAVE_ESTADO_CONSOLIDADO_CREADO, consolidadoCreado);
+        saveParametro(CLAVE_ESTADO_CONSOLIDADO_AGREGADO_LOTE, consolidadoAgregadoLote);
+        saveParametro(CLAVE_ESTADO_CONSOLIDADO_CERRADO, consolidadoCerrado);
+        saveParametro(CLAVE_ESTADO_CONSOLIDADO_REABIERTO, consolidadoReabierto);
         saveParametro(CLAVE_ESTADO_RASTREO_INICIO_CUENTA_REGRESIVA,
                 inicioCuentaRegresiva != null ? String.valueOf(inicioCuentaRegresiva) : "");
         saveParametro(CLAVE_ESTADO_RASTREO_FIN_CUENTA_REGRESIVA, finCuentaRegresiva != null ? String.valueOf(finCuentaRegresiva) : "");
         return getEstadosRastreoPorPunto();
+    }
+
+    private void validarEstadoExiste(Long estadoId, String punto) {
+        if (estadoId != null && estadoRastreoRepository.findById(estadoId).isEmpty()) {
+            throw new BadRequestException("Estado de rastreo para " + punto + " no encontrado");
+        }
+    }
+
+    private String validarEstadoGuiaMaster(String valor, String punto) {
+        String normalized = valor != null ? valor.trim() : "";
+        try {
+            return EstadoGuiaMaster.valueOf(normalized).name();
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Estado de " + punto + " no válido");
+        }
+    }
+
+    private String validarEstadoConsolidado(String valor, String punto) {
+        String normalized = valor != null ? valor.trim().toUpperCase() : "";
+        if (!ESTADOS_CONSOLIDADO.contains(normalized)) {
+            throw new BadRequestException("Estado de " + punto + " no válido");
+        }
+        return normalized;
     }
 
     private void saveParametro(String clave, String valor) {
@@ -509,6 +606,12 @@ public class ParametroSistemaService {
     @Transactional(readOnly = true)
     public Long getEstadoRastreoArribadoEcId() {
         return getParametroAsLong(CLAVE_ESTADO_RASTREO_ARRIBADO_EC);
+    }
+
+    @Transactional(readOnly = true)
+    public String getEstadoConsolidadoAgregadoLote() {
+        String estado = getParametroAsString(CLAVE_ESTADO_CONSOLIDADO_AGREGADO_LOTE);
+        return estado != null ? estado : "CERRADO";
     }
 
     @Transactional(readOnly = true)

@@ -87,6 +87,19 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
               Plazo máximo para retirar en agencia: {op?.diasMaxRetiroAgencia ?? 'No informado'} día(s)
             </p>
+            {op?.agenciaEncargado?.trim() ? (
+              <div className="mt-3 rounded-md border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 px-3 py-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-primary)]">
+                  Encargado para el retiro
+                </p>
+                <p className="mt-0.5 text-sm font-medium text-[var(--color-foreground)]">
+                  {op.agenciaEncargado}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                  Acércate a la agencia y solicita tu paquete con esta persona. Lleva tu identificación.
+                </p>
+              </div>
+            ) : null}
           </div>
         ) : null}
         {isAgenciaCourierEntrega && (

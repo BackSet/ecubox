@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { kgToLbs } from '@/lib/utils/weight';
 import {
   fechaNoFuturaSchema,
-  numeroGuiaSchema,
   optionalTrimmedString,
   refineTipoEntrega,
   tipoEntregaEnum,
@@ -51,8 +50,10 @@ export const sacaNuevaSchema = z.object({
 });
 
 export const despachoBaseFields = {
-  numeroGuia: numeroGuiaSchema,
-  courierEntregaId: z.number().refine((n) => n > 0, 'Selecciona un courier de entrega'),
+  // Opcionales a nivel de tipo; refineTipoEntrega los exige cuando la entrega
+  // viaja (no para retiro presencial en agencia).
+  numeroGuia: optionalTrimmedString(120),
+  courierEntregaId: z.number().optional(),
   tipoEntrega: tipoEntregaEnum,
   consignatarioId: z.number().optional(),
   agenciaId: z.number().optional(),
@@ -71,6 +72,8 @@ export const despachoStepperSchema = z
     ...despachoBaseFields,
     fechaHora: fechaNoFuturaSchema('Fecha y hora'),
     sacasNuevas: z.array(sacaNuevaSchema),
+    /** Modalidad de entrega en agencia: true = envío por courier, false = retiro en oficina. */
+    agenciaEnvioPorCourier: z.boolean().optional(),
   })
   .superRefine((data, ctx) => refineTipoEntrega(data, ctx));
 

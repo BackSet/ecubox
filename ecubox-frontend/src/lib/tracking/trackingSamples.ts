@@ -341,6 +341,7 @@ function buildPiezaXyz(): TrackingResponse {
       agenciaDireccion: 'Av. Demo 123 y Calle Ficticia',
       agenciaProvincia: 'Pichincha',
       agenciaCanton: 'Quito',
+      agenciaEncargado: 'María Pérez (demo)',
       horarioAtencionAgencia: 'Lun–Vie 09:00–18:00, Sáb 09:00–13:00',
       diasMaxRetiroAgencia: 5,
       courierEntregaNombre: 'Servientrega (demo)',

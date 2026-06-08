@@ -32,6 +32,8 @@ public class CodigoSecuenciaService {
     public static final String ENTITY_CONSIGNATARIO = "CONSIGNATARIO";
     public static final String ENTITY_MANIFIESTO = "MANIFIESTO";
     public static final String ENTITY_GUIA_MASTER_AUTO = "GUIA_MASTER_AUTO";
+    /** Número de guía autogenerado para despachos de retiro presencial en agencia. */
+    public static final String ENTITY_DESPACHO_RETIRO_AGENCIA = "DESPACHO_RETIRO_AGENCIA";
 
     public static final String SCOPE_GLOBAL = "GLOBAL";
 

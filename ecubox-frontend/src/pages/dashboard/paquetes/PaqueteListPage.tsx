@@ -311,25 +311,32 @@ export function PaqueteListPage() {
     [resetPage],
   );
 
-  // Si no hay datos en cache y la petición falló, mostramos el banner como
-  // fallback. Si ya tenemos datos previos, dejamos pasar y mostramos el banner
-  // arriba de la tabla (más abajo en el render) para que el usuario siga
-  // operando con el último snapshot mientras se reintenta.
-  if (error && !paquetes) {
+  const pageError = pageQuery.error;
+  const pageHasData = (pageQuery.data?.content?.length ?? 0) > 0;
+  const pageCanRender = useServerPage && (pageHasData || pageQuery.data != null);
+
+  // La tabla principal se alimenta del endpoint paginado. El GET completo es
+  // auxiliar para KPIs/filtros; si falla no debe impedir listar paquetes.
+  if (error && !paquetes && !pageCanRender) {
     return (
       <InlineErrorBanner
         message="Error al cargar paquetes"
         hint="Verifica tu conexión o intenta de nuevo."
-        onRetry={() => refetchAll()}
-        retrying={isFetchingAll}
+        onRetry={() => {
+          refetchAll();
+          if (useServerPage) pageQuery.refetch();
+        }}
+        retrying={isFetchingAll || pageQuery.isFetching}
       />
     );
   }
 
   const allPaquetes = paquetes ?? [];
   const showStaleAllBanner = !!error && allPaquetes.length > 0;
-  const pageError = pageQuery.error;
-  const showPageBanner = !!pageError && (pageQuery.data?.content?.length ?? 0) > 0;
+  const showAuxDataBanner = !!error && allPaquetes.length === 0 && pageCanRender;
+  const showPageBanner = !!pageError && pageHasData;
+  const tableLoading = useServerPage ? pageQuery.isLoading : isLoading;
+  const hasAnyPaquetes = allPaquetes.length > 0 || totalElements > 0;
 
   return (
     <div className="page-stack">
@@ -350,12 +357,16 @@ export function PaqueteListPage() {
         }
       />
 
-      {(showStaleAllBanner || showPageBanner) && (
+      {(showStaleAllBanner || showAuxDataBanner || showPageBanner) && (
         <InlineErrorBanner
           message="No se pudieron actualizar los paquetes"
-          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          hint={
+            showAuxDataBanner
+              ? 'Mostrando la lista paginada. Los KPIs y filtros avanzados pueden estar incompletos.'
+              : 'Mostrando los resultados anteriores. Reintentando en segundo plano.'
+          }
           onRetry={() => {
-            if (showStaleAllBanner) refetchAll();
+            if (showStaleAllBanner || showAuxDataBanner) refetchAll();
             if (showPageBanner) pageQuery.refetch();
           }}
           retrying={isFetchingAll || pageQuery.isFetching}
@@ -559,7 +570,7 @@ export function PaqueteListPage() {
         )
       )}
 
-      {isLoading ? (
+      {tableLoading ? (
         <ListTableShell>
           <Table className="min-w-[920px] text-left">
             <TableHeader>
@@ -592,16 +603,16 @@ export function PaqueteListPage() {
       ) : list.length === 0 ? (
         <EmptyState
           icon={Package}
-          title={allPaquetes.length === 0 ? 'No hay paquetes' : 'Sin resultados'}
+          title={!hasAnyPaquetes ? 'No hay paquetes' : 'Sin resultados'}
           description={
-            allPaquetes.length === 0
+            !hasAnyPaquetes
               ? 'Registra un paquete con su número de guía y consignatario para hacer seguimiento.'
               : tieneFiltros
                 ? 'No hay paquetes que coincidan con los filtros aplicados.'
                 : 'No se encontraron paquetes con ese criterio.'
           }
           action={
-            allPaquetes.length === 0 && hasPaquetesCreate ? (
+            !hasAnyPaquetes && hasPaquetesCreate ? (
               <Button onClick={() => setCreateOpen(true)}>Registrar paquete</Button>
             ) : tieneFiltros ? (
               <Button variant="outline" onClick={limpiarFiltros}>

@@ -65,6 +65,7 @@ export interface TrackingOperadorEntrega {
   agenciaDireccion?: string;
   agenciaProvincia?: string;
   agenciaCanton?: string;
+  agenciaEncargado?: string;
   horarioAtencionAgencia?: string;
   diasMaxRetiroAgencia?: number;
   agenciaCourierEntregaEtiqueta?: string;

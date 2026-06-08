@@ -23,7 +23,7 @@ import {
   GuiaMasterEstadoBadge,
   GUIA_MASTER_ESTADO_LABELS,
 } from '@/pages/dashboard/guias-master/_estado';
-import { RegistrarMiGuiaDialog } from '@/pages/dashboard/mis-guias/RegistrarMiGuiaDialog';
+import { RegistrarMisGuiasDialog } from '@/pages/dashboard/mis-guias/RegistrarMisGuiasDialog';
 import type { GuiaMaster } from '@/types/guia-master';
 
 function formatDateShort(value?: string | null) {
@@ -95,7 +95,7 @@ export function InicioClienteSection() {
         {hasMisGuiasCreate && (
           <Button onClick={() => setRegistrarOpen(true)}>
             <Plus className="mr-2 h-5 w-5" strokeWidth={1.75} />
-            Registrar guía
+            Registrar guías
           </Button>
         )}
       </header>
@@ -185,7 +185,7 @@ export function InicioClienteSection() {
       </SurfaceCard>
 
       {registrarOpen && (
-        <RegistrarMiGuiaDialog onClose={() => setRegistrarOpen(false)} />
+        <RegistrarMisGuiasDialog onClose={() => setRegistrarOpen(false)} />
       )}
     </section>
   );

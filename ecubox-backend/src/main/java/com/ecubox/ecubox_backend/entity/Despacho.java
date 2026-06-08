@@ -37,8 +37,9 @@ public class Despacho {
     @Column(name = "fecha_hora")
     private LocalDateTime fechaHora;
 
+    /** Courier de entrega; null en despachos de retiro presencial en agencia. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "courier_entrega_id", nullable = false)
+    @JoinColumn(name = "courier_entrega_id")
     private CourierEntrega courierEntrega;
 
     @Enumerated(EnumType.STRING)

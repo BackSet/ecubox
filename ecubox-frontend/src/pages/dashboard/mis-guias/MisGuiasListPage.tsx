@@ -51,7 +51,7 @@ import {
   MI_GUIA_ESTADO_TONES,
   MiGuiaEstadoBadge,
 } from './_estado-cliente';
-import { RegistrarMiGuiaDialog } from './RegistrarMiGuiaDialog';
+import { RegistrarMisGuiasDialog } from './RegistrarMisGuiasDialog';
 
 type FiltroEstado = EstadoGuiaMaster | 'TODAS';
 
@@ -161,7 +161,7 @@ export function MisGuiasListPage() {
           canEditar ? (
             <Button className="w-full sm:w-auto" onClick={() => setRegistrarOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Registrar guía
+              Registrar guías
             </Button>
           ) : undefined
         }
@@ -277,7 +277,7 @@ export function MisGuiasListPage() {
           action={
             guias.length === 0 ? (
               canEditar ? (
-                <Button onClick={() => setRegistrarOpen(true)}>Registrar guía</Button>
+                <Button onClick={() => setRegistrarOpen(true)}>Registrar guías</Button>
               ) : undefined
             ) : estadoFiltro !== 'TODAS' ? (
               <Button variant="outline" onClick={() => setEstadoFiltro('TODAS')}>
@@ -460,7 +460,7 @@ export function MisGuiasListPage() {
       )}
 
       {registrarOpen && (
-        <RegistrarMiGuiaDialog onClose={() => setRegistrarOpen(false)} />
+        <RegistrarMisGuiasDialog onClose={() => setRegistrarOpen(false)} />
       )}
 
       {editingGuia && (

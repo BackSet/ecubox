@@ -44,13 +44,6 @@ export const paqueteBulkSchema = z
     paquetes: z.array(paqueteItemSchema).min(1),
   })
   .superRefine((data, ctx) => {
-    if (data.paquetes.length !== data.cantidad) {
-      ctx.addIssue({
-        code: 'custom',
-        message: `La cantidad (${data.cantidad}) no coincide con las filas (${data.paquetes.length})`,
-        path: ['cantidad'],
-      });
-    }
     const piezas = data.paquetes
       .map((p) => p.piezaNumero)
       .filter((n): n is number => n != null && !Number.isNaN(n));
