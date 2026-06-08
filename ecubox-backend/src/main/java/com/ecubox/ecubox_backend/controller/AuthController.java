@@ -1,16 +1,20 @@
 package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.config.OpenApiConstants;
+import com.ecubox.ecubox_backend.dto.CanjearAccesoRequest;
+import com.ecubox.ecubox_backend.dto.CanjearAccesoResponse;
 import com.ecubox.ecubox_backend.dto.LoginRequest;
 import com.ecubox.ecubox_backend.dto.LoginResponse;
 import com.ecubox.ecubox_backend.dto.ClienteRegisterSimpleRequest;
 import com.ecubox.ecubox_backend.dto.MeUpdateRequest;
+import com.ecubox.ecubox_backend.entity.AccesoEnlace;
 import com.ecubox.ecubox_backend.entity.Permiso;
 import com.ecubox.ecubox_backend.entity.Rol;
 import com.ecubox.ecubox_backend.entity.Usuario;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
 import com.ecubox.ecubox_backend.repository.PermisoRepository;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
+import com.ecubox.ecubox_backend.service.AccesoEnlaceService;
 import com.ecubox.ecubox_backend.service.JwtService;
 import com.ecubox.ecubox_backend.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,19 +49,39 @@ public class AuthController {
     private final UsuarioService usuarioService;
     private final CurrentUserService currentUserService;
     private final PermisoRepository permisoRepository;
+    private final AccesoEnlaceService accesoEnlaceService;
 
     public AuthController(AuthenticationManager authenticationManager,
                           JwtService jwtService,
                           UsuarioRepository usuarioRepository,
                           UsuarioService usuarioService,
                           CurrentUserService currentUserService,
-                          PermisoRepository permisoRepository) {
+                          PermisoRepository permisoRepository,
+                          AccesoEnlaceService accesoEnlaceService) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.usuarioRepository = usuarioRepository;
         this.usuarioService = usuarioService;
         this.currentUserService = currentUserService;
         this.permisoRepository = permisoRepository;
+        this.accesoEnlaceService = accesoEnlaceService;
+    }
+
+    @Operation(summary = "Canjear enlace de acceso",
+            description = "Valida el token de un enlace de acceso y devuelve una sesión JWT de solo lectura acotada a sus consignatarios")
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Sesión de solo lectura emitida")
+    @PostMapping("/acceso-enlace")
+    public ResponseEntity<CanjearAccesoResponse> canjearAcceso(@Valid @RequestBody CanjearAccesoRequest request) {
+        AccesoEnlace enlace = accesoEnlaceService.canjear(request.getToken());
+        String token = jwtService.generateAccesoEnlaceToken(enlace.getId());
+
+        CanjearAccesoResponse response = CanjearAccesoResponse.builder()
+                .token(token)
+                .resumen(accesoEnlaceService.toResumen(enlace))
+                .build();
+
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Iniciar sesión", description = "Autentica con usuario/correo y contraseña. Devuelve JWT y permisos.")
@@ -103,6 +127,7 @@ public class AuthController {
     @SecurityRequirement(name = OpenApiConstants.BEARER_AUTH)
     @ApiResponse(responseCode = "200", description = "Perfil del usuario")
     @GetMapping("/me")
+    @PreAuthorize("hasAuthority('PERFIL_READ')")
     public ResponseEntity<LoginResponse> me() {
         Usuario usuario = currentUserService.getCurrentUsuario();
         return ResponseEntity.ok(buildMeResponse(usuario));
@@ -112,7 +137,7 @@ public class AuthController {
     @SecurityRequirement(name = OpenApiConstants.BEARER_AUTH)
     @ApiResponse(responseCode = "200", description = "Perfil actualizado")
     @PutMapping("/me")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERFIL_UPDATE')")
     public ResponseEntity<LoginResponse> updateMe(@Valid @RequestBody MeUpdateRequest request) {
         Usuario usuario = currentUserService.getCurrentUsuario();
         usuarioService.updateSelf(usuario.getId(), request);

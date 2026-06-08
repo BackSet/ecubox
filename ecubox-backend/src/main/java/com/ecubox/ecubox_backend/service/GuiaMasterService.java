@@ -463,6 +463,29 @@ public class GuiaMasterService {
         return guiaMasterRepository.findByClienteUsuarioId(clienteUsuarioId);
     }
 
+    /** Guías de un conjunto de consignatarios (acceso por enlace, solo lectura). */
+    @Transactional(readOnly = true)
+    public List<GuiaMaster> findAllByConsignatarioIds(java.util.Collection<Long> consignatarioIds) {
+        if (consignatarioIds == null || consignatarioIds.isEmpty()) return List.of();
+        return guiaMasterRepository.findByConsignatarioIdIn(consignatarioIds);
+    }
+
+    /**
+     * Devuelve la guía si su consignatario está en el conjunto autorizado; lanza
+     * 404 en caso contrario (no exponemos guías fuera del enlace).
+     */
+    @Transactional(readOnly = true)
+    public GuiaMaster findByIdForConsignatarios(Long id, java.util.Collection<Long> consignatarioIds) {
+        GuiaMaster gm = guiaMasterRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Guía", id));
+        if (gm.getConsignatario() == null
+                || consignatarioIds == null
+                || !consignatarioIds.contains(gm.getConsignatario().getId())) {
+            throw new ResourceNotFoundException("Guía", id);
+        }
+        return gm;
+    }
+
     /**
      * Devuelve la guía si pertenece al cliente indicado; lanza 404 en caso contrario
      * (no exponemos la existencia de guías ajenas).
@@ -1242,19 +1265,46 @@ public class GuiaMasterService {
      */
     @Transactional(readOnly = true)
     public MiInicioDashboardDTO dashboardForCliente(Long clienteUsuarioId) {
+        if (clienteUsuarioId == null) {
+            return dashboardVacio();
+        }
+        return buildDashboardCliente(
+                guiaMasterRepository.findByClienteUsuarioId(clienteUsuarioId),
+                consignatarioRepository.countByUsuarioId(clienteUsuarioId));
+    }
+
+    /**
+     * Dashboard del "/inicio" para una sesión por enlace: agregados sobre las
+     * guías de los consignatarios autorizados.
+     */
+    @Transactional(readOnly = true)
+    public MiInicioDashboardDTO dashboardForConsignatarios(java.util.Collection<Long> consignatarioIds) {
+        if (consignatarioIds == null || consignatarioIds.isEmpty()) {
+            return dashboardVacio();
+        }
+        return buildDashboardCliente(
+                guiaMasterRepository.findByConsignatarioIdIn(consignatarioIds),
+                consignatarioIds.size());
+    }
+
+    private MiInicioDashboardDTO dashboardVacio() {
         Map<String, Long> conteos = new LinkedHashMap<>();
         for (EstadoGuiaMaster est : EstadoGuiaMaster.values()) {
             conteos.put(est.name(), 0L);
         }
-        if (clienteUsuarioId == null) {
-            return MiInicioDashboardDTO.builder()
-                    .conteosPorEstado(conteos)
-                    .guiasRecientes(List.of())
-                    .guiasProximasACerrar(List.of())
-                    .build();
+        return MiInicioDashboardDTO.builder()
+                .conteosPorEstado(conteos)
+                .guiasRecientes(List.of())
+                .guiasProximasACerrar(List.of())
+                .build();
+    }
+
+    private MiInicioDashboardDTO buildDashboardCliente(List<GuiaMaster> guias, long totalDestinatarios) {
+        Map<String, Long> conteos = new LinkedHashMap<>();
+        for (EstadoGuiaMaster est : EstadoGuiaMaster.values()) {
+            conteos.put(est.name(), 0L);
         }
 
-        List<GuiaMaster> guias = guiaMasterRepository.findByClienteUsuarioId(clienteUsuarioId);
         List<GuiaMasterDTO> dtos = guias.stream()
                 .map(gm -> toDTO(gm, List.of()))
                 .toList();
@@ -1311,8 +1361,6 @@ public class GuiaMasterService {
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .limit(5)
                 .toList();
-
-        long totalDestinatarios = consignatarioRepository.countByUsuarioId(clienteUsuarioId);
 
         return MiInicioDashboardDTO.builder()
                 .conteosPorEstado(conteos)

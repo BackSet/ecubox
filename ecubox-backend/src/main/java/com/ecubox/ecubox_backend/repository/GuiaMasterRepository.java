@@ -52,6 +52,15 @@ public interface GuiaMasterRepository extends JpaRepository<GuiaMaster, Long>,
            "ORDER BY gm.createdAt DESC")
     List<GuiaMaster> findByClienteUsuarioId(@Param("clienteId") Long clienteId);
 
+    /** Guías asociadas directamente a un consignatario. */
+    List<GuiaMaster> findByConsignatarioId(Long consignatarioId);
+
+    /** Guías de un conjunto de consignatarios (acceso por enlace), más recientes primero. */
+    @Query("SELECT gm FROM GuiaMaster gm " +
+           "WHERE gm.consignatario.id IN :consignatarioIds " +
+           "ORDER BY gm.createdAt DESC")
+    List<GuiaMaster> findByConsignatarioIdIn(@Param("consignatarioIds") Collection<Long> consignatarioIds);
+
     /**
      * Listado filtrado por uno o varios estados (operario). El orden es por
      * fecha de creacion descendente para mostrar primero las mas recientes.

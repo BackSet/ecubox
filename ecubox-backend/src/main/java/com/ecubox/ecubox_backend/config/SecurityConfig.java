@@ -63,7 +63,7 @@ public class SecurityConfig {
                     }
                 })
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register/simple").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register/simple", "/api/auth/acceso-enlace").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/health",
                                 "/api/v1/tracking",

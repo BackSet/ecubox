@@ -32,9 +32,10 @@ export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
     readCollapsedFromStorage(mobile),
   );
   const { hasPermission } = useAuthStore();
+  const isAcceso = useAuthStore((s) => s.isAcceso);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const visibleGroups = getVisibleNavGroups(hasPermission);
+  const visibleGroups = getVisibleNavGroups(hasPermission, { onlyWithPermission: isAcceso });
 
   const isActive = (to: string, exact?: boolean) => {
     if (exact) return pathname === to;

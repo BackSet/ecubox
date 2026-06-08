@@ -8,6 +8,7 @@ import com.ecubox.ecubox_backend.dto.MiInicioDashboardDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.security.AccesoSessionResolver;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.GuiaMasterService;
 import com.ecubox.ecubox_backend.service.PaqueteService;
@@ -38,13 +39,16 @@ public class MisGuiasController {
     private final GuiaMasterService guiaMasterService;
     private final PaqueteService paqueteService;
     private final CurrentUserService currentUserService;
+    private final AccesoSessionResolver accesoSessionResolver;
 
     public MisGuiasController(GuiaMasterService guiaMasterService,
                               PaqueteService paqueteService,
-                              CurrentUserService currentUserService) {
+                              CurrentUserService currentUserService,
+                              AccesoSessionResolver accesoSessionResolver) {
         this.guiaMasterService = guiaMasterService;
         this.paqueteService = paqueteService;
         this.currentUserService = currentUserService;
+        this.accesoSessionResolver = accesoSessionResolver;
     }
 
     @PostMapping
@@ -61,33 +65,40 @@ public class MisGuiasController {
     }
 
     @GetMapping("/dashboard")
-    @PreAuthorize("hasAuthority('MIS_GUIAS_READ')")
+    @PreAuthorize("hasAnyAuthority('MIS_GUIAS_READ', 'ACCESO_ENLACE_GUIAS_READ')")
     @Operation(summary = "Dashboard de mis guías", description = "Obtiene métricas y resumen de las guías del cliente")
     @ApiResponse(responseCode = "200", description = "Resumen de guías")
     public ResponseEntity<MiInicioDashboardDTO> dashboard() {
+        if (accesoSessionResolver.isEnlaceSession()) {
+            return ResponseEntity.ok(guiaMasterService.dashboardForConsignatarios(
+                    accesoSessionResolver.consignatarioScope()));
+        }
         Long clienteId = currentUserService.getCurrentUsuario().getId();
         return ResponseEntity.ok(guiaMasterService.dashboardForCliente(clienteId));
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('MIS_GUIAS_READ')")
+    @PreAuthorize("hasAnyAuthority('MIS_GUIAS_READ', 'ACCESO_ENLACE_GUIAS_READ')")
     @Operation(summary = "Listar mis guías", description = "Devuelve la lista de guías asociadas al cliente autenticado")
     @ApiResponse(responseCode = "200", description = "Listado de guías")
     public ResponseEntity<List<GuiaMasterDTO>> listar() {
-        Long clienteId = currentUserService.getCurrentUsuario().getId();
-        List<GuiaMasterDTO> guias = guiaMasterService.findAllByCliente(clienteId).stream()
+        List<GuiaMaster> fuente = accesoSessionResolver.isEnlaceSession()
+                ? guiaMasterService.findAllByConsignatarioIds(accesoSessionResolver.consignatarioScope())
+                : guiaMasterService.findAllByCliente(currentUserService.getCurrentUsuario().getId());
+        List<GuiaMasterDTO> guias = fuente.stream()
                 .map(gm -> guiaMasterService.toDTO(gm, List.of()))
                 .toList();
         return ResponseEntity.ok(guias);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('MIS_GUIAS_READ')")
+    @PreAuthorize("hasAnyAuthority('MIS_GUIAS_READ', 'ACCESO_ENLACE_GUIAS_READ')")
     @Operation(summary = "Detalle de mi guía", description = "Obtiene el detalle de una guía del cliente")
     @ApiResponse(responseCode = "200", description = "Detalle de guía")
     public ResponseEntity<GuiaMasterDTO> detalle(@Parameter(description = "ID de la guía") @PathVariable Long id) {
-        Long clienteId = currentUserService.getCurrentUsuario().getId();
-        GuiaMaster gm = guiaMasterService.findByIdForCliente(id, clienteId);
+        GuiaMaster gm = accesoSessionResolver.isEnlaceSession()
+                ? guiaMasterService.findByIdForConsignatarios(id, accesoSessionResolver.consignatarioScope())
+                : guiaMasterService.findByIdForCliente(id, currentUserService.getCurrentUsuario().getId());
         List<PaqueteDTO> piezasDTO = guiaMasterService.listarPiezas(gm.getId()).stream()
                 .map(paqueteService::toDTO)
                 .toList();
@@ -95,12 +106,15 @@ public class MisGuiasController {
     }
 
     @GetMapping("/{id}/piezas")
-    @PreAuthorize("hasAuthority('MIS_GUIAS_READ')")
+    @PreAuthorize("hasAnyAuthority('MIS_GUIAS_READ', 'ACCESO_ENLACE_GUIAS_READ')")
     @Operation(summary = "Listar piezas de guía", description = "Lista los paquetes asociados a una guía del cliente")
     @ApiResponse(responseCode = "200", description = "Listado de piezas")
     public ResponseEntity<List<PaqueteDTO>> listarPiezas(@Parameter(description = "ID de la guía") @PathVariable Long id) {
-        Long clienteId = currentUserService.getCurrentUsuario().getId();
-        guiaMasterService.findByIdForCliente(id, clienteId);
+        if (accesoSessionResolver.isEnlaceSession()) {
+            guiaMasterService.findByIdForConsignatarios(id, accesoSessionResolver.consignatarioScope());
+        } else {
+            guiaMasterService.findByIdForCliente(id, currentUserService.getCurrentUsuario().getId());
+        }
         List<Paquete> piezas = guiaMasterService.listarPiezas(id);
         return ResponseEntity.ok(piezas.stream().map(paqueteService::toDTO).toList());
     }

@@ -33,7 +33,7 @@ public class OperarioLoteRecepcionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('LOTES_RECEPCION_READ')")
     @Operation(summary = "Listar lotes de recepción", description = "Obtiene todos los lotes de recepción registrados")
     @ApiResponse(responseCode = "200", description = "Listado de lotes")
     public ResponseEntity<List<LoteRecepcionDTO>> findAll() {
@@ -41,7 +41,7 @@ public class OperarioLoteRecepcionController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('LOTES_RECEPCION_READ')")
     @Operation(summary = "Obtener lote por ID", description = "Devuelve el detalle de un lote de recepción")
     @ApiResponse(responseCode = "200", description = "Lote encontrado")
     public ResponseEntity<LoteRecepcionDTO> findById(@Parameter(description = "ID del lote") @PathVariable Long id) {
@@ -49,7 +49,7 @@ public class OperarioLoteRecepcionController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('LOTES_RECEPCION_CREATE')")
     @Operation(summary = "Crear lote de recepción", description = "Crea un nuevo lote para agrupar guías recibidas")
     @ApiResponse(responseCode = "201", description = "Lote creado")
     public ResponseEntity<LoteRecepcionDTO> create(@Valid @RequestBody LoteRecepcionCreateRequest request) {
@@ -57,7 +57,7 @@ public class OperarioLoteRecepcionController {
     }
 
     @PostMapping("/{id}/guias")
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('LOTES_RECEPCION_CREATE')")
     @Operation(summary = "Agregar guías al lote", description = "Asocia una o varias guías de envío a un lote de recepción")
     @ApiResponse(responseCode = "200", description = "Lote actualizado")
     public ResponseEntity<LoteRecepcionDTO> agregarGuias(
@@ -67,7 +67,7 @@ public class OperarioLoteRecepcionController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('LOTES_RECEPCION_DELETE')")
     @Operation(summary = "Eliminar lote de recepción", description = "Elimina un lote y revierte la asociación de paquetes")
     @ApiResponse(responseCode = "200", description = "Lote eliminado con conteo de paquetes revertidos")
     public ResponseEntity<Map<String, Integer>> delete(@Parameter(description = "ID del lote") @PathVariable Long id) {

@@ -18,7 +18,8 @@ interface GlobalCommandPaletteProps {
 export function GlobalCommandPalette({ open, onOpenChange }: GlobalCommandPaletteProps) {
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
-  const items = getVisibleNavItems(hasPermission);
+  const isAcceso = useAuthStore((s) => s.isAcceso);
+  const items = getVisibleNavItems(hasPermission, { onlyWithPermission: isAcceso });
 
   const handleSelect = (to: string) => {
     navigate({ to });

@@ -5,17 +5,22 @@ import {
   Building2,
   Check,
   Copy,
+  Loader2,
   Map,
   MapPin,
   Pencil,
   Phone,
   Plus,
   Trash2,
+  UserCheck,
   UserRound,
   Users,
+  X,
 } from 'lucide-react';
 import { useConsignatarios, useDeleteConsignatario } from '@/hooks/useConsignatarios';
 import {
+  useAsignarConsignatariosClienteOperario,
+  useClientesOperario,
   useConsignatariosOperario,
   useDeleteConsignatarioOperario,
 } from '@/hooks/useOperarioDespachos';
@@ -36,6 +41,14 @@ import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import {
   Table,
@@ -77,6 +90,10 @@ export function ConsignatarioListPage() {
     search.trim() || undefined,
     hasConsignatariosOperario,
   );
+  const { data: consignatariosAsignables = [] } = useConsignatariosOperario(
+    undefined,
+    hasConsignatariosOperario,
+  );
   const consignatarios = hasConsignatariosOperario ? opData : misData;
   const isLoading = hasConsignatariosOperario ? opLoading : misLoading;
   const isFetching = hasConsignatariosOperario ? opFetching : misFetching;
@@ -84,9 +101,15 @@ export function ConsignatarioListPage() {
   const refetch = hasConsignatariosOperario ? refetchOp : refetchMis;
   const deleteConsignatario = useDeleteConsignatario();
   const deleteConsignatarioOperario = useDeleteConsignatarioOperario();
+  const asignarClienteMutation = useAsignarConsignatariosClienteOperario();
+  const { data: clientesAsignables = [] } = useClientesOperario(hasConsignatariosOperario);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [asignarClienteOpen, setAsignarClienteOpen] = useState(false);
+  const [clienteAsignacionId, setClienteAsignacionId] = useState<number | undefined>(undefined);
+  const [consignatarioAgregarId, setConsignatarioAgregarId] = useState<number | undefined>(undefined);
   // Chip activo de filtro rapido
   const [chipActivo, setChipActivoRaw] = useState<
     'todos' | 'con_cliente' | 'sin_cliente' | 'sin_telefono' | 'sin_codigo'
@@ -214,14 +237,30 @@ export function ConsignatarioListPage() {
     setPage(0);
   }, []);
 
+  const allConsignatarios = consignatarios ?? [];
   const pagedList = useMemo(
     () => list.slice(page * size, page * size + size),
     [list, page, size],
+  );
+  const selectedConsignatarios = useMemo(
+    () => consignatariosAsignables.filter((d) => selectedIds.has(d.id)),
+    [consignatariosAsignables, selectedIds],
+  );
+  const consignatariosDisponiblesAsignacion = useMemo(
+    () => consignatariosAsignables.filter((d) => !selectedIds.has(d.id)),
+    [consignatariosAsignables, selectedIds],
   );
   const totalPages = Math.max(1, Math.ceil(list.length / Math.max(1, size)));
   useEffect(() => {
     if (page > 0 && page >= totalPages) setPage(totalPages - 1);
   }, [page, totalPages]);
+  useEffect(() => {
+    const idsVigentes = new Set(consignatariosAsignables.map((d) => d.id));
+    setSelectedIds((prev) => {
+      const next = new Set(Array.from(prev).filter((id) => idsVigentes.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [consignatariosAsignables]);
 
   if (error && !consignatarios) {
     return (
@@ -234,7 +273,6 @@ export function ConsignatarioListPage() {
     );
   }
 
-  const allConsignatarios = consignatarios ?? [];
   const showClienteColumn = hasConsignatariosOperario;
   const canEdit = hasConsignatariosOperario || hasConsignatariosUpdate;
 
@@ -254,12 +292,24 @@ export function ConsignatarioListPage() {
         searchPlaceholder="Buscar por nombre, código, teléfono o ubicación..."
         onSearchChange={setSearch}
         actions={
-          hasConsignatariosCreate ? (
-            <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo consignatario
-            </Button>
-          ) : undefined
+          <>
+            {hasConsignatariosOperario && (
+              <Button
+                className="w-full sm:w-auto"
+                variant="secondary"
+                onClick={() => setAsignarClienteOpen(true)}
+              >
+                <UserCheck className="mr-2 h-4 w-4" />
+                Asignar consignatarios
+              </Button>
+            )}
+            {hasConsignatariosCreate && (
+              <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo consignatario
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -541,6 +591,7 @@ export function ConsignatarioListPage() {
 
       {createOpen && (
         <ConsignatarioForm
+          useOperarioApi={hasConsignatariosOperario}
           onClose={() => setCreateOpen(false)}
           onSuccess={() => setCreateOpen(false)}
         />
@@ -552,6 +603,202 @@ export function ConsignatarioListPage() {
           onClose={() => setEditingId(null)}
           onSuccess={() => setEditingId(null)}
         />
+      )}
+
+      {hasConsignatariosOperario && (
+        <Dialog
+          open={asignarClienteOpen}
+          onOpenChange={(open) => {
+            setAsignarClienteOpen(open);
+            if (!open) {
+              setClienteAsignacionId(undefined);
+              setConsignatarioAgregarId(undefined);
+              setSelectedIds(new Set());
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[680px]">
+            <DialogHeader>
+              <DialogTitle>Asignar consignatarios a cliente</DialogTitle>
+              <DialogDescription>
+                Busca consignatarios, agrégalos a la lista y asígnalos al cliente elegido.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Cliente</label>
+                <SearchableCombobox
+                  value={clienteAsignacionId}
+                  onChange={(value) =>
+                    setClienteAsignacionId(typeof value === 'number' ? value : undefined)
+                  }
+                  options={clientesAsignables}
+                  getKey={(u) => u.id}
+                  getLabel={(u) => (u.email ? `${u.username} · ${u.email}` : u.username)}
+                  getSearchText={(u) => `${u.username} ${u.email ?? ''}`}
+                  placeholder="Selecciona cliente"
+                  searchPlaceholder="Buscar cliente..."
+                  emptyMessage="No hay clientes"
+                  clearable={false}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Consignatario</label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <SearchableCombobox
+                    value={consignatarioAgregarId}
+                    onChange={(value) =>
+                      setConsignatarioAgregarId(typeof value === 'number' ? value : undefined)
+                    }
+                    options={consignatariosDisponiblesAsignacion}
+                    getKey={(d) => d.id}
+                    getLabel={(d) => d.codigo ? `${d.nombre} · ${d.codigo}` : d.nombre}
+                    getSearchText={(d) =>
+                      `${d.nombre} ${d.codigo ?? ''} ${d.telefono ?? ''} ${d.clienteUsuarioNombre ?? ''}`
+                    }
+                    renderOption={(d) => (
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{d.nombre}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[d.codigo, d.telefono, d.clienteUsuarioNombre ?? 'Sin cliente']
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      </div>
+                    )}
+                    placeholder="Buscar consignatario"
+                    searchPlaceholder="Nombre, código, teléfono o cliente..."
+                    emptyMessage="Sin consignatarios disponibles"
+                    className="h-9"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={consignatarioAgregarId == null}
+                    onClick={() => {
+                      if (consignatarioAgregarId == null) return;
+                      setSelectedIds((prev) => new Set(prev).add(consignatarioAgregarId));
+                      setConsignatarioAgregarId(undefined);
+                    }}
+                    className="sm:w-auto"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Agregar
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-border bg-muted/20">
+                <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+                  <span className="text-sm font-medium text-foreground">
+                    {selectedConsignatarios.length} agregado
+                    {selectedConsignatarios.length === 1 ? '' : 's'}
+                  </span>
+                  {selectedConsignatarios.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedIds(new Set());
+                        setConsignatarioAgregarId(undefined);
+                      }}
+                    >
+                      Limpiar
+                    </Button>
+                  )}
+                </div>
+                {selectedConsignatarios.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    Aún no has agregado consignatarios.
+                  </p>
+                ) : (
+                  <div className="max-h-56 overflow-auto p-2">
+                    {selectedConsignatarios.map((d) => (
+                      <div
+                        key={d.id}
+                        className="flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">{d.nombre}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {[d.codigo, d.telefono, d.clienteUsuarioNombre ?? 'Sin cliente']
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(d.id);
+                              return next;
+                            });
+                          }}
+                          aria-label={`Quitar ${d.nombre}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={asignarClienteMutation.isPending}
+                onClick={() => setAsignarClienteOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={
+                  asignarClienteMutation.isPending ||
+                  clienteAsignacionId == null ||
+                  selectedIds.size === 0
+                }
+                onClick={async () => {
+                  if (clienteAsignacionId == null || selectedIds.size === 0) return;
+                  try {
+                    await asignarClienteMutation.mutateAsync({
+                      clienteUsuarioId: clienteAsignacionId,
+                      consignatarioIds: Array.from(selectedIds),
+                    });
+                    toast.success('Consignatarios asignados');
+                    setSelectedIds(new Set());
+                    setAsignarClienteOpen(false);
+                    setClienteAsignacionId(undefined);
+                    setConsignatarioAgregarId(undefined);
+                  } catch (error: unknown) {
+                    toast.error(
+                      getApiErrorMessage(error) ?? 'No se pudieron asignar los consignatarios',
+                    );
+                  }
+                }}
+              >
+                {asignarClienteMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Asignando...
+                  </>
+                ) : (
+                  'Asignar'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       <ConfirmDialog

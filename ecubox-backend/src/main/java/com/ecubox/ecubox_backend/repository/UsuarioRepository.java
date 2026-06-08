@@ -20,6 +20,14 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long>, JpaSpec
     @Query("SELECT u FROM Usuario u")
     java.util.List<Usuario> findAllWithRoles();
 
+    @Query("""
+            SELECT DISTINCT u FROM Usuario u
+            JOIN FETCH u.roles r
+            WHERE r.nombre = 'CLIENTE'
+            ORDER BY u.username
+            """)
+    java.util.List<Usuario> findAllClientesWithRoles();
+
     boolean existsByEmailIgnoreCase(String email);
 
     @Query("SELECT u FROM Usuario u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH r.permisos WHERE LOWER(u.email) = LOWER(:email)")

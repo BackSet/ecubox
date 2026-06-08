@@ -32,7 +32,7 @@ public class EstadoRastreoController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_READ') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_READ')")
     @Operation(summary = "Listar estados de rastreo", description = "Obtiene todos los estados de rastreo configurados")
     @ApiResponse(responseCode = "200", description = "Listado de estados")
     public ResponseEntity<List<EstadoRastreoDTO>> findAll() {
@@ -40,7 +40,7 @@ public class EstadoRastreoController {
     }
 
     @GetMapping("/activos")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_READ') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_READ')")
     @Operation(summary = "Listar estados activos", description = "Obtiene únicamente los estados de rastreo activos")
     @ApiResponse(responseCode = "200", description = "Listado de estados activos")
     public ResponseEntity<List<EstadoRastreoDTO>> findActivos() {
@@ -48,7 +48,7 @@ public class EstadoRastreoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_READ') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_READ')")
     @Operation(summary = "Obtener estado por ID", description = "Devuelve el detalle de un estado de rastreo")
     @ApiResponse(responseCode = "200", description = "Estado encontrado")
     public ResponseEntity<EstadoRastreoDTO> findById(@Parameter(description = "ID del estado de rastreo") @PathVariable Long id) {
@@ -56,7 +56,7 @@ public class EstadoRastreoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_CREATE') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_CREATE')")
     @Operation(summary = "Crear estado de rastreo", description = "Registra un nuevo estado de rastreo")
     @ApiResponse(responseCode = "201", description = "Estado creado")
     public ResponseEntity<EstadoRastreoDTO> create(@Valid @RequestBody EstadoRastreoRequest request) {
@@ -64,7 +64,7 @@ public class EstadoRastreoController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_UPDATE') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_UPDATE')")
     @Operation(summary = "Actualizar estado de rastreo", description = "Modifica la información de un estado existente")
     @ApiResponse(responseCode = "200", description = "Estado actualizado")
     public ResponseEntity<EstadoRastreoDTO> update(@Parameter(description = "ID del estado de rastreo") @PathVariable Long id,
@@ -73,7 +73,7 @@ public class EstadoRastreoController {
     }
 
     @PatchMapping("/{id}/desactivar")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_DELETE') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_DELETE')")
     @Operation(summary = "Desactivar estado de rastreo", description = "Marca un estado de rastreo como inactivo")
     @ApiResponse(responseCode = "200", description = "Estado desactivado")
     public ResponseEntity<EstadoRastreoDTO> desactivar(@Parameter(description = "ID del estado de rastreo") @PathVariable Long id) {
@@ -81,7 +81,7 @@ public class EstadoRastreoController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_DELETE') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_DELETE')")
     @Operation(summary = "Eliminar estado de rastreo", description = "Elimina un estado de rastreo por su identificador")
     @ApiResponse(responseCode = "204", description = "Estado eliminado")
     public ResponseEntity<Void> delete(@Parameter(description = "ID del estado de rastreo") @PathVariable Long id) {
@@ -90,7 +90,7 @@ public class EstadoRastreoController {
     }
 
     @PutMapping("/orden-tracking")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_UPDATE') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_UPDATE')")
     @Operation(summary = "Reordenar tracking", description = "Actualiza el orden de tracking de los estados de rastreo")
     @ApiResponse(responseCode = "200", description = "Estados reordenados")
     public ResponseEntity<List<EstadoRastreoDTO>> reorderTracking(

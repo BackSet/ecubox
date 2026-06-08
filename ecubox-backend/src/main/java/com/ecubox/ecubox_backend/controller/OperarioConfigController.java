@@ -58,7 +58,7 @@ public class OperarioConfigController {
     }
 
     @GetMapping("/mensaje-whatsapp-despacho")
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('MENSAJE_WHATSAPP_DESPACHO_READ')")
     @Operation(summary = "Obtener mensaje WhatsApp", description = "Consulta la plantilla de WhatsApp para despachos")
     @ApiResponse(responseCode = "200", description = "Plantilla actual")
     public ResponseEntity<MensajeWhatsAppDespachoDTO> getMensajeWhatsAppDespacho() {
@@ -66,7 +66,7 @@ public class OperarioConfigController {
     }
 
     @PutMapping("/mensaje-whatsapp-despacho")
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('MENSAJE_WHATSAPP_DESPACHO_WRITE')")
     @Operation(summary = "Actualizar mensaje WhatsApp", description = "Actualiza la plantilla de WhatsApp usada en despachos")
     @ApiResponse(responseCode = "200", description = "Plantilla actualizada")
     public ResponseEntity<MensajeWhatsAppDespachoDTO> updateMensajeWhatsAppDespacho(
@@ -75,7 +75,7 @@ public class OperarioConfigController {
     }
 
     @PutMapping("/mensaje-agencia-eeuu")
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('MENSAJE_AGENCIA_EEUU_WRITE')")
     @Operation(summary = "Actualizar mensaje de agencia EE.UU.", description = "Modifica el mensaje operativo para agencia en Estados Unidos")
     @ApiResponse(responseCode = "200", description = "Mensaje actualizado")
     public ResponseEntity<MensajeAgenciaEeuuDTO> updateMensajeAgenciaEeuu(
@@ -84,7 +84,7 @@ public class OperarioConfigController {
     }
 
     @GetMapping("/canales-comunicacion")
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('CANALES_COMUNICACION_READ')")
     @Operation(summary = "Obtener canales de comunicación", description = "Consulta los canales de comunicación configurados")
     @ApiResponse(responseCode = "200", description = "Canales configurados")
     public ResponseEntity<CanalesComunicacionDTO> getCanalesComunicacion() {
@@ -92,7 +92,7 @@ public class OperarioConfigController {
     }
 
     @PutMapping("/canales-comunicacion")
-    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @PreAuthorize("hasAuthority('CANALES_COMUNICACION_WRITE')")
     @Operation(summary = "Actualizar canales de comunicación", description = "Actualiza los datos de canales de contacto")
     @ApiResponse(responseCode = "200", description = "Canales actualizados")
     public ResponseEntity<CanalesComunicacionDTO> updateCanalesComunicacion(
@@ -101,7 +101,7 @@ public class OperarioConfigController {
     }
 
     @GetMapping("/tema-temporada")
-    @PreAuthorize("hasAuthority('TEMA_TEMPORADA_WRITE')")
+    @PreAuthorize("hasAuthority('TEMA_TEMPORADA_READ')")
     @Operation(summary = "Obtener tema de temporada", description = "Consulta el override del tema de temporada del sitio público")
     @ApiResponse(responseCode = "200", description = "Tema configurado")
     public ResponseEntity<TemaTemporadaDTO> getTemaTemporada() {
@@ -118,7 +118,7 @@ public class OperarioConfigController {
     }
 
     @GetMapping("/estados-rastreo-por-punto")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_READ') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_READ')")
     @Operation(summary = "Obtener estados por punto", description = "Consulta la configuración de estados de rastreo por punto operativo")
     @ApiResponse(responseCode = "200", description = "Configuración actual")
     public ResponseEntity<EstadosRastreoPorPuntoDTO> getEstadosRastreoPorPunto() {
@@ -126,7 +126,7 @@ public class OperarioConfigController {
     }
 
     @PutMapping("/estados-rastreo-por-punto")
-    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_UPDATE') or hasRole('ADMIN') or hasRole('OPERARIO')")
+    @PreAuthorize("hasAuthority('ESTADOS_RASTREO_UPDATE')")
     @Operation(summary = "Actualizar estados por punto", description = "Define los estados de rastreo usados en cada punto operativo")
     @ApiResponse(responseCode = "200", description = "Configuración actualizada")
     public ResponseEntity<EstadosRastreoPorPuntoDTO> updateEstadosRastreoPorPunto(

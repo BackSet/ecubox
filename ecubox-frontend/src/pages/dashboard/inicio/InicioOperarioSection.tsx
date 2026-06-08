@@ -56,7 +56,7 @@ const QUICK_ACTIONS = [
     description: 'Registrar llegadas y peso',
     icon: ClipboardList,
     to: '/lotes-recepcion',
-    permission: 'DESPACHOS_WRITE',
+    permission: 'LOTES_RECEPCION_READ',
   },
   {
     label: 'Gestión de paquetes',
@@ -97,6 +97,7 @@ export function InicioOperarioSection() {
   const canGuiasMaster = hasPermission('GUIAS_MASTER_READ');
   const canPesoWrite = hasPermission('PAQUETES_PESO_WRITE');
   const canDespachos = hasPermission('DESPACHOS_WRITE');
+  const canLotesRecepcion = hasPermission('LOTES_RECEPCION_READ');
   const canEnvios = hasPermission('ENVIOS_CONSOLIDADOS_READ');
 
   const { data: dashGM, isLoading: loadingDashGM } = useDashboardGuiasMaster(
@@ -114,7 +115,7 @@ export function InicioOperarioSection() {
   );
   const { data: sacasPendientes, isLoading: loadingSacas } = useSacasOperario(
     true,
-    canDespachos
+    canLotesRecepcion
   );
   const { data: enviosAbiertos, isLoading: loadingEnvios } = useEnviosConsolidados(
     { estado: 'ABIERTO', page: 0, size: 1 },

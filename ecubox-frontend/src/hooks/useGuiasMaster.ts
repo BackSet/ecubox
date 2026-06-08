@@ -8,7 +8,6 @@ import {
   actualizarGuiaMaster,
   eliminarGuiaMaster,
   cerrarGuiaMasterConFaltante,
-  recalcularEstadoGuiaMaster,
   confirmarDespachoParcialGuiaMaster,
   obtenerDashboardGuiasMaster,
   cancelarGuiaMaster,
@@ -117,16 +116,6 @@ export function useCerrarGuiaMasterConFaltante() {
   return useMutation({
     mutationFn: ({ id, body }: { id: number; body: GuiaMasterCerrarConFaltanteRequest }) =>
       cerrarGuiaMasterConFaltante(id, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
-    },
-  });
-}
-
-export function useRecalcularGuiaMaster() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => recalcularEstadoGuiaMaster(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
     },

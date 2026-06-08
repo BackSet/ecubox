@@ -30,9 +30,9 @@ public class ConfigTarifaDistribucionController {
         this.currentUserService = currentUserService;
     }
 
-    /** Lectura disponible para cualquier operario autenticado (precarga del form de líneas). */
+    /** Lectura de la configuración vigente usada por liquidación y parámetros. */
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('CONFIG_TARIFA_DISTRIBUCION_READ')")
     @Operation(summary = "Obtener tarifa de distribución", description = "Consulta la configuración vigente de tarifa de distribución")
     @ApiResponse(responseCode = "200", description = "Configuración actual")
     public ResponseEntity<ConfigTarifaDistribucionDTO> get() {

@@ -3,6 +3,7 @@ package com.ecubox.ecubox_backend.controller;
 import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.dto.ConsignatarioDTO;
 import com.ecubox.ecubox_backend.dto.ConsignatarioRequest;
+import com.ecubox.ecubox_backend.security.AccesoSessionResolver;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.ConsignatarioService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,18 +29,25 @@ public class ConsignatarioController {
 
     private final ConsignatarioService consignatarioService;
     private final CurrentUserService currentUserService;
+    private final AccesoSessionResolver accesoSessionResolver;
 
     public ConsignatarioController(ConsignatarioService consignatarioService,
-                                        CurrentUserService currentUserService) {
+                                        CurrentUserService currentUserService,
+                                        AccesoSessionResolver accesoSessionResolver) {
         this.consignatarioService = consignatarioService;
         this.currentUserService = currentUserService;
+        this.accesoSessionResolver = accesoSessionResolver;
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('CONSIGNATARIOS_READ')")
+    @PreAuthorize("hasAnyAuthority('CONSIGNATARIOS_READ', 'ACCESO_ENLACE_CONSIGNATARIOS_READ')")
     @Operation(summary = "Listar mis consignatarios", description = "Obtiene los consignatarios asociados al usuario autenticado")
     @ApiResponse(responseCode = "200", description = "Listado de consignatarios")
     public ResponseEntity<List<ConsignatarioDTO>> findAll() {
+        if (accesoSessionResolver.isEnlaceSession()) {
+            return ResponseEntity.ok(
+                    consignatarioService.findByIds(accesoSessionResolver.consignatarioScope()));
+        }
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
         return ResponseEntity.ok(consignatarioService.findAllByUsuarioId(usuarioId));
     }
@@ -58,10 +66,14 @@ public class ConsignatarioController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('CONSIGNATARIOS_READ')")
+    @PreAuthorize("hasAnyAuthority('CONSIGNATARIOS_READ', 'ACCESO_ENLACE_CONSIGNATARIOS_READ')")
     @Operation(summary = "Obtener consignatario por ID", description = "Consulta el detalle de un consignatario del cliente")
     @ApiResponse(responseCode = "200", description = "Consignatario encontrado")
     public ResponseEntity<ConsignatarioDTO> findById(@Parameter(description = "ID del consignatario") @PathVariable Long id) {
+        if (accesoSessionResolver.isEnlaceSession()) {
+            return ResponseEntity.ok(
+                    consignatarioService.findByIdInScope(id, accesoSessionResolver.consignatarioScope()));
+        }
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
         return ResponseEntity.ok(consignatarioService.findByIdAndUsuarioId(id, usuarioId));
     }

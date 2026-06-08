@@ -32,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useEliminarMiGuia, useMiGuia, useMiGuiaPiezas } from '@/hooks/useMisGuias';
+import { useAuthStore } from '@/stores/authStore';
 import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
 import type { EstadoGuiaMaster } from '@/types/guia-master';
 import type { Paquete } from '@/types/paquete';
@@ -57,6 +58,8 @@ export function MiGuiaDetailPage() {
   const { data: guia, isLoading, error } = useMiGuia(id);
   const { data: piezas, isLoading: loadingPiezas } = useMiGuiaPiezas(id);
   const { data: estadosPunto } = useEstadosRastreoPorPunto();
+  // Solo lectura para sesiones por enlace de acceso (sin permiso de escritura).
+  const canEditar = useAuthStore((s) => s.hasPermission('MIS_GUIAS_CREATE'));
   const eliminar = useEliminarMiGuia();
   const enLoteRecepcionId = estadosPunto?.estadoRastreoEnLoteRecepcionId;
   const piezaEnRecepcionBodega = (p: Paquete) =>
@@ -137,30 +140,32 @@ export function MiGuiaDetailPage() {
               <p className="text-xs text-muted-foreground">{estadoDescripcion}</p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => editable && setEditing(true)}
-              disabled={!editable}
-              title={editable ? 'Editar guía' : TOOLTIP_NO_EDITABLE}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={() => editable && setDeleting(true)}
-              disabled={!editable || eliminar.isPending}
-              title={editable ? 'Eliminar guía' : TOOLTIP_NO_EDITABLE}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar
-            </Button>
-          </div>
+          {canEditar && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => editable && setEditing(true)}
+                disabled={!editable}
+                title={editable ? 'Editar guía' : TOOLTIP_NO_EDITABLE}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => editable && setDeleting(true)}
+                disabled={!editable || eliminar.isPending}
+                title={editable ? 'Eliminar guía' : TOOLTIP_NO_EDITABLE}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </Button>
+            </div>
+          )}
         </div>
 
         <PiezasProgress

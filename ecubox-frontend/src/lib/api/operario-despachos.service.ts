@@ -11,6 +11,7 @@ import type {
   TamanioSaca,
 } from '@/types/despacho';
 import type { Consignatario, ConsignatarioRequest } from '@/types/consignatario';
+import type { UsuarioDTO } from '@/types/usuario';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import type { Paquete } from '@/types/paquete';
 import type { PageResponse, PageQuery } from '@/types/page';
@@ -70,6 +71,29 @@ export async function getConsignatariosOperario(params?: {
 
 export async function getConsignatarioOperario(id: number): Promise<Consignatario> {
   const { data } = await apiClient.get<Consignatario>(`${DEST}/${id}`);
+  return data;
+}
+
+export async function getClientesOperario(): Promise<UsuarioDTO[]> {
+  const { data } = await apiClient.get<UsuarioDTO[]>(`${DEST}/clientes`);
+  return data;
+}
+
+export async function createConsignatarioOperario(
+  body: ConsignatarioRequest
+): Promise<Consignatario> {
+  const { data } = await apiClient.post<Consignatario>(DEST, body);
+  return data;
+}
+
+export async function asignarConsignatariosClienteOperario(body: {
+  clienteUsuarioId: number;
+  consignatarioIds: number[];
+}): Promise<Consignatario[]> {
+  const { data } = await apiClient.patch<Consignatario[]>(
+    `${DEST}/asignar-cliente`,
+    body,
+  );
   return data;
 }
 
@@ -221,4 +245,3 @@ export async function getEstadosAplicablesDespacho(): Promise<EstadoRastreo[]> {
   const { data } = await apiClient.get<EstadoRastreo[]>(`${DESPACHOS}/estados-aplicables`);
   return data;
 }
-

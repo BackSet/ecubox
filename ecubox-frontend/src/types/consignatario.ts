@@ -17,4 +17,5 @@ export interface ConsignatarioRequest {
   provincia?: string;
   canton?: string;
   codigo?: string;
+  clienteUsuarioId?: number;
 }

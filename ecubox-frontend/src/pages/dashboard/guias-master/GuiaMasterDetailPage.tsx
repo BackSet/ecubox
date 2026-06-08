@@ -12,7 +12,6 @@ import {
   History,
   Loader2,
   Pencil,
-  RefreshCw,
   RotateCcw,
   Truck,
   UserRound,
@@ -67,7 +66,6 @@ import {
   useGuiaMasterPiezas,
   useMarcarGuiaMasterEnRevision,
   useReabrirGuiaMaster,
-  useRecalcularGuiaMaster,
   useSalirGuiaMasterDeRevision,
 } from '@/hooks/useGuiasMaster';
 import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
@@ -96,7 +94,6 @@ export function GuiaMasterDetailPage() {
   const { data: guia, isLoading, error } = useGuiaMaster(id);
   const { data: piezas, isLoading: loadingPiezas } = useGuiaMasterPiezas(id);
   const { data: estadosPunto } = useEstadosRastreoPorPunto();
-  const recalcular = useRecalcularGuiaMaster();
   const enLoteRecepcionId = estadosPunto?.estadoRastreoEnLoteRecepcionId;
   const piezaEnRecepcionBodega = (p: Paquete) =>
     enLoteRecepcionId != null &&
@@ -191,33 +188,6 @@ export function GuiaMasterDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {!cerrada && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await notify.run(recalcular.mutateAsync(id), {
-                      loading: 'Recalculando estado...',
-                      success: 'Estado recalculado',
-                      error: 'No se pudo recalcular el estado',
-                    });
-                  } catch {
-                    // notificado por notify.run
-                  }
-                }}
-                disabled={recalcular.isPending}
-                title="Vuelve a calcular el estado a partir de las piezas registradas"
-              >
-                {recalcular.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                )}
-                {recalcular.isPending ? 'Recalculando...' : 'Recalcular'}
-              </Button>
-            )}
             {puedeMarcarRevision && (
               <Button
                 type="button"

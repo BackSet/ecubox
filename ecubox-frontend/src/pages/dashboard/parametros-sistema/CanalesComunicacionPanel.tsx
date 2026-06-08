@@ -34,6 +34,7 @@ export interface CanalesComunicacionPanelProps {
   setCanalesLocal: Dispatch<SetStateAction<CanalesComunicacion>>;
   dirty: boolean;
   saving: boolean;
+  canWrite: boolean;
   onSave: () => void | Promise<void>;
 }
 
@@ -44,6 +45,7 @@ export function CanalesComunicacionPanel({
   setCanalesLocal,
   dirty,
   saving,
+  canWrite,
   onSave,
 }: CanalesComunicacionPanelProps) {
   const updateCanal = (key: CanalComunicacionKey, patch: Partial<{ valor: string; visible: boolean }>) => {
@@ -123,6 +125,7 @@ export function CanalesComunicacionPanel({
                     onChange={(e) => updateCanal(key, { valor: e.target.value })}
                     placeholder={CANAL_PLACEHOLDERS[key]}
                     className="font-mono text-sm"
+                    disabled={!canWrite}
                   />
                   {key !== 'email' && key !== 'telefono' && (
                     <p className="text-[11px] text-[var(--color-muted-foreground)]">
@@ -145,7 +148,7 @@ export function CanalesComunicacionPanel({
                   <Switch
                     id={`canal-visible-${key}`}
                     checked={hasValor && item.visible}
-                    disabled={!hasValor}
+                    disabled={!canWrite || !hasValor}
                     onCheckedChange={(checked) => updateCanal(key, { visible: checked })}
                   />
                 </div>
@@ -179,7 +182,7 @@ export function CanalesComunicacionPanel({
       </SurfaceCard>
 
       <div className="flex justify-end">
-        <Button type="button" disabled={!dirty || saving} onClick={() => void onSave()}>
+        <Button type="button" disabled={!canWrite || !dirty || saving} onClick={() => void onSave()}>
           <Save className="mr-2 h-4 w-4" />
           {saving ? 'Guardando…' : 'Guardar cambios'}
         </Button>

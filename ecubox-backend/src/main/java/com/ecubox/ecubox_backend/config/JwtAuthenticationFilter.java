@@ -1,5 +1,7 @@
 package com.ecubox.ecubox_backend.config;
 
+import com.ecubox.ecubox_backend.security.AccesoEnlaceAuthorities;
+import com.ecubox.ecubox_backend.security.AccesoEnlacePrincipal;
 import com.ecubox.ecubox_backend.security.CustomUserDetailsService;
 import com.ecubox.ecubox_backend.service.JwtService;
 import jakarta.servlet.FilterChain;
@@ -42,13 +44,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         if (jwtService.isTokenValid(token)) {
-            String username = jwtService.extractUsername(token);
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-            var auth = new UsernamePasswordAuthenticationToken(
-                    userDetails,
-                    null,
-                    userDetails.getAuthorities()
-            );
+            UsernamePasswordAuthenticationToken auth;
+            if (jwtService.isAccesoEnlaceToken(token)) {
+                // Sesión por enlace: NO se carga ningún usuario. El principal solo
+                // identifica el enlace y recibe permisos propios de solo lectura.
+                AccesoEnlacePrincipal principal =
+                        new AccesoEnlacePrincipal(jwtService.extractEnlaceId(token));
+                auth = new UsernamePasswordAuthenticationToken(
+                        principal, null, AccesoEnlaceAuthorities.AUTHORITIES);
+            } else {
+                String username = jwtService.extractUsername(token);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                auth = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities());
+            }
             auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(auth);
         }

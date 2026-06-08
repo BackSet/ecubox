@@ -17,6 +17,7 @@ import {
   Sparkles,
   UserPlus,
   UserRound,
+  Users,
 } from 'lucide-react';
 import {
   Dialog,
@@ -39,6 +40,8 @@ import {
 } from '@/hooks/useConsignatarios';
 import {
   useConsignatarioOperario,
+  useClientesOperario,
+  useCreateConsignatarioOperario,
   useUpdateConsignatarioOperario,
 } from '@/hooks/useOperarioDespachos';
 import { sugerirCodigo } from '@/lib/api/consignatarios.service';
@@ -46,6 +49,7 @@ import { useAuthStore } from '@/stores/authStore';
 import type { ConsignatarioRequest } from '@/types/consignatario';
 import { consignatarioFormSchema } from '@/lib/schemas/maestros';
 import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
+import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { cn } from '@/lib/utils';
 
 type FormValues = z.infer<typeof consignatarioFormSchema>;
@@ -70,11 +74,13 @@ export function ConsignatarioForm({
   const hasConsignatariosOperarioPerm = useAuthStore((s) =>
     s.hasPermission('CONSIGNATARIOS_OPERARIO'),
   );
-  const useOpApi = Boolean(useOperarioApi && isEdit && id != null);
+  const useOpApi = Boolean(useOperarioApi && hasConsignatariosOperarioPerm);
   const { data: consignatarioMis } = useConsignatario(id, !useOpApi);
-  const { data: consignatarioOp } = useConsignatarioOperario(useOpApi ? id : undefined);
+  const { data: consignatarioOp } = useConsignatarioOperario(useOpApi && isEdit ? id : undefined);
   const consignatario = useOpApi ? consignatarioOp : consignatarioMis;
+  const { data: clientes = [] } = useClientesOperario(hasConsignatariosOperarioPerm);
   const createMutation = useCreateConsignatario();
+  const createOperarioMutation = useCreateConsignatarioOperario();
   const updateMutation = useUpdateConsignatario();
   const updateOperarioMutation = useUpdateConsignatarioOperario();
 
@@ -88,6 +94,7 @@ export function ConsignatarioForm({
       provincia: '',
       canton: '',
       codigo: '',
+      clienteUsuarioId: undefined,
     },
   });
 
@@ -100,6 +107,7 @@ export function ConsignatarioForm({
         provincia: consignatario.provincia ?? '',
         canton: consignatario.canton ?? '',
         codigo: consignatario.codigo ?? '',
+        clienteUsuarioId: consignatario.clienteUsuarioId ?? undefined,
       });
     }
   }, [isEdit, consignatario, form]);
@@ -110,6 +118,7 @@ export function ConsignatarioForm({
   const watchedProvincia = form.watch('provincia');
   const watchedCanton = form.watch('canton');
   const watchedCodigo = form.watch('codigo');
+  const watchedClienteUsuarioId = form.watch('clienteUsuarioId');
 
   const puedeGenerarCodigo = Boolean(
     (watchedNombre?.trim()?.length ?? 0) >= 3 && (watchedCanton?.trim()?.length ?? 0) > 0,
@@ -169,6 +178,9 @@ export function ConsignatarioForm({
     if (isEdit && hasConsignatariosOperarioPerm && values.codigo?.trim()) {
       body.codigo = values.codigo.trim();
     }
+    if (hasConsignatariosOperarioPerm && values.clienteUsuarioId != null) {
+      body.clienteUsuarioId = values.clienteUsuarioId;
+    }
     try {
       if (isEdit && id != null) {
         if (useOpApi) {
@@ -178,7 +190,11 @@ export function ConsignatarioForm({
         }
         toast.success('Consignatario actualizado');
       } else {
-        await createMutation.mutateAsync(body);
+        if (useOpApi) {
+          await createOperarioMutation.mutateAsync(body);
+        } else {
+          await createMutation.mutateAsync(body);
+        }
         toast.success('Consignatario creado');
       }
       onSuccess();
@@ -189,6 +205,7 @@ export function ConsignatarioForm({
 
   const loading =
     createMutation.isPending ||
+    createOperarioMutation.isPending ||
     updateMutation.isPending ||
     updateOperarioMutation.isPending;
 
@@ -250,6 +267,38 @@ export function ConsignatarioForm({
                 trazabilidad del envío.
               </span>
             </div>
+          )}
+
+          {hasConsignatariosOperarioPerm && (
+            <FormSection
+              icon={<Users className="h-4 w-4" />}
+              title="Cliente dueño"
+              description="Opcional. Si lo dejas vacío, podrás asignarlo después con la acción masiva."
+            >
+              <FormField
+                label="Cliente"
+                hint="Déjalo vacío cuando aún no exista el usuario dueño o quieras asignarlo más adelante."
+              >
+                <SearchableCombobox
+                  value={watchedClienteUsuarioId}
+                  onChange={(value) =>
+                    form.setValue(
+                      'clienteUsuarioId',
+                      typeof value === 'number' ? value : undefined,
+                      { shouldValidate: true, shouldDirty: true },
+                    )
+                  }
+                  options={clientes}
+                  getKey={(u) => u.id}
+                  getLabel={(u) => u.email ? `${u.username} · ${u.email}` : u.username}
+                  getSearchText={(u) => `${u.username} ${u.email ?? ''}`}
+                  placeholder="Selecciona cliente"
+                  searchPlaceholder="Buscar cliente..."
+                  emptyMessage="No hay clientes"
+                  clearable
+                />
+              </FormField>
+            </FormSection>
           )}
 
           {/* Sección: Datos personales */}

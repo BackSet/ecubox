@@ -18,7 +18,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { usePermisosPaginados } from '@/hooks/usePermisos';
+import { usePermisos, usePermisosPaginados } from '@/hooks/usePermisos';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { ListToolbar } from '@/components/ListToolbar';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
@@ -55,6 +55,18 @@ const MODULO_TODOS = '__todos__';
 const TIPO_TODOS = '__todos__';
 
 const MODULO_LABELS: Record<string, string> = {
+  ACCESO_ENLACE: 'Enlace de acceso',
+  ACCESO_ENLACES: 'Enlaces de acceso',
+  INICIO: 'Inicio',
+  CASILLERO: 'Casillero',
+  PERFIL: 'Perfil',
+  PARAMETROS_SISTEMA: 'Parámetros del sistema',
+  MENSAJES: 'Mensajes operativos',
+  CANALES_COMUNICACION: 'Canales de comunicación',
+  TEMA_TEMPORADA: 'Tema de temporada',
+  CONFIG_TARIFA: 'Tarifas de distribución',
+  LOTES_RECEPCION: 'Lotes de recepción',
+  TRACKING_PROJECTOR: 'Monitoreo de tracking',
   USUARIOS: 'Usuarios',
   ROLES: 'Roles',
   PERMISOS: 'Permisos',
@@ -70,6 +82,10 @@ const MODULO_LABELS: Record<string, string> = {
   TRACKING: 'Tracking',
   REPORTES: 'Reportes',
   ESTADISTICAS: 'Estadísticas',
+  ESTADOS_RASTREO: 'Estados de rastreo',
+  LIQUIDACION: 'Liquidación',
+  PUNTOS_ENTREGA: 'Puntos de entrega',
+  MIS_GUIAS: 'Mis guías',
 };
 
 const MODULO_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -84,9 +100,34 @@ const MODULO_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   DESPACHOS: BookOpen,
   TARIFA: Sparkles,
   ESTADISTICAS: ChartNoAxesCombined,
+  ACCESO_ENLACE: Key,
+  ACCESO_ENLACES: Key,
+  PARAMETROS_SISTEMA: Layers,
+  MENSAJES: BookOpen,
+  CANALES_COMUNICACION: Layers,
+  TEMA_TEMPORADA: Sparkles,
+  CONFIG_TARIFA: Sparkles,
+  LOTES_RECEPCION: BookOpen,
+  TRACKING_PROJECTOR: ChartNoAxesCombined,
 };
 
 function getModulo(codigo: string): string {
+  if (codigo.startsWith('ACCESO_ENLACE_')) return 'ACCESO_ENLACE';
+  if (codigo.startsWith('ACCESO_ENLACES_')) return 'ACCESO_ENLACES';
+  if (codigo.startsWith('PARAMETROS_SISTEMA_')) return 'PARAMETROS_SISTEMA';
+  if (codigo.startsWith('MENSAJE_')) return 'MENSAJES';
+  if (codigo.startsWith('CANALES_COMUNICACION_')) return 'CANALES_COMUNICACION';
+  if (codigo.startsWith('TEMA_TEMPORADA_')) return 'TEMA_TEMPORADA';
+  if (codigo.startsWith('CONFIG_TARIFA_')) return 'CONFIG_TARIFA';
+  if (codigo.startsWith('LOTES_RECEPCION_')) return 'LOTES_RECEPCION';
+  if (codigo.startsWith('TRACKING_PROJECTOR_')) return 'TRACKING_PROJECTOR';
+  if (codigo.startsWith('ESTADOS_RASTREO_')) return 'ESTADOS_RASTREO';
+  if (codigo.startsWith('LIQUIDACION_CONSOLIDADO_')) return 'LIQUIDACION';
+  if (codigo.startsWith('PUNTOS_ENTREGA_')) return 'PUNTOS_ENTREGA';
+  if (codigo.startsWith('MIS_GUIAS_')) return 'MIS_GUIAS';
+  if (codigo.startsWith('GUIAS_MASTER_')) return 'GUIAS';
+  if (codigo.startsWith('ENVIOS_CONSOLIDADOS_')) return 'ENVIOS';
+  if (codigo.startsWith('COURIERS_ENTREGA_')) return 'COURIERS_ENTREGA';
   const idx = codigo.indexOf('_');
   return idx > 0 ? codigo.slice(0, idx) : codigo;
 }
@@ -163,51 +204,62 @@ export function PermisoList() {
     error,
     refetch,
   } = usePermisosPaginados({ q: q.trim() || undefined, page, size });
+  const {
+    data: permisosCompletos = [],
+    isLoading: loadingPermisosCompletos,
+  } = usePermisos();
   const [moduloFiltro, setModuloFiltro] = useState<string>(MODULO_TODOS);
   const [tipoFiltro, setTipoFiltro] = useState<string>(TIPO_TODOS);
   const [vista, setVista] = useState<Vista>('tabla');
 
-  const allPermisos = useMemo<PermisoDTO[]>(() => data?.content ?? [], [data]);
+  const pagePermisos = useMemo<PermisoDTO[]>(() => data?.content ?? [], [data]);
   const totalElements = data?.totalElements ?? 0;
   const totalPages = data?.totalPages ?? 0;
 
   const stats = useMemo(() => {
-    const total = totalElements;
+    const total = permisosCompletos.length || totalElements;
     const modulos = new Set<string>();
     let lectura = 0;
     let escritura = 0;
-    for (const p of allPermisos) {
+    for (const p of permisosCompletos) {
       modulos.add(getModulo(p.codigo));
       const t = getTipoAccion(p.codigo);
       if (t === 'READ') lectura++;
       else if (t === 'CREATE' || t === 'UPDATE' || t === 'DELETE' || t === 'WRITE') escritura++;
     }
     return { total, modulos: modulos.size, lectura, escritura };
-  }, [allPermisos, totalElements]);
+  }, [permisosCompletos, totalElements]);
 
   const modulosOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const p of allPermisos) set.add(getModulo(p.codigo));
+    for (const p of permisosCompletos) set.add(getModulo(p.codigo));
     return Array.from(set).sort();
-  }, [allPermisos]);
+  }, [permisosCompletos]);
 
   const tiposOptions: TipoAccion[] = useMemo(() => {
     const set = new Set<TipoAccion>();
-    for (const p of allPermisos) set.add(getTipoAccion(p.codigo));
+    for (const p of permisosCompletos) set.add(getTipoAccion(p.codigo));
     const order: TipoAccion[] = ['READ', 'CREATE', 'UPDATE', 'DELETE', 'WRITE', 'OTRO'];
     return order.filter((t) => set.has(t));
-  }, [allPermisos]);
+  }, [permisosCompletos]);
 
   const list = useMemo(() => {
-    let raw = allPermisos;
-    if (moduloFiltro !== MODULO_TODOS) {
-      raw = raw.filter((p) => getModulo(p.codigo) === moduloFiltro);
-    }
+    const hasClientFilter = moduloFiltro !== MODULO_TODOS || tipoFiltro !== TIPO_TODOS;
+    let raw = hasClientFilter ? permisosCompletos : pagePermisos;
+    if (moduloFiltro !== MODULO_TODOS) raw = raw.filter((p) => getModulo(p.codigo) === moduloFiltro);
     if (tipoFiltro !== TIPO_TODOS) {
       raw = raw.filter((p) => getTipoAccion(p.codigo) === tipoFiltro);
     }
+    const query = q.trim().toLowerCase();
+    if (hasClientFilter && query) {
+      raw = raw.filter(
+        (p) =>
+          p.codigo.toLowerCase().includes(query) ||
+          (p.descripcion?.toLowerCase().includes(query) ?? false),
+      );
+    }
     return raw;
-  }, [allPermisos, moduloFiltro, tipoFiltro]);
+  }, [pagePermisos, permisosCompletos, moduloFiltro, tipoFiltro, q]);
 
   const grupos = useMemo(() => {
     const map = new Map<string, PermisoDTO[]>();
@@ -258,7 +310,7 @@ export function PermisoList() {
         />
       )}
 
-      {isLoading ? (
+      {isLoading || loadingPermisosCompletos ? (
         <KpiCardsGridSkeleton count={4} withHint />
       ) : (
       <KpiCardsGrid>
@@ -293,7 +345,7 @@ export function PermisoList() {
       </KpiCardsGrid>
       )}
 
-      {isLoading ? (
+      {isLoading || loadingPermisosCompletos ? (
         <FiltrosBarSkeleton chips={0} filters={2} />
       ) : (
       <FiltrosBar
@@ -382,7 +434,9 @@ export function PermisoList() {
               </div>
               <span className="text-xs text-muted-foreground">
                 <span className="font-semibold text-foreground">{list.length}</span> de{' '}
-                {totalElements}
+                {moduloFiltro !== MODULO_TODOS || tipoFiltro !== TIPO_TODOS
+                  ? permisosCompletos.length
+                  : totalElements}
               </span>
             </div>
           </>
@@ -390,7 +444,7 @@ export function PermisoList() {
       />
       )}
 
-      {isLoading ? (
+      {isLoading || loadingPermisosCompletos ? (
         <ListTableShell>
           <Table className="min-w-[760px]">
             <TableHeader>
@@ -543,7 +597,7 @@ export function PermisoList() {
         </div>
       )}
 
-      {totalElements > 0 && (
+      {totalElements > 0 && moduloFiltro === MODULO_TODOS && tipoFiltro === TIPO_TODOS && (
         <TablePagination
           page={page}
           size={size}

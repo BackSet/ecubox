@@ -260,19 +260,18 @@ function insertAtCursor(
 // ============================================================================
 
 export function ParametrosSistemaPage() {
-  const { hasPermission, hasRole } = useAuthStore();
+  const { hasPermission } = useAuthStore();
 
-  const canSeeTarifaCalculadora =
-    hasPermission('TARIFA_CALCULADORA_READ') || hasRole('ADMIN') || hasRole('OPERARIO');
-
-  const canSeeTarifaDistribucion =
-    hasPermission('CONFIG_TARIFA_DISTRIBUCION_WRITE') || hasRole('ADMIN') || hasRole('OPERARIO');
-
-  const canSeeEstadosRastreo =
-    hasPermission('ESTADOS_RASTREO_READ') || hasRole('ADMIN') || hasRole('OPERARIO');
-
-  const canSeeTemaTemporada =
-    hasPermission('TEMA_TEMPORADA_WRITE') || hasRole('ADMIN') || hasRole('OPERARIO');
+  const canSeeWhatsapp = hasPermission('MENSAJE_WHATSAPP_DESPACHO_READ');
+  const canWriteWhatsapp = hasPermission('MENSAJE_WHATSAPP_DESPACHO_WRITE');
+  const canSeeAgencia = hasPermission('MENSAJE_AGENCIA_EEUU_READ');
+  const canWriteAgencia = hasPermission('MENSAJE_AGENCIA_EEUU_WRITE');
+  const canSeeCanales = hasPermission('CANALES_COMUNICACION_READ');
+  const canWriteCanales = hasPermission('CANALES_COMUNICACION_WRITE');
+  const canSeeTarifaCalculadora = hasPermission('TARIFA_CALCULADORA_READ');
+  const canSeeTarifaDistribucion = hasPermission('CONFIG_TARIFA_DISTRIBUCION_READ');
+  const canSeeEstadosRastreo = hasPermission('ESTADOS_RASTREO_READ');
+  const canSeeTemaTemporada = hasPermission('TEMA_TEMPORADA_READ');
 
   const tabs: TabMeta[] = useMemo(
     () => [
@@ -282,7 +281,7 @@ export function ParametrosSistemaPage() {
         shortLabel: 'WhatsApp',
         description: 'Plantilla del mensaje que se envía al cliente al despachar.',
         icon: MessageCircle,
-        visible: true,
+        visible: canSeeWhatsapp,
       },
       {
         key: 'mensaje-agencia-eeuu',
@@ -290,7 +289,7 @@ export function ParametrosSistemaPage() {
         shortLabel: 'Casillero',
         description: 'Dirección, horarios e instrucciones que ven los clientes.',
         icon: MapPin,
-        visible: true,
+        visible: canSeeAgencia,
       },
       {
         key: 'canales-comunicacion',
@@ -298,7 +297,7 @@ export function ParametrosSistemaPage() {
         shortLabel: 'Contacto',
         description: 'Correo, teléfono y redes sociales visibles en el sitio público.',
         icon: Share2,
-        visible: true,
+        visible: canSeeCanales,
       },
       {
         key: 'tema-temporada',
@@ -341,7 +340,15 @@ export function ParametrosSistemaPage() {
         visible: canSeeEstadosRastreo,
       },
     ],
-    [canSeeEstadosRastreo, canSeeTarifaCalculadora, canSeeTarifaDistribucion, canSeeTemaTemporada],
+    [
+      canSeeAgencia,
+      canSeeCanales,
+      canSeeEstadosRastreo,
+      canSeeTarifaCalculadora,
+      canSeeTarifaDistribucion,
+      canSeeTemaTemporada,
+      canSeeWhatsapp,
+    ],
   );
 
   const visibleTabs = useMemo(() => tabs.filter((t) => t.visible), [tabs]);
@@ -358,7 +365,7 @@ export function ParametrosSistemaPage() {
 
   // Estado lifted para los editores con dirty state
   const { data: dataWhats, isLoading: loadingWhats, error: errorWhats } =
-    useMensajeWhatsAppDespacho();
+    useMensajeWhatsAppDespacho({ enabled: canSeeWhatsapp });
   const updateWhatsMutation = useUpdateMensajeWhatsAppDespacho();
   const [plantillaLocal, setPlantillaLocal] = useState('');
   useEffect(() => {
@@ -366,7 +373,7 @@ export function ParametrosSistemaPage() {
   }, [dataWhats]);
 
   const { data: dataAgencia, isLoading: loadingAgencia, error: errorAgencia } =
-    useMensajeAgenciaEeuu();
+    useMensajeAgenciaEeuu({ enabled: canSeeAgencia });
   const updateAgenciaMutation = useUpdateMensajeAgenciaEeuu();
   const [mensajeAgenciaLocal, setMensajeAgenciaLocal] = useState('');
   useEffect(() => {
@@ -379,7 +386,7 @@ export function ParametrosSistemaPage() {
   const agenciaDirty = mensajeAgenciaLocal !== mensajeAgenciaOriginal;
 
   const { data: dataCanales, isLoading: loadingCanales, error: errorCanales } =
-    useCanalesComunicacion();
+    useCanalesComunicacion({ enabled: canSeeCanales });
   const updateCanalesMutation = useUpdateCanalesComunicacion();
   const [canalesLocal, setCanalesLocal] = useState(emptyCanalesComunicacion);
   useEffect(() => {
@@ -630,6 +637,7 @@ export function ParametrosSistemaPage() {
               plantillaOriginal={plantillaOriginal}
               dirty={whatsappDirty}
               saving={updateWhatsMutation.isPending}
+              canWrite={canWriteWhatsapp}
               onSave={handleGuardarWhatsapp}
             />
           )}
@@ -643,6 +651,7 @@ export function ParametrosSistemaPage() {
               mensajeOriginal={mensajeAgenciaOriginal}
               dirty={agenciaDirty}
               saving={updateAgenciaMutation.isPending}
+              canWrite={canWriteAgencia}
               onSave={handleGuardarAgencia}
             />
           )}
@@ -655,6 +664,7 @@ export function ParametrosSistemaPage() {
               setCanalesLocal={setCanalesLocal}
               dirty={canalesDirty}
               saving={updateCanalesMutation.isPending}
+              canWrite={canWriteCanales}
               onSave={handleGuardarCanales}
             />
           )}
@@ -775,6 +785,7 @@ interface WhatsAppDespachoPanelProps {
   plantillaOriginal: string;
   dirty: boolean;
   saving: boolean;
+  canWrite: boolean;
   onSave: () => Promise<void>;
 }
 
@@ -786,6 +797,7 @@ function WhatsAppDespachoPanel({
   plantillaOriginal,
   dirty,
   saving,
+  canWrite,
   onSave,
 }: WhatsAppDespachoPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -976,7 +988,7 @@ function WhatsAppDespachoPanel({
           <FormatHelp />
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <Button onClick={onSave} disabled={saving || !dirty}>
+            <Button onClick={onSave} disabled={!canWrite || saving || !dirty}>
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1033,6 +1045,7 @@ interface AgenciaEeuuPanelProps {
   mensajeOriginal: string;
   dirty: boolean;
   saving: boolean;
+  canWrite: boolean;
   onSave: () => Promise<void>;
 }
 
@@ -1044,6 +1057,7 @@ function AgenciaEeuuPanel({
   mensajeOriginal,
   dirty,
   saving,
+  canWrite,
   onSave,
 }: AgenciaEeuuPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1127,7 +1141,7 @@ function AgenciaEeuuPanel({
           <FormatHelp />
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <Button onClick={onSave} disabled={saving || !dirty}>
+            <Button onClick={onSave} disabled={!canWrite || saving || !dirty}>
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1338,12 +1352,10 @@ function EstadosRastreoView() {
 
   const [search, setSearch] = useState('');
 
-  const { hasPermission, hasRole } = useAuthStore();
+  const { hasPermission } = useAuthStore();
   const canWrite =
     hasPermission('ESTADOS_RASTREO_CREATE') ||
-    hasPermission('ESTADOS_RASTREO_UPDATE') ||
-    hasRole('ADMIN') ||
-    hasRole('OPERARIO');
+    hasPermission('ESTADOS_RASTREO_UPDATE');
 
   const validateEstadoForm = (payload: EstadoRastreoRequest) => {
     const parsed = estadoRastreoFormSchema.safeParse({

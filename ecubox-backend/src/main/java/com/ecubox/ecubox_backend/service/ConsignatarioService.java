@@ -2,10 +2,14 @@ package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.ConsignatarioDTO;
 import com.ecubox.ecubox_backend.dto.ConsignatarioRequest;
+import com.ecubox.ecubox_backend.dto.UsuarioDTO;
 import com.ecubox.ecubox_backend.entity.Consignatario;
+import com.ecubox.ecubox_backend.entity.Rol;
 import com.ecubox.ecubox_backend.entity.Usuario;
+import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.ConsignatarioRepository;
+import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.UsuarioRepository;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
@@ -19,6 +23,7 @@ public class ConsignatarioService {
 
     private final ConsignatarioRepository consignatarioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final GuiaMasterRepository guiaMasterRepository;
     private final PaqueteRepository paqueteRepository;
     private final PaqueteService paqueteService;
     private final ConsignatarioVersionService consignatarioVersionService;
@@ -27,6 +32,7 @@ public class ConsignatarioService {
 
     public ConsignatarioService(ConsignatarioRepository consignatarioRepository,
                                     UsuarioRepository usuarioRepository,
+                                    GuiaMasterRepository guiaMasterRepository,
                                     PaqueteRepository paqueteRepository,
                                     PaqueteService paqueteService,
                                     ConsignatarioVersionService consignatarioVersionService,
@@ -34,6 +40,7 @@ public class ConsignatarioService {
                                     CodigoSecuenciaService codigoSecuenciaService) {
         this.consignatarioRepository = consignatarioRepository;
         this.usuarioRepository = usuarioRepository;
+        this.guiaMasterRepository = guiaMasterRepository;
         this.paqueteRepository = paqueteRepository;
         this.paqueteService = paqueteService;
         this.consignatarioVersionService = consignatarioVersionService;
@@ -58,12 +65,47 @@ public class ConsignatarioService {
     }
 
     @Transactional(readOnly = true)
+    public List<UsuarioDTO> findClientesForOperario() {
+        return usuarioRepository.findAllClientesWithRoles().stream()
+                .map(u -> UsuarioDTO.builder()
+                        .id(u.getId())
+                        .username(u.getUsername())
+                        .email(u.getEmail())
+                        .enabled(u.getEnabled())
+                        .roles(u.getRoles().stream().map(Rol::getNombre).toList())
+                        .build())
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public ConsignatarioDTO findByIdAndUsuarioId(Long id, Long usuarioId) {
         Consignatario d = consignatarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", id));
-        if (!d.getUsuario().getId().equals(usuarioId)) {
+        if (d.getUsuario() == null || !d.getUsuario().getId().equals(usuarioId)) {
             throw new ResourceNotFoundException("Destinatario", id);
         }
+        return toDTO(d);
+    }
+
+    /** Para sesiones por enlace: lista de consignatarios del conjunto autorizado. */
+    @Transactional(readOnly = true)
+    public List<ConsignatarioDTO> findByIds(java.util.Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return consignatarioRepository.findAllById(ids).stream()
+                .sorted(java.util.Comparator.comparing(
+                        Consignatario::getNombre, String.CASE_INSENSITIVE_ORDER))
+                .map(this::toDTO)
+                .toList();
+    }
+
+    /** Detalle de un consignatario solo si pertenece al conjunto autorizado. */
+    @Transactional(readOnly = true)
+    public ConsignatarioDTO findByIdInScope(Long id, java.util.Collection<Long> scope) {
+        if (scope == null || !scope.contains(id)) {
+            throw new ResourceNotFoundException("Destinatario", id);
+        }
+        Consignatario d = consignatarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Destinatario", id));
         return toDTO(d);
     }
 
@@ -72,6 +114,30 @@ public class ConsignatarioService {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", usuarioId));
         String codigo = resolveCodigo(usuarioId, request.getCodigo(), request.getNombre(), request.getCanton(), null);
+        Consignatario d = Consignatario.builder()
+                .usuario(usuario)
+                .nombre(request.getNombre())
+                .telefono(request.getTelefono())
+                .direccion(request.getDireccion())
+                .provincia(request.getProvincia())
+                .canton(request.getCanton())
+                .codigo(codigo)
+                .build();
+        d = consignatarioRepository.save(d);
+        consignatarioVersionService.crearNuevaVersion(d, currentUserService.getCurrentUsuarioIdOrNull());
+        return toDTO(d);
+    }
+
+    /** Permite al operario crear un consignatario con o sin cliente dueño. */
+    @Transactional
+    public ConsignatarioDTO createByOperario(ConsignatarioRequest request) {
+        Long clienteUsuarioId = request.getClienteUsuarioId();
+        Usuario usuario = clienteUsuarioId != null
+                ? usuarioRepository.findById(clienteUsuarioId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Usuario", clienteUsuarioId))
+                : null;
+        Long codigoScopeUsuarioId = usuario != null ? usuario.getId() : null;
+        String codigo = resolveCodigo(codigoScopeUsuarioId, request.getCodigo(), request.getNombre(), request.getCanton(), null);
         Consignatario d = Consignatario.builder()
                 .usuario(usuario)
                 .nombre(request.getNombre())
@@ -97,7 +163,7 @@ public class ConsignatarioService {
     public ConsignatarioDTO update(Long usuarioId, Long id, boolean canEditCodigo, ConsignatarioRequest request) {
         Consignatario d = consignatarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", id));
-        if (!d.getUsuario().getId().equals(usuarioId)) {
+        if (d.getUsuario() == null || !d.getUsuario().getId().equals(usuarioId)) {
             throw new ResourceNotFoundException("Destinatario", id);
         }
         d.setNombre(request.getNombre());
@@ -119,7 +185,16 @@ public class ConsignatarioService {
     public ConsignatarioDTO updateByOperario(Long id, ConsignatarioRequest request) {
         Consignatario d = consignatarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", id));
-        String codigo = resolveCodigo(d.getUsuario().getId(), request.getCodigo(), request.getNombre(), request.getCanton(), id);
+        Usuario usuario = d.getUsuario();
+        if (request.getClienteUsuarioId() != null
+                && (usuario == null || !request.getClienteUsuarioId().equals(usuario.getId()))) {
+            usuario = usuarioRepository.findById(request.getClienteUsuarioId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario", request.getClienteUsuarioId()));
+            d.setUsuario(usuario);
+            sincronizarClienteGuiasDelConsignatario(d.getId(), usuario);
+        }
+        Long codigoScopeUsuarioId = usuario != null ? usuario.getId() : null;
+        String codigo = resolveCodigo(codigoScopeUsuarioId, request.getCodigo(), request.getNombre(), request.getCanton(), id);
         d.setNombre(request.getNombre());
         d.setTelefono(request.getTelefono());
         d.setDireccion(request.getDireccion());
@@ -132,10 +207,51 @@ public class ConsignatarioService {
     }
 
     @Transactional
+    public List<ConsignatarioDTO> asignarClienteByOperario(Long clienteUsuarioId, List<Long> consignatarioIds) {
+        if (clienteUsuarioId == null) {
+            throw new BadRequestException("Seleccione el cliente dueño de los consignatarios");
+        }
+        if (consignatarioIds == null || consignatarioIds.isEmpty()) {
+            throw new BadRequestException("Debe indicar al menos un consignatario");
+        }
+        Usuario usuario = usuarioRepository.findById(clienteUsuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", clienteUsuarioId));
+        List<Long> ids = consignatarioIds.stream()
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            throw new BadRequestException("Debe indicar al menos un consignatario");
+        }
+        List<Consignatario> consignatarios = consignatarioRepository.findAllById(ids);
+        if (consignatarios.size() != ids.size()) {
+            var encontrados = consignatarios.stream().map(Consignatario::getId).collect(java.util.stream.Collectors.toSet());
+            Long faltante = ids.stream().filter(id -> !encontrados.contains(id)).findFirst().orElse(null);
+            throw new ResourceNotFoundException("Destinatario", faltante);
+        }
+        for (Consignatario consignatario : consignatarios) {
+            consignatario.setUsuario(usuario);
+            sincronizarClienteGuiasDelConsignatario(consignatario.getId(), usuario);
+        }
+        return consignatarioRepository.saveAll(consignatarios).stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
+    private void sincronizarClienteGuiasDelConsignatario(Long consignatarioId, Usuario usuario) {
+        if (consignatarioId == null || usuario == null) return;
+        var guias = guiaMasterRepository.findByConsignatarioId(consignatarioId);
+        for (var guia : guias) {
+            guia.setClienteUsuario(usuario);
+        }
+        guiaMasterRepository.saveAll(guias);
+    }
+
+    @Transactional
     public void delete(Long usuarioId, Long id) {
         Consignatario d = consignatarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", id));
-        if (!d.getUsuario().getId().equals(usuarioId)) {
+        if (d.getUsuario() == null || !d.getUsuario().getId().equals(usuarioId)) {
             throw new ResourceNotFoundException("Destinatario", id);
         }
         var paquetes = paqueteRepository.findByConsignatarioIdOrderByIdAsc(id);
@@ -151,7 +267,8 @@ public class ConsignatarioService {
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", id));
         var paquetes = paqueteRepository.findByConsignatarioIdOrderByIdAsc(id);
         for (var paquete : paquetes) {
-            paqueteService.delete(paquete.getId(), d.getUsuario().getId(), true);
+            Long ownerId = d.getUsuario() != null ? d.getUsuario().getId() : null;
+            paqueteService.delete(paquete.getId(), ownerId, true);
         }
         consignatarioRepository.delete(d);
     }

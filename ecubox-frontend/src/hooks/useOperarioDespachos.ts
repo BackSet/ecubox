@@ -16,6 +16,9 @@ import {
   createAgenciaCourierEntregaOperario,
   getConsignatariosOperario,
   getConsignatarioOperario,
+  getClientesOperario,
+  createConsignatarioOperario,
+  asignarConsignatariosClienteOperario,
   updateConsignatarioOperario,
   deleteConsignatarioOperario,
   getSacasOperario,
@@ -37,6 +40,7 @@ export const COURIERS_ENTREGA_QUERY_KEY = ['operario', 'couriersEntrega'] as con
 export const AGENCIAS_QUERY_KEY = ['operario', 'agencias'] as const;
 export const AGENCIAS_COURIER_ENTREGA_QUERY_KEY = ['operario', 'agencias-courierEntrega'] as const;
 export const CONSIGNATARIOS_OP_QUERY_KEY = ['operario', 'consignatarios'] as const;
+export const CLIENTES_OP_QUERY_KEY = ['operario', 'clientes'] as const;
 export const SACAS_QUERY_KEY = ['operario', 'sacas'] as const;
 export const PAQUETES_SIN_SACA_QUERY_KEY = ['operario', 'paquetes', 'sinSaca'] as const;
 
@@ -195,6 +199,35 @@ export function useConsignatarioOperario(id: number | undefined | null) {
     queryKey: [...CONSIGNATARIOS_OP_QUERY_KEY, id],
     queryFn: () => getConsignatarioOperario(id!),
     enabled: id != null,
+  });
+}
+
+export function useClientesOperario(enabled = true) {
+  return useQuery({
+    queryKey: CLIENTES_OP_QUERY_KEY,
+    queryFn: getClientesOperario,
+    enabled,
+  });
+}
+
+export function useCreateConsignatarioOperario() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ConsignatarioRequest) => createConsignatarioOperario(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CONSIGNATARIOS_OP_QUERY_KEY });
+    },
+  });
+}
+
+export function useAsignarConsignatariosClienteOperario() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { clienteUsuarioId: number; consignatarioIds: number[] }) =>
+      asignarConsignatariosClienteOperario(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CONSIGNATARIOS_OP_QUERY_KEY });
+    },
   });
 }
 

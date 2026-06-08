@@ -10,10 +10,11 @@ export const MENSAJE_WHATSAPP_DESPACHO_QUERY_KEY = [
   'mensaje-whatsapp-despacho',
 ] as const;
 
-export function useMensajeWhatsAppDespacho() {
+export function useMensajeWhatsAppDespacho(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: MENSAJE_WHATSAPP_DESPACHO_QUERY_KEY,
     queryFn: getMensajeWhatsAppDespacho,
+    enabled: options?.enabled ?? true,
   });
 }
 

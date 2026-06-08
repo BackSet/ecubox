@@ -6,6 +6,7 @@ import type {
   ClienteRegisterSimpleRequest,
   MeUpdateRequest,
 } from '@/types/auth';
+import type { CanjearAccesoResponse } from '@/types/acceso-enlace';
 
 export async function login(credentials: LoginRequest): Promise<LoginResponse> {
   const { data } = await apiClient.post<LoginResponse>(
@@ -54,4 +55,16 @@ export async function registerClienteSimple(
   data: ClienteRegisterSimpleRequest
 ): Promise<void> {
   await apiClient.post(API_ENDPOINTS.auth.registerSimple, data);
+}
+
+/**
+ * Canjea el token de un enlace de acceso por una sesión JWT de solo lectura
+ * acotada a los consignatarios del enlace. Devuelve el JWT y un resumen.
+ */
+export async function canjearAccesoEnlace(token: string): Promise<CanjearAccesoResponse> {
+  const { data } = await apiClient.post<CanjearAccesoResponse>(
+    API_ENDPOINTS.auth.accesoEnlace,
+    { token },
+  );
+  return data;
 }

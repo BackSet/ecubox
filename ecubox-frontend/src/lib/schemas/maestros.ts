@@ -23,6 +23,7 @@ export const consignatarioFormSchema = z.object({
       (v) => !v || v.trim().length === 0 || v.trim().length >= 5,
       'El código debe tener al menos 5 caracteres'
     ),
+  clienteUsuarioId: z.number().optional(),
 });
 
 export const agenciaFormSchema = z.object({

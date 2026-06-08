@@ -93,11 +93,6 @@ export async function cerrarGuiaMasterConFaltante(
   return data;
 }
 
-export async function recalcularEstadoGuiaMaster(id: number): Promise<GuiaMaster> {
-  const { data } = await apiClient.post<GuiaMaster>(`${BASE}/${id}/recalcular`);
-  return data;
-}
-
 export async function confirmarDespachoParcialGuiaMaster(
   id: number,
   body: GuiaMasterConfirmarDespachoParcialRequest

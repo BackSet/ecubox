@@ -44,6 +44,18 @@ interface RolEditPermisosProps {
 }
 
 const GROUP_LABELS: Record<string, string> = {
+  ACCESO_ENLACE: 'Enlace de acceso',
+  ACCESO_ENLACES: 'Enlaces de acceso',
+  INICIO: 'Inicio',
+  CASILLERO: 'Casillero',
+  PERFIL: 'Perfil',
+  PARAMETROS_SISTEMA: 'Parámetros del sistema',
+  MENSAJES: 'Mensajes operativos',
+  CANALES_COMUNICACION: 'Canales de comunicación',
+  TEMA_TEMPORADA: 'Tema de temporada',
+  CONFIG_TARIFA: 'Tarifas de distribución',
+  LOTES_RECEPCION: 'Lotes de recepción',
+  TRACKING_PROJECTOR: 'Monitoreo de tracking',
   USUARIOS: 'Usuarios',
   ROLES: 'Roles',
   PERMISOS: 'Permisos',
@@ -62,6 +74,18 @@ const GROUP_LABELS: Record<string, string> = {
 };
 
 const GROUP_ORDER = [
+  'ACCESO_ENLACE',
+  'ACCESO_ENLACES',
+  'INICIO',
+  'CASILLERO',
+  'PERFIL',
+  'PARAMETROS_SISTEMA',
+  'MENSAJES',
+  'CANALES_COMUNICACION',
+  'TEMA_TEMPORADA',
+  'CONFIG_TARIFA',
+  'LOTES_RECEPCION',
+  'TRACKING_PROJECTOR',
   'USUARIOS',
   'ROLES',
   'PERMISOS',
@@ -80,6 +104,15 @@ const GROUP_ORDER = [
 ];
 
 function getGroupKey(codigo: string): string {
+  if (codigo.startsWith('ACCESO_ENLACE_')) return 'ACCESO_ENLACE';
+  if (codigo.startsWith('ACCESO_ENLACES_')) return 'ACCESO_ENLACES';
+  if (codigo.startsWith('PARAMETROS_SISTEMA_')) return 'PARAMETROS_SISTEMA';
+  if (codigo.startsWith('MENSAJE_')) return 'MENSAJES';
+  if (codigo.startsWith('CANALES_COMUNICACION_')) return 'CANALES_COMUNICACION';
+  if (codigo.startsWith('TEMA_TEMPORADA_')) return 'TEMA_TEMPORADA';
+  if (codigo.startsWith('CONFIG_TARIFA_')) return 'CONFIG_TARIFA';
+  if (codigo.startsWith('LOTES_RECEPCION_')) return 'LOTES_RECEPCION';
+  if (codigo.startsWith('TRACKING_PROJECTOR_')) return 'TRACKING_PROJECTOR';
   const idx = codigo.indexOf('_');
   return idx > 0 ? codigo.slice(0, idx) : codigo;
 }
@@ -243,6 +276,14 @@ export function RolEditPermisos({ rolId, onClose, onSuccess }: RolEditPermisosPr
   const totalPermisos = allPermisos.length;
   const totalSeleccionados = selectedIds.length;
   const pct = totalPermisos > 0 ? Math.round((totalSeleccionados / totalPermisos) * 100) : 0;
+  const permisosIdsDisponibles = useMemo(
+    () => new Set(allPermisos.map((p) => p.id)),
+    [allPermisos],
+  );
+  const permisosAsignadosNoDisponibles = useMemo(
+    () => selectedIds.filter((id) => !permisosIdsDisponibles.has(id)),
+    [permisosIdsDisponibles, selectedIds],
+  );
 
   const diff = useMemo(() => {
     const orig = new Set(originalIds);
@@ -361,6 +402,17 @@ export function RolEditPermisos({ rolId, onClose, onSuccess }: RolEditPermisosPr
                 style={{ width: `${pct}%` }}
               />
             </div>
+            {permisosAsignadosNoDisponibles.length > 0 && (
+              <div className="mt-2 flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-2 py-1.5 text-[11px] text-[var(--color-warning)]">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Hay {permisosAsignadosNoDisponibles.length} permiso
+                  {permisosAsignadosNoDisponibles.length === 1 ? '' : 's'} asignado
+                  {permisosAsignadosNoDisponibles.length === 1 ? '' : 's'} que no existe
+                  {permisosAsignadosNoDisponibles.length === 1 ? '' : 'n'} en la lista actual.
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Buscador y acciones */}

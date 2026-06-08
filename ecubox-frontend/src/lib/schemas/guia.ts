@@ -3,12 +3,7 @@ import { motivoRequiredSchema, motivoSchema, positiveId, trackingBaseSchema } fr
 
 export const guiaMasterCreateSchema = z.object({
   trackingBase: trackingBaseSchema,
-  clienteId: z.number().optional(),
-  consignatarioId: positiveId('un destinatario'),
-  totalPiezasEsperadas: z
-    .number({ error: 'Ingresa el total de piezas' })
-    .int('Debe ser un número entero')
-    .min(1, 'Debe tener al menos una pieza'),
+  consignatarioId: positiveId('un consignatario'),
 });
 
 export const guiaMasterUpdateConsignatarioSchema = z.object({

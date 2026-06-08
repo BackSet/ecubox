@@ -28,4 +28,11 @@ public class ConsignatarioRequest {
     private String canton;
 
     private String codigo;
+
+    /**
+     * Solo flujo operario/admin: usuario cliente al que pertenece el
+     * consignatario. En endpoints de cliente se ignora y se usa el usuario
+     * autenticado.
+     */
+    private Long clienteUsuarioId;
 }

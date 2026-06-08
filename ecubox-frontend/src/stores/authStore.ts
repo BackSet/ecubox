@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import type { LoginResponse } from '@/types/auth';
 import { getCurrentUser } from '@/lib/api/auth.service';
 
+/** Permisos de solo lectura otorgados a una sesión iniciada por enlace de acceso. */
+const ACCESO_PERMISSIONS = [
+  'CASILLERO_READ',
+  'ACCESO_ENLACE_GUIAS_READ',
+  'ACCESO_ENLACE_CONSIGNATARIOS_READ',
+];
+
 interface AuthState {
   token: string | null;
   username: string | null;
@@ -9,7 +16,11 @@ interface AuthState {
   createdAt: string | null;
   roles: string[];
   permissions: string[];
+  /** true cuando la sesión proviene de un enlace de acceso (solo lectura, sin usuario). */
+  isAcceso: boolean;
   setAuth: (data: LoginResponse) => void;
+  /** Inicia una sesión de solo lectura a partir del canje de un enlace. */
+  setAccesoSession: (data: { token: string; nombre: string }) => void;
   refreshAuth: () => Promise<void>;
   setProfile: (data: Pick<LoginResponse, 'username' | 'email' | 'createdAt' | 'roles' | 'permissions'>) => void;
   setToken: (token: string | null) => void;
@@ -20,25 +31,25 @@ interface AuthState {
 
 const AUTH_KEY = 'ecubox_auth';
 
-type StoredProfile = Pick<AuthState, 'token' | 'username' | 'email' | 'createdAt' | 'roles' | 'permissions'>;
+type StoredProfile = Pick<AuthState, 'token' | 'username' | 'email' | 'createdAt' | 'roles' | 'permissions' | 'isAcceso'>;
 
 function loadStored(): StoredProfile {
-  if (typeof localStorage === 'undefined') {
-    return { token: null, username: null, email: null, createdAt: null, roles: [], permissions: [] };
-  }
+  const empty: StoredProfile = {
+    token: null, username: null, email: null, createdAt: null, roles: [], permissions: [], isAcceso: false,
+  };
+  if (typeof localStorage === 'undefined') return empty;
   const token = localStorage.getItem('token');
-  if (!token) {
-    return { token: null, username: null, email: null, createdAt: null, roles: [], permissions: [] };
-  }
+  if (!token) return empty;
   try {
     const raw = localStorage.getItem(AUTH_KEY);
-    if (!raw) return { token, username: null, email: null, createdAt: null, roles: [], permissions: [] };
-    const { username, email, createdAt, roles, permissions } = JSON.parse(raw) as {
+    if (!raw) return { ...empty, token };
+    const { username, email, createdAt, roles, permissions, isAcceso } = JSON.parse(raw) as {
       username?: string | null;
       email?: string | null;
       createdAt?: string | null;
       roles?: string[];
       permissions?: string[];
+      isAcceso?: boolean;
     };
     return {
       token,
@@ -47,13 +58,17 @@ function loadStored(): StoredProfile {
       createdAt: createdAt ?? null,
       roles: Array.isArray(roles) ? roles : [],
       permissions: Array.isArray(permissions) ? permissions : [],
+      isAcceso: isAcceso === true,
     };
   } catch {
-    return { token, username: null, email: null, createdAt: null, roles: [], permissions: [] };
+    return { ...empty, token };
   }
 }
 
-function persistProfile(data: Pick<LoginResponse, 'username' | 'email' | 'createdAt' | 'roles' | 'permissions'>) {
+function persistProfile(
+  data: Pick<LoginResponse, 'username' | 'email' | 'createdAt' | 'roles' | 'permissions'>,
+  isAcceso = false,
+) {
   localStorage.setItem(
     AUTH_KEY,
     JSON.stringify({
@@ -62,6 +77,7 @@ function persistProfile(data: Pick<LoginResponse, 'username' | 'email' | 'create
       createdAt: data.createdAt ?? null,
       roles: data.roles ?? [],
       permissions: data.permissions ?? [],
+      isAcceso,
     })
   );
 }
@@ -75,6 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   createdAt: stored.createdAt,
   roles: stored.roles,
   permissions: stored.permissions,
+  isAcceso: stored.isAcceso,
 
   setAuth: (data: LoginResponse) => {
     localStorage.setItem('token', data.token);
@@ -86,7 +103,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       createdAt: data.createdAt ?? null,
       roles: data.roles ?? [],
       permissions: data.permissions ?? [],
+      isAcceso: false,
     });
+  },
+
+  setAccesoSession: (data: { token: string; nombre: string }) => {
+    const profile = {
+      username: data.nombre,
+      email: null,
+      createdAt: null,
+      roles: ['ACCESO_ENLACE'],
+      permissions: ACCESO_PERMISSIONS,
+    };
+    localStorage.setItem('token', data.token);
+    persistProfile(profile, true);
+    set({ token: data.token, ...profile, isAcceso: true });
   },
 
   refreshAuth: async () => {
@@ -133,6 +164,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       createdAt: null,
       roles: [],
       permissions: [],
+      isAcceso: false,
     });
   },
 

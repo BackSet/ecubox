@@ -43,7 +43,7 @@ public class PaqueteController {
     @ApiResponse(responseCode = "200", description = "Listado de paquetes")
     public ResponseEntity<List<PaqueteDTO>> findAll() {
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
-        boolean canManageAny = currentUserService.hasRole("ADMIN") || currentUserService.hasRole("OPERARIO");
+        boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
         List<PaqueteDTO> list = canManageAny
                 ? paqueteService.findAll()
                 : paqueteService.findAllByUsuarioId(usuarioId);
@@ -69,7 +69,7 @@ public class PaqueteController {
             @Parameter(description = "Número de página (base cero)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Cantidad de elementos por página") @RequestParam(defaultValue = "25") int size) {
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
-        boolean canManageAny = currentUserService.hasRole("ADMIN") || currentUserService.hasRole("OPERARIO");
+        boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
         var filters = new PaqueteService.PaqueteListFilters(
                 estado, consignatarioId, envio, guiaMasterId, chip);
         var pageResult = canManageAny
@@ -96,7 +96,7 @@ public class PaqueteController {
     public ResponseEntity<PaqueteDTO> create(@Valid @RequestBody PaqueteCreateRequest request) {
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
         boolean contenidoObligatorio = !currentUserService.hasAuthority("PAQUETES_PESO_WRITE");
-        boolean canManageAny = currentUserService.hasRole("ADMIN") || currentUserService.hasRole("OPERARIO");
+        boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(paqueteService.create(usuarioId, canManageAny, contenidoObligatorio, request));
     }
@@ -109,7 +109,7 @@ public class PaqueteController {
             @Parameter(description = "ID del paquete") @PathVariable Long id,
             @Valid @RequestBody PaqueteUpdateRequest request) {
         var usuario = currentUserService.getCurrentUsuario();
-        boolean canManageAny = currentUserService.hasRole("ADMIN") || currentUserService.hasRole("OPERARIO");
+        boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
         boolean canEditPeso = currentUserService.hasAuthority("PAQUETES_PESO_WRITE");
         return ResponseEntity.ok(paqueteService.update(id, usuario.getId(), canManageAny, canEditPeso, request));
     }
@@ -120,7 +120,7 @@ public class PaqueteController {
     @ApiResponse(responseCode = "204", description = "Paquete eliminado")
     public ResponseEntity<Void> delete(@Parameter(description = "ID del paquete") @PathVariable Long id) {
         var usuario = currentUserService.getCurrentUsuario();
-        boolean canManageAny = currentUserService.hasRole("ADMIN") || currentUserService.hasRole("OPERARIO");
+        boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
         paqueteService.delete(id, usuario.getId(), canManageAny);
         return ResponseEntity.noContent().build();
     }

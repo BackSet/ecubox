@@ -44,7 +44,7 @@ public class TrackingProjectorHealthController {
     }
 
     @GetMapping("/health")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('TRACKING_PROJECTOR_HEALTH_READ')")
     @Operation(summary = "Estado del proyector de tracking", description = "Devuelve salud y lag del proyector de tracking")
     @ApiResponse(responseCode = "200", description = "Proyector saludable")
     @ApiResponse(responseCode = "503", description = "Proyector degradado")

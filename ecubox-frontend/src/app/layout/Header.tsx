@@ -38,7 +38,7 @@ function getInitials(name: string | null): string {
 
 export function Header({ onOpenSearch, onOpenSidebar, shortcutLabel = 'Ctrl+K' }: HeaderProps) {
   const navigate = useNavigate();
-  const { username, email, roles, logout } = useAuthStore();
+  const { username, email, roles, logout, isAcceso } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
 
   const handleLogout = () => {
@@ -83,7 +83,7 @@ export function Header({ onOpenSearch, onOpenSidebar, shortcutLabel = 'Ctrl+K' }
       </Button>
 
       <div className="ml-auto flex items-center gap-1">
-        <NotificationBell />
+        {!isAcceso && <NotificationBell />}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -136,15 +136,17 @@ export function Header({ onOpenSearch, onOpenSidebar, shortcutLabel = 'Ctrl+K' }
                 </div>
               </div>
               <DropdownMenuSeparator className="my-1 h-px bg-[var(--color-border)]" />
-              <DropdownMenuItem
-                asChild
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-[var(--color-foreground)] outline-none hover:bg-[var(--color-muted)] focus:bg-[var(--color-muted)]"
-              >
-                <Link to="/perfil" className="flex w-full items-center gap-2">
-                  <UserCircle className="h-4 w-4 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
-                  Mi perfil
-                </Link>
-              </DropdownMenuItem>
+              {!isAcceso && (
+                <DropdownMenuItem
+                  asChild
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-[var(--color-foreground)] outline-none hover:bg-[var(--color-muted)] focus:bg-[var(--color-muted)]"
+                >
+                  <Link to="/perfil" className="flex w-full items-center gap-2">
+                    <UserCircle className="h-4 w-4 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
+                    Mi perfil
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-[var(--color-foreground)] outline-none hover:bg-[var(--color-muted)] focus:bg-[var(--color-muted)]"
                 onSelect={handleToggleTheme}

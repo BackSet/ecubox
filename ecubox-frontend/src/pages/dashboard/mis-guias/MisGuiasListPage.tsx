@@ -39,6 +39,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useEliminarMiGuia, useMisGuias } from '@/hooks/useMisGuias';
+import { useAuthStore } from '@/stores/authStore';
 import { ConsignatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
 import type { StatusTone } from '@/components/ui/StatusBadge';
 import type { EstadoGuiaMaster, GuiaMaster } from '@/types/guia-master';
@@ -88,6 +89,9 @@ export function MisGuiasListPage() {
   const [editingGuia, setEditingGuia] = useState<GuiaMaster | null>(null);
   const [deletingGuia, setDeletingGuia] = useState<GuiaMaster | null>(null);
   const { data: guias = [], isLoading, isFetching, error, refetch } = useMisGuias();
+  // Acciones de escritura solo si el usuario puede crear/editar guías. Las
+  // sesiones por enlace de acceso (solo lectura) no tienen este permiso.
+  const canEditar = useAuthStore((s) => s.hasPermission('MIS_GUIAS_CREATE'));
   const eliminar = useEliminarMiGuia();
 
   const conteosPorEstado = useMemo(() => {
@@ -154,10 +158,12 @@ export function MisGuiasListPage() {
         searchPlaceholder="Buscar por número de guía o consignatario..."
         onSearchChange={setSearch}
         actions={
-          <Button className="w-full sm:w-auto" onClick={() => setRegistrarOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Registrar guía
-          </Button>
+          canEditar ? (
+            <Button className="w-full sm:w-auto" onClick={() => setRegistrarOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Registrar guía
+            </Button>
+          ) : undefined
         }
       />
 
@@ -270,7 +276,9 @@ export function MisGuiasListPage() {
           }
           action={
             guias.length === 0 ? (
-              <Button onClick={() => setRegistrarOpen(true)}>Registrar guía</Button>
+              canEditar ? (
+                <Button onClick={() => setRegistrarOpen(true)}>Registrar guía</Button>
+              ) : undefined
             ) : estadoFiltro !== 'TODAS' ? (
               <Button variant="outline" onClick={() => setEstadoFiltro('TODAS')}>
                 Ver todas
@@ -298,6 +306,7 @@ export function MisGuiasListPage() {
               key={g.id}
               guia={g}
               editable={isEstadoEditableCliente(g.estadoGlobal)}
+              canEditar={canEditar}
               onOpen={() =>
                 navigate({
                   to: '/mis-guias/$id',
@@ -412,15 +421,17 @@ export function MisGuiasListPage() {
                           {
                             label: 'Editar guía',
                             icon: Pencil,
+                            hidden: !canEditar,
                             disabled: !editable,
                             title: editable ? undefined : TOOLTIP_NO_EDITABLE,
                             onSelect: () => editable && setEditingGuia(g),
                           },
-                          { type: 'separator' },
+                          { type: 'separator', hidden: !canEditar },
                           {
                             label: 'Eliminar guía',
                             icon: Trash2,
                             destructive: true,
+                            hidden: !canEditar,
                             disabled: !editable,
                             title: editable ? undefined : TOOLTIP_NO_EDITABLE,
                             onSelect: () => editable && setDeletingGuia(g),
@@ -497,12 +508,14 @@ export function MisGuiasListPage() {
 function MiGuiaCard({
   guia: g,
   editable,
+  canEditar,
   onOpen,
   onEdit,
   onDelete,
 }: {
   guia: GuiaMaster;
   editable: boolean;
+  canEditar: boolean;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -542,15 +555,17 @@ function MiGuiaCard({
               {
                 label: 'Editar guía',
                 icon: Pencil,
+                hidden: !canEditar,
                 disabled: !editable,
                 title: editable ? undefined : TOOLTIP_NO_EDITABLE,
                 onSelect: () => editable && onEdit(),
               },
-              { type: 'separator' },
+              { type: 'separator', hidden: !canEditar },
               {
                 label: 'Eliminar guía',
                 icon: Trash2,
                 destructive: true,
+                hidden: !canEditar,
                 disabled: !editable,
                 title: editable ? undefined : TOOLTIP_NO_EDITABLE,
                 onSelect: () => editable && onDelete(),

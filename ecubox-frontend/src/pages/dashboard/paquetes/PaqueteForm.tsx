@@ -12,13 +12,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useCreatePaquete, useUpdatePaquete } from '@/hooks/usePaquetes';
-import { sugerirRef } from '@/lib/api/paquetes.service';
+
 import { PesoInputPair } from '@/components/PesoInput';
 import { sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
-import { Loader2, UserRound, Phone, MapPin, ExternalLink } from 'lucide-react';
+import { UserRound, Phone, MapPin, ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useGuiasMaster } from '@/hooks/useGuiasMaster';
 import type { Paquete } from '@/types/paquete';
@@ -51,7 +51,7 @@ export function PaqueteForm({
   const updateMutation = useUpdatePaquete();
   const { data: guiasMaster = [] } = useGuiasMaster();
 
-  const [generatingRef, setGeneratingRef] = useState(false);
+
   const [pesoLbsInput, setPesoLbsInput] = useState('');
   const [pesoKgInput, setPesoKgInput] = useState('');
 
@@ -79,7 +79,6 @@ export function PaqueteForm({
     [guiasMaster, guiaMasterId]
   );
 
-  const consignatarioId = guiaSeleccionada?.consignatarioId ?? paquete?.consignatarioId ?? null;
   const consignatarioNombre = guiaSeleccionada?.consignatarioNombre ?? paquete?.consignatarioNombre ?? null;
 
   useEffect(() => {
@@ -92,21 +91,7 @@ export function PaqueteForm({
     }
   }, [paquete]);
 
-  async function handleGenerarRef() {
-    if (consignatarioId == null) {
-      toast.error('Selecciona una guía con consignatario para generar la referencia');
-      return;
-    }
-    setGeneratingRef(true);
-    try {
-      const data = await sugerirRef(consignatarioId, isEdit && paquete ? paquete.id : undefined);
-      form.setValue('ref', data.ref);
-    } catch {
-      toast.error('No se pudo generar la referencia');
-    } finally {
-      setGeneratingRef(false);
-    }
-  }
+
 
   async function onSubmit(values: FormValues) {
     const guiaId =
@@ -135,7 +120,6 @@ export function PaqueteForm({
           pesoLbs?: number;
           pesoKg?: number;
           guiaMasterId?: number;
-          ref?: string;
         } = {
           consignatarioId,
           contenido: values.contenido?.trim() || undefined,
@@ -146,16 +130,6 @@ export function PaqueteForm({
           const kg = values.pesoKg;
           if (typeof lbs === 'number' && !Number.isNaN(lbs)) body.pesoLbs = lbs;
           if (typeof kg === 'number' && !Number.isNaN(kg)) body.pesoKg = kg;
-          // Solo enviar el ref si el usuario lo modifico explicitamente
-          // (p.ej. via "generar nuevo ref"). Si reenviamos el ref viejo
-          // por defecto, machacamos el ref que el backend regenera al
-          // cambiar de consignatario y rompemos la consistencia
-          // ref<->consignatario.
-          const refOriginal = (paquete?.ref ?? '').trim();
-          const refActual = values.ref?.trim() ?? '';
-          if (refActual && refActual !== refOriginal) {
-            body.ref = refActual;
-          }
         }
         await updateMutation.mutateAsync({
           id: paquete.id,
@@ -303,47 +277,11 @@ export function PaqueteForm({
           {isEdit && (
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-                Referencia (ref) {hasPesoWrite ? '' : '(solo lectura)'}
+                Referencia (ref)
               </label>
-              {hasPesoWrite ? (
-                <div className="flex gap-2">
-                  <Input
-                    {...form.register('ref')}
-                    variant="clean"
-                    className="input-clean flex-1 font-mono"
-                    placeholder="ECU-XX-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={handleGenerarRef}
-                    disabled={generatingRef || consignatarioId == null}
-                  >
-                    {generatingRef ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generando...
-                      </>
-                    ) : (
-                      'Generar código'
-                    )}
-                  </Button>
-                </div>
-              ) : (
-                <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2 text-sm font-mono text-[var(--color-muted-foreground)]">
-                  {paquete?.ref ?? '—'}
-                </div>
-              )}
-              {form.formState.errors.ref && (
-                <p className="mt-1 text-sm text-[var(--color-destructive)]">
-                  {form.formState.errors.ref.message}
-                </p>
-              )}
-              {hasPesoWrite && (
-                <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                  Referencia única. Solo operario y administrador pueden editarla.
-                </p>
-              )}
+              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2 text-sm font-mono text-[var(--color-muted-foreground)]">
+                {paquete?.ref ?? '—'}
+              </div>
             </div>
           )}
 

@@ -6,6 +6,7 @@ import {
   useCrearGuiaMaster,
   useActualizarGuiaMaster,
   useEliminarGuiaMaster,
+  useCancelarGuiaMaster,
 } from '@/hooks/useGuiasMaster';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { TablePagination } from '@/components/ui/TablePagination';
@@ -15,15 +16,15 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import {
   guiaMasterCreateSchema,
-  guiaMasterUpdateConsignatarioSchema,
-  guiaMasterUpdateTotalSchema,
   trackingBaseSchema,
+  guiaCancelarSchema,
+  MAX_MOTIVO,
 } from '@/lib/schemas';
-import { QuickPresetChips } from '@/components/QuickPresetChips';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -65,15 +66,19 @@ import {
   Truck,
   Activity,
   Layers,
+  Loader2,
+  Ban,
 } from 'lucide-react';
 import {
   GUIA_MASTER_ESTADO_ICONS,
   GUIA_MASTER_ESTADO_LABELS_CORTOS,
   GUIA_MASTER_ESTADO_ORDEN,
   GUIA_MASTER_ESTADO_TONES,
+  GUIA_MASTER_ESTADOS_TERMINALES,
   GuiaMasterEstadoBadge,
 } from './_estado';
 import type { EstadoGuiaMaster, GuiaMaster } from '@/types/guia-master';
+import type { Consignatario } from '@/types/consignatario';
 import type { StatusTone } from '@/components/ui/StatusBadge';
 import { ConsignatarioInfo } from '../paquetes/PaqueteCells';
 
@@ -99,6 +104,7 @@ export function GuiasMasterPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingGuia, setEditingGuia] = useState<GuiaMaster | null>(null);
   const [deletingGuia, setDeletingGuia] = useState<GuiaMaster | null>(null);
+  const [cancelingGuia, setCancelingGuia] = useState<GuiaMaster | null>(null);
   const [estadosFiltro, setEstadosFiltro] = useState<Set<EstadoGuiaMaster>>(
     () => new Set()
   );
@@ -297,7 +303,7 @@ export function GuiasMasterPage() {
               title={sinDatos ? 'No hay guías registradas' : 'Sin resultados'}
               description={
                 sinDatos
-                  ? 'Registra una guía indicando su número, consignatario y total de piezas esperadas (opcional).'
+                  ? 'Registra una guía indicando su número y consignatario.'
                   : tieneFiltros && q.trim() !== ''
                     ? `No encontramos guías que coincidan con "${q.trim()}". Prueba con otro número de guía, consignatario o cliente.`
                     : 'No hay guías que coincidan con los filtros aplicados.'
@@ -447,6 +453,18 @@ export function GuiasMasterPage() {
                             onSelect: () => setEditingGuia(g),
                             hidden: !hasUpdate,
                           },
+                          {
+                            label: 'Cancelar guía',
+                            icon: Ban,
+                            onSelect: () => setCancelingGuia(g),
+                            hidden:
+                              !hasUpdate ||
+                              !(
+                                !GUIA_MASTER_ESTADOS_TERMINALES.has(g.estadoGlobal) &&
+                                (g.piezasDespachadas ?? 0) === 0 &&
+                                g.estadoGlobal !== 'EN_REVISION'
+                              ),
+                          },
                           { type: 'separator' },
                           {
                             label: 'Eliminar',
@@ -485,6 +503,13 @@ export function GuiasMasterPage() {
           mode="edit"
           guia={editingGuia}
           onClose={() => setEditingGuia(null)}
+        />
+      )}
+
+      {cancelingGuia && (
+        <CancelarGuiaDialog
+          guia={cancelingGuia}
+          onClose={() => setCancelingGuia(null)}
         />
       )}
 
@@ -606,64 +631,24 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
   const editing = isEdit ? props.guia : null;
 
   const [trackingBase, setTrackingBase] = useState(editing?.trackingBase ?? '');
-  const [clienteId, setClienteId] = useState<number | undefined>(
-    editing?.clienteUsuarioId ?? undefined,
-  );
   const [consignatarioId, setConsignatarioId] = useState<number | undefined>(
-    editing?.consignatarioId ?? undefined,
+    editing?.consignatarioId ?? undefined
   );
-  const [totalPiezasEsperadas, setTotalPiezasEsperadas] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const crear = useCrearGuiaMaster();
   const actualizar = useActualizarGuiaMaster();
   const saving = isEdit ? actualizar.isPending : crear.isPending;
-  const { data: consignatarios = [], isLoading: loadingDest } = useConsignatariosOperario();
-
-  const clientes = useMemo(() => {
-    const map = new Map<number, { id: number; nombre: string }>();
-    for (const d of consignatarios) {
-      if (d.clienteUsuarioId != null && d.clienteUsuarioNombre && !map.has(d.clienteUsuarioId)) {
-        map.set(d.clienteUsuarioId, {
-          id: d.clienteUsuarioId,
-          nombre: d.clienteUsuarioNombre,
-        });
-      }
-    }
-    return Array.from(map.values()).sort((a, b) =>
-      a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
-    );
-  }, [consignatarios]);
-
-  const consignatariosFiltrados = useMemo(() => {
-    if (clienteId == null) return consignatarios;
-    return consignatarios.filter((d) => d.clienteUsuarioId === clienteId);
-  }, [consignatarios, clienteId]);
-
-  function handleClienteChange(value: string | number | undefined) {
-    const cid = typeof value === 'string' ? Number(value) : value;
-    setClienteId(cid);
-    if (consignatarioId != null) {
-      const dest = consignatarios.find((d) => d.id === consignatarioId);
-      if (!dest || (cid != null && dest.clienteUsuarioId !== cid)) {
-        setConsignatarioId(undefined);
-      }
-    }
-  }
+  const { data: consignatarios = [], isLoading: loadingConsignatarios } =
+    useConsignatariosOperario();
 
   function handleConsignatarioChange(value: string | number | undefined) {
-    const did = typeof value === 'string' ? Number(value) : value;
-    setConsignatarioId(did);
+    const id = typeof value === 'string' ? Number(value) : value;
+    setConsignatarioId(id);
     setFieldErrors((prev) => {
       const next = { ...prev };
       delete next.consignatarioId;
       return next;
     });
-    if (did != null) {
-      const dest = consignatarios.find((d) => d.id === did);
-      if (dest && dest.clienteUsuarioId != null) {
-        setClienteId(dest.clienteUsuarioId);
-      }
-    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -671,22 +656,17 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
     const errs: Record<string, string> = {};
 
     if (isEdit && editing) {
-      const destParsed = guiaMasterUpdateConsignatarioSchema.safeParse({
-        clienteId,
-        consignatarioId,
-      });
-      if (!destParsed.success) {
-        for (const issue of destParsed.error.issues) {
-          const key = String(issue.path[0] ?? '_form');
-          if (!errs[key]) errs[key] = issue.message;
-        }
-      }
       const tb = trackingBase.trim();
-      if (tb && tb !== editing.trackingBase) {
-        const tbParsed = trackingBaseSchema.safeParse(tb);
-        if (!tbParsed.success) {
-          errs.trackingBase = tbParsed.error.issues[0]?.message ?? 'Número de guía inválido';
-        }
+      const tbParsed = trackingBaseSchema.safeParse(tb);
+      if (!tbParsed.success) {
+        errs.trackingBase = tbParsed.error.issues[0]?.message ?? 'Número de guía inválido';
+      }
+      const consignatarioParsed = guiaMasterCreateSchema
+        .pick({ consignatarioId: true })
+        .safeParse({ consignatarioId });
+      if (!consignatarioParsed.success) {
+        errs.consignatarioId =
+          consignatarioParsed.error.issues[0]?.message ?? 'Selecciona un consignatario';
       }
       if (Object.keys(errs).length > 0) {
         setFieldErrors(errs);
@@ -695,23 +675,14 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
       }
       setFieldErrors({});
     } else {
-      const baseParsed = guiaMasterCreateSchema
-        .omit({ totalPiezasEsperadas: true })
-        .safeParse({ trackingBase: trackingBase.trim(), clienteId, consignatarioId });
+      const baseParsed = guiaMasterCreateSchema.safeParse({
+        trackingBase: trackingBase.trim(),
+        consignatarioId,
+      });
       if (!baseParsed.success) {
         for (const issue of baseParsed.error.issues) {
           const key = String(issue.path[0] ?? '_form');
           if (!errs[key]) errs[key] = issue.message;
-        }
-      }
-      const totalRaw = totalPiezasEsperadas.trim();
-      if (totalRaw !== '') {
-        const totalParsed = guiaMasterUpdateTotalSchema.safeParse({
-          totalPiezasEsperadas: Number(totalRaw),
-        });
-        if (!totalParsed.success) {
-          errs.totalPiezasEsperadas =
-            totalParsed.error.issues[0]?.message ?? 'Total de piezas inválido';
         }
       }
       if (Object.keys(errs).length > 0) {
@@ -725,21 +696,16 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
     try {
       if (isEdit && editing) {
         const tb = trackingBase.trim();
-        const body: { consignatarioId: number; trackingBase?: string } = {
+        const body = {
+          trackingBase: tb,
           consignatarioId: consignatarioId!,
         };
-        if (tb && tb !== editing.trackingBase) {
-          body.trackingBase = tb;
-        }
         await actualizar.mutateAsync({ id: editing.id, body });
         toast.success('Guía actualizada');
       } else {
-        const totalRaw = totalPiezasEsperadas.trim();
-        const totalNum = totalRaw === '' ? null : Number(totalRaw);
         await crear.mutateAsync({
           trackingBase: trackingBase.trim(),
           consignatarioId: consignatarioId!,
-          totalPiezasEsperadas: totalNum,
         });
         toast.success('Guía registrada');
       }
@@ -756,8 +722,6 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
       }
     }
   }
-
-  const sinClientes = !loadingDest && clientes.length === 0;
 
   return (
     <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
@@ -798,60 +762,17 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
 
           <div>
             <Label
-              htmlFor="cliente-crear"
-              className="mb-1 flex items-center gap-1 text-xs"
-            >
-              <Building2 className="h-3.5 w-3.5" />
-              Cliente
-            </Label>
-            <SearchableCombobox<{ id: number; nombre: string }>
-              id="cliente-crear"
-              value={clienteId}
-              onChange={handleClienteChange}
-              options={clientes}
-              getKey={(c) => c.id}
-              getLabel={(c) => c.nombre}
-              placeholder={
-                loadingDest
-                  ? 'Cargando...'
-                  : sinClientes
-                    ? 'Sin clientes disponibles'
-                    : 'Todos los clientes'
-              }
-              searchPlaceholder="Buscar cliente..."
-              emptyMessage="Sin clientes"
-              disabled={loadingDest || sinClientes}
-              renderOption={(c) => (
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate font-medium">{c.nombre}</span>
-                </div>
-              )}
-              renderSelected={(c) => (
-                <span className="flex items-center gap-2">
-                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{c.nombre}</span>
-                </span>
-              )}
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Filtra los consignatarios. Limpia para ver todos.
-            </p>
-          </div>
-
-          <div>
-            <Label
-              htmlFor="consignatario-crear"
+              htmlFor="guia-consignatario"
               className="mb-1 flex items-center gap-1 text-xs"
             >
               <UserRound className="h-3.5 w-3.5" />
               Consignatario *
             </Label>
-            <SearchableCombobox
-              id="consignatario-crear"
+            <SearchableCombobox<Consignatario>
+              id="guia-consignatario"
               value={consignatarioId}
               onChange={handleConsignatarioChange}
-              options={consignatariosFiltrados}
+              options={consignatarios}
               getKey={(d) => d.id}
               getLabel={(d) => d.nombre}
               getSearchText={(d) =>
@@ -861,16 +782,17 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
                   d.canton ?? '',
                   d.provincia ?? '',
                   d.telefono ?? '',
+                  d.clienteUsuarioNombre ?? '',
                 ].join(' ')
               }
               placeholder={
-                loadingDest
+                loadingConsignatarios
                   ? 'Cargando consignatarios...'
                   : 'Selecciona un consignatario'
               }
               searchPlaceholder="Buscar por nombre, código, cantón..."
-              emptyMessage="Sin coincidencias"
-              disabled={loadingDest || consignatariosFiltrados.length === 0}
+              emptyMessage="Sin consignatarios"
+              disabled={loadingConsignatarios || consignatarios.length === 0}
               clearable={false}
               renderOption={(d) => (
                 <div className="min-w-0">
@@ -897,62 +819,13 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
                 </span>
               )}
             />
-            {!loadingDest && consignatarios.length === 0 && (
+            {!loadingConsignatarios && consignatarios.length === 0 && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Aún no hay consignatarios registrados. Crea uno desde "Consignatarios".
               </p>
             )}
             {fieldErrors.consignatarioId && (
               <p className="mt-1 text-xs text-destructive">{fieldErrors.consignatarioId}</p>
-            )}
-            {!isEdit && (
-              <div className="mt-3">
-                <Label htmlFor="totalPiezasEsperadas" className="mb-1 block text-xs">
-                  Total de piezas esperadas (opcional)
-                </Label>
-                <Input
-                  id="totalPiezasEsperadas"
-                  type="number"
-                  min={1}
-                  value={totalPiezasEsperadas}
-                  onChange={(e) => {
-                    setTotalPiezasEsperadas(e.target.value);
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.totalPiezasEsperadas;
-                      return next;
-                    });
-                  }}
-                  placeholder="Sin definir"
-                  aria-invalid={!!fieldErrors.totalPiezasEsperadas}
-                />
-                {fieldErrors.totalPiezasEsperadas && (
-                  <p className="mt-1 text-xs text-destructive">
-                    {fieldErrors.totalPiezasEsperadas}
-                  </p>
-                )}
-                <QuickPresetChips
-                  className="mt-1.5"
-                  options={[1, 2, 3, 5, 10].map((n) => ({
-                    label: String(n),
-                    value: n,
-                  }))}
-                  value={
-                    totalPiezasEsperadas.trim() === ''
-                      ? undefined
-                      : Number(totalPiezasEsperadas)
-                  }
-                  onSelect={(v) => setTotalPiezasEsperadas(String(v))}
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Puedes dejarlo vacío y definirlo al registrar paquetes.
-                </p>
-              </div>
-            )}
-            {isEdit && (
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                El total de piezas se ajusta al registrar o editar paquetes de la guía.
-              </p>
             )}
           </div>
 
@@ -971,6 +844,87 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
                 : isEdit
                   ? 'Guardar cambios'
                   : 'Registrar guía'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface CancelarGuiaDialogProps {
+  guia: GuiaMaster;
+  onClose: () => void;
+}
+
+function CancelarGuiaDialog({ guia, onClose }: CancelarGuiaDialogProps) {
+  const [motivo, setMotivo] = useState('');
+  const [motivoError, setMotivoError] = useState<string | undefined>();
+  const cancelar = useCancelarGuiaMaster();
+
+  async function handleConfirm(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = guiaCancelarSchema.safeParse({ motivo });
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? 'Debes indicar un motivo';
+      setMotivoError(msg);
+      toast.warning(msg);
+      return;
+    }
+    setMotivoError(undefined);
+    try {
+      await cancelar.mutateAsync({ id: guia.id, body: { motivo: parsed.data.motivo } });
+      toast.success('Guía cancelada');
+      onClose();
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err) ?? 'No se pudo cancelar la guía');
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !cancelar.isPending && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Cancelar guía master</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Anula la guía "{guia.trackingBase}" antes de despachar piezas. Solo aplica si aún no se ha despachado ninguna pieza. Quedará registrada en el historial.
+          </p>
+        </DialogHeader>
+        <form onSubmit={handleConfirm} className="space-y-4">
+          <div>
+            <Label htmlFor="motivo-cancelar" className="mb-1 block">
+              Motivo (obligatorio)
+            </Label>
+            <Textarea
+              id="motivo-cancelar"
+              rows={3}
+              maxLength={MAX_MOTIVO}
+              value={motivo}
+              onChange={(e) => {
+                setMotivo(e.target.value);
+                setMotivoError(undefined);
+              }}
+              placeholder="Ej: cliente solicitó anulación / error de registro"
+              aria-invalid={!!motivoError}
+            />
+            {motivoError && <p className="mt-1 text-xs text-destructive">{motivoError}</p>}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={cancelar.isPending}
+            >
+              Volver
+            </Button>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={cancelar.isPending}
+            >
+              {cancelar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {cancelar.isPending ? 'Cancelando...' : 'Cancelar guía'}
             </Button>
           </DialogFooter>
         </form>

@@ -153,6 +153,11 @@ const CalculadoraPage = lazyNamed(
   'CalculadoraPage',
 );
 const EnlacesPage = lazyNamed(() => import('@/pages/enlaces/EnlacesPage'), 'EnlacesPage');
+const AccesoPage = lazyNamed(() => import('@/pages/acceso/AccesoPage'), 'AccesoPage');
+const EnlacesAccesoPage = lazyNamed(
+  () => import('@/pages/dashboard/enlaces-acceso/EnlacesAccesoPage'),
+  'EnlacesAccesoPage',
+);
 const TarifaCalculadoraPage = lazyNamed(
   () => import('@/pages/dashboard/tarifa-calculadora/TarifaCalculadoraPage'),
   'TarifaCalculadoraPage',
@@ -209,8 +214,18 @@ function requireAuth() {
 function requirePermission(permission: string) {
   return () => {
     requireAuth();
-    const { hasPermission } = useAuthStore.getState();
-    if (!hasPermission(permission)) throw redirect({ to: '/inicio' });
+    const { hasPermission, isAcceso } = useAuthStore.getState();
+    if (!hasPermission(permission)) throw redirect({ to: isAcceso ? '/mis-guias' : '/inicio' });
+  };
+}
+
+function requireAnyPermission(permissions: string[]) {
+  return () => {
+    requireAuth();
+    const { hasPermission, isAcceso } = useAuthStore.getState();
+    if (!permissions.some((permission) => hasPermission(permission))) {
+      throw redirect({ to: isAcceso ? '/mis-guias' : '/inicio' });
+    }
   };
 }
 
@@ -345,6 +360,26 @@ const calculadoraRoute = createRoute({
     }) as RouteHeadResult,
 });
 
+const accesoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/acceso',
+  component: AccesoPage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Acceso a tus paquetes | ECUBOX',
+      description:
+        'Abre tu enlace de acceso ECUBOX para consultar tus paquetes y consignatarios sin necesidad de registrarte.',
+      path: '/acceso',
+    }) as RouteHeadResult,
+});
+
+const enlacesAccesoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/enlaces-acceso',
+  beforeLoad: requirePermission('ACCESO_ENLACES_MANAGE'),
+  component: withDashboardLayout(EnlacesAccesoPage),
+});
+
 const enlacesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/enlaces',
@@ -388,7 +423,7 @@ const privacidadRoute = createRoute({
 const inicioRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/inicio',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('INICIO_READ'),
   component: withDashboardLayout(DashboardPage),
 });
 
@@ -402,7 +437,7 @@ const estadisticasRoute = createRoute({
 const casilleroRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/casillero',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('CASILLERO_READ'),
   component: withDashboardLayout(CasilleroPage),
 });
 
@@ -417,7 +452,7 @@ const agenciaEeuuLegacyRedirect = createRoute({
 const perfilRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/perfil',
-  beforeLoad: requireAuth,
+  beforeLoad: requirePermission('PERFIL_READ'),
   component: withDashboardLayout(PerfilPage),
 });
 
@@ -445,7 +480,7 @@ const permisosRoute = createRoute({
 const consignatariosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/consignatarios',
-  beforeLoad: requirePermission('CONSIGNATARIOS_READ'),
+  beforeLoad: requireAnyPermission(['CONSIGNATARIOS_READ', 'ACCESO_ENLACE_CONSIGNATARIOS_READ']),
   component: withDashboardLayout(ConsignatarioListPage),
 });
 
@@ -495,14 +530,14 @@ const guiasMasterDetailRoute = createRoute({
 const misGuiasRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/mis-guias',
-  beforeLoad: requirePermission('MIS_GUIAS_READ'),
+  beforeLoad: requireAnyPermission(['MIS_GUIAS_READ', 'ACCESO_ENLACE_GUIAS_READ']),
   component: withDashboardLayout(MisGuiasListPage),
 });
 
 const misGuiasDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/mis-guias/$id',
-  beforeLoad: requirePermission('MIS_GUIAS_READ'),
+  beforeLoad: requireAnyPermission(['MIS_GUIAS_READ', 'ACCESO_ENLACE_GUIAS_READ']),
   component: withDashboardLayout(MiGuiaDetailPage),
 });
 
@@ -572,21 +607,21 @@ const despachosEditarRoute = createRoute({
 const lotesRecepcionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/lotes-recepcion',
-  beforeLoad: requirePermission('DESPACHOS_WRITE'),
+  beforeLoad: requirePermission('LOTES_RECEPCION_READ'),
   component: withDashboardLayout(LoteRecepcionListPage),
 });
 
 const lotesRecepcionNuevoRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/lotes-recepcion/nuevo',
-  beforeLoad: requirePermission('DESPACHOS_WRITE'),
+  beforeLoad: requirePermission('LOTES_RECEPCION_CREATE'),
   component: withDashboardLayout(LoteRecepcionNuevoPage),
 });
 
 const lotesRecepcionDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/lotes-recepcion/$id',
-  beforeLoad: requirePermission('DESPACHOS_WRITE'),
+  beforeLoad: requirePermission('LOTES_RECEPCION_READ'),
   component: withDashboardLayout(LoteRecepcionDetailPage),
 });
 
@@ -628,14 +663,14 @@ const manifiestosDetailRoute = createRoute({
 const tarifaCalculadoraRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/tarifa-calculadora',
-  beforeLoad: requirePermission('DESPACHOS_WRITE'),
+  beforeLoad: requirePermission('TARIFA_CALCULADORA_READ'),
   component: withDashboardLayout(TarifaCalculadoraPage),
 });
 
 const parametrosSistemaRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/parametros-sistema',
-  beforeLoad: requirePermission('DESPACHOS_WRITE'),
+  beforeLoad: requirePermission('PARAMETROS_SISTEMA_READ'),
   component: withDashboardLayout(ParametrosSistemaPage),
 });
 
@@ -648,6 +683,8 @@ const routeTree = rootRoute.addChildren([
   trackingRoute,
   trackingEjemploRoute,
   calculadoraRoute,
+  accesoRoute,
+  enlacesAccesoRoute,
   enlacesRoute,
   terminosRoute,
   privacidadRoute,
