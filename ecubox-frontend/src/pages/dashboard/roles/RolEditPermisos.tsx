@@ -47,6 +47,7 @@ const GROUP_LABELS: Record<string, string> = {
   ACCESO_ENLACE: 'Enlace de acceso',
   ACCESO_ENLACES: 'Enlaces de acceso',
   MIS_ENTREGAS: 'Mis entregas',
+  MIS_GUIAS: 'Mis guías',
   INICIO: 'Inicio',
   CASILLERO: 'Casillero',
   PERFIL: 'Perfil',
@@ -56,7 +57,7 @@ const GROUP_LABELS: Record<string, string> = {
   TEMA_TEMPORADA: 'Tema de temporada',
   CONFIG_TARIFA: 'Tarifas de distribución',
   LOTES_RECEPCION: 'Lotes de recepción',
-  TRACKING_PROJECTOR: 'Monitoreo de tracking',
+  TRACKING_PROJECTOR: 'Monitoreo de rastreo',
   USUARIOS: 'Usuarios',
   ROLES: 'Roles',
   PERMISOS: 'Permisos',
@@ -64,20 +65,23 @@ const GROUP_LABELS: Record<string, string> = {
   PAQUETES: 'Paquetes',
   AGENCIAS: 'Agencias',
   COURIERS_ENTREGA: 'Couriers de entrega',
+  PUNTOS_ENTREGA: 'Puntos de entrega',
   MANIFIESTOS: 'Manifiestos',
   DESPACHOS: 'Despachos',
-  TARIFA: 'Tarifa',
+  ESTADOS_RASTREO: 'Estados de rastreo',
   GUIAS: 'Guías master',
   ENVIOS: 'Envíos consolidados',
-  TRACKING: 'Tracking',
-  REPORTES: 'Reportes',
+  LIQUIDACION: 'Liquidaciones',
+  TARIFA: 'Tarifa calculadora',
   ESTADISTICAS: 'Estadísticas',
+  REPORTES: 'Reportes',
 };
 
 const GROUP_ORDER = [
   'ACCESO_ENLACE',
   'ACCESO_ENLACES',
   'MIS_ENTREGAS',
+  'MIS_GUIAS',
   'INICIO',
   'CASILLERO',
   'PERFIL',
@@ -95,11 +99,13 @@ const GROUP_ORDER = [
   'PAQUETES',
   'AGENCIAS',
   'COURIERS_ENTREGA',
+  'PUNTOS_ENTREGA',
   'MANIFIESTOS',
   'DESPACHOS',
+  'ESTADOS_RASTREO',
   'GUIAS',
   'ENVIOS',
-  'TRACKING',
+  'LIQUIDACION',
   'TARIFA',
   'ESTADISTICAS',
   'REPORTES',
@@ -109,6 +115,7 @@ function getGroupKey(codigo: string): string {
   if (codigo.startsWith('ACCESO_ENLACE_')) return 'ACCESO_ENLACE';
   if (codigo.startsWith('ACCESO_ENLACES_')) return 'ACCESO_ENLACES';
   if (codigo.startsWith('MIS_ENTREGAS_')) return 'MIS_ENTREGAS';
+  if (codigo.startsWith('MIS_GUIAS_')) return 'MIS_GUIAS';
   if (codigo.startsWith('PARAMETROS_SISTEMA_')) return 'PARAMETROS_SISTEMA';
   if (codigo.startsWith('MENSAJE_')) return 'MENSAJES';
   if (codigo.startsWith('CANALES_COMUNICACION_')) return 'CANALES_COMUNICACION';
@@ -116,6 +123,10 @@ function getGroupKey(codigo: string): string {
   if (codigo.startsWith('CONFIG_TARIFA_')) return 'CONFIG_TARIFA';
   if (codigo.startsWith('LOTES_RECEPCION_')) return 'LOTES_RECEPCION';
   if (codigo.startsWith('TRACKING_PROJECTOR_')) return 'TRACKING_PROJECTOR';
+  if (codigo.startsWith('COURIERS_ENTREGA_')) return 'COURIERS_ENTREGA';
+  if (codigo.startsWith('PUNTOS_ENTREGA_')) return 'PUNTOS_ENTREGA';
+  if (codigo.startsWith('ESTADOS_RASTREO_')) return 'ESTADOS_RASTREO';
+  if (codigo.startsWith('LIQUIDACION_CONSOLIDADO_')) return 'LIQUIDACION';
   const idx = codigo.indexOf('_');
   return idx > 0 ? codigo.slice(0, idx) : codigo;
 }
