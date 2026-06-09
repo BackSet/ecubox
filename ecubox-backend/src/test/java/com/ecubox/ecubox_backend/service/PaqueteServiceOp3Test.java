@@ -101,11 +101,12 @@ class PaqueteServiceOp3Test {
     @Test
     void marcaFlujoAlternoAlEntrarEstadoAlterno() {
         PaqueteService paqueteService = createPaqueteService(false);
-        EstadoRastreo origen = EstadoRastreo.builder().id(1L).nombre("En ruta").build();
+        EstadoRastreo origen = EstadoRastreo.builder().id(1L).nombre("En ruta").orden(1).activo(true).build();
         EstadoRastreo destinoAlterno = EstadoRastreo.builder()
                 .id(3L)
                 .nombre("Retenido en aduana")
                 .activo(true)
+                .orden(2)
                 .tipoFlujo(TipoFlujoEstado.ALTERNO)
                 .build();
         Paquete p = Paquete.builder()
@@ -119,6 +120,7 @@ class PaqueteServiceOp3Test {
                 .thenReturn(EstadosRastreoPorPuntoDTO.builder().build());
         when(paqueteRepository.findById(20L)).thenReturn(Optional.of(p));
         when(estadoRastreoService.findEntityById(3L)).thenReturn(destinoAlterno);
+        when(estadoRastreoService.findSiguienteEstadoInmediato(origen)).thenReturn(Optional.of(destinoAlterno));
         when(paqueteRepository.save(any(Paquete.class))).thenAnswer(inv -> inv.getArgument(0));
 
         paqueteService.cambiarEstadoRastreo(20L, 3L, "Retenido para revisión");

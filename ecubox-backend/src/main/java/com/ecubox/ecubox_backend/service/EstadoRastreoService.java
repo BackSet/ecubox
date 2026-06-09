@@ -14,10 +14,12 @@ import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -77,6 +79,20 @@ public class EstadoRastreoService {
         return findActivosEntities().stream()
                 .filter(e -> estadoOrigenId == null || !e.getId().equals(estadoOrigenId))
                 .toList();
+    }
+
+    /**
+     * Devuelve el siguiente estado activo inmediato en el flujo para el estado dado,
+     * según el orden configurado ({@code orden}). Retorna {@link Optional#empty()} si
+     * ya es el último estado activo o si {@code estadoActual} no tiene orden definido.
+     */
+    @Transactional(readOnly = true)
+    public Optional<EstadoRastreo> findSiguienteEstadoInmediato(EstadoRastreo estadoActual) {
+        if (estadoActual == null || estadoActual.getOrden() == null) return Optional.empty();
+        int ordenActual = estadoActual.getOrden();
+        return findActivosEntities().stream()
+                .filter(e -> e.getOrden() != null && e.getOrden() > ordenActual)
+                .min(Comparator.comparingInt(EstadoRastreo::getOrden));
     }
 
     @Transactional(readOnly = true)
