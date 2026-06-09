@@ -81,7 +81,7 @@ export function MiGuiaDetailPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Pieza</TableHead>
-                <TableHead className="hidden md:table-cell">Consignatario</TableHead>
+                <TableHead className="hidden md:table-cell">Destinatario</TableHead>
                 <TableHead className="text-right">Estado</TableHead>
               </TableRow>
             </TableHeader>

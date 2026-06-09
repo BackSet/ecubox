@@ -158,7 +158,7 @@ export function MisGuiasListPage() {
     <div className="page-stack">
       <ListToolbar
         title="Mis guías"
-        searchPlaceholder="Buscar por número de guía o consignatario..."
+        searchPlaceholder="Buscar por número de guía o destinatario..."
         onSearchChange={setSearch}
         actions={
           canEditar ? (
@@ -346,7 +346,7 @@ export function MisGuiasListPage() {
                 <TableHead className="w-[20rem]">
                   <span className="inline-flex items-center gap-1.5">
                     <UserRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    Consignatario
+                    Destinatario
                   </span>
                 </TableHead>
                 <TableHead>
@@ -584,7 +584,7 @@ function MiGuiaCard({
 
       <div className="mt-3 border-t border-border pt-3">
         <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          Consignatario
+          Destinatario
         </p>
         <ConsignatarioInfo
           nombre={g.consignatarioNombre}
