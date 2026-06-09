@@ -16,6 +16,7 @@ import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/PageHeader';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -83,22 +84,18 @@ export function InicioClienteSection() {
 
   return (
     <section className="page-stack">
-      <header className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
-            {username ? `Hola, ${username}` : 'Bienvenido'}
-          </h1>
-          <p className="mt-1 text-[13px] text-[var(--color-muted-foreground)]">
-            Resumen de tus guías y envíos.
-          </p>
-        </div>
-        {hasMisGuiasCreate && (
-          <Button onClick={() => setRegistrarOpen(true)}>
-            <Plus className="mr-2 h-5 w-5" strokeWidth={1.75} />
-            Registrar guías
-          </Button>
-        )}
-      </header>
+      <PageHeader
+        title={username ? `Hola, ${username}` : 'Bienvenido'}
+        description="Resumen de tus guías y envíos."
+        actions={
+          hasMisGuiasCreate ? (
+            <Button onClick={() => setRegistrarOpen(true)}>
+              <Plus className="mr-2 h-5 w-5" strokeWidth={1.75} />
+              Registrar guías
+            </Button>
+          ) : undefined
+        }
+      />
 
       {data.totalGuiasSinTotalDefinido > 0 && (
         <div className="ui-alert ui-alert-warning">

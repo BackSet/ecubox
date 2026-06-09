@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { SurfaceCard } from '@/components/ui/surface-card';
+import { PageHeader } from '@/components/PageHeader';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
 import { useUsuarios } from '@/hooks/useUsuarios';
@@ -107,14 +108,10 @@ export function InicioAdminSection() {
 
   return (
     <section className="page-stack">
-      <header className="border-b border-[var(--color-border)] pb-4">
-        <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
-          {username ? `Hola, ${username}` : 'Panel administrativo'}
-        </h1>
-        <p className="mt-1 text-[13px] text-[var(--color-muted-foreground)]">
-          Resumen general del sistema y accesos rápidos a la administración.
-        </p>
-      </header>
+      <PageHeader
+        title={username ? `Hola, ${username}` : 'Panel administrativo'}
+        description="Resumen general del sistema y accesos rápidos a la administración."
+      />
 
       {cargando && !usuarios && !roles && !permisos ? (
         <div aria-busy="true" aria-live="polite" className="space-y-4">

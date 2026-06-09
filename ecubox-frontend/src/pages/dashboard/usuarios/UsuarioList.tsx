@@ -29,6 +29,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { UsuarioForm } from './UsuarioForm';
 import { ListToolbar } from '@/components/ListToolbar';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { PageErrorState } from '@/components/PageErrorState';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
@@ -148,7 +149,7 @@ export function UsuarioList() {
 
   if (error && !data) {
     return (
-      <InlineErrorBanner
+      <PageErrorState
         message="Error al cargar usuarios"
         hint="Verifica tu conexión o intenta de nuevo."
         onRetry={() => refetch()}

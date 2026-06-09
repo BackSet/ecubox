@@ -23,6 +23,7 @@ import { usePermisos, usePermisosPaginados } from '@/hooks/usePermisos';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { ListToolbar } from '@/components/ListToolbar';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { PageErrorState } from '@/components/PageErrorState';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
@@ -295,7 +296,7 @@ export function PermisoList() {
 
   if (error && !data) {
     return (
-      <InlineErrorBanner
+      <PageErrorState
         message="Error al cargar permisos"
         hint="Verifica tu conexión o intenta de nuevo."
         onRetry={() => refetch()}

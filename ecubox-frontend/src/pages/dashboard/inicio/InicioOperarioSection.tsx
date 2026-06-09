@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { SurfaceCard } from '@/components/ui/surface-card';
+import { PageHeader } from '@/components/PageHeader';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { useDashboardGuiasMaster } from '@/hooks/useGuiasMaster';
 import {
@@ -165,14 +166,10 @@ export function InicioOperarioSection() {
 
   return (
     <section className="page-stack">
-      <header className="border-b border-[var(--color-border)] pb-4">
-        <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
-          Panel operativo
-        </h1>
-        <p className="mt-1 text-[13px] text-[var(--color-muted-foreground)]">
-          Estado actual de la operación y accesos rápidos.
-        </p>
-      </header>
+      <PageHeader
+        title="Panel operativo"
+        description="Estado actual de la operación y accesos rápidos."
+      />
 
       {canPesoWrite && totalVencidos > 0 && !cargandoOperacion && (
         <div className="ui-alert ui-alert-warning">

@@ -10,6 +10,7 @@ import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { PageErrorState } from '@/components/PageErrorState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
@@ -301,7 +302,7 @@ export function GestionarEstadosPaquetesTab() {
 
   if (error && (!paquetes || paquetes.length === 0)) {
     return (
-      <InlineErrorBanner
+      <PageErrorState
         message="Error al cargar paquetes"
         hint="Verifica tu conexión o intenta de nuevo."
         onRetry={() => refetch()}
