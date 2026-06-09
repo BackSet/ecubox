@@ -34,7 +34,7 @@ export function GestionarEstadosPage() {
   const activeTab = visibles.find((t) => t.key === active) ?? visibles[0];
 
   return (
-    <div className="space-y-4">
+    <div className="page-stack">
       <PageHeader
         title="Gestionar estados"
         description="Cambia el estado de paquetes, guías master o consolidados según las reglas de cada dominio."

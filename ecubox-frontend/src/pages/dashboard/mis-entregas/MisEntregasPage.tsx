@@ -133,7 +133,7 @@ export function MisEntregasPage() {
         }
       />
 
-      <KpiCardsGrid>
+      {!isLoading && !error && despachos.length > 0 && <KpiCardsGrid>
         <KpiCard
           icon={<Truck className="h-5 w-5" />}
           label="Despachos"
@@ -162,7 +162,7 @@ export function MisEntregasPage() {
           tone={stats.confirmados > 0 ? 'success' : 'neutral'}
           hint={`${stats.pendientes} pendiente${stats.pendientes === 1 ? '' : 's'}`}
         />
-      </KpiCardsGrid>
+      </KpiCardsGrid>}
 
       <SurfaceCard className="overflow-hidden p-0">
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-4 py-3 sm:px-5">

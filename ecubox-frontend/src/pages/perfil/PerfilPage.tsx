@@ -21,6 +21,7 @@ import {
 
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/stores/authStore';
@@ -482,21 +483,18 @@ export function PerfilPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-foreground)] sm:text-2xl">
-            Mi perfil
-          </h1>
-          <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
-            Actualiza tu correo y tu contraseña.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2 sm:w-auto">
-          <LogOut className="h-4 w-4" />
-          Cerrar sesión
-        </Button>
-      </header>
+    <div className="mx-auto w-full max-w-3xl page-stack">
+      <PageHeader
+        title="Mi perfil"
+        description="Actualiza tu correo y tu contraseña."
+        icon={<UserIcon className="h-5 w-5" strokeWidth={1.75} />}
+        actions={
+          <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </Button>
+        }
+      />
 
       <CuentaSection />
       <SeguridadSection />
