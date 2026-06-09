@@ -48,6 +48,8 @@ export interface EstadosRastreoPorPunto {
   estadoRastreoArribadoEcId?: number | null;
   estadoRastreoInicioCuentaRegresivaId?: number | null;
   estadoRastreoFinCuentaRegresivaId?: number | null;
+  estadoRastreoCierreConsolidadoId?: number | null;
+  estadoRastreoArriboEcuadorId?: number | null;
 }
 
 export interface EstadosRastreoPorPuntoRequest {
@@ -63,4 +65,6 @@ export interface EstadosRastreoPorPuntoRequest {
   estadoRastreoArribadoEcId: number;
   estadoRastreoInicioCuentaRegresivaId?: number | null;
   estadoRastreoFinCuentaRegresivaId?: number | null;
+  estadoRastreoCierreConsolidadoId?: number | null;
+  estadoRastreoArriboEcuadorId?: number | null;
 }

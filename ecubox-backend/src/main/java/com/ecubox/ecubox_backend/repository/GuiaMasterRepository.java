@@ -37,12 +37,10 @@ public interface GuiaMasterRepository extends JpaRepository<GuiaMaster, Long>,
                                               @Param("limite") LocalDateTime limite);
 
     /**
-     * Top guias mas antiguas que aun no han llegado a un estado terminal
-     * (DESPACHO_COMPLETADO, DESPACHO_INCOMPLETO, CANCELADA). Las que estan
-     * en EN_REVISION se incluyen porque siguen abiertas operativamente.
+     * Top guías más antiguas que aún no han llegado a un estado terminal (DESPACHO_COMPLETADO, CANCELADA).
      */
     @Query("SELECT gm FROM GuiaMaster gm " +
-           "WHERE gm.estadoGlobal IN ('SIN_PIEZAS_REGISTRADAS','EN_ESPERA_RECEPCION','RECEPCION_PARCIAL','RECEPCION_COMPLETA','DESPACHO_PARCIAL','EN_REVISION') " +
+           "WHERE gm.estadoGlobal IN ('PENDIENTE_VERIFICACION','VERIFICADA','SIN_PAQUETES_REGISTRADOS','CON_PAQUETES_REGISTRADOS','ENVIO_PARCIAL','ENVIO_COMPLETO','RECEPCION_PARCIAL','RECEPCION_COMPLETA','DESPACHO_PARCIAL','EN_REVISION') " +
            "ORDER BY gm.createdAt ASC")
     List<GuiaMaster> findActivasMasAntiguas(org.springframework.data.domain.Pageable pageable);
 

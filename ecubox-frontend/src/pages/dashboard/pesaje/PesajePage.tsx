@@ -751,9 +751,12 @@ export function PesajePage() {
                                 ? ({
                                     VACIO: 'Vacío',
                                     EN_PREPARACION: 'En preparación',
+                                    CERRADO: 'Cerrado',
                                     ENVIADO_DESDE_USA: 'Enviado desde USA',
+                                    ARRIBADO_ECUADOR: 'Arribado a Ecuador',
                                     RECIBIDO_EN_BODEGA: 'Recibido en bodega',
                                     LIQUIDADO: 'Liquidado',
+                                    CANCELADO: 'Cancelado',
                                   }[p.envioConsolidadoEstadoOperativo] ?? 'Consolidado')
                                 : p.envioConsolidadoCerrado
                                   ? 'Enviado desde USA'

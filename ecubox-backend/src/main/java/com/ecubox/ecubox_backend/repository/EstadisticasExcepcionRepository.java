@@ -112,21 +112,15 @@ public class EstadisticasExcepcionRepository {
                            'GUIA_CIERRE_INCONSISTENTE',
                            'Auditoría de cierre inconsistente',
                            CASE
-                             WHEN gm.estado_global IN ('DESPACHO_COMPLETADO',
-                                                       'DESPACHO_INCOMPLETO',
-                                                       'CANCELADA')
+                             WHEN gm.estado_global IN ('DESPACHO_COMPLETADO', 'CANCELADA')
                                THEN 'La guía está en estado terminal sin fecha de cierre.'
                              ELSE 'La guía sigue activa, pero conserva una fecha de cierre.'
                            END,
                            CONCAT('/guias-master/', gm.id)
                     FROM guia_master gm
-                    WHERE (gm.estado_global IN ('DESPACHO_COMPLETADO',
-                                                'DESPACHO_INCOMPLETO',
-                                                'CANCELADA')
+                    WHERE (gm.estado_global IN ('DESPACHO_COMPLETADO', 'CANCELADA')
                            AND gm.cerrada_en IS NULL)
-                       OR (gm.estado_global NOT IN ('DESPACHO_COMPLETADO',
-                                                   'DESPACHO_INCOMPLETO',
-                                                   'CANCELADA')
+                       OR (gm.estado_global NOT IN ('DESPACHO_COMPLETADO', 'CANCELADA')
                            AND gm.cerrada_en IS NOT NULL)
                 ) excepciones
                 ORDER BY CASE severidad WHEN 'ALTA' THEN 1 WHEN 'MEDIA' THEN 2 ELSE 3 END,
@@ -181,13 +175,9 @@ public class EstadisticasExcepcionRepository {
                         OR (l.estado_pago = 'NO_PAGADO' AND l.fecha_pago IS NOT NULL))
                   + (SELECT COUNT(*)
                      FROM guia_master gm
-                     WHERE (gm.estado_global IN ('DESPACHO_COMPLETADO',
-                                                 'DESPACHO_INCOMPLETO',
-                                                 'CANCELADA')
+                     WHERE (gm.estado_global IN ('DESPACHO_COMPLETADO', 'CANCELADA')
                             AND gm.cerrada_en IS NULL)
-                        OR (gm.estado_global NOT IN ('DESPACHO_COMPLETADO',
-                                                    'DESPACHO_INCOMPLETO',
-                                                    'CANCELADA')
+                        OR (gm.estado_global NOT IN ('DESPACHO_COMPLETADO', 'CANCELADA')
                             AND gm.cerrada_en IS NOT NULL))
                 """);
         query.setParameter("ordenDespacho", ordenDespacho);

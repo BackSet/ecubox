@@ -57,7 +57,7 @@ public class EnvioConsolidadoController {
     @Operation(summary = "Listar envíos consolidados", description = "Consulta envíos consolidados con filtros de estado, pago, búsqueda y paginación")
     @ApiResponse(responseCode = "200", description = "Página de envíos consolidados")
     public ResponseEntity<PageResponse<EnvioConsolidadoDTO>> findAll(
-            @Parameter(description = "Filtro operativo: TODOS, VACIO, EN_PREPARACION, ENVIADO_DESDE_USA, RECIBIDO_EN_BODEGA o LIQUIDADO") @RequestParam(required = false) String estado,
+            @Parameter(description = "Filtro operativo: TODOS, VACIO, EN_PREPARACION, CERRADO, ENVIADO_DESDE_USA, ARRIBADO_ECUADOR, RECIBIDO_EN_BODEGA, LIQUIDADO o CANCELADO") @RequestParam(required = false) String estado,
             @Parameter(description = "Filtro de pago: TODOS, PAGADO o NO_PAGADO") @RequestParam(required = false) String estadoPago,
             @Parameter(description = "Texto de búsqueda") @RequestParam(required = false) String q,
             @Parameter(description = "Número de página (base cero)") @RequestParam(defaultValue = "0") int page,
@@ -110,29 +110,56 @@ public class EnvioConsolidadoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping("/{id}/cerrar-consolidado")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Cerrar consolidado para registro", description = "Cierra el consolidado (EN_PREPARACION → CERRADO) y aplica el estado 'Manifestado' a sus piezas")
+    @ApiResponse(responseCode = "200", description = "Envío consolidado cerrado")
+    public ResponseEntity<EnvioConsolidadoDTO> cerrarConsolidado(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
+        EnvioConsolidado envio = envioConsolidadoService.cerrarConsolidado(id);
+        return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, false));
+    }
+
     @PostMapping("/{id}/enviar-usa")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
-    @Operation(summary = "Enviar consolidado desde USA", description = "Marca el consolidado como enviado desde USA y aplica el estado de salida a sus piezas")
+    @Operation(summary = "Enviar consolidado desde USA", description = "Marca el consolidado como enviado desde USA (CERRADO → ENVIADO_DESDE_USA) y aplica el estado de salida a sus piezas")
     @ApiResponse(responseCode = "200", description = "Envío consolidado enviado desde USA")
     public ResponseEntity<EnvioConsolidadoDTO> enviarDesdeUsa(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
         EnvioConsolidado envio = envioConsolidadoService.enviarDesdeUsa(id, null);
         return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, false));
     }
 
-    /** @deprecated Compatibilidad con clientes antiguos. Usar /enviar-usa. */
+    @PostMapping("/{id}/arribar-ecuador")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Registrar arribo a Ecuador", description = "Registra el arribo a Ecuador (ENVIADO_DESDE_USA → ARRIBADO_ECUADOR) y aplica el estado 'Llega a aduana destino' a sus piezas")
+    @ApiResponse(responseCode = "200", description = "Arribo a Ecuador registrado")
+    public ResponseEntity<EnvioConsolidadoDTO> arribarEcuador(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
+        EnvioConsolidado envio = envioConsolidadoService.marcarArribadoEcuador(id, null);
+        return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, false));
+    }
+
+    @PostMapping("/{id}/cancelar")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Cancelar consolidado", description = "Cancela el consolidado desde VACIO o EN_PREPARACION")
+    @ApiResponse(responseCode = "200", description = "Envío consolidado cancelado")
+    public ResponseEntity<EnvioConsolidadoDTO> cancelar(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
+        EnvioConsolidado envio = envioConsolidadoService.cancelarConsolidado(id);
+        return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, false));
+    }
+
+    /** @deprecated Compatibilidad con clientes antiguos. Usar /cerrar-consolidado seguido de /enviar-usa. */
     @Deprecated
     @PostMapping("/{id}/cerrar")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
-    @Operation(summary = "Enviar consolidado desde USA", description = "Alias heredado de enviar desde USA")
-    @ApiResponse(responseCode = "200", description = "Envío consolidado enviado desde USA")
+    @Operation(summary = "Cerrar consolidado (heredado)", description = "Alias heredado: cierra el consolidado para registro")
+    @ApiResponse(responseCode = "200", description = "Envío consolidado cerrado")
     public ResponseEntity<EnvioConsolidadoDTO> cerrar(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
-        EnvioConsolidado envio = envioConsolidadoService.enviarDesdeUsa(id, null);
+        EnvioConsolidado envio = envioConsolidadoService.cerrarConsolidado(id);
         return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, false));
     }
 
     @PostMapping("/{id}/reabrir")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
-    @Operation(summary = "Revertir salida USA", description = "Devuelve el consolidado a preparación")
+    @Operation(summary = "Reabrir consolidado", description = "Devuelve el consolidado a EN_PREPARACION desde CERRADO o ENVIADO_DESDE_USA")
     @ApiResponse(responseCode = "200", description = "Envío consolidado devuelto a preparación")
     public ResponseEntity<EnvioConsolidadoDTO> reabrir(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
         EnvioConsolidado envio = envioConsolidadoService.reabrir(id);
@@ -242,15 +269,17 @@ public class EnvioConsolidadoController {
         return switch (e) {
             case "TODOS", "TODO" -> null;
             case "VACIO" -> EstadoEnvioConsolidadoOperativo.VACIO;
-            case "EN_PREPARACION", "PREPARACION" ->
-                    EstadoEnvioConsolidadoOperativo.EN_PREPARACION;
+            case "EN_PREPARACION", "PREPARACION" -> EstadoEnvioConsolidadoOperativo.EN_PREPARACION;
+            case "CERRADO" -> EstadoEnvioConsolidadoOperativo.CERRADO;
             case "ENVIADO_DESDE_USA", "ENVIADO_USA", "ENVIADOS_DESDE_USA" ->
                     EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA;
+            case "ARRIBADO_ECUADOR", "ARRIBADO" -> EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR;
             case "RECIBIDO_EN_BODEGA", "RECIBIDO", "EN_BODEGA" ->
                     EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA;
-            case "LIQUIDADO", "PAGADO" -> EstadoEnvioConsolidadoOperativo.LIQUIDADO;
+            case "LIQUIDADO" -> EstadoEnvioConsolidadoOperativo.LIQUIDADO;
+            case "CANCELADO" -> EstadoEnvioConsolidadoOperativo.CANCELADO;
             default -> throw new BadRequestException("Filtro no válido: " + estado
-                    + ". Use TODOS, VACIO, EN_PREPARACION, ENVIADO_DESDE_USA, RECIBIDO_EN_BODEGA o LIQUIDADO.");
+                    + ". Use TODOS, VACIO, EN_PREPARACION, CERRADO, ENVIADO_DESDE_USA, ARRIBADO_ECUADOR, RECIBIDO_EN_BODEGA, LIQUIDADO o CANCELADO.");
         };
     }
 

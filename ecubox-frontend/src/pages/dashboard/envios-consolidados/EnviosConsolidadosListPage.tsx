@@ -192,9 +192,12 @@ export function EnviosConsolidadosListPage() {
     const porOperativo: Record<EstadoEnvioConsolidadoOperativo, number> = {
       VACIO: 0,
       EN_PREPARACION: 0,
+      CERRADO: 0,
       ENVIADO_DESDE_USA: 0,
+      ARRIBADO_ECUADOR: 0,
       RECIBIDO_EN_BODEGA: 0,
       LIQUIDADO: 0,
+      CANCELADO: 0,
     };
     let pagados = 0;
     let noPagados = 0;
@@ -759,9 +762,12 @@ export function AplicarEstadoConsolidadosDialog({
     const counts: Record<EstadoEnvioConsolidadoOperativo, number> = {
       VACIO: 0,
       EN_PREPARACION: 0,
+      CERRADO: 0,
       ENVIADO_DESDE_USA: 0,
+      ARRIBADO_ECUADOR: 0,
       RECIBIDO_EN_BODEGA: 0,
       LIQUIDADO: 0,
+      CANCELADO: 0,
     };
     for (const envio of consolidados) {
       counts[resolveEstadoOperativoConsolidado(envio)] += 1;

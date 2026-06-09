@@ -894,6 +894,8 @@ const TIPO_CAMBIO_LABELS: Record<TipoCambioEstadoGuiaMaster, string> = {
   MARCAR_REVISION: 'Marcada en revisión',
   SALIR_REVISION: 'Salida de revisión',
   REAPERTURA: 'Reapertura',
+  APROBACION: 'Aprobación',
+  MARCAR_PENDIENTE_VERIFICACION: 'Marcada pendiente de verificación',
 };
 
 function HistorialEstadosCard({ guiaMasterId }: { guiaMasterId: number }) {

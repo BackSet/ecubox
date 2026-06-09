@@ -1,8 +1,10 @@
 import {
+  Ban,
   Boxes,
   Lock,
   PackageCheck,
-  Truck,
+  PlaneLanding,
+  Send,
   Unlock,
   Wallet,
   type LucideIcon,
@@ -16,9 +18,12 @@ import type {
 export const ENVIO_CONSOLIDADO_ESTADO_ORDEN: EstadoEnvioConsolidadoOperativo[] = [
   'VACIO',
   'EN_PREPARACION',
+  'CERRADO',
   'ENVIADO_DESDE_USA',
+  'ARRIBADO_ECUADOR',
   'RECIBIDO_EN_BODEGA',
   'LIQUIDADO',
+  'CANCELADO',
 ];
 
 export function resolveEstadoOperativoConsolidado(
@@ -28,6 +33,7 @@ export function resolveEstadoOperativoConsolidado(
   >,
 ): EstadoEnvioConsolidadoOperativo {
   if (envio.estadoOperativo) return envio.estadoOperativo;
+  // Fallback para respuestas pre-V107
   if (envio.estadoPago === 'PAGADO') return 'LIQUIDADO';
   if (envio.cerrado) return 'ENVIADO_DESDE_USA';
   if (envio.totalPaquetes > 0) return 'EN_PREPARACION';
@@ -35,18 +41,32 @@ export function resolveEstadoOperativoConsolidado(
 }
 
 /**
- * Estado operativo derivado del envio consolidado.
- * `cerrado` queda como fallback operativo para respuestas antiguas del backend.
+ * Estado operativo persistido del envío consolidado — flujo v2 (V107).
  */
+/** Descripciones de referencia del estado operativo del envío consolidado — flujo v2 (V107). */
+export const ENVIO_CONSOLIDADO_ESTADO_DESCRIPCIONES: Record<EstadoEnvioConsolidadoOperativo, string> = {
+  VACIO: 'Envío consolidado creado sin paquetes.',
+  EN_PREPARACION: 'Se están registrando los paquetes que viajan en ese Envío consolidado.',
+  CERRADO: 'Ya se terminó de registrar la información del Envío consolidado y sus paquetes.',
+  ENVIADO_DESDE_USA: 'El Envío consolidado fue marcado como enviado desde USA.',
+  ARRIBADO_ECUADOR: 'El Envío consolidado llegó a Ecuador / aduana destino.',
+  RECIBIDO_EN_BODEGA: 'El Envío consolidado fue recibido en Lote de recepción.',
+  LIQUIDADO: 'Cierre administrativo del Envío consolidado.',
+  CANCELADO: 'Envío consolidado anulado.',
+};
+
 export const ENVIO_CONSOLIDADO_ESTADO_UI: Record<
   EstadoEnvioConsolidadoOperativo,
   { label: string; tone: StatusTone; icon: LucideIcon }
 > = {
-  VACIO: { label: 'Vacío', tone: 'neutral', icon: Boxes },
-  EN_PREPARACION: { label: 'En preparación', tone: 'info', icon: Unlock },
-  ENVIADO_DESDE_USA: { label: 'Enviado desde USA', tone: 'primary', icon: Truck },
-  RECIBIDO_EN_BODEGA: { label: 'Recibido en bodega', tone: 'success', icon: PackageCheck },
-  LIQUIDADO: { label: 'Liquidado', tone: 'success', icon: Wallet },
+  VACIO:            { label: 'Vacío',              tone: 'neutral',  icon: Boxes       },
+  EN_PREPARACION:   { label: 'En preparación',     tone: 'info',     icon: Unlock      },
+  CERRADO:          { label: 'Cerrado',             tone: 'primary',  icon: Lock        },
+  ENVIADO_DESDE_USA:{ label: 'Enviado desde USA',  tone: 'primary',  icon: Send        },
+  ARRIBADO_ECUADOR: { label: 'Arribado a Ecuador',  tone: 'primary',  icon: PlaneLanding},
+  RECIBIDO_EN_BODEGA:{ label: 'Recibido en bodega',tone: 'success',  icon: PackageCheck},
+  LIQUIDADO:        { label: 'Liquidado',           tone: 'success',  icon: Wallet      },
+  CANCELADO:        { label: 'Cancelado',           tone: 'neutral',  icon: Ban         },
 };
 
 export function EnvioConsolidadoBadge({
@@ -66,9 +86,10 @@ export function EnvioConsolidadoBadge({
       </StatusBadge>
     );
   }
+  // Fallback para respuestas pre-V107
   const Icon = cerrado ? Lock : Unlock;
   return (
-    <StatusBadge tone={cerrado ? 'neutral' : 'success'}>
+    <StatusBadge tone={cerrado ? 'neutral' : 'info'}>
       <Icon className="h-3 w-3" />
       {cerrado ? 'Enviado desde USA' : 'En preparación'}
     </StatusBadge>

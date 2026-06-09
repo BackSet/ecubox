@@ -685,6 +685,13 @@ const parametrosSistemaRoute = createRoute({
   component: withDashboardLayout(ParametrosSistemaPage),
 });
 
+const parametrosSistemaSeccionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/parametros-sistema/$seccion',
+  beforeLoad: requirePermission('PARAMETROS_SISTEMA_READ'),
+  component: withDashboardLayout(ParametrosSistemaPage),
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
@@ -736,6 +743,7 @@ const routeTree = rootRoute.addChildren([
   manifiestosDetailRoute,
   tarifaCalculadoraRoute,
   parametrosSistemaRoute,
+  parametrosSistemaSeccionRoute,
 ]);
 const router = createRouter({
   routeTree,

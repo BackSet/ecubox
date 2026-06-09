@@ -1,23 +1,29 @@
 import type { Paquete } from '@/types/paquete';
 
 /**
- * Estados del agregado guia_master alineados con el enum del backend
- * tras la migracion V66. Los valores se renombraron para ser mas
- * descriptivos para el operario y se agregaron CANCELADA y EN_REVISION.
+ * Estados del agregado guia_master — flujo v2 (V107).
+ *
+ * Flujo normal: SIN_PAQUETES_REGISTRADOS → CON_PAQUETES_REGISTRADOS
+ *   → ENVIO_PARCIAL / ENVIO_COMPLETO → RECEPCION_PARCIAL / RECEPCION_COMPLETA
+ *   → DESPACHO_PARCIAL → DESPACHO_COMPLETADO
+ *
+ * Guías de cliente: PENDIENTE_VERIFICACION → (aprobar) → estado derivado
+ * Congelados: PENDIENTE_VERIFICACION | EN_REVISION | DESPACHO_COMPLETADO | CANCELADA
  */
 export type EstadoGuiaMaster =
-  | 'SIN_PIEZAS_REGISTRADAS'
-  | 'EN_ESPERA_RECEPCION'
-  | 'EN_TRANSITO_USA_ECUADOR'
+  | 'SIN_PAQUETES_REGISTRADOS'
+  | 'CON_PAQUETES_REGISTRADOS'
+  | 'PENDIENTE_VERIFICACION'
+  | 'VERIFICADA'
+  | 'ENVIO_PARCIAL'
+  | 'ENVIO_COMPLETO'
   | 'RECEPCION_PARCIAL'
   | 'RECEPCION_COMPLETA'
   | 'DESPACHO_PARCIAL'
   | 'DESPACHO_COMPLETADO'
-  | 'DESPACHO_INCOMPLETO'
   | 'CANCELADA'
   | 'EN_REVISION';
 
-/** DESPACHO_COMPLETADO | DESPACHO_INCOMPLETO_MANUAL | DESPACHO_INCOMPLETO_TIMEOUT | CANCELACION */
 export type TipoCierreGuiaMaster =
   | 'DESPACHO_COMPLETADO'
   | 'DESPACHO_INCOMPLETO_MANUAL'
@@ -32,7 +38,9 @@ export type TipoCambioEstadoGuiaMaster =
   | 'CANCELACION'
   | 'MARCAR_REVISION'
   | 'SALIR_REVISION'
-  | 'REAPERTURA';
+  | 'REAPERTURA'
+  | 'APROBACION'
+  | 'MARCAR_PENDIENTE_VERIFICACION';
 
 export interface GuiaMaster {
   id: number;

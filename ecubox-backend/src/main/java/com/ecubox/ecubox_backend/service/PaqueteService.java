@@ -596,6 +596,28 @@ public class PaqueteService {
                 fechaEvento);
     }
 
+    /** Aplica el estado configurable "Manifestado" al cerrar el consolidado para registro. */
+    @Transactional
+    public void aplicarEstadoCierreConsolidado(List<Long> paqueteIds, LocalDateTime fechaEvento) {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoCierreConsolidadoId();
+        if (estadoId == null) return;
+        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+                TrackingEventType.ESTADO_APLICADO_CIERRE_CONSOLIDADO,
+                "CIERRE_CONSOLIDADO_AUTO", "cierre-consolidado",
+                fechaEvento);
+    }
+
+    /** Aplica el estado configurable "Llega a aduana destino" al marcar arribo a Ecuador. */
+    @Transactional
+    public void aplicarEstadoArriboEcuador(List<Long> paqueteIds, LocalDateTime fechaEvento) {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoArriboEcuadorId();
+        if (estadoId == null) return;
+        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+                TrackingEventType.ESTADO_APLICADO_ARRIBO_ECUADOR,
+                "ARRIBO_ECUADOR_AUTO", "arribo-ecuador",
+                fechaEvento);
+    }
+
     /**
      * Aplica un mismo estado a un conjunto de paquetes en una sola unidad de trabajo
      * y registra el evento de tracking correspondiente.

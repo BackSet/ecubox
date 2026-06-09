@@ -44,7 +44,11 @@ const TOOLTIP_NO_EDITABLE =
   'Ya no es posible editar esta guía porque sus piezas están en proceso. Si necesitas un cambio, contáctanos.';
 
 function isEstadoEditableCliente(estado: EstadoGuiaMaster): boolean {
-  return estado === 'SIN_PIEZAS_REGISTRADAS' || estado === 'EN_ESPERA_RECEPCION';
+  return (
+    estado === 'SIN_PAQUETES_REGISTRADOS' ||
+    estado === 'CON_PAQUETES_REGISTRADOS' ||
+    estado === 'PENDIENTE_VERIFICACION'
+  );
 }
 
 function piezaDespachada(p: Paquete): boolean {

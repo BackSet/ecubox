@@ -1,5 +1,4 @@
 import {
-  AlertTriangle,
   Ban,
   CheckCircle2,
   Clock,
@@ -7,6 +6,8 @@ import {
   Package,
   PackageCheck,
   PackageOpen,
+  Send,
+  ShieldCheck,
   Truck,
   type LucideIcon,
 } from 'lucide-react';
@@ -14,123 +15,139 @@ import type { EstadoGuiaMaster } from '@/types/guia-master';
 import { StatusBadge, type StatusTone } from '@/components/ui/StatusBadge';
 
 /**
- * Catalogo unificado de estados de guia master para la vista del operario.
- * Sincronizado con el enum del backend tras la migracion V66.
+ * Catálogo unificado de estados de guía master para la vista del operario.
+ * Sincronizado con el enum del backend tras la migración V107.
  */
 
 export const GUIA_MASTER_ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
-  SIN_PIEZAS_REGISTRADAS: 'Sin piezas registradas',
-  EN_ESPERA_RECEPCION: 'En espera de recepción',
-  EN_TRANSITO_USA_ECUADOR: 'En tránsito USA-Ecuador',
+  SIN_PAQUETES_REGISTRADOS: 'Sin paquetes registrados',
+  CON_PAQUETES_REGISTRADOS: 'Con paquetes registrados',
+  PENDIENTE_VERIFICACION: 'Pendiente de verificación',
+  VERIFICADA: 'Verificada',
+  ENVIO_PARCIAL: 'Envío parcial',
+  ENVIO_COMPLETO: 'Envío completo',
   RECEPCION_PARCIAL: 'Recepción parcial',
   RECEPCION_COMPLETA: 'Recepción completa',
   DESPACHO_PARCIAL: 'Despacho parcial',
   DESPACHO_COMPLETADO: 'Despacho completado',
-  DESPACHO_INCOMPLETO: 'Despacho incompleto',
   CANCELADA: 'Cancelada',
   EN_REVISION: 'En revisión',
 };
 
 export const GUIA_MASTER_ESTADO_LABELS_CORTOS: Record<EstadoGuiaMaster, string> = {
-  SIN_PIEZAS_REGISTRADAS: 'Sin piezas',
-  EN_ESPERA_RECEPCION: 'En espera',
-  EN_TRANSITO_USA_ECUADOR: 'En tránsito',
+  SIN_PAQUETES_REGISTRADOS: 'Sin paquetes',
+  CON_PAQUETES_REGISTRADOS: 'Con paquetes',
+  PENDIENTE_VERIFICACION: 'Pend. verificación',
+  VERIFICADA: 'Verificada',
+  ENVIO_PARCIAL: 'Envío parcial',
+  ENVIO_COMPLETO: 'Envío completo',
   RECEPCION_PARCIAL: 'Rec. parcial',
   RECEPCION_COMPLETA: 'Rec. completa',
   DESPACHO_PARCIAL: 'Desp. parcial',
   DESPACHO_COMPLETADO: 'Despachada',
-  DESPACHO_INCOMPLETO: 'Desp. incompleto',
   CANCELADA: 'Cancelada',
   EN_REVISION: 'En revisión',
 };
 
 export const GUIA_MASTER_ESTADO_LABELS_PLURAL: Record<EstadoGuiaMaster, string> = {
-  SIN_PIEZAS_REGISTRADAS: 'Sin piezas registradas',
-  EN_ESPERA_RECEPCION: 'En espera de recepción',
-  EN_TRANSITO_USA_ECUADOR: 'En tránsito USA-Ecuador',
+  SIN_PAQUETES_REGISTRADOS: 'Sin paquetes registrados',
+  CON_PAQUETES_REGISTRADOS: 'Con paquetes registrados',
+  PENDIENTE_VERIFICACION: 'Pendientes de verificación',
+  VERIFICADA: 'Verificadas',
+  ENVIO_PARCIAL: 'Envío parcial',
+  ENVIO_COMPLETO: 'Envío completo',
   RECEPCION_PARCIAL: 'Recepción parcial',
   RECEPCION_COMPLETA: 'Recepción completa',
   DESPACHO_PARCIAL: 'Despacho parcial',
   DESPACHO_COMPLETADO: 'Despacho completado',
-  DESPACHO_INCOMPLETO: 'Despacho incompleto',
   CANCELADA: 'Canceladas',
   EN_REVISION: 'En revisión',
 };
 
 export const GUIA_MASTER_ESTADO_DESCRIPCIONES: Record<EstadoGuiaMaster, string> = {
-  SIN_PIEZAS_REGISTRADAS:
-    'La guia existe en el sistema pero aun no tiene piezas (paquetes) asociadas.',
-  EN_ESPERA_RECEPCION:
-    'Hay piezas registradas pero ninguna entro a recepcion en bodega ni fue despachada.',
-  EN_TRANSITO_USA_ECUADOR:
-    'Al menos una pieza salio de USA dentro de un consolidado y aun no entra a recepcion en bodega.',
+  SIN_PAQUETES_REGISTRADOS:
+    'La guía existe en el sistema pero aún no tiene paquetes asociados.',
+  CON_PAQUETES_REGISTRADOS:
+    'Hay paquetes registrados pero ninguno fue asignado a un envío consolidado todavía.',
+  PENDIENTE_VERIFICACION:
+    'Guía creada por el cliente. Pendiente de revisión y aprobación por el operario.',
+  VERIFICADA:
+    'Aprobada por el operario. El sistema calcula automáticamente el estado derivado.',
+  ENVIO_PARCIAL:
+    'Al menos un paquete está en un envío consolidado pero no todos (o no alcanza el total esperado).',
+  ENVIO_COMPLETO:
+    'Todos los paquetes esperados están en un envío consolidado. Lista para salir de USA.',
   RECEPCION_PARCIAL:
-    'Se recibio al menos una pieza en bodega; faltan otras por llegar o registrarse.',
+    'Se recibió al menos un paquete en bodega; faltan otros por llegar o registrarse.',
   RECEPCION_COMPLETA:
-    'Todas las piezas esperadas estan en bodega. Lista para iniciar despacho.',
+    'Todos los paquetes esperados están en bodega. Lista para iniciar despacho.',
   DESPACHO_PARCIAL:
-    'Al menos una pieza fue despachada hacia el destino; quedan piezas pendientes.',
+    'Al menos un paquete fue despachado hacia el destino; quedan paquetes pendientes.',
   DESPACHO_COMPLETADO:
-    'Todas las piezas fueron despachadas. Cierre exitoso.',
-  DESPACHO_INCOMPLETO:
-    'Cerrada manualmente o por timeout aceptando que faltaron piezas por llegar.',
+    'Todos los paquetes fueron despachados. Cierre exitoso.',
   CANCELADA:
-    'Anulada por el operario antes de despachar (error de registro o cancelacion del cliente).',
+    'Anulada por el operario (error de registro, cancelación del cliente o faltante definitivo).',
   EN_REVISION:
-    'Pausada por el operario para validar algun dato. El recalculo automatico no la sobreescribe.',
+    'Pausada por el operario para validar algún dato. El recálculo automático no la sobreescribe.',
 };
 
 export const GUIA_MASTER_ESTADO_TONES: Record<EstadoGuiaMaster, StatusTone> = {
-  SIN_PIEZAS_REGISTRADAS: 'neutral',
-  EN_ESPERA_RECEPCION: 'neutral',
-  EN_TRANSITO_USA_ECUADOR: 'primary',
+  SIN_PAQUETES_REGISTRADOS: 'neutral',
+  CON_PAQUETES_REGISTRADOS: 'neutral',
+  PENDIENTE_VERIFICACION: 'warning',
+  VERIFICADA: 'info',
+  ENVIO_PARCIAL: 'primary',
+  ENVIO_COMPLETO: 'primary',
   RECEPCION_PARCIAL: 'warning',
   RECEPCION_COMPLETA: 'info',
   DESPACHO_PARCIAL: 'primary',
   DESPACHO_COMPLETADO: 'success',
-  DESPACHO_INCOMPLETO: 'error',
   CANCELADA: 'neutral',
   EN_REVISION: 'warning',
 };
 
 export const GUIA_MASTER_ESTADO_ICONS: Record<EstadoGuiaMaster, LucideIcon> = {
-  SIN_PIEZAS_REGISTRADAS: Package,
-  EN_ESPERA_RECEPCION: Clock,
-  EN_TRANSITO_USA_ECUADOR: Truck,
+  SIN_PAQUETES_REGISTRADOS: Package,
+  CON_PAQUETES_REGISTRADOS: Package,
+  PENDIENTE_VERIFICACION: Clock,
+  VERIFICADA: ShieldCheck,
+  ENVIO_PARCIAL: Send,
+  ENVIO_COMPLETO: Send,
   RECEPCION_PARCIAL: PackageOpen,
   RECEPCION_COMPLETA: PackageCheck,
   DESPACHO_PARCIAL: Truck,
   DESPACHO_COMPLETADO: CheckCircle2,
-  DESPACHO_INCOMPLETO: AlertTriangle,
   CANCELADA: Ban,
   EN_REVISION: Eye,
 };
 
 /** Orden recomendado para chips/filtros (sigue el ciclo de vida natural). */
 export const GUIA_MASTER_ESTADO_ORDEN: EstadoGuiaMaster[] = [
-  'SIN_PIEZAS_REGISTRADAS',
-  'EN_ESPERA_RECEPCION',
-  'EN_TRANSITO_USA_ECUADOR',
+  'SIN_PAQUETES_REGISTRADOS',
+  'CON_PAQUETES_REGISTRADOS',
+  'PENDIENTE_VERIFICACION',
+  'ENVIO_PARCIAL',
+  'ENVIO_COMPLETO',
   'RECEPCION_PARCIAL',
   'RECEPCION_COMPLETA',
   'DESPACHO_PARCIAL',
   'EN_REVISION',
   'DESPACHO_COMPLETADO',
-  'DESPACHO_INCOMPLETO',
   'CANCELADA',
 ];
 
-/** Estados terminales (la guia ya no avanzara mas en el flujo automatico). */
+/** Estados terminales (la guía ya no avanzará más en el flujo automático). */
 export const GUIA_MASTER_ESTADOS_TERMINALES: ReadonlySet<EstadoGuiaMaster> = new Set<EstadoGuiaMaster>([
   'DESPACHO_COMPLETADO',
-  'DESPACHO_INCOMPLETO',
   'CANCELADA',
 ]);
 
-/** Estados que congelan el recalculo automatico (terminales + EN_REVISION). */
+/** Estados que congelan el recálculo automático. */
 export const GUIA_MASTER_ESTADOS_CONGELADOS: ReadonlySet<EstadoGuiaMaster> = new Set<EstadoGuiaMaster>([
-  ...GUIA_MASTER_ESTADOS_TERMINALES,
+  'PENDIENTE_VERIFICACION',
   'EN_REVISION',
+  'DESPACHO_COMPLETADO',
+  'CANCELADA',
 ]);
 
 export interface GuiaMasterEstadoBadgeProps {

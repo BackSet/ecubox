@@ -8,20 +8,36 @@ import type { Paquete } from '@/types/paquete';
  * No tiene maquina de estados ni se expone en el tracking publico.
  */
 export type EstadoPagoConsolidado = 'NO_PAGADO' | 'PAGADO';
+
+/**
+ * Estado operativo persistido del consolidado — flujo v2 (V107).
+ *
+ * Flujo normal: VACIO → EN_PREPARACION → CERRADO → ENVIADO_DESDE_USA
+ *   → ARRIBADO_ECUADOR → RECIBIDO_EN_BODEGA → LIQUIDADO
+ * Cancelación: VACIO | EN_PREPARACION → CANCELADO
+ */
 export type EstadoEnvioConsolidadoOperativo =
   | 'VACIO'
   | 'EN_PREPARACION'
+  | 'CERRADO'
   | 'ENVIADO_DESDE_USA'
+  | 'ARRIBADO_ECUADOR'
   | 'RECIBIDO_EN_BODEGA'
-  | 'LIQUIDADO';
+  | 'LIQUIDADO'
+  | 'CANCELADO';
 
 export interface EnvioConsolidado {
   id: number;
   codigo: string;
-  /** true si ya fue enviado desde USA. Lo provee el backend por conveniencia. */
+  /** true si el consolidado ya no admite cambios de paquetes (estado posterior a EN_PREPARACION). */
   cerrado: boolean;
   estadoOperativo?: EstadoEnvioConsolidadoOperativo;
+  /** Fecha de cierre para registro (estado CERRADO). */
+  fechaCierre?: string;
+  /** Fecha de salida desde USA (estado ENVIADO_DESDE_USA). */
   fechaCerrado?: string;
+  /** Fecha de arribo a Ecuador / aduana destino (estado ARRIBADO_ECUADOR). */
+  fechaArriboEcuador?: string;
   pesoTotalLbs?: number;
   totalPaquetes: number;
   /** Estado de pago de la liquidación asociada. */

@@ -21,5 +21,9 @@ public enum TipoCambioEstadoGuiaMaster {
     /** Un operario libero la guia de EN_REVISION y volvio al flujo derivado. */
     SALIR_REVISION,
     /** Un operario reabrio una guia previamente terminal y volvio al flujo derivado. */
-    REAPERTURA
+    REAPERTURA,
+    /** Un admin/operario aprobó una guía en PENDIENTE_VERIFICACION. */
+    APROBACION,
+    /** Un admin/operario marcó una guía como PENDIENTE_VERIFICACION (requiere verificación). */
+    MARCAR_PENDIENTE_VERIFICACION
 }

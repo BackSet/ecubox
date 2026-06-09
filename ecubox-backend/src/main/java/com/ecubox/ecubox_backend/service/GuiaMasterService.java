@@ -139,7 +139,7 @@ public class GuiaMasterService {
                 .totalPiezasEsperadas(totalPiezasEsperadas)
                 .consignatario(dest)
                 .clienteUsuario(clienteUsuario)
-                .estadoGlobal(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS)
+                .estadoGlobal(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS)
                 .createdAt(LocalDateTime.now())
                 .build();
         GuiaMaster saved = guiaMasterRepository.save(gm);
@@ -180,13 +180,13 @@ public class GuiaMasterService {
                 .totalPiezasEsperadas(null)
                 .consignatario(dest)
                 .clienteUsuario(cliente)
-                .estadoGlobal(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS)
+                .estadoGlobal(EstadoGuiaMaster.PENDIENTE_VERIFICACION)
                 .createdAt(LocalDateTime.now())
                 .build();
         GuiaMaster saved = guiaMasterRepository.save(gm);
         registrarHistorial(saved, null, saved.getEstadoGlobal(),
                 TipoCambioEstadoGuiaMaster.CREACION,
-                "Guia registrada por cliente", cliente);
+                "Guia registrada por cliente; pendiente verificacion", cliente);
         return saved;
     }
 
@@ -356,8 +356,7 @@ public class GuiaMasterService {
 
     /**
      * Actualiza tracking base y/o destinatario de una guía propia del cliente.
-     * Solo permitido mientras la guía esté en estado inicial
-     * {@code SIN_PIEZAS_REGISTRADAS} o {@code EN_ESPERA_RECEPCION}.
+     * Solo permitido mientras la guía esté en estado inicial de registro.
      */
     @Transactional
     public GuiaMaster updateForCliente(Long guiaId, String nuevoTrackingBase, Long consignatarioId, Long clienteUsuarioId) {
@@ -421,18 +420,17 @@ public class GuiaMasterService {
     }
 
     /**
-     * El cliente solo puede modificar sus guías mientras estén en estado
-     * {@code SIN_PIEZAS_REGISTRADAS} o {@code EN_ESPERA_RECEPCION}. Una vez la
-     * guía progrese su estado, queda inmutable para el cliente.
+     * El cliente solo puede modificar sus guías mientras estén en estado inicial de registro
+     * (PENDIENTE_VERIFICACION o SIN_PAQUETES_REGISTRADOS). Una vez avance el estado queda inmutable para el cliente.
      */
     private void guardarSiEsEditablePorCliente(GuiaMaster gm) {
         EstadoGuiaMaster estado = gm.getEstadoGlobal();
         if (estado != null
-                && estado != EstadoGuiaMaster.EN_ESPERA_RECEPCION
-                && estado != EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS) {
+                && estado != EstadoGuiaMaster.PENDIENTE_VERIFICACION
+                && estado != EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS) {
             throw new ConflictException(
                     "Solo puedes editar la guía mientras esté en estado inicial de registro. "
-                            + "Esta guía ya tiene piezas en proceso (estado: " + estado + ").");
+                            + "Esta guía ya tiene paquetes en proceso (estado: " + estado + ").");
         }
     }
 
@@ -856,32 +854,32 @@ public class GuiaMasterService {
         if (total > 0 && piezas.size() >= total && piezas.stream().allMatch(this::piezaDespachada)) {
             throw new BadRequestException("La guia ya esta completa y despachada; no requiere cierre con faltante");
         }
-        gm.setEstadoGlobal(EstadoGuiaMaster.DESPACHO_INCOMPLETO);
+        // DESPACHO_INCOMPLETO fue eliminado: el cierre con faltante equivale a CANCELADA
+        gm.setEstadoGlobal(EstadoGuiaMaster.CANCELADA);
         String motivoLimpio = Strings.trimOrNull(motivo);
         Usuario actor = resolverUsuario(actorUsuarioId);
-        TipoCierreGuiaMaster tipoFinal = tipoCierre != null
-                ? tipoCierre
-                : TipoCierreGuiaMaster.DESPACHO_INCOMPLETO_MANUAL;
+        TipoCierreGuiaMaster tipoFinal = tipoCierre == TipoCierreGuiaMaster.DESPACHO_INCOMPLETO_TIMEOUT
+                ? TipoCierreGuiaMaster.DESPACHO_INCOMPLETO_TIMEOUT
+                : TipoCierreGuiaMaster.CANCELACION;
         gm.setCerradaEn(LocalDateTime.now());
         gm.setCerradaPorUsuario(actor);
         gm.setTipoCierre(tipoFinal);
-        gm.setMotivoCierre(motivoLimpio);
+        gm.setMotivoCierre(motivoLimpio != null ? motivoLimpio : "Cierre con paquetes faltantes");
         GuiaMaster saved = guiaMasterRepository.save(gm);
         TipoCambioEstadoGuiaMaster tipoCambio = (tipoFinal == TipoCierreGuiaMaster.DESPACHO_INCOMPLETO_TIMEOUT)
                 ? TipoCambioEstadoGuiaMaster.AUTO_CIERRE_TIMEOUT
-                : TipoCambioEstadoGuiaMaster.CIERRE_MANUAL_FALTANTE;
-        registrarHistorial(saved, anterior, EstadoGuiaMaster.DESPACHO_INCOMPLETO,
-                tipoCambio, motivoLimpio, actor);
+                : TipoCambioEstadoGuiaMaster.CANCELACION;
+        registrarHistorial(saved, anterior, EstadoGuiaMaster.CANCELADA,
+                tipoCambio, gm.getMotivoCierre(), actor);
         if (motivoLimpio != null) {
-            log.info("GuiaMaster {} cerrada con faltante ({}). Motivo: {}", gm.getId(), tipoFinal, motivoLimpio);
+            log.info("GuiaMaster {} cancelada con faltantes ({}). Motivo: {}", gm.getId(), tipoFinal, motivoLimpio);
         }
         return saved;
     }
 
     /**
-     * Anula una guia antes de despachar. Solo permitido si NO hay piezas
-     * despachadas todavia (de lo contrario, el operario debe usar
-     * {@link #cerrarConFaltante}). Estado destino: {@link EstadoGuiaMaster#CANCELADA}.
+     * Anula la guía. Estado destino: {@link EstadoGuiaMaster#CANCELADA}.
+     * Si hay paquetes despachados, también se cancela (se acepta que hay faltantes).
      */
     @Transactional
     public GuiaMaster cancelar(Long guiaMasterId, String motivo, Long actorUsuarioId) {
@@ -889,12 +887,6 @@ public class GuiaMasterService {
         EstadoGuiaMaster anterior = gm.getEstadoGlobal();
         if (anterior != null && anterior.esTerminal()) {
             throw new BadRequestException("La guia ya esta en estado terminal (" + anterior + ") y no se puede cancelar");
-        }
-        List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(guiaMasterId);
-        long despachadas = piezas.stream().filter(this::piezaDespachada).count();
-        if (despachadas > 0) {
-            throw new BadRequestException(
-                    "No se puede cancelar: hay piezas ya despachadas. Usa 'Cerrar con faltante' en su lugar.");
         }
         String motivoLimpio = Strings.trimOrNull(motivo);
         if (motivoLimpio == null) {
@@ -948,12 +940,8 @@ public class GuiaMasterService {
             throw new BadRequestException("La guia no esta en revision");
         }
         Usuario actor = resolverUsuario(actorUsuarioId);
-        // Cambiamos primero a un estado no terminal placeholder para que
-        // el calculo derive correctamente desde piezas. Como EN_REVISION
-        // no esta en "congelados" cuando lo vamos a recalcular aqui,
-        // forzamos manualmente: ponemos un estado provisional y luego
-        // calculamos.
-        gm.setEstadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION);
+        // Estado placeholder no congelado para que calcularEstado derive correctamente.
+        gm.setEstadoGlobal(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS);
         EstadoGuiaMaster derivado = calcularEstado(gm);
         gm.setEstadoGlobal(derivado);
         GuiaMaster saved = guiaMasterRepository.save(gm);
@@ -964,9 +952,39 @@ public class GuiaMasterService {
     }
 
     /**
-     * Reabre una guia previamente terminal (DESPACHO_COMPLETADO,
-     * DESPACHO_INCOMPLETO o CANCELADA). Limpia la auditoria de cierre y
-     * vuelve al estado derivado por sus piezas.
+     * Aprueba una guía en PENDIENTE_VERIFICACION (o en EN_REVISION cuando proviene de ese flujo).
+     * Establece VERIFICADA y ejecuta recálculo inmediato hacia SIN_PAQUETES_REGISTRADOS
+     * o CON_PAQUETES_REGISTRADOS (según paquetes existentes).
+     */
+    @Transactional
+    public GuiaMaster aprobar(Long guiaMasterId, Long actorUsuarioId) {
+        GuiaMaster gm = findById(guiaMasterId);
+        EstadoGuiaMaster anterior = gm.getEstadoGlobal();
+        if (anterior != EstadoGuiaMaster.PENDIENTE_VERIFICACION && anterior != EstadoGuiaMaster.EN_REVISION) {
+            throw new BadRequestException(
+                    "Solo se puede aprobar una guía en estado PENDIENTE_VERIFICACION o EN_REVISION. Estado actual: " + anterior);
+        }
+        Usuario actor = resolverUsuario(actorUsuarioId);
+        // Establecer VERIFICADA como placeholder y recalcular (VERIFICADA no está congelada).
+        gm.setEstadoGlobal(EstadoGuiaMaster.VERIFICADA);
+        EstadoGuiaMaster derivado = calcularEstado(gm);
+        gm.setEstadoGlobal(derivado);
+        // Si venía de un estado terminal (nunca debería, pero por seguridad): limpiar auditoría.
+        if (anterior != null && anterior.esTerminal()) {
+            gm.setCerradaEn(null);
+            gm.setCerradaPorUsuario(null);
+            gm.setTipoCierre(null);
+            gm.setMotivoCierre(null);
+        }
+        GuiaMaster saved = guiaMasterRepository.save(gm);
+        registrarHistorial(saved, anterior, derivado,
+                TipoCambioEstadoGuiaMaster.APROBACION, "Guía aprobada por operario", actor);
+        return saved;
+    }
+
+    /**
+     * Reabre una guia previamente terminal (DESPACHO_COMPLETADO o CANCELADA).
+     * Limpia la auditoria de cierre y vuelve al estado derivado por sus piezas.
      */
     @Transactional
     public GuiaMaster reabrir(Long guiaMasterId, String motivo, Long actorUsuarioId) {
@@ -985,8 +1003,8 @@ public class GuiaMasterService {
         gm.setCerradaPorUsuario(null);
         gm.setTipoCierre(null);
         gm.setMotivoCierre(null);
-        // Estado provisional para que calcularEstado no se cortocircuite
-        gm.setEstadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION);
+        // Estado placeholder no congelado para que calcularEstado derive correctamente.
+        gm.setEstadoGlobal(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS);
         EstadoGuiaMaster derivado = calcularEstado(gm);
         gm.setEstadoGlobal(derivado);
         GuiaMaster saved = guiaMasterRepository.save(gm);
@@ -1078,20 +1096,19 @@ public class GuiaMasterService {
     }
 
     /**
-     * Calcula el estado global sin persistirlo. Si la guia ya esta en
-     * un estado terminal o EN_REVISION, mantiene su estado (no se
-     * sobreescribe por el calculo derivado).
+     * Calcula el estado global sin persistirlo.
      *
-     * <p>Recepcion en bodega: pieza cuyo {@code estadoRastreo} coincide con el
-     * id configurado como "en lote de recepcion" (mismo que aplica el flujo de
-     * lote en {@link PaqueteService#aplicarEstadoEnLoteRecepcion}). Sin consultar
-     * tablas de lote en cada calculo.</p>
+     * <p>Estados congelados (PENDIENTE_VERIFICACION, EN_REVISION, terminales) no se
+     * sobreescriben. VERIFICADA no es congelado: se recalcula inmediatamente hacia
+     * SIN_PAQUETES_REGISTRADOS o CON_PAQUETES_REGISTRADOS.</p>
+     *
+     * <p>Cascada de prioridad: despacho → recepción → envío en consolidado → paquetes registrados.</p>
      *
      * <p>Si {@code totalPiezasEsperadas} es null, el denominador para parcial/completo
-     * es la cantidad de piezas ya registradas en la guia.</p>
+     * es la cantidad de paquetes registrados en la guía.</p>
      */
     EstadoGuiaMaster calcularEstado(GuiaMaster gm) {
-        if (gm == null) return EstadoGuiaMaster.EN_ESPERA_RECEPCION;
+        if (gm == null) return EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS;
         EstadoGuiaMaster actual = gm.getEstadoGlobal();
         if (actual != null && actual.estaCongeladoParaRecalculo()) {
             return actual;
@@ -1099,38 +1116,39 @@ public class GuiaMasterService {
         Integer totalRaw = gm.getTotalPiezasEsperadas();
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
         if (piezas.isEmpty()) {
-            return EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS;
+            return EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS;
         }
         int registradas = piezas.size();
         Long enLoteRecepcionId = getIdEstadoEnLoteRecepcion();
-        Long enviadoDesdeUsaId = getIdEstadoEnviadoDesdeUsa();
         long enRecepcion = piezas.stream().filter(p -> piezaEnRecepcionBodega(p, enLoteRecepcionId)).count();
-        long enviadasDesdeUsa = piezas.stream().filter(p -> piezaEnviadaDesdeUsa(p, enviadoDesdeUsaId)).count();
+        long enConsolidado = piezas.stream().filter(this::piezaEnConsolidado).count();
         long despachadas = piezas.stream().filter(this::piezaDespachada).count();
 
-        boolean despachoCompleto = (totalRaw != null && totalRaw >= 1)
-                ? (registradas >= totalRaw && despachadas >= totalRaw)
-                : (registradas > 0 && despachadas >= registradas);
+        // Prioridad 1: despacho
         if (despachadas > 0) {
-            if (despachoCompleto) {
-                return EstadoGuiaMaster.DESPACHO_COMPLETADO;
-            }
-            return EstadoGuiaMaster.DESPACHO_PARCIAL;
+            boolean despachoCompleto = (totalRaw != null && totalRaw >= 1)
+                    ? (registradas >= totalRaw && despachadas >= totalRaw)
+                    : (despachadas >= registradas);
+            return despachoCompleto ? EstadoGuiaMaster.DESPACHO_COMPLETADO : EstadoGuiaMaster.DESPACHO_PARCIAL;
         }
 
+        // Prioridad 2: recepción en bodega
         boolean recepcionCompleta = (totalRaw != null && totalRaw >= 1)
                 ? (registradas >= totalRaw && enRecepcion >= totalRaw)
-                : (registradas > 0 && enRecepcion >= registradas);
-        if (recepcionCompleta) {
-            return EstadoGuiaMaster.RECEPCION_COMPLETA;
+                : (enRecepcion >= registradas);
+        if (recepcionCompleta) return EstadoGuiaMaster.RECEPCION_COMPLETA;
+        if (enRecepcion > 0) return EstadoGuiaMaster.RECEPCION_PARCIAL;
+
+        // Prioridad 3: en envío consolidado (en planilla / enviados / en tránsito)
+        if (enConsolidado > 0) {
+            boolean envioCompleto = (totalRaw != null && totalRaw >= 1)
+                    ? (registradas >= totalRaw && enConsolidado >= totalRaw)
+                    : (enConsolidado >= registradas);
+            return envioCompleto ? EstadoGuiaMaster.ENVIO_COMPLETO : EstadoGuiaMaster.ENVIO_PARCIAL;
         }
-        if (enRecepcion > 0) {
-            return EstadoGuiaMaster.RECEPCION_PARCIAL;
-        }
-        if (enviadasDesdeUsa > 0) {
-            return EstadoGuiaMaster.EN_TRANSITO_USA_ECUADOR;
-        }
-        return EstadoGuiaMaster.EN_ESPERA_RECEPCION;
+
+        // Default: hay paquetes pero ninguno en consolidado ni en recepción
+        return EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS;
     }
 
     /**
@@ -1163,6 +1181,11 @@ public class GuiaMasterService {
             p.setRef(codigoSecuenciaService.nextRefPaquete(nuevoDest.getId(), codigoBase));
         }
         paqueteRepository.saveAll(piezas);
+    }
+
+    /** Paquete asignado a un envío consolidado (en planilla, enviado, en tránsito, etc.). */
+    private boolean piezaEnConsolidado(Paquete p) {
+        return p != null && p.getEnvioConsolidado() != null;
     }
 
     /**
@@ -1418,7 +1441,7 @@ public class GuiaMasterService {
                 .filter(e -> !terminalesNames.contains(e.getKey()))
                 .mapToLong(Map.Entry::getValue).sum();
         long cerradas = conteos.getOrDefault(EstadoGuiaMaster.DESPACHO_COMPLETADO.name(), 0L);
-        long cerradasFaltante = conteos.getOrDefault(EstadoGuiaMaster.DESPACHO_INCOMPLETO.name(), 0L);
+        long cerradasFaltante = 0L; // DESPACHO_INCOMPLETO eliminado; siempre 0
         long canceladas = conteos.getOrDefault(EstadoGuiaMaster.CANCELADA.name(), 0L);
         int top = Math.max(1, Math.min(50, topAntiguas));
         List<GuiaMaster> antiguas = guiaMasterRepository.findActivasMasAntiguas(PageRequest.of(0, top));

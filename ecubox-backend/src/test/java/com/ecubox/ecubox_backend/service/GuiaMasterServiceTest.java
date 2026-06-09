@@ -129,7 +129,7 @@ class GuiaMasterServiceTest {
         GuiaMaster saved = captor.getValue();
         assertEquals("184718429", saved.getTrackingBase());
         assertEquals(3, saved.getTotalPiezasEsperadas());
-        assertEquals(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS, saved.getEstadoGlobal());
+        assertEquals(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS, saved.getEstadoGlobal());
         assertSame(saved, gm);
     }
 
@@ -178,10 +178,10 @@ class GuiaMasterServiceTest {
     @Test
     void calcularEstado_sinPiezasRegistradas() {
         stubConfigEstados();
-        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(3).estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(3).estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of());
 
-        assertEquals(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS, service.calcularEstado(gm));
+        assertEquals(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS, service.calcularEstado(gm));
     }
 
     @Test
@@ -199,7 +199,7 @@ class GuiaMasterServiceTest {
     @Test
     void calcularEstado_recepcionParcialCuandoSoloAlgunasRecibidas() {
         stubConfigEstados();
-        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(3).estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(3).estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         Paquete pRegistrada = Paquete.builder().id(1L).estadoRastreo(registrado).build();
         Paquete pRecibida = Paquete.builder().id(2L).estadoRastreo(enLote).build();
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L))
@@ -211,7 +211,7 @@ class GuiaMasterServiceTest {
     @Test
     void calcularEstado_recepcionCompletaCuandoTodasRegistradasYRecibidas() {
         stubConfigEstados();
-        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(2).estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(2).estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         Paquete p1 = Paquete.builder().id(1L).estadoRastreo(enLote).build();
         Paquete p2 = Paquete.builder().id(2L).estadoRastreo(enLote).build();
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L))
@@ -223,7 +223,7 @@ class GuiaMasterServiceTest {
     @Test
     void calcularEstado_despachoParcialCuandoAlMenosUnaDespachada() {
         stubConfigEstados();
-        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(3).estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(3).estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         Paquete p1 = Paquete.builder().id(1L).estadoRastreo(enDespacho).saca(sacaConDespacho()).build();
         Paquete p2 = Paquete.builder().id(2L).estadoRastreo(enLote).build();
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L))
@@ -245,15 +245,15 @@ class GuiaMasterServiceTest {
     }
 
     @Test
-    void calcularEstado_respetaDespachoIncompletoComoTerminal() {
-        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(3).estadoGlobal(EstadoGuiaMaster.DESPACHO_INCOMPLETO).build();
-        assertEquals(EstadoGuiaMaster.DESPACHO_INCOMPLETO, service.calcularEstado(gm));
+    void calcularEstado_respetaCanceladaComoTerminal() {
+        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(3).estadoGlobal(EstadoGuiaMaster.CANCELADA).build();
+        assertEquals(EstadoGuiaMaster.CANCELADA, service.calcularEstado(gm));
     }
 
     @Test
     void recomputarEstado_actualizaSoloSiCambia() {
         stubConfigEstados();
-        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(1).estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).totalPiezasEsperadas(1).estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         Paquete p1 = Paquete.builder().id(1L).estadoRastreo(enDespacho).saca(sacaConDespacho()).build();
         when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of(p1));
@@ -309,7 +309,7 @@ class GuiaMasterServiceTest {
         verify(guiaMasterRepository).save(captor.capture());
         GuiaMaster saved = captor.getValue();
         assertEquals("TRK-1", saved.getTrackingBase());
-        assertEquals(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS, saved.getEstadoGlobal());
+        assertEquals(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS, saved.getEstadoGlobal());
         assertSame(dest, saved.getConsignatario());
         assertSame(cliente, saved.getClienteUsuario());
         assertEquals(null, saved.getTotalPiezasEsperadas());
@@ -338,7 +338,7 @@ class GuiaMasterServiceTest {
     void update_actualizaTotalYDestinatario() {
         Usuario cliente = Usuario.builder().id(5L).username("cli").build();
         Consignatario dest = Consignatario.builder().id(30L).nombre("Pedro").usuario(cliente).build();
-        GuiaMaster gm = GuiaMaster.builder().id(1L).trackingBase("X").estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).trackingBase("X").estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of());
         when(consignatarioRepository.findById(30L)).thenReturn(Optional.of(dest));
@@ -357,7 +357,7 @@ class GuiaMasterServiceTest {
 
     @Test
     void update_fallaSiTotalMenorQuePiezasRegistradas() {
-        GuiaMaster gm = GuiaMaster.builder().id(1L).trackingBase("X").estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).trackingBase("X").estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
         Paquete p1 = Paquete.builder().id(1L).build();
         Paquete p2 = Paquete.builder().id(2L).build();
@@ -373,7 +373,7 @@ class GuiaMasterServiceTest {
         stubConfigEstados();
         LocalDateTime fechaLote = LocalDateTime.now().minusHours(3);
         GuiaMaster gm = GuiaMaster.builder().id(1L).trackingBase("OLD-TBK")
-                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+                .estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         Paquete p = Paquete.builder().id(100L).piezaNumero(1).piezaTotal(1).guiaMaster(gm).numeroGuia("OLD-TBK 1/1").build();
         when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of(p));
@@ -398,7 +398,7 @@ class GuiaMasterServiceTest {
         stubConfigEstados();
         LocalDateTime fechaLote = LocalDateTime.now().minusHours(1);
         GuiaMaster gm = GuiaMaster.builder().id(1L).trackingBase("OLD2")
-                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+                .estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         EnvioConsolidado ec = EnvioConsolidado.builder().id(5L).codigo("CONS-X").build();
         Paquete p = Paquete.builder().id(200L).piezaNumero(1).piezaTotal(1).guiaMaster(gm).envioConsolidado(ec)
                 .numeroGuia("OLD2 1/1").build();
@@ -427,7 +427,7 @@ class GuiaMasterServiceTest {
         // 3 guias: una SIN_PIEZAS sin total, una RECEPCION_PARCIAL, una DESPACHO_COMPLETADO
         GuiaMaster g1 = GuiaMaster.builder()
                 .id(1L).trackingBase("A").totalPiezasEsperadas(null)
-                .estadoGlobal(EstadoGuiaMaster.SIN_PIEZAS_REGISTRADAS)
+                .estadoGlobal(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS)
                 .createdAt(LocalDateTime.now().minusDays(1)).build();
         GuiaMaster g2 = GuiaMaster.builder()
                 .id(2L).trackingBase("B").totalPiezasEsperadas(3)
@@ -455,7 +455,7 @@ class GuiaMasterServiceTest {
         assertEquals(1L, dto.getTotalGuiasCerradas());
         assertEquals(1L, dto.getTotalGuiasSinTotalDefinido());
         assertEquals(4L, dto.getTotalDestinatarios());
-        assertEquals(1L, dto.getConteosPorEstado().get("SIN_PIEZAS_REGISTRADAS"));
+        assertEquals(1L, dto.getConteosPorEstado().get("SIN_PAQUETES_REGISTRADOS"));
         assertEquals(1L, dto.getConteosPorEstado().get("RECEPCION_PARCIAL"));
         assertEquals(1L, dto.getConteosPorEstado().get("DESPACHO_COMPLETADO"));
         // piezas en transito = solo g2 contribuye (1 registrada - 0 despachadas)
@@ -503,9 +503,9 @@ class GuiaMasterServiceTest {
                 null, TipoCierreGuiaMaster.DESPACHO_INCOMPLETO_MANUAL);
 
         assertNotNull(result);
-        assertEquals(EstadoGuiaMaster.DESPACHO_INCOMPLETO, result.getEstadoGlobal());
+        assertEquals(EstadoGuiaMaster.CANCELADA, result.getEstadoGlobal());
         assertEquals("Pieza 3 extraviada", result.getMotivoCierre());
-        assertEquals(TipoCierreGuiaMaster.DESPACHO_INCOMPLETO_MANUAL, result.getTipoCierre());
+        assertEquals(TipoCierreGuiaMaster.CANCELACION, result.getTipoCierre());
     }
 
     @Test
@@ -573,7 +573,7 @@ class GuiaMasterServiceTest {
         GuiaMaster gm = GuiaMaster.builder()
                 .id(99L).trackingBase("X")
                 .consignatario(destAnterior)
-                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
+                .estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS)
                 .build();
         Paquete p1 = Paquete.builder().id(1L).piezaNumero(1).piezaTotal(2)
                 .consignatario(destAnterior).ref("ECU-CV01-17")
@@ -652,7 +652,7 @@ class GuiaMasterServiceTest {
         GuiaMaster gm = GuiaMaster.builder()
                 .id(99L).trackingBase("AUTO-1")
                 .consignatario(null)
-                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
+                .estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS)
                 .build();
         Paquete pieza = Paquete.builder().id(1L).piezaNumero(1).piezaTotal(1)
                 .consignatario(kevin).ref("ECU-KZ66-1").build();
@@ -680,7 +680,7 @@ class GuiaMasterServiceTest {
         GuiaMaster gm = GuiaMaster.builder()
                 .id(99L).trackingBase("X")
                 .consignatario(kevin)
-                .estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION)
+                .estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS)
                 .build();
 
         when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(99L))

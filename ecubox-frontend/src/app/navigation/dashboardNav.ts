@@ -20,6 +20,12 @@ import {
   Wallet,
   ChartNoAxesCombined,
   Link2,
+  MessageCircle,
+  Share2,
+  Sparkles,
+  Calculator,
+  ListOrdered,
+  PlugZap,
 } from 'lucide-react';
 
 export type NavItem = {
@@ -30,7 +36,64 @@ export type NavItem = {
   permission?: string;
   permissionsAny?: string[];
   keywords?: string[];
+  children?: NavItem[];
 };
+
+/**
+ * Subopciones de "Parámetros del sistema", mostradas como subgrupo en el
+ * sidebar. Cada una corresponde a una sección de {@link ParametrosSistemaPage}
+ * accesible vía `/parametros-sistema/<slug>`.
+ */
+const PARAMETROS_SISTEMA_SECCIONES: NavItem[] = [
+  {
+    to: '/parametros-sistema/whatsapp',
+    label: 'WhatsApp',
+    icon: MessageCircle,
+    permission: 'MENSAJE_WHATSAPP_DESPACHO_READ',
+  },
+  {
+    to: '/parametros-sistema/casillero',
+    label: 'Casillero',
+    icon: MapPin,
+    permission: 'MENSAJE_AGENCIA_EEUU_READ',
+  },
+  {
+    to: '/parametros-sistema/contacto',
+    label: 'Contacto',
+    icon: Share2,
+    permission: 'CANALES_COMUNICACION_READ',
+  },
+  {
+    to: '/parametros-sistema/temporada',
+    label: 'Temporada',
+    icon: Sparkles,
+    permission: 'TEMA_TEMPORADA_READ',
+  },
+  {
+    to: '/parametros-sistema/tarifa',
+    label: 'Tarifa',
+    icon: Calculator,
+    permission: 'TARIFA_CALCULADORA_READ',
+  },
+  {
+    to: '/parametros-sistema/distribucion',
+    label: 'Distribución',
+    icon: Truck,
+    permission: 'CONFIG_TARIFA_DISTRIBUCION_READ',
+  },
+  {
+    to: '/parametros-sistema/estados',
+    label: 'Estados',
+    icon: ListOrdered,
+    permission: 'ESTADOS_RASTREO_READ',
+  },
+  {
+    to: '/parametros-sistema/por-punto',
+    label: 'Por punto',
+    icon: PlugZap,
+    permission: 'ESTADOS_RASTREO_READ',
+  },
+];
 
 export type NavGroup = {
   label: string;
@@ -256,10 +319,22 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         label: 'Parámetros del sistema',
         icon: Settings,
         permission: 'PARAMETROS_SISTEMA_READ',
+        children: PARAMETROS_SISTEMA_SECCIONES,
       },
     ],
   },
 ];
+
+function isItemVisible(
+  item: Pick<NavItem, 'permission' | 'permissionsAny'>,
+  hasPermission: (permission: string) => boolean,
+  onlyWithPermission: boolean,
+): boolean {
+  const itemPermissions = item.permissionsAny ?? (item.permission ? [item.permission] : []);
+  return itemPermissions.length > 0
+    ? itemPermissions.some((permission) => hasPermission(permission))
+    : !onlyWithPermission;
+}
 
 export function getVisibleNavGroups(
   hasPermission: (permission: string) => boolean,
@@ -270,12 +345,19 @@ export function getVisibleNavGroups(
   const onlyWithPermission = opts?.onlyWithPermission ?? false;
   return DASHBOARD_NAV_GROUPS.map((group) => ({
     label: group.label,
-    items: group.items.filter((item) => {
-      const itemPermissions = item.permissionsAny ?? (item.permission ? [item.permission] : []);
-      return itemPermissions.length > 0
-        ? itemPermissions.some((permission) => hasPermission(permission))
-        : !onlyWithPermission;
-    }),
+    items: group.items
+      .filter((item) => isItemVisible(item, hasPermission, onlyWithPermission))
+      .map((item) =>
+        item.children
+          ? {
+              ...item,
+              children: item.children.filter((child) =>
+                isItemVisible(child, hasPermission, onlyWithPermission),
+              ),
+            }
+          : item,
+      )
+      .filter((item) => !item.children || item.children.length > 0),
   })).filter((group) => group.items.length > 0);
 }
 
@@ -283,5 +365,7 @@ export function getVisibleNavItems(
   hasPermission: (permission: string) => boolean,
   opts?: { onlyWithPermission?: boolean },
 ): NavItem[] {
-  return getVisibleNavGroups(hasPermission, opts).flatMap((group) => group.items);
+  return getVisibleNavGroups(hasPermission, opts).flatMap((group) =>
+    group.items.flatMap((item) => (item.children ? [item, ...item.children] : [item])),
+  );
 }

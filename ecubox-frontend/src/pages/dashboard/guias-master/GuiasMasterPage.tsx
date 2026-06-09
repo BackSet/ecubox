@@ -105,9 +105,8 @@ const STATUS_TO_CHIP_TONE: Record<StatusTone, ChipFiltroTone> = {
 };
 
 /** Estados terminales de guía master (no se puede operar sobre ellos). */
-const ESTADOS_GUIA_TERMINALES: ReadonlySet<EstadoGuiaMaster> = new Set([
+const ESTADOS_GUIA_TERMINALES: ReadonlySet<EstadoGuiaMaster> = new Set<EstadoGuiaMaster>([
   'DESPACHO_COMPLETADO',
-  'DESPACHO_INCOMPLETO',
   'CANCELADA',
 ]);
 
@@ -215,15 +214,18 @@ export function GuiasMasterPage() {
   // para que el operario tenga un resumen accionable de un vistazo.
   const stats = useMemo(() => {
     const c = conteosPorEstado;
-    const enEspera = (c.SIN_PIEZAS_REGISTRADAS ?? 0) + (c.EN_ESPERA_RECEPCION ?? 0);
+    const enEspera =
+      (c.SIN_PAQUETES_REGISTRADOS ?? 0) +
+      (c.CON_PAQUETES_REGISTRADOS ?? 0) +
+      (c.PENDIENTE_VERIFICACION ?? 0);
     const enRecepcion =
-      (c.EN_TRANSITO_USA_ECUADOR ?? 0) +
+      (c.ENVIO_PARCIAL ?? 0) +
+      (c.ENVIO_COMPLETO ?? 0) +
       (c.RECEPCION_PARCIAL ?? 0) +
       (c.RECEPCION_COMPLETA ?? 0);
     const enDespacho = (c.DESPACHO_PARCIAL ?? 0) + (c.EN_REVISION ?? 0);
     const cerradas =
       (c.DESPACHO_COMPLETADO ?? 0) +
-      (c.DESPACHO_INCOMPLETO ?? 0) +
       (c.CANCELADA ?? 0);
     return {
       total: totalGuias,
