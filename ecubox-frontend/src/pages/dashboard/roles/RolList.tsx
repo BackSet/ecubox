@@ -51,6 +51,10 @@ const ESTADO_TODOS = '__todos__';
 type EstadoFiltro = typeof ESTADO_TODOS | 'con-permisos' | 'sin-permisos';
 
 function getModulo(codigo: string): string {
+  if (codigo.startsWith('MIS_ENTREGAS_')) return 'MIS_ENTREGAS';
+  if (codigo.startsWith('MIS_GUIAS_')) return 'MIS_GUIAS';
+  if (codigo.startsWith('ACCESO_ENLACE_')) return 'ACCESO_ENLACE';
+  if (codigo.startsWith('ACCESO_ENLACES_')) return 'ACCESO_ENLACES';
   const idx = codigo.indexOf('_');
   return idx > 0 ? codigo.slice(0, idx) : codigo;
 }
@@ -70,6 +74,10 @@ const MODULO_LABELS: Record<string, string> = {
   ENVIOS: 'Envíos',
   TRACKING: 'Tracking',
   REPORTES: 'Reportes',
+  MIS_GUIAS: 'Mis guías',
+  MIS_ENTREGAS: 'Mis entregas',
+  ACCESO_ENLACE: 'Enlace de acceso',
+  ACCESO_ENLACES: 'Enlaces de acceso',
 };
 
 export function RolList() {

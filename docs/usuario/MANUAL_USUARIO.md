@@ -95,8 +95,8 @@ Agrupación habitual:
 
 | Grupo | Ejemplos de secciones |
 |-------|------------------------|
-| **Principal** | Inicio, Mi casillero |
-| **Operaciones** | Consignatarios, Paquetes, Pesaje, Estados de paquetes, Despachos, Lotes recepción |
+| **Principal** | Inicio, Mi casillero, Mis guías, Mis entregas (cliente) |
+| **Operaciones** | Consignatarios, Paquetes, Pesaje, Estados de paquetes, Despachos, Lotes recepción, Envíos consolidados, Guías master |
 | **Catálogos** | Agencias, Puntos de entrega, Couriers de entrega, Manifiestos |
 | **Administración** | Usuarios, Roles, Permisos |
 | **Configuración** | Parámetros |
@@ -139,7 +139,23 @@ Orden sugerido según el flujo logístico (las rutas pueden variar ligeramente s
 ### Lotes de recepción (`/lotes-recepcion`, nuevo, detalle)
 
 - **Permiso:** `DESPACHOS_WRITE` (misma entrada de menú que despachos en la configuración actual).
-- Registro de recepciones y relación con guías de envío; puede disparar cambios de estado automáticos según **Estados por punto**.
+- Registro de recepciones y relación con guías de envío; al **procesar** el lote aplica estados de llegada a aduana y en bodega según **Estados por punto**.
+
+### Envíos consolidados (`/envios-consolidados`)
+
+- **Permiso:** `ENVIOS_CONSOLIDADOS_READ` / `ENVIOS_CONSOLIDADOS_UPDATE`.
+- Agrupa paquetes para manifiestos internos. Estado operativo derivado: `VACIO`, `EN_PREPARACION`, `ENVIADO_DESDE_USA`, `RECIBIDO_EN_BODEGA`, `LIQUIDADO`. El pago (`estadoPago`) es independiente.
+- Acciones: crear, agregar/quitar paquetes (solo en preparación), **enviar desde USA**, reabrir, **aplicar estado** masivo a piezas, manifiesto PDF/XLSX.
+
+### Guías master (`/guias-master`)
+
+- **Permiso:** `GUIAS_MASTER_READ` y operaciones de escritura según rol.
+- Agrupa piezas de un carrier; estado global recalculado (`EN_TRANSITO_USA_ECUADOR`, recepción, despacho, etc.). Estados terminales y `EN_REVISION` quedan congelados.
+
+### Mis guías y Mis entregas (cliente)
+
+- **Mis guías** (`/mis-guias`): seguimiento de guías master del cliente (`MIS_GUIAS_READ`).
+- **Mis entregas** (`/mis-entregas`): despachos con las piezas del cliente; puede **confirmar entrega** (`MIS_ENTREGAS_CONFIRM`) cuando el sistema lo habilita.
 
 ---
 
@@ -240,22 +256,37 @@ Los **estados de rastreo** describen en qué etapa está un paquete (por ejemplo
 
 ### 9.3 Estados por punto (pestaña «Estados por punto»)
 
-Aquí eliges **qué estado del catálogo** corresponde a cada **momento automático** del sistema. Debes completar **los cuatro** selectores y guardar:
+Aquí eliges **qué estado del catálogo** (o qué etiqueta de guía/consolidado) corresponde a cada **momento automático**. La pantalla agrupa los puntos en **cuatro bloques**:
 
-| Campo en pantalla | Significado |
-|-------------------|-------------|
-| **Estado al registrar paquete** | Estado inicial al dar de alta un paquete. |
-| **Estado al registrar en lote de recepción** | Se aplica al ingresar la guía desde un lote de recepción. |
-| **Estado cuando está en despacho** | Cuando los paquetes se asocian a un despacho. |
-| **Estado en tránsito** | Incluye uso en «aplicar estado por periodo» u operaciones masivas de despacho según el flujo definido. |
+**Paquetes (IDs de estado de rastreo, obligatorios salvo aviso/confirmación):**
 
-Estos estados los aplican los **procesos automáticos** (registro, lote, despacho, periodo), no el cambio manual en **Gestionar estados de paquetes**, que **excluye** estos cuatro del selector para evitar duplicar lógica operativa.
+| Campo | Detonador |
+|-------|-----------|
+| Registro de paquete | Alta en Paquetes |
+| Asociar a envío consolidado | Agregar paquete a consolidado |
+| En lote de recepción | Procesar lote (bodega) |
+| Asociar guía master | Vincular pieza a guía master |
+| Salida de origen (USA) | Enviar consolidado desde USA |
+| Llegada a destino (aduana) | Procesar lote (primer paso) |
+| En despacho | Agregar a despacho/saca |
+| En tránsito | Avance masivo por despacho |
+| Aviso confirmación entrega | Push al cliente (opcional) |
+| Entrega confirmada cliente | Mis entregas (opcional) |
+| Inicio / fin cuenta regresiva | Anclas de plazo (opcional) |
+
+**Guías master:** diez selectores con valores del enum `EstadoGuiaMaster` (sin piezas, en espera, tránsito USA-Ecuador, recepción, despacho, cancelada, en revisión, etc.).
+
+**Consolidados:** cuatro etiquetas operativas (`VACIO`, `EN_PREPARACION`, `ENVIADO_DESDE_USA`, `RECIBIDO_EN_BODEGA`, `LIQUIDADO`) para la UI — el backend **deriva** el estado real con la misma lógica.
+
+**Tracking:** anclas de inicio/fin de cuenta regresiva.
+
+Los estados asignados a estos puntos **no** aparecen en **Estados de paquetes** (cambio manual). Ver [Detonadores por estado](DETONADORES_POR_ESTADO.md).
 
 ### 9.4 Coherencia con el resto del manual
 
-1. Define primero el **catálogo** y el **orden** de estados en **Parámetros → Estados**.  
-2. Asigna los **estados por punto** en la misma sección.  
-3. En el día a día, usa **Paquetes**, **Lotes**, **Despachos** y **Gestionar estados** respetando que los hitos automáticos ya cubren registro, lote, despacho y tránsito.
+1. Define el **catálogo** y el **orden** en **Parámetros → Estados**.  
+2. Asigna **estados por punto** (paquetes, guías master, consolidados, tracking).  
+3. Flujo típico: **Registro** → **Consolidado** (`PLANILLA`) → **Guía master** → **Salida USA** → **Lote** (aduana + bodega) → **Despacho** → **Avance masivo** → **Aviso push** → **Mis entregas** (`ENTREGADO`).
 
 ---
 
@@ -305,7 +336,10 @@ flowchart LR
 | **Estado base** | Estado de flujo **normal** que forma la secuencia principal de tracking. |
 | **Estado alterno** | Estado excepcional que en la configuración se coloca **después** de un estado base. |
 | **Orden de tracking** | Posición del estado en la línea de tiempo pública. |
-| **Estado por punto** | Estado asignado automáticamente en registro, lote, despacho o tránsito (configuración en Parámetros). |
+| **Estado por punto** | Estado asignado automáticamente en cada hito (registro, consolidado, lote, guía master, despacho, confirmación cliente, etc.). |
+| **Envío consolidado** | Agrupador interno del operario para manifiestos; no aparece en rastreo público. |
+| **Estado operativo consolidado** | Etiqueta derivada (`VACIO` … `LIQUIDADO`); independiente del `estadoPago`. |
+| **Confirmación de entrega** | Acción del cliente en Mis entregas que aplica el estado configurado (típicamente `ENTREGADO`). |
 
 ---
 

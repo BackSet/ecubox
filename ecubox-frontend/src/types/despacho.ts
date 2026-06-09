@@ -120,6 +120,16 @@ export interface Despacho {
   agenciaCourierEntregaVersionId?: number | null;
   /** SCD2: cuando se congelo el snapshot de destino del despacho. */
   destinoCongeladoEn?: string | null;
+
+  /**
+   * Estado de rastreo común de los paquetes del despacho (calculado, no persistido).
+   * Representante = estado de menor orden (el menos avanzado), el que puede recibir un avance.
+   */
+  estadoRastreoComunId?: number | null;
+  estadoRastreoComunNombre?: string | null;
+  estadoRastreoComunOrden?: number | null;
+  /** true si los paquetes no comparten un único estado de rastreo. */
+  estadoMixto?: boolean;
 }
 
 export interface DespachoCreateRequest {

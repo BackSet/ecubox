@@ -136,10 +136,10 @@ import { estadoRastreoFormSchema, mensajePlantillaSchema } from '@/lib/schemas/m
 import type {
   EstadoRastreo,
   EstadoRastreoRequest,
-  EstadoConsolidadoOperativo,
   EstadosRastreoPorPunto,
 } from '@/types/estado-rastreo';
 import type { EstadoGuiaMaster } from '@/types/guia-master';
+import type { EstadoEnvioConsolidadoOperativo } from '@/types/envio-consolidado';
 
 // ============================================================================
 // Tipos y constantes
@@ -2269,13 +2269,17 @@ function EstadosRastreoView() {
 type PuntoKey =
   | 'registro'
   | 'lote'
-  | 'consolidado'
+  | 'envio-consolidado'
+  | 'guia-master'
   | 'despacho'
   | 'enviado-usa'
   | 'arribado-ec'
   | 'transito'
+  | 'aviso-confirmacion'
+  | 'entrega-cliente'
   | 'gm-sin-piezas'
   | 'gm-espera-recepcion'
+  | 'gm-transito-usa-ecuador'
   | 'gm-recepcion-parcial'
   | 'gm-recepcion-completa'
   | 'gm-despacho-parcial'
@@ -2285,7 +2289,7 @@ type PuntoKey =
   | 'gm-en-revision'
   | 'consolidado-creado'
   | 'consolidado-lote'
-  | 'consolidado-cerrado'
+  | 'consolidado-enviado-usa'
   | 'consolidado-reabierto'
   | 'inicio-cuenta'
   | 'fin';
@@ -2295,7 +2299,12 @@ interface PuntoConfig {
   group: 'Paquetes' | 'Guías master' | 'Consolidados' | 'Tracking';
   source: 'rastreo' | 'guia-master' | 'consolidado';
   label: string;
-  description: string;
+  /** Qué acción del sistema dispara este punto. */
+  detonante: string;
+  /** En qué pantalla/menú ocurre la acción que lo dispara. */
+  donde: string;
+  /** Qué hace el sistema cuando se cumple el detonante. */
+  efecto: string;
   icon: React.ComponentType<{ className?: string }>;
   required: boolean;
   tone: 'primary' | 'success' | 'warning' | 'neutral';
@@ -2307,7 +2316,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Paquetes',
     source: 'rastreo',
     label: 'Cuando se registra el paquete',
-    description: 'Asigna el estado seleccionado al paquete al completar su registro.',
+    detonante: 'El operario completa el registro de un paquete nuevo.',
+    donde: 'Paquetes → Registrar paquete.',
+    efecto: 'Asigna el estado seleccionado al paquete recién creado.',
     icon: Package,
     required: true,
     tone: 'primary',
@@ -2317,18 +2328,33 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Paquetes',
     source: 'rastreo',
     label: 'Cuando se agrega a lote',
-    description: 'Asigna el estado seleccionado al paquete al agregarlo a un lote de recepción.',
+    detonante: 'El paquete entra al procesar (o ampliar) un lote de recepción.',
+    donde: 'Lotes de recepción → crear lote o agregar guías.',
+    efecto: 'Marca el paquete como recibido en lote; queda como su estado actual tras la recepción.',
     icon: Boxes,
     required: true,
     tone: 'primary',
   },
   {
-    key: 'consolidado',
+    key: 'envio-consolidado',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Cuando se asocia a un consolidado',
+    detonante: 'El paquete se agrega o reasigna a un envío consolidado.',
+    donde: 'Consolidados (envíos) → agregar paquetes.',
+    efecto: 'Asigna el estado seleccionado al paquete al entrar en el consolidado.',
+    icon: Layers,
+    required: true,
+    tone: 'primary',
+  },
+  {
+    key: 'guia-master',
     group: 'Paquetes',
     source: 'rastreo',
     label: 'Cuando se asocia a guía master',
-    description:
-      'Asigna el estado seleccionado al paquete al asociarlo a una guía master.',
+    detonante: 'El paquete se asocia a una guía master.',
+    donde: 'Guías master → asociar paquetes / detalle de la guía.',
+    efecto: 'Asigna el estado seleccionado al paquete al quedar consolidado en la guía.',
     icon: Link2,
     required: true,
     tone: 'primary',
@@ -2338,7 +2364,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Paquetes',
     source: 'rastreo',
     label: 'Cuando se agrega a despacho',
-    description: 'Asigna el estado seleccionado al paquete al agregarlo a un despacho.',
+    detonante: 'El paquete se agrega a un despacho (queda dentro de una saca).',
+    donde: 'Despachos → crear o editar despacho.',
+    efecto: 'Asigna el estado seleccionado al paquete al quedar en despacho.',
     icon: Truck,
     required: true,
     tone: 'success',
@@ -2348,7 +2376,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Paquetes',
     source: 'rastreo',
     label: 'Cuando sale de origen',
-    description: 'Asigna el estado seleccionado al paquete cuando sale de la operación de origen.',
+    detonante: 'El consolidado se marca como enviado desde USA.',
+    donde: 'Consolidados (envíos) → enviar desde USA.',
+    efecto: 'Marca la salida del paquete de la operación de origen.',
     icon: ArrowUp,
     required: true,
     tone: 'success',
@@ -2358,7 +2388,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Paquetes',
     source: 'rastreo',
     label: 'Cuando llega a destino',
-    description: 'Asigna el estado seleccionado al paquete cuando llega a la operación de destino.',
+    detonante: 'El paquete se recibe físicamente al procesar un lote de recepción.',
+    donde: 'Lotes de recepción → crear lote o agregar guías.',
+    efecto: 'Registra la llegada a la operación de destino (justo antes del estado “en lote”).',
     icon: ArrowDown,
     required: true,
     tone: 'success',
@@ -2367,10 +2399,36 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     key: 'transito',
     group: 'Paquetes',
     source: 'rastreo',
-    label: 'Cuando avanza después del despacho',
-    description: 'Asigna el estado seleccionado al paquete al aplicar avance masivo posterior al despacho.',
+    label: 'Cuando se aplica avance masivo por despacho',
+    detonante: 'El operario lanza un avance masivo sobre paquetes ya despachados.',
+    donde: 'Despachos → “Aplicar estado por periodo” o “Aplicar estado a despachos”.',
+    efecto: 'Estado por defecto de esa acción masiva; debe ser posterior al estado de despacho.',
     icon: MapPin,
     required: true,
+    tone: 'success',
+  },
+  {
+    key: 'aviso-confirmacion',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Aviso de confirmación al cliente',
+    detonante: 'Una pieza entra a este estado (p. ej. “En tránsito a destino”).',
+    donde: 'Cualquier flujo que aplique ese estado (despacho, avance masivo, etc.).',
+    efecto: 'Envía un push al cliente invitándolo a confirmar la entrega y habilita el botón “Ya lo recibí”.',
+    icon: MessageCircle,
+    required: false,
+    tone: 'warning',
+  },
+  {
+    key: 'entrega-cliente',
+    group: 'Paquetes',
+    source: 'rastreo',
+    label: 'Cuando el cliente confirma la entrega',
+    detonante: 'El cliente pulsa “Ya lo recibí” sobre su parte de un despacho.',
+    donde: 'Vista de cliente → Mis entregas.',
+    efecto: 'Aplica este estado a las piezas del cliente en ese despacho (debe ser posterior al aviso).',
+    icon: CheckCircle2,
+    required: false,
     tone: 'success',
   },
   {
@@ -2378,7 +2436,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Guías master',
     source: 'guia-master',
     label: 'Al crear guía sin piezas',
-    description: 'Detonador: se crea una guía master y todavía no tiene paquetes asociados.',
+    detonante: 'Se crea una guía master y todavía no tiene paquetes asociados.',
+    donde: 'Guías master → crear guía.',
+    efecto: 'Aplica este estado a la guía master mientras no tenga piezas.',
     icon: Hash,
     required: true,
     tone: 'neutral',
@@ -2388,17 +2448,33 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Guías master',
     source: 'guia-master',
     label: 'Al registrar primera pieza',
-    description: 'Detonador: se registra al menos un paquete de la guía y ninguno fue recibido en lote.',
+    detonante: 'Se registra al menos un paquete de la guía y ninguno fue recibido en lote.',
+    donde: 'Paquetes → Registrar paquete (asociado a la guía).',
+    efecto: 'Aplica este estado a la guía master en espera de recepción.',
     icon: Hourglass,
     required: true,
     tone: 'neutral',
+  },
+  {
+    key: 'gm-transito-usa-ecuador',
+    group: 'Guías master',
+    source: 'guia-master',
+    label: 'Al salir de USA',
+    detonante: 'El consolidado que contiene piezas de la guía se marca como enviado desde USA.',
+    donde: 'Consolidados (envíos) → enviar desde USA.',
+    efecto: 'Aplica este estado a la guía master mientras sus piezas viajan hacia Ecuador.',
+    icon: ArrowUp,
+    required: true,
+    tone: 'primary',
   },
   {
     key: 'gm-recepcion-parcial',
     group: 'Guías master',
     source: 'guia-master',
     label: 'Al recibir algunas piezas',
-    description: 'Detonador: el lote recibe una parte de los paquetes esperados de la guía.',
+    detonante: 'El lote recibe una parte de los paquetes esperados de la guía.',
+    donde: 'Lotes de recepción → procesar lote.',
+    efecto: 'Aplica este estado a la guía master con recepción parcial.',
     icon: CircleDashed,
     required: true,
     tone: 'warning',
@@ -2408,7 +2484,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Guías master',
     source: 'guia-master',
     label: 'Al recibir todas las piezas',
-    description: 'Detonador: el lote recibe todos los paquetes esperados de la guía.',
+    detonante: 'El lote recibe todos los paquetes esperados de la guía.',
+    donde: 'Lotes de recepción → procesar lote.',
+    efecto: 'Aplica este estado a la guía master con recepción completa.',
     icon: Check,
     required: true,
     tone: 'success',
@@ -2418,7 +2496,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Guías master',
     source: 'guia-master',
     label: 'Al despachar algunas piezas',
-    description: 'Detonador: se despacha una parte de los paquetes esperados de la guía.',
+    detonante: 'Se despacha una parte de los paquetes esperados de la guía.',
+    donde: 'Despachos → agregar piezas de la guía a un despacho.',
+    efecto: 'Aplica este estado a la guía master con despacho parcial.',
     icon: CircleDashed,
     required: true,
     tone: 'warning',
@@ -2428,7 +2508,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Guías master',
     source: 'guia-master',
     label: 'Al despachar todas las piezas',
-    description: 'Detonador: se despachan todos los paquetes esperados de la guía.',
+    detonante: 'Se despachan todos los paquetes esperados de la guía.',
+    donde: 'Despachos → agregar piezas de la guía a un despacho.',
+    efecto: 'Aplica este estado a la guía master con despacho completado.',
     icon: CheckCircle2,
     required: true,
     tone: 'success',
@@ -2438,7 +2520,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Guías master',
     source: 'guia-master',
     label: 'Al cerrar con faltantes',
-    description: 'Detonador: se cierra la guía aceptando que faltaron paquetes por recibir o despachar.',
+    detonante: 'Se cierra la guía aceptando que faltaron paquetes por recibir o despachar.',
+    donde: 'Guías master → cerrar guía con faltantes.',
+    efecto: 'Aplica este estado a la guía master con despacho incompleto.',
     icon: AlertCircle,
     required: true,
     tone: 'warning',
@@ -2448,7 +2532,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Guías master',
     source: 'guia-master',
     label: 'Al cancelar la guía',
-    description: 'Detonador: el operario cancela la guía antes de completar el flujo.',
+    detonante: 'El operario cancela la guía antes de completar el flujo.',
+    donde: 'Guías master → cancelar guía.',
+    efecto: 'Aplica este estado a la guía master cancelada.',
     icon: X,
     required: true,
     tone: 'neutral',
@@ -2458,7 +2544,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Guías master',
     source: 'guia-master',
     label: 'Al marcar para revisión',
-    description: 'Detonador: el operario pausa la guía para validar datos o incidencias.',
+    detonante: 'El operario pausa la guía para validar datos o incidencias.',
+    donde: 'Guías master → marcar en revisión.',
+    efecto: 'Aplica este estado a la guía master en revisión.',
     icon: Eye,
     required: true,
     tone: 'warning',
@@ -2468,7 +2556,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Consolidados',
     source: 'consolidado',
     label: 'Cuando se crea el consolidado',
-    description: 'Asigna el estado seleccionado al consolidado al completar su creación.',
+    detonante: 'El operario crea un nuevo envío consolidado.',
+    donde: 'Consolidados (envíos) → crear consolidado.',
+    efecto: 'Muestra Vacío al crear el consolidado (En preparación si ya tiene piezas).',
     icon: Layers,
     required: true,
     tone: 'primary',
@@ -2478,18 +2568,22 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Consolidados',
     source: 'consolidado',
     label: 'Al agregarlo a lote',
-    description: 'Detonador: el consolidado se registra dentro de un lote de recepción.',
+    detonante: 'El consolidado se registra dentro de un lote de recepción.',
+    donde: 'Lotes de recepción → procesar o ampliar lote.',
+    efecto: 'Muestra Recibido en bodega cuando el código del consolidado entra en un lote.',
     icon: Boxes,
     required: true,
     tone: 'success',
   },
   {
-    key: 'consolidado-cerrado',
+    key: 'consolidado-enviado-usa',
     group: 'Consolidados',
     source: 'consolidado',
-    label: 'Cuando se cierra el consolidado',
-    description: 'Asigna el estado seleccionado al consolidado al completar su cierre.',
-    icon: PowerOff,
+    label: 'Cuando se envía desde USA',
+    detonante: 'El operario marca el consolidado como enviado desde USA.',
+    donde: 'Consolidados (envíos) → enviar desde USA.',
+    efecto: 'Muestra Enviado desde USA al cerrar la salida (fecha de cierre).',
+    icon: ArrowUp,
     required: true,
     tone: 'success',
   },
@@ -2498,7 +2592,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Consolidados',
     source: 'consolidado',
     label: 'Cuando se reabre el consolidado',
-    description: 'Asigna el estado seleccionado al consolidado al completar su reapertura.',
+    detonante: 'El operario revierte la salida USA para volver a preparar el consolidado.',
+    donde: 'Consolidados (envíos) → reabrir consolidado.',
+    efecto: 'Muestra En preparación al reabrir un consolidado enviado desde USA.',
     icon: Power,
     required: true,
     tone: 'primary',
@@ -2508,8 +2604,9 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Tracking',
     source: 'rastreo',
     label: 'Inicio de cuenta regresiva',
-    description:
-      'Usa el estado seleccionado como punto de inicio para la cuenta regresiva del tracking.',
+    detonante: 'El paquete entra por primera vez al estado seleccionado.',
+    donde: 'Rastreo público → bloque “Progreso y plazos”.',
+    efecto: 'Ancla el inicio de la cuenta regresiva de retiro desde ese estado.',
     icon: Hourglass,
     required: false,
     tone: 'warning',
@@ -2519,37 +2616,29 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Tracking',
     source: 'rastreo',
     label: 'Fin de cuenta regresiva',
-    description: 'Usa el estado seleccionado como punto de cierre para la cuenta regresiva del tracking.',
+    detonante: 'El paquete alcanza el estado seleccionado.',
+    donde: 'Rastreo público → bloque “Progreso y plazos”.',
+    efecto: 'Cierra la cuenta regresiva de retiro en el tracking.',
     icon: CheckCircle2,
     required: false,
     tone: 'warning',
   },
 ];
 
-type PuntoValue = number | EstadoGuiaMaster | EstadoConsolidadoOperativo | '';
+type PuntoValue = number | EstadoGuiaMaster | EstadoEnvioConsolidadoOperativo | '';
 type PuntoValues = Record<PuntoKey, PuntoValue>;
 
-const PUNTO_FIELD_BY_KEY: Record<PuntoKey, keyof EstadosRastreoPorPunto> = {
+const PUNTO_FIELD_BY_KEY: Partial<Record<PuntoKey, keyof EstadosRastreoPorPunto>> = {
   registro: 'estadoRastreoRegistroPaqueteId',
   lote: 'estadoRastreoEnLoteRecepcionId',
-  consolidado: 'estadoRastreoAsociarGuiaMasterId',
+  'envio-consolidado': 'estadoRastreoAsociarEnvioConsolidadoId',
+  'guia-master': 'estadoRastreoAsociarGuiaMasterId',
   despacho: 'estadoRastreoEnDespachoId',
   'enviado-usa': 'estadoRastreoEnviadoDesdeUsaId',
   'arribado-ec': 'estadoRastreoArribadoEcId',
   transito: 'estadoRastreoEnTransitoId',
-  'gm-sin-piezas': 'estadoGuiaMasterSinPiezas',
-  'gm-espera-recepcion': 'estadoGuiaMasterEnEsperaRecepcion',
-  'gm-recepcion-parcial': 'estadoGuiaMasterRecepcionParcial',
-  'gm-recepcion-completa': 'estadoGuiaMasterRecepcionCompleta',
-  'gm-despacho-parcial': 'estadoGuiaMasterDespachoParcial',
-  'gm-despacho-completado': 'estadoGuiaMasterDespachoCompletado',
-  'gm-despacho-incompleto': 'estadoGuiaMasterDespachoIncompleto',
-  'gm-cancelada': 'estadoGuiaMasterCancelada',
-  'gm-en-revision': 'estadoGuiaMasterEnRevision',
-  'consolidado-creado': 'estadoConsolidadoCreado',
-  'consolidado-lote': 'estadoConsolidadoAgregadoLote',
-  'consolidado-cerrado': 'estadoConsolidadoCerrado',
-  'consolidado-reabierto': 'estadoConsolidadoReabierto',
+  'aviso-confirmacion': 'estadoRastreoAvisoConfirmacionEntregaId',
+  'entrega-cliente': 'estadoRastreoEntregaConfirmadaClienteId',
   'inicio-cuenta': 'estadoRastreoInicioCuentaRegresivaId',
   fin: 'estadoRastreoFinCuentaRegresivaId',
 };
@@ -2560,6 +2649,69 @@ function emptyPuntoValues(): PuntoValues {
   return Object.fromEntries(PUNTOS_FLUJO.map((p) => [p.key, ''])) as PuntoValues;
 }
 
+const RASTREO_DEFAULT_CODIGO_BY_KEY: Partial<Record<PuntoKey, string>> = {
+  registro: 'REGISTRADO',
+  lote: 'EN_BODEGA',
+  'envio-consolidado': 'PLANILLA',
+  'guia-master': 'MANIFESTADO',
+  despacho: 'TRABAJO',
+  'enviado-usa': 'VUELO',
+  'arribado-ec': 'LLEGA_A_ADUANA',
+  transito: 'EN_TRANSITO',
+  'aviso-confirmacion': 'EN_TRANSITO',
+  'entrega-cliente': 'ENTREGADO',
+  'inicio-cuenta': 'EN_BODEGA',
+  fin: 'ENTREGADO',
+};
+
+const GUIA_MASTER_DEFAULT_BY_KEY: Partial<Record<PuntoKey, EstadoGuiaMaster>> = {
+  'gm-sin-piezas': 'SIN_PIEZAS_REGISTRADAS',
+  'gm-espera-recepcion': 'EN_ESPERA_RECEPCION',
+  'gm-transito-usa-ecuador': 'EN_TRANSITO_USA_ECUADOR',
+  'gm-recepcion-parcial': 'RECEPCION_PARCIAL',
+  'gm-recepcion-completa': 'RECEPCION_COMPLETA',
+  'gm-despacho-parcial': 'DESPACHO_PARCIAL',
+  'gm-despacho-completado': 'DESPACHO_COMPLETADO',
+  'gm-despacho-incompleto': 'DESPACHO_INCOMPLETO',
+  'gm-cancelada': 'CANCELADA',
+  'gm-en-revision': 'EN_REVISION',
+};
+
+const CONSOLIDADO_PUNTO_KEYS = [
+  'consolidado-creado',
+  'consolidado-lote',
+  'consolidado-enviado-usa',
+  'consolidado-reabierto',
+] as const;
+
+type ConsolidadoPuntoKey = (typeof CONSOLIDADO_PUNTO_KEYS)[number];
+
+/** Estado operativo fijo que corresponde a cada detonante de consolidado. */
+const CONSOLIDADO_DEFAULT_BY_KEY: Record<
+  ConsolidadoPuntoKey,
+  EstadoEnvioConsolidadoOperativo
+> = {
+  'consolidado-creado': 'VACIO',
+  'consolidado-lote': 'RECIBIDO_EN_BODEGA',
+  'consolidado-enviado-usa': 'ENVIADO_DESDE_USA',
+  'consolidado-reabierto': 'EN_PREPARACION',
+};
+
+/** Solo el estado válido por detonante (el backend deriva el estado real). */
+const CONSOLIDADO_OPTIONS_BY_KEY: Record<
+  ConsolidadoPuntoKey,
+  EstadoEnvioConsolidadoOperativo[]
+> = {
+  'consolidado-creado': ['VACIO'],
+  'consolidado-lote': ['RECIBIDO_EN_BODEGA'],
+  'consolidado-enviado-usa': ['ENVIADO_DESDE_USA'],
+  'consolidado-reabierto': ['EN_PREPARACION'],
+};
+
+function isConsolidadoPuntoKey(key: PuntoKey): key is ConsolidadoPuntoKey {
+  return (CONSOLIDADO_PUNTO_KEYS as readonly PuntoKey[]).includes(key);
+}
+
 interface PuntoOption {
   value: string;
   label: string;
@@ -2568,9 +2720,35 @@ interface PuntoOption {
 }
 
 const CONSOLIDADO_ESTADO_OPTIONS: PuntoOption[] = [
-  { value: 'ABIERTO', label: 'Abierto', meta: 'Admite cambios' },
-  { value: 'CERRADO', label: 'Cerrado', meta: 'Solo lectura' },
+  { value: 'VACIO', label: 'Vacío', meta: 'Sin piezas' },
+  { value: 'EN_PREPARACION', label: 'En preparación', meta: 'Admite cambios' },
+  { value: 'ENVIADO_DESDE_USA', label: 'Enviado desde USA', meta: 'Salida registrada' },
+  { value: 'RECIBIDO_EN_BODEGA', label: 'Recibido en bodega', meta: 'Registrado en lote' },
 ];
+
+function resolvePuntoValue(
+  punto: PuntoConfig,
+  config: EstadosRastreoPorPunto,
+  estados: EstadoRastreo[],
+): PuntoValue {
+  if (punto.source === 'guia-master') {
+    return GUIA_MASTER_DEFAULT_BY_KEY[punto.key] ?? '';
+  }
+  if (punto.source === 'consolidado' && isConsolidadoPuntoKey(punto.key)) {
+    return CONSOLIDADO_DEFAULT_BY_KEY[punto.key];
+  }
+  const field = PUNTO_FIELD_BY_KEY[punto.key];
+  const raw = field ? ((config[field] as PuntoValue | null | undefined) ?? '') : '';
+  if (punto.source === 'rastreo') {
+    if (raw !== '' && Number.isFinite(Number(raw))) {
+      return raw;
+    }
+    const codigo = RASTREO_DEFAULT_CODIGO_BY_KEY[punto.key];
+    const estado = codigo ? estados.find((e) => e.codigo === codigo) : null;
+    return estado ? estado.id : '';
+  }
+  return raw;
+}
 
 function optionsForPunto(punto: PuntoConfig, estados: EstadoRastreo[]): PuntoOption[] {
   if (punto.source === 'guia-master') {
@@ -2580,8 +2758,11 @@ function optionsForPunto(punto: PuntoConfig, estados: EstadoRastreo[]): PuntoOpt
       meta: estado,
     }));
   }
-  if (punto.source === 'consolidado') {
-    return CONSOLIDADO_ESTADO_OPTIONS;
+  if (punto.source === 'consolidado' && isConsolidadoPuntoKey(punto.key)) {
+    const allowed = new Set(CONSOLIDADO_OPTIONS_BY_KEY[punto.key]);
+    return CONSOLIDADO_ESTADO_OPTIONS.filter((option) =>
+      allowed.has(option.value as EstadoEnvioConsolidadoOperativo),
+    );
   }
   return estados.map((e) => ({
     value: String(e.id),
@@ -2605,21 +2786,30 @@ function EstadosRastreoPorPuntoView() {
 
   useEffect(() => {
     if (config) {
-      setValuesByKey(
-        Object.fromEntries(
-          PUNTOS_FLUJO.map((p) => [p.key, (config[PUNTO_FIELD_BY_KEY[p.key]] as PuntoValue | null | undefined) ?? '']),
-        ) as PuntoValues,
-      );
+      const next = Object.fromEntries(
+        PUNTOS_FLUJO.map((p) => [p.key, resolvePuntoValue(p, config, estados)]),
+      ) as PuntoValues;
+      for (const key of CONSOLIDADO_PUNTO_KEYS) {
+        next[key] = CONSOLIDADO_DEFAULT_BY_KEY[key];
+      }
+      setValuesByKey(next);
     }
-  }, [config]);
+  }, [config, estados]);
 
   const isDirty =
     config != null &&
-    PUNTOS_FLUJO.some(
-      (p) => valuesByKey[p.key] !== ((config[PUNTO_FIELD_BY_KEY[p.key]] as PuntoValue | null | undefined) ?? ''),
-    );
+    PUNTOS_FLUJO.some((p) => {
+      if (p.source !== 'rastreo') return false;
+      const field = PUNTO_FIELD_BY_KEY[p.key];
+      return (
+        valuesByKey[p.key] !==
+        (field ? ((config[field] as PuntoValue | null | undefined) ?? '') : '')
+      );
+    });
 
-  const allRequiredSelected = PUNTOS_FLUJO.every((p) => !p.required || valuesByKey[p.key] !== '');
+  const allRequiredSelected = PUNTOS_FLUJO.every(
+    (p) => p.source !== 'rastreo' || !p.required || valuesByKey[p.key] !== '',
+  );
 
   const handleGuardar = async () => {
     if (!allRequiredSelected) {
@@ -2635,31 +2825,20 @@ function EstadosRastreoPorPuntoView() {
       return;
     }
     const estadoId = (key: PuntoKey) => (valuesByKey[key] === '' ? null : Number(valuesByKey[key]));
-    const estadoTexto = <T extends string>(key: PuntoKey) => valuesByKey[key] as T;
     try {
       await updateMutation.mutateAsync({
         estadoRastreoRegistroPaqueteId: Number(valuesByKey.registro),
         estadoRastreoEnLoteRecepcionId: Number(valuesByKey.lote),
-        estadoRastreoAsociarGuiaMasterId: Number(valuesByKey.consolidado),
+        estadoRastreoAsociarEnvioConsolidadoId: Number(valuesByKey['envio-consolidado']),
+        estadoRastreoAsociarGuiaMasterId: Number(valuesByKey['guia-master']),
         estadoRastreoEnDespachoId: Number(valuesByKey.despacho),
         estadoRastreoEnTransitoId: Number(valuesByKey.transito),
         estadoRastreoEnviadoDesdeUsaId: Number(valuesByKey['enviado-usa']),
         estadoRastreoArribadoEcId: Number(valuesByKey['arribado-ec']),
-        estadoGuiaMasterSinPiezas: estadoTexto<EstadoGuiaMaster>('gm-sin-piezas'),
-        estadoGuiaMasterEnEsperaRecepcion: estadoTexto<EstadoGuiaMaster>('gm-espera-recepcion'),
-        estadoGuiaMasterRecepcionParcial: estadoTexto<EstadoGuiaMaster>('gm-recepcion-parcial'),
-        estadoGuiaMasterRecepcionCompleta: estadoTexto<EstadoGuiaMaster>('gm-recepcion-completa'),
-        estadoGuiaMasterDespachoParcial: estadoTexto<EstadoGuiaMaster>('gm-despacho-parcial'),
-        estadoGuiaMasterDespachoCompletado: estadoTexto<EstadoGuiaMaster>('gm-despacho-completado'),
-        estadoGuiaMasterDespachoIncompleto: estadoTexto<EstadoGuiaMaster>('gm-despacho-incompleto'),
-        estadoGuiaMasterCancelada: estadoTexto<EstadoGuiaMaster>('gm-cancelada'),
-        estadoGuiaMasterEnRevision: estadoTexto<EstadoGuiaMaster>('gm-en-revision'),
-        estadoConsolidadoCreado: estadoTexto<EstadoConsolidadoOperativo>('consolidado-creado'),
-        estadoConsolidadoAgregadoLote: estadoTexto<EstadoConsolidadoOperativo>('consolidado-lote'),
-        estadoConsolidadoCerrado: estadoTexto<EstadoConsolidadoOperativo>('consolidado-cerrado'),
-        estadoConsolidadoReabierto: estadoTexto<EstadoConsolidadoOperativo>('consolidado-reabierto'),
         estadoRastreoInicioCuentaRegresivaId: estadoId('inicio-cuenta'),
         estadoRastreoFinCuentaRegresivaId: estadoId('fin'),
+        estadoRastreoAvisoConfirmacionEntregaId: estadoId('aviso-confirmacion'),
+        estadoRastreoEntregaConfirmadaClienteId: estadoId('entrega-cliente'),
       });
       toast.success('Configuración guardada');
     } catch (err) {
@@ -2671,7 +2850,7 @@ function EstadosRastreoPorPuntoView() {
     if (!config) return;
     setValuesByKey(
       Object.fromEntries(
-        PUNTOS_FLUJO.map((p) => [p.key, (config[PUNTO_FIELD_BY_KEY[p.key]] as PuntoValue | null | undefined) ?? '']),
+        PUNTOS_FLUJO.map((p) => [p.key, resolvePuntoValue(p, config, estados)]),
       ) as PuntoValues,
     );
   };
@@ -2733,6 +2912,14 @@ function EstadosRastreoPorPuntoView() {
                   {puntos.filter((p) => valuesByKey[p.key] !== '').length} / {puntos.length}
                 </span>
               </div>
+              {group === 'Consolidados' && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Los estados operativos del consolidado se calculan automáticamente (piezas, salida
+                  USA, lote de recepción y pago). Aquí solo se documenta qué etiqueta corresponde a
+                  cada hito; <span className="font-medium text-foreground">Liquidado</span> aparece al
+                  pagar la liquidación y no se configura en esta pantalla.
+                </p>
+              )}
               <div className="grid gap-3 lg:grid-cols-2">
                 {puntos.map((punto) => (
                   <PuntoCard
@@ -2743,6 +2930,7 @@ function EstadosRastreoPorPuntoView() {
                       setValuesByKey((prev) => ({ ...prev, [punto.key]: next }))
                     }
                     options={optionsForPunto(punto, estados)}
+                    readOnly={punto.source !== 'rastreo'}
                   />
                 ))}
               </div>
@@ -2766,12 +2954,28 @@ function EstadosRastreoPorPuntoView() {
             {PUNTOS_FLUJO.length} pasos
           </span>
         </header>
-        <ol className="relative">
-          {PUNTOS_FLUJO.map((punto, idx) => {
-            const Icon = punto.icon;
-            const value = valuesByKey[punto.key];
-            const estadoLabel = selectedOptionLabel(punto, value, estados);
-            const isLast = idx === PUNTOS_FLUJO.length - 1;
+        <div className="space-y-5">
+          {PUNTO_GROUPS.map((grupo) => {
+            const puntosGrupo = PUNTOS_FLUJO.filter((p) => p.group === grupo);
+            const configuradosGrupo = puntosGrupo.filter(
+              (p) => valuesByKey[p.key] !== '',
+            ).length;
+            return (
+              <div key={grupo}>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Flujo de {grupo.toLowerCase()}
+                  </h4>
+                  <span className="text-[10px] text-muted-foreground">
+                    {configuradosGrupo} / {puntosGrupo.length}
+                  </span>
+                </div>
+                <ol className="relative">
+                  {puntosGrupo.map((punto, idx) => {
+                    const Icon = punto.icon;
+                    const value = valuesByKey[punto.key];
+                    const estadoLabel = selectedOptionLabel(punto, value, estados);
+                    const isLast = idx === puntosGrupo.length - 1;
             const configured = value !== '';
             const isMissingRequired = punto.required && !configured;
             return (
@@ -2839,9 +3043,13 @@ function EstadosRastreoPorPuntoView() {
                   ) : null}
                 </div>
               </li>
+                    );
+                  })}
+                </ol>
+              </div>
             );
           })}
-        </ol>
+        </div>
       </section>
 
       {/* Botones */}
@@ -2878,9 +3086,10 @@ interface PuntoCardProps {
   value: PuntoValue;
   onChange: (v: PuntoValue) => void;
   options: PuntoOption[];
+  readOnly: boolean;
 }
 
-function PuntoCard({ punto, value, onChange, options }: PuntoCardProps) {
+function PuntoCard({ punto, value, onChange, options, readOnly }: PuntoCardProps) {
   const Icon = punto.icon;
   const toneIcon: Record<PuntoConfig['tone'], string> = {
     primary: 'bg-[var(--color-muted)] text-[var(--color-primary)]',
@@ -2910,7 +3119,14 @@ function PuntoCard({ punto, value, onChange, options }: PuntoCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <h4 className="text-sm font-semibold text-foreground">{punto.label}</h4>
-            {punto.required ? (
+            {readOnly ? (
+              <Badge
+                variant="outline"
+                className="h-5 rounded border-primary/20 px-1.5 text-[10px] font-medium text-muted-foreground"
+              >
+                Definido por el sistema
+              </Badge>
+            ) : punto.required ? (
               <Badge
                 variant="outline"
                 className="h-5 rounded border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 px-1.5 text-[10px] font-medium text-[var(--color-destructive)]"
@@ -2926,52 +3142,93 @@ function PuntoCard({ punto, value, onChange, options }: PuntoCardProps) {
               </Badge>
             )}
           </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{punto.description}</p>
+          <dl className="mt-1 space-y-0.5 text-[11px] leading-snug text-muted-foreground">
+            <div className="flex gap-1">
+              <dt className="shrink-0 font-medium text-foreground/70">Detonante:</dt>
+              <dd>{punto.detonante}</dd>
+            </div>
+            <div className="flex gap-1">
+              <dt className="shrink-0 font-medium text-foreground/70">Dónde:</dt>
+              <dd>{punto.donde}</dd>
+            </div>
+            <div className="flex gap-1">
+              <dt className="shrink-0 font-medium text-foreground/70">Efecto:</dt>
+              <dd>{punto.efecto}</dd>
+            </div>
+          </dl>
         </div>
       </header>
 
-      <Select
-        value={value === '' ? (punto.required ? '' : 'none') : String(value)}
-        onValueChange={(v) => {
-          if (v === 'none') onChange('');
-          else onChange(punto.source === 'rastreo' ? Number(v) : (v as PuntoValue));
-        }}
-      >
-        <SelectTrigger
-          className={cn(
-            'h-9',
-            isPending && 'border-[var(--color-warning)]/50',
-          )}
+      {readOnly ? (
+        <div className="space-y-2 rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/15 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              className="h-6 rounded border-[var(--color-success)]/30 bg-[var(--color-success)]/10 px-2 text-xs font-medium text-[var(--color-success)]"
+            >
+              {selectedOptionLabel(punto, value, [])}
+            </Badge>
+            <Badge
+              variant="outline"
+              className="h-5 rounded px-1.5 font-mono text-[10px] font-normal text-muted-foreground"
+            >
+              {String(value)}
+            </Badge>
+            <Badge
+              variant="outline"
+              className="h-5 rounded border-[var(--color-primary)]/20 px-1.5 text-[10px] font-medium text-muted-foreground"
+            >
+              Solo lectura
+            </Badge>
+          </div>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Estado fijo para este hito. No forma parte de la configuración editable del ambiente.
+          </p>
+        </div>
+      ) : (
+        <Select
+          value={value === '' ? (punto.required ? '' : 'none') : String(value)}
+          onValueChange={(v) => {
+            if (v === 'none') onChange('');
+            else onChange(punto.source === 'rastreo' ? Number(v) : (v as PuntoValue));
+          }}
         >
-          <SelectValue placeholder="Seleccionar estado..." />
-        </SelectTrigger>
-        <SelectContent>
-          {!punto.required && (
-            <SelectItem value="none">
-              <span className="text-muted-foreground">Sin asignar</span>
-            </SelectItem>
-          )}
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              <span className="inline-flex items-center gap-1.5">
-                {option.variant === 'alterno' ? (
-                  <AlertTriangle className="h-3 w-3 text-[var(--color-warning)]" />
-                ) : option.variant === 'oculto' ? (
-                  <EyeOff className="h-3 w-3 text-[var(--color-warning)]" />
-                ) : (
-                  <Truck className="h-3 w-3 text-[var(--color-primary)]" />
-                )}
-                <span className="font-medium">{option.label}</span>
-                {option.meta && (
-                  <span className="text-[11px] font-mono text-muted-foreground">
-                    ({option.meta})
-                  </span>
-                )}
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <SelectTrigger
+            className={cn(
+              'h-9',
+              isPending && 'border-[var(--color-warning)]/50',
+            )}
+          >
+            <SelectValue placeholder="Seleccionar estado..." />
+          </SelectTrigger>
+          <SelectContent>
+            {!punto.required && (
+              <SelectItem value="none">
+                <span className="text-muted-foreground">Sin asignar</span>
+              </SelectItem>
+            )}
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                <span className="inline-flex items-center gap-1.5">
+                  {option.variant === 'alterno' ? (
+                    <AlertTriangle className="h-3 w-3 text-[var(--color-warning)]" />
+                  ) : option.variant === 'oculto' ? (
+                    <EyeOff className="h-3 w-3 text-[var(--color-warning)]" />
+                  ) : (
+                    <Truck className="h-3 w-3 text-[var(--color-primary)]" />
+                  )}
+                  <span className="font-medium">{option.label}</span>
+                  {option.meta && (
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      ({option.meta})
+                    </span>
+                  )}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       {value !== '' && (
         <div className="rounded-md border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/15 p-2.5">

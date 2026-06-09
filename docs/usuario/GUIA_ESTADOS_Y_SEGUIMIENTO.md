@@ -72,13 +72,22 @@ Algunas leyendas del estado pueden usar un texto tipo “llevas X días…”: e
 En el menú lateral, bajo **Configuración**, está **Parámetros**. Allí suelen entrar **administradores** para dos cosas relacionadas con estados:
 
 1. **El listado de estados** (cómo se llaman, en qué orden aparecen en el rastreo, cuáles son “normales” y cuáles “alternos”, etc.).
-2. **Los cuatro estados por punto** (a veces llamados hitos operativos): qué estado del listado corresponde a cada momento automático del sistema:
-   - cuando se **registra** un paquete;
-   - cuando entra por **lote de recepción**;
-   - cuando está **en despacho**;
-   - el estado de **en tránsito** (también ligado a acciones masivas por periodo, como verás más abajo).
+2. **Los estados por punto** (hitos operativos), organizados en **cuatro grupos** en la pestaña **Estados por punto**:
+   - **Paquetes:** registro, asociar a consolidado, lote de recepción, asociar guía master, salida de origen (USA), llegada a destino (aduana), en despacho, avance masivo, aviso de confirmación de entrega, entrega confirmada por cliente, anclas de cuenta regresiva.
+   - **Guías master:** los diez estados globales (`EN_ESPERA_RECEPCION`, `EN_TRANSITO_USA_ECUADOR`, recepción, despacho, etc.) usados al recalcular la guía.
+   - **Consolidados:** etiquetas operativas derivadas (`VACIO`, `EN_PREPARACION`, `ENVIADO_DESDE_USA`, `RECIBIDO_EN_BODEGA`, `LIQUIDADO`) para la UI de Parámetros.
+   - **Tracking:** inicio y fin de cuenta regresiva (anclas de cálculo, no cambian el estado del paquete por sí solas).
 
-**Qué debes recordar tú como operador:** esos **cuatro** están pensados para que los aplique **el sistema** en los procesos correctos. No los busques para cambiarlos “a mano” desde la pantalla de **Estados de paquetes** (la barra lateral): allí **no se ofrecen** a propósito, para no duplicar lo que ya hace el flujo automático.
+   Detonadores principales de paquete (ver tabla canónica en [Detonadores por estado](DETONADORES_POR_ESTADO.md)):
+   - **Registro** de paquete;
+   - **Asociar a envío consolidado** (estado típico: `PLANILLA`);
+   - **Asociar a guía master**;
+   - **Salida de origen** (enviar consolidado desde USA);
+   - **Llega a destino** y **lote de recepción** (dos pasos al procesar el lote);
+   - **En despacho** y **avance masivo por despacho**;
+   - **Aviso de confirmación** (push al cliente) y **entrega confirmada** (Mis entregas).
+
+**Qué debes recordar tú como operador:** esos puntos los aplica **el sistema** en los procesos correctos. No los busques para cambiarlos “a mano” desde **Estados de paquetes**: allí **no se ofrecen** a propósito.
 
 ---
 
@@ -88,35 +97,54 @@ Muchas veces el estado **cambia solo** cuando haces otra tarea habitual. Orden t
 
 | Qué ocurre en la operación | Qué suele pasar con el estado |
 |----------------------------|-------------------------------|
-| **Registras** un paquete nuevo | Se aplica el estado configurado para “al registrar paquete”. |
-| El paquete **entra por un lote de recepción** (según el proceso con guía de envío en lote) | Se aplica el estado configurado para “lote de recepción”. |
-| **Asocias el paquete a un despacho** (lo pones en una saca / despacho) | Se aplica el estado configurado para “en despacho”. |
-| En la lista de **Despachos** usas **Aplicar estado por periodo** | Según la propia pantalla, se aplica el estado definido en Parámetros como **“Estado en tránsito”** a los paquetes de los despachos cuya fecha cae en el rango de fechas que indicas. |
+| **Registras** un paquete nuevo | Se aplica el estado configurado para “cuando se registra el paquete”. |
+| **Agregas el paquete a un envío consolidado** | Se aplica el estado de “asociar a envío consolidado” (típicamente `PLANILLA`). |
+| El paquete **entra por un lote de recepción** | Al **procesar** el lote se aplican en secuencia “llega a destino” (`LLEGA_A_ADUANA`) y “en lote” (`EN_BODEGA`). |
+| **Asocias el paquete a una guía master** | Se aplica el estado configurado para “cuando se asocia a guía master”. |
+| **Marcas como enviado desde USA** el consolidado que contiene al paquete | Se aplica el estado configurado para “cuando sale de origen”; la guía master puede pasar a **En tránsito USA-Ecuador** hasta que entre a recepción. |
+| **Asocias el paquete a un despacho** (lo pones en una saca / despacho) | Se aplica el estado configurado para “cuando se agrega a despacho”. |
+| En la lista de **Despachos** usas **Aplicar estado por periodo** o **Aplicar estado a despachos** | Se aplica el estado de **avance masivo por despacho** (típicamente `EN_TRANSITO`). |
+| El paquete alcanza el estado de **aviso de confirmación** | El cliente recibe un push “¿Recibiste tu envío?” con enlace a **Mis entregas**. |
+| El **cliente confirma** su entrega en **Mis entregas** | Se aplica el estado de entrega confirmada (típicamente `ENTREGADO`). |
 
-Es decir: **registro, lote, despacho y tránsito por periodo** son caminos donde el sistema aplica el estado que dejaron configurado en **Parámetros → Estados por punto**. Tu trabajo es hacer bien el registro, el lote o el despacho; el estado viene detrás.
+Es decir: **registro, consolidado, lote, guía master, salida USA, despacho, avance masivo y confirmación del cliente** son caminos automáticos configurados en **Parámetros → Estados por punto**.
 
 ---
 
-## 6. Barra lateral: “Estados de paquetes”
+## 6. Barra lateral: “Gestionar estados”
 
-En el grupo **Operaciones** del menú lateral verás **Estados de paquetes** (el nombre puede mostrarse como “Estados de paquetes” según tu pantalla).
+En el grupo **Operación** del menú lateral verás **Gestionar estados**. Es un **hub con tres pestañas**, una por cada dominio de estado. Solo verás las pestañas para las que tengas permiso, y **cambiar de pestaña limpia la selección** (no se mezclan entidades).
 
-### Para qué sirve
+### Pestaña 1 — Paquetes
 
-Sirve para **cambiar el estado a mano** cuando el paquete **aún no está en un despacho** (no tiene saca asignada). Es el sitio adecuado para pasar el envío a **otros estados del catálogo** que **no** sean los cuatro reservados para los procesos automáticos (registro, lote, despacho, tránsito configurado en Parámetros). En otras palabras: aquí gestionas situaciones **no cubiertas** por esos hitos automáticos, por ejemplo etapas intermedias o casos especiales que tu empresa definió como estados aparte.
+Cambia el estado **a mano** de paquetes **sin despacho** (sin saca).
 
-### Qué verás
+- Lista de paquetes **sin despacho** con casillas para **seleccionar** uno o varios.
+- El **desplegable** de estado **solo ofrece los destinos válidos** para **toda** la selección: el sistema (backend) calcula la intersección, así que si eliges varios paquetes verás solo los estados aplicables a todos a la vez.
+- **No ofrece** los estados reservados a los **estados por punto** (registro, consolidado, lote, guía master, salida USA, llegada a destino, despacho, avance masivo, aviso/confirmación de entrega).
+- Los paquetes con restricciones (en lote, etc.) pueden **rechazarse**; el sistema te dirá cuáles y por qué.
 
-- Una lista de paquetes que cumplen la condición **sin despacho / sin saca**.
-- Casillas para **seleccionar** uno o varios paquetes.
-- Un **desplegable** con el estado al que quieres pasarlos y un botón para **aplicar** el cambio a los seleccionados.
+### Pestaña 2 — Guías master
 
-### Mensajes de ayuda que verás en pantalla (resumen)
+Aplica **acciones manuales** sobre guías master (no estados arbitrarios). Según el estado de las guías seleccionadas, se habilitan:
 
-- Solo aparecen paquetes **sin despacho**. Si un paquete ya fue a despacho, **no estará en esta lista**; no podrás moverlo desde aquí.
-- Los paquetes que estén en un **lote de recepción** pueden **rechazarse** al aplicar el cambio; el sistema te dirá cuáles y por qué.
-- El desplegable **no ofrece** los estados configurados en **Parámetros → Estados de rastreo por punto** (los cuatro: registro, lote, despacho, tránsito), porque esos los asignan los flujos correspondientes.
-- Si seleccionas **varios** paquetes a la vez, solo verás estados que sean **válidos para todos** los seleccionados a la vez (pueden ser menos opciones que si eliges uno solo).
+| Acción | Cuándo se ofrece |
+|--------|------------------|
+| **Recalcular estado** | Guías no congeladas (no terminales ni en revisión). |
+| **Marcar en revisión** | Guías no terminales y que no estén ya en revisión. |
+| **Salir de revisión** | Todas las seleccionadas están **en revisión**. |
+| **Cancelar** | Ninguna terminal (requiere **motivo**). |
+
+### Pestaña 3 — Consolidados
+
+Aplica **transiciones operativas** del envío consolidado:
+
+| Transición | Cuándo se ofrece |
+|------------|------------------|
+| **Enviar desde USA** | El consolidado está **En preparación** (abierto, con piezas, sin pagar). |
+| **Reabrir (En preparación)** | El consolidado está **Enviado desde USA** (cerrado, sin pagar). |
+
+Los estados **derivados** no se cambian aquí: si está **Vacío** agrega piezas; si está **Recibido en bodega** se gestiona en **Lotes de recepción**; si está **Liquidado** se gestiona en **Liquidaciones**. La pantalla muestra un texto de ayuda cuando la selección no admite transición manual.
 
 ---
 
@@ -124,18 +152,21 @@ Sirve para **cambiar el estado a mano** cuando el paquete **aún no está en un 
 
 | Sí hace | No hace |
 |--------|---------|
-| Cambiar estado de forma **manual** para paquetes **sin saca**, usando estados del catálogo **que no sean** los cuatro “por punto”. | Sustituir el **registro** de paquetes, los **lotes** ni los **despachos**. |
+| Cambiar estado de forma **manual** para paquetes **sin saca**, usando estados del catálogo **que no sean** los “por punto”. | Sustituir el **registro** de paquetes, los **lotes** ni los **despachos**. |
 | Trabajar con **varios** paquetes seleccionados. | Mostrar paquetes que **ya van en despacho** (con saca). |
-| Respetar reglas del sistema (rechazos, lista de destinos permitidos). | Forzar los cuatro estados reservados para procesos automáticos. |
+| Respetar reglas del sistema (rechazos, lista de destinos permitidos). | Forzar los estados reservados para procesos automáticos. |
 
-Si necesitas que el paquete pase por “registro”, “lote”, “despacho” o el tránsito masivo por periodo, lo correcto es usar **esas** operaciones (registro, lote, despacho, **Aplicar estado por periodo** en despachos), no esta pantalla.
+Si necesitas que el paquete pase por “registro”, “lote”, “guía master”, “despacho” o el avance masivo por despacho, lo correcto es usar **esas** operaciones (registro, lote, despacho, **Aplicar estado por periodo** en despachos), no esta pantalla.
 
 ---
 
 ## 8. Otras pantallas: ver el estado, no cambiarlo masivamente aquí
 
-- **Paquetes** (lista “Mis paquetes”): muestra el **estado actual** de cada paquete; sirve para registrar, buscar y otras acciones según tu cuenta. El cambio masivo pensado para paquetes **sin saca** está en **Estados de paquetes**.
-- **Detalle de un despacho**: verás el estado de los paquetes en ese despacho; el movimiento principal de estado hacia “en despacho” o el tránsito por periodo viene de los flujos de despacho y de Parámetros, no de la pantalla de Estados de paquetes.
+- **Paquetes** (`/paquetes`): muestra el **estado actual** y el **estado operativo del consolidado** (si aplica). El cambio masivo para paquetes **sin saca** está en **Estados de paquetes**.
+- **Envíos consolidados** (`/envios-consolidados`): agrupa piezas para manifiestos; el estado operativo derivado puede ser `VACIO`, `EN_PREPARACION`, `ENVIADO_DESDE_USA`, `RECIBIDO_EN_BODEGA` o `LIQUIDADO`. El pago (`NO_PAGADO` / `PAGADO`) es independiente del avance logístico.
+- **Guías master** (`/guias-master`): estado global recalculado desde conteos de piezas (`EN_TRANSITO_USA_ECUADOR`, recepción, despacho, etc.).
+- **Mis entregas** (`/mis-entregas`, vista cliente): lista despachos con las piezas del cliente. Cuando el paquete está en el estado de **aviso de confirmación** (o posterior, sin haber confirmado), el despacho aparece como **confirmable** y el cliente puede marcar **Confirmar entrega**.
+- **Detalle de un despacho**: el estado “en despacho” y el avance masivo vienen de los flujos de despacho, no de Estados de paquetes.
 
 ---
 
@@ -143,10 +174,13 @@ Si necesitas que el paquete pase por “registro”, “lote”, “despacho” 
 
 | Situación | Cómo suele cambiar el estado | Dónde en el menú |
 |-----------|------------------------------|------------------|
-| Nuevo paquete | Automático al registrar | **Paquetes** (registrar) + configuración en **Parámetros** |
-| Entrada por lote de recepción | Automático según lote | **Lotes de recepción** |
+| Nuevo paquete | Automático al registrar | **Paquetes** (registrar) + **Parámetros** |
+| En planilla (consolidado) | Automático al agregar a consolidado | **Envíos consolidados** |
+| Entrada por lote de recepción | Automático al procesar lote (aduana + bodega) | **Lotes de recepción** |
+| Salida de USA | Automático al enviar consolidado desde USA | **Envíos consolidados** |
+| Confirmación del cliente | Automático al confirmar en Mis entregas | **Mis entregas** (cliente) |
 | Paquete va a un despacho | Automático al asociarlo | **Despachos** |
-| Tránsito / periodo para muchos paquetes | Acción masiva por fechas | **Despachos** → **Aplicar estado por periodo** |
+| Avance masivo por despacho | Acción masiva por fechas o por despachos seleccionados | **Despachos** → **Aplicar estado por periodo** / **a despachos** |
 | Cambio manual a otro estado (sin saca) | Tú eliges el estado en el desplegable | **Operaciones** → **Estados de paquetes** |
 | Ver estado como cliente | Solo consulta | Página pública **Rastreo** |
 
@@ -158,10 +192,10 @@ Si necesitas que el paquete pase por “registro”, “lote”, “despacho” 
 Probablemente **ya tiene saca / despacho**. Esa pantalla solo lista envíos **sin despacho**. Para los que ya van en camión o consolidación, el estado se mueve con el flujo de despacho o con la acción por periodo, no desde aquí.
 
 **No aparece un estado en el desplegable.**  
-Puede ser un estado **reservado** para los cuatro hitos de Parámetros (no se ofrece aquí). También puede pasar si eliges **varios** paquetes y solo algunos estados aplican a **todos** a la vez.
+Puede ser un estado **reservado** para los hitos por punto de Parámetros (no se ofrece aquí). También puede pasar si eliges **varios** paquetes y solo algunos estados aplican a **todos** a la vez.
 
-**¿Puedo poner el mismo estado que “en tránsito” desde Estados de paquetes?**  
-No debería ofrecerse el que está configurado como tránsito en **Estados por punto**, porque ese lo gestiona el sistema en sus procesos. Si algo no cuadra, revisa con quien administra **Parámetros**.
+**¿Puedo poner desde Estados de paquetes el mismo estado del avance masivo por despacho?**  
+No debería ofrecerse el que está configurado para el avance masivo por despacho en **Estados por punto**, porque ese lo gestiona el sistema en sus procesos. Si algo no cuadra, revisa con quien administra **Parámetros**.
 
 **El cliente ¿dónde ve el estado?**  
 En **Rastreo**, con el número de guía, según las reglas de visibilidad que definan los estados en el sistema (ver sección 2 y 3 de esta guía).
@@ -171,6 +205,15 @@ Suele ser porque el paquete **aún no** está en un despacho con tipo de entrega
 
 **¿Desde qué fecha cuenta el plazo?**  
 Desde la **fecha en que comenzó el estado actual** del paquete (no desde el alta inicial del envío, salvo que coincidan).
+
+**¿Por qué el cliente recibió un push para confirmar entrega?**  
+Porque sus piezas alcanzaron el estado configurado como **aviso de confirmación** (típicamente `EN_TRANSITO`). El push lleva a **Mis entregas**.
+
+**¿Puede el operario marcar Entregado si el cliente no confirmó?**  
+Sí, si `ENTREGADO` sigue disponible en **Estados de paquetes** (cambio manual). La confirmación del cliente es un camino adicional, no excluyente.
+
+**¿Un consolidado liquidado deja de ser recepcionable?**  
+No necesariamente. El listado de consolidados disponibles para recepción ignora el pago: un consolidado `LIQUIDADO` sigue recepcionable hasta que su código figure en un lote.
 
 ---
 
@@ -184,6 +227,9 @@ Solo referencia técnica mínima; puedes ignorar este bloque si no lo necesitas.
 | Estados de paquetes | `/gestionar-estados-paquetes` |
 | Parámetros | `/parametros-sistema` |
 | Despachos | `/despachos` |
+| Envíos consolidados | `/envios-consolidados` |
+| Guías master | `/guias-master` |
+| Mis entregas (cliente) | `/mis-entregas` |
 | Rastreo público | `/tracking` |
 
 ---
@@ -193,3 +239,12 @@ Solo referencia técnica mínima; puedes ignorar este bloque si no lo necesitas.
 Para permisos de cuenta, roles y recorrido completo de todos los módulos, consulta el documento **[Manual de usuario](MANUAL_USUARIO.md)** (carpeta **Usuario** en la documentación).
 
 Esta guía explica el **estado del paquete**, **dónde** actúas en el panel, **cómo ve el cliente el Rastreo** (incluido cuando no hay plazo de retiro) y **cómo se calculan los días para retiro**, en lenguaje cotidiano.
+# Gestión manual y estados automáticos
+
+Los estados configurados en **Estados por punto** se aplican exclusivamente desde
+sus detonantes operativos y no aparecen en los selectores de cambio manual.
+Guías master y consolidados usan estados definidos por el sistema; el administrador
+puede consultarlos, pero no cambiar su mapeo. Las acciones manuales permitidas son:
+
+- Guías master: cancelar, marcar o salir de revisión y recalcular.
+- Consolidados: enviar desde USA y reabrir a En preparación.

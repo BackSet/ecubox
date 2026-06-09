@@ -13,6 +13,7 @@ import {
   cancelarGuiaMaster,
   marcarGuiaMasterEnRevision,
   salirGuiaMasterDeRevision,
+  recalcularGuiaMaster,
   reabrirGuiaMaster,
   listarHistorialGuiaMaster,
   type ListarGuiasMasterPageParams,
@@ -186,6 +187,18 @@ export function useReabrirGuiaMaster() {
   });
 }
 
+export function useRecalcularGuiaMaster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => recalcularGuiaMaster(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', id] });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'historial', id] });
+    },
+  });
+}
+
 export function useGuiaMasterHistorial(id: number | null | undefined) {
   return useQuery({
     queryKey: [...GUIAS_MASTER_QUERY_KEY, 'historial', id],
@@ -199,6 +212,16 @@ export function useDashboardGuiasMaster(topAntiguas = 10, enabled = true) {
     queryKey: [...GUIAS_MASTER_QUERY_KEY, 'dashboard', topAntiguas],
     queryFn: () => obtenerDashboardGuiasMaster(topAntiguas),
     refetchInterval: 60_000,
+    enabled,
+  });
+}
+
+/** Todas las guías master sin paginación (para el diálogo masivo de aplicar estado). */
+export function useAllGuiasMaster(enabled = true) {
+  return useQuery({
+    queryKey: [...GUIAS_MASTER_QUERY_KEY, 'all'],
+    queryFn: () => listarGuiasMaster(),
+    staleTime: 0,
     enabled,
   });
 }

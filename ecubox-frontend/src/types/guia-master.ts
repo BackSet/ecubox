@@ -8,6 +8,7 @@ import type { Paquete } from '@/types/paquete';
 export type EstadoGuiaMaster =
   | 'SIN_PIEZAS_REGISTRADAS'
   | 'EN_ESPERA_RECEPCION'
+  | 'EN_TRANSITO_USA_ECUADOR'
   | 'RECEPCION_PARCIAL'
   | 'RECEPCION_COMPLETA'
   | 'DESPACHO_PARCIAL'

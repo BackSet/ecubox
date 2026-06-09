@@ -30,6 +30,7 @@ import {
 import { notify } from '@/lib/notify';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge, getRastreoStatusTone } from '@/components/ui/StatusBadge';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -950,6 +951,7 @@ function SacaCard({
                       <EstadoBadge
                         nombre={p.estadoRastreoNombre}
                         codigo={p.estadoRastreoCodigo}
+                        tipoFlujo={p.estadoRastreoTipoFlujo}
                       />
                     </TableCell>
                     <TableCell>
@@ -998,19 +1000,17 @@ function SacaCard({
 function EstadoBadge({
   nombre,
   codigo,
+  tipoFlujo,
 }: {
   nombre?: string | null;
   codigo?: string | null;
+  tipoFlujo?: 'NORMAL' | 'ALTERNO' | null;
 }) {
   const label = nombre ?? codigo;
   if (!label) {
     return <span className="text-xs italic text-muted-foreground">—</span>;
   }
-  return (
-    <span className="inline-flex items-center rounded-md border border-border bg-[var(--color-muted)]/40 px-2 py-0.5 text-xs font-medium text-foreground">
-      {label}
-    </span>
-  );
+  return <StatusBadge tone={getRastreoStatusTone(tipoFlujo)}>{label}</StatusBadge>;
 }
 
 function CopyButton({

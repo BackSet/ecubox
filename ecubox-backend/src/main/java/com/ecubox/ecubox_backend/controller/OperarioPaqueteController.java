@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.config.OpenApiConstants;
+import com.ecubox.ecubox_backend.dto.AplicarEstadoPorPeriodoPaqueteRequest;
 import com.ecubox.ecubox_backend.dto.AsignarGuiaMasterBulkRequest;
 import com.ecubox.ecubox_backend.dto.BulkPaquetePesoRequest;
 import com.ecubox.ecubox_backend.dto.BuscarPaquetesPorGuiasRequest;
@@ -131,6 +132,24 @@ public class OperarioPaqueteController {
     public ResponseEntity<List<PaqueteDTO>> buscarPorGuias(
             @Valid @RequestBody BuscarPaquetesPorGuiasRequest request) {
         return ResponseEntity.ok(paqueteService.buscarPorNumeroGuias(request.getNumeroGuias()));
+    }
+
+    @GetMapping("/estados-aplicables")
+    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @Operation(summary = "Listar estados aplicables", description = "Obtiene estados de rastreo que pueden aplicarse manualmente a paquetes")
+    @ApiResponse(responseCode = "200", description = "Listado de estados aplicables")
+    public ResponseEntity<List<EstadoRastreoDTO>> estadosAplicables() {
+        return ResponseEntity.ok(paqueteService.getEstadosAplicablesPaquete());
+    }
+
+    @PostMapping("/aplicar-estado-por-periodo")
+    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @Operation(summary = "Aplicar estado por periodo", description = "Aplica un estado de rastreo a todos los paquetes registrados en el periodo indicado")
+    @ApiResponse(responseCode = "200", description = "Resultado del cambio masivo")
+    public ResponseEntity<CambiarEstadoRastreoBulkResponse> aplicarEstadoPorPeriodo(
+            @Valid @RequestBody AplicarEstadoPorPeriodoPaqueteRequest request) {
+        return ResponseEntity.ok(paqueteService.aplicarEstadoPorPeriodoPaquetes(
+                request.getFechaInicio(), request.getFechaFin(), request.getEstadoRastreoId()));
     }
 
 }

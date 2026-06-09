@@ -35,8 +35,6 @@ public class LoteRecepcionService {
     private final PaqueteService paqueteService;
     private final CurrentUserService currentUserService;
     private final EnvioConsolidadoRepository envioConsolidadoRepository;
-    private final EnvioConsolidadoService envioConsolidadoService;
-    private final ParametroSistemaService parametroSistemaService;
     private final GuiaMasterService guiaMasterService;
 
     public LoteRecepcionService(LoteRecepcionRepository loteRecepcionRepository,
@@ -45,8 +43,6 @@ public class LoteRecepcionService {
                                PaqueteService paqueteService,
                                CurrentUserService currentUserService,
                                EnvioConsolidadoRepository envioConsolidadoRepository,
-                               EnvioConsolidadoService envioConsolidadoService,
-                               ParametroSistemaService parametroSistemaService,
                                GuiaMasterService guiaMasterService) {
         this.loteRecepcionRepository = loteRecepcionRepository;
         this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
@@ -54,8 +50,6 @@ public class LoteRecepcionService {
         this.paqueteService = paqueteService;
         this.currentUserService = currentUserService;
         this.envioConsolidadoRepository = envioConsolidadoRepository;
-        this.envioConsolidadoService = envioConsolidadoService;
-        this.parametroSistemaService = parametroSistemaService;
         this.guiaMasterService = guiaMasterService;
     }
 
@@ -108,7 +102,6 @@ public class LoteRecepcionService {
         }
 
         Set<Long> paqueteIds = new LinkedHashSet<>();
-        Set<Long> envioIdsAgregados = new LinkedHashSet<>();
         for (String codigo : dedup) {
             EnvioConsolidado envio = resolverEnvio(codigo);
             String canonico = envio != null ? envio.getCodigo() : null;
@@ -125,7 +118,6 @@ public class LoteRecepcionService {
                     .build();
             loteRecepcionGuiaRepository.save(guia);
             lote.getGuias().add(guia);
-            envioIdsAgregados.add(envio.getId());
             paquetes.forEach(p -> paqueteIds.add(p.getId()));
         }
 
@@ -134,7 +126,6 @@ public class LoteRecepcionService {
             paqueteService.aplicarEstadoArribadoEc(pIds, fechaRecepcion);
             paqueteService.aplicarEstadoEnLoteRecepcion(pIds, fechaRecepcion);
         }
-        aplicarEstadoConsolidadoAgregadoLote(envioIdsAgregados, fechaRecepcion);
 
         return toDTO(lote, false);
     }
@@ -162,7 +153,6 @@ public class LoteRecepcionService {
         }
 
         Set<Long> paqueteIds = new LinkedHashSet<>();
-        Set<Long> envioIdsAgregados = new LinkedHashSet<>();
         for (String codigo : dedup) {
             EnvioConsolidado envio = resolverEnvio(codigo);
             String canonico = envio != null ? envio.getCodigo() : null;
@@ -179,7 +169,6 @@ public class LoteRecepcionService {
                     .build();
             loteRecepcionGuiaRepository.save(guia);
             yaEnLote.add(canonico.trim().toUpperCase());
-            envioIdsAgregados.add(envio.getId());
             paquetes.forEach(p -> paqueteIds.add(p.getId()));
         }
         if (!paqueteIds.isEmpty()) {
@@ -187,7 +176,6 @@ public class LoteRecepcionService {
             paqueteService.aplicarEstadoArribadoEc(pIds, lote.getFechaRecepcion());
             paqueteService.aplicarEstadoEnLoteRecepcion(pIds, lote.getFechaRecepcion());
         }
-        aplicarEstadoConsolidadoAgregadoLote(envioIdsAgregados, lote.getFechaRecepcion());
 
         loteRecepcionRepository.flush();
         lote = loteRecepcionRepository.findByIdWithGuiasAndOperario(loteId).orElseThrow(() -> new ResourceNotFoundException("Lote de recepción", loteId));
@@ -197,15 +185,6 @@ public class LoteRecepcionService {
     private EnvioConsolidado resolverEnvio(String codigo) {
         if (codigo == null || codigo.isBlank()) return null;
         return envioConsolidadoRepository.findByCodigoIgnoreCase(codigo.trim()).orElse(null);
-    }
-
-    private void aplicarEstadoConsolidadoAgregadoLote(Set<Long> envioIds, LocalDateTime fechaRecepcion) {
-        if (envioIds == null || envioIds.isEmpty()) return;
-        String estado = parametroSistemaService.getEstadoConsolidadoAgregadoLote();
-        if (!"CERRADO".equalsIgnoreCase(estado)) return;
-        for (Long envioId : envioIds) {
-            envioConsolidadoService.cerrar(envioId, fechaRecepcion);
-        }
     }
 
     @Transactional(readOnly = true)

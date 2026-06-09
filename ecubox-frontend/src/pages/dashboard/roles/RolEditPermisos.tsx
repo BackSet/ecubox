@@ -46,6 +46,7 @@ interface RolEditPermisosProps {
 const GROUP_LABELS: Record<string, string> = {
   ACCESO_ENLACE: 'Enlace de acceso',
   ACCESO_ENLACES: 'Enlaces de acceso',
+  MIS_ENTREGAS: 'Mis entregas',
   INICIO: 'Inicio',
   CASILLERO: 'Casillero',
   PERFIL: 'Perfil',
@@ -76,6 +77,7 @@ const GROUP_LABELS: Record<string, string> = {
 const GROUP_ORDER = [
   'ACCESO_ENLACE',
   'ACCESO_ENLACES',
+  'MIS_ENTREGAS',
   'INICIO',
   'CASILLERO',
   'PERFIL',
@@ -106,6 +108,7 @@ const GROUP_ORDER = [
 function getGroupKey(codigo: string): string {
   if (codigo.startsWith('ACCESO_ENLACE_')) return 'ACCESO_ENLACE';
   if (codigo.startsWith('ACCESO_ENLACES_')) return 'ACCESO_ENLACES';
+  if (codigo.startsWith('MIS_ENTREGAS_')) return 'MIS_ENTREGAS';
   if (codigo.startsWith('PARAMETROS_SISTEMA_')) return 'PARAMETROS_SISTEMA';
   if (codigo.startsWith('MENSAJE_')) return 'MENSAJES';
   if (codigo.startsWith('CANALES_COMUNICACION_')) return 'CANALES_COMUNICACION';
@@ -122,7 +125,7 @@ function getAccion(codigo: string): string {
   return idx > 0 ? codigo.slice(idx + 1) : '';
 }
 
-type TipoAccion = 'READ' | 'CREATE' | 'UPDATE' | 'DELETE' | 'WRITE' | 'OTRO';
+type TipoAccion = 'READ' | 'CREATE' | 'UPDATE' | 'DELETE' | 'WRITE' | 'EXPORT' | 'OTRO';
 
 function getTipoAccion(codigo: string): TipoAccion {
   const accion = getAccion(codigo).toUpperCase();
@@ -131,7 +134,9 @@ function getTipoAccion(codigo: string): TipoAccion {
   if (accion.includes('CREATE') || accion.includes('ADD') || accion.includes('NEW')) return 'CREATE';
   if (accion.includes('UPDATE') || accion.includes('EDIT')) return 'UPDATE';
   if (accion.includes('DELETE') || accion.includes('REMOVE')) return 'DELETE';
+  if (accion.includes('CONFIRM')) return 'WRITE';
   if (accion.includes('WRITE')) return 'WRITE';
+  if (accion.includes('EXPORT') || accion.includes('PRINT')) return 'EXPORT';
   return 'OTRO';
 }
 
@@ -168,6 +173,12 @@ const TIPO_META: Record<
     tone:
       'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
     icon: PencilLine,
+  },
+  EXPORT: {
+    label: 'Exportar',
+    tone:
+      'border-[var(--color-success)]/30 bg-[var(--color-success)]/10 text-[var(--color-success)]',
+    icon: Sparkles,
   },
   OTRO: {
     label: 'Otros',

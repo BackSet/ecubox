@@ -48,7 +48,7 @@ export function LoteRecepcionNuevoPage() {
 
   // El endpoint `disponibles-recepcion` devuelve ya filtrados los envios que
   // (a) tienen al menos un paquete y (b) no estan en otro lote. Es ortogonal
-  // al estado administrativo (cerrado / pagado) porque la recepcion fisica
+  // a la salida USA / pago porque la recepcion fisica
   // ocurre cuando llegan a Ecuador, sin importar si ya estan liquidados.
   const { data: enviosResp, isLoading: loadingEnvios } = useEnviosDisponiblesParaRecepcion({
     size: 200,
@@ -234,9 +234,9 @@ export function LoteRecepcionNuevoPage() {
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               Marca como recibidos todos los paquetes asociados a uno o varios
-              envíos consolidados. Se listan tanto envíos abiertos como
-              cerrados (incluso ya liquidados): la recepción física en bodega
-              es independiente del estado administrativo.
+              envíos consolidados. Se listan tanto envíos en preparación como
+              enviados desde USA (incluso ya liquidados): la recepción física en
+              bodega es independiente del estado administrativo.
             </p>
           </div>
         </div>
@@ -406,11 +406,11 @@ export function LoteRecepcionNuevoPage() {
                             )}
                             {o.cerrado ? (
                               <Badge variant="secondary" className="font-normal">
-                                Cerrado
+                                Enviado desde USA
                               </Badge>
                             ) : (
                               <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20">
-                                Abierto
+                                En preparación
                               </Badge>
                             )}
                           </div>
@@ -434,8 +434,8 @@ export function LoteRecepcionNuevoPage() {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Se listan envíos con al menos un paquete que aún no fueron
-                  recibidos en otro lote, sin importar si están abiertos,
-                  cerrados o ya pagados. Si no aparece el código que buscas,
+                  recibidos en otro lote, sin importar si están en preparación,
+                  enviados desde USA o ya pagados. Si no aparece el código que buscas,
                   créalo o agrégale paquetes en{' '}
                   <Link
                     to="/envios-consolidados"
@@ -454,7 +454,7 @@ export function LoteRecepcionNuevoPage() {
                 <p className="text-xs text-muted-foreground">
                   Separa los códigos por líneas, espacios o comas. Se agregarán
                   los envíos con paquetes que aún no estén en otro lote, sin
-                  importar si están cerrados o ya pagados.
+                  importar si ya salieron de USA o ya están pagados.
                 </p>
                 <textarea
                   value={bulkText}
@@ -553,7 +553,7 @@ export function LoteRecepcionNuevoPage() {
                             )}
                             {env.cerrado && (
                               <Badge variant="secondary" className="font-normal">
-                                Cerrado
+                                Enviado desde USA
                               </Badge>
                             )}
                           </div>

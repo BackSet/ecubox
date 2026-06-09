@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Job que cierra con faltante las guías master que llevan más de N días con
- * piezas despachadas pero aún incompletas (PARCIAL_DESPACHADA).
+ * piezas despachadas pero aún incompletas (DESPACHO_PARCIAL).
  *
  * El timeout (en días) se configura via parametro_sistema
  * 'guia_master.dias_para_auto_cierre_con_faltante'.

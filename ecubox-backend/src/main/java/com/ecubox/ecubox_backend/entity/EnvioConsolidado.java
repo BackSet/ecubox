@@ -13,8 +13,9 @@ import java.time.LocalDateTime;
  * <p>NO se expone en el tracking publico; solo sirve como contenedor logico
  * para emitir manifiestos y para que el operario pueda referenciar un envio
  * desde la vista de paquetes. Su unico ciclo de vida es:
- * <em>abierto</em> (admite agregar/quitar paquetes) o <em>cerrado</em>
- * (historico, no admite cambios). Se determina por {@link #fechaCerrado}.
+ * <em>en preparacion</em> (admite agregar/quitar paquetes) o
+ * <em>enviado desde USA</em> (historico, no admite cambios). Se determina por
+ * {@link #fechaCerrado}.
  */
 @Entity
 @Table(name = "envio_consolidado")
@@ -66,7 +67,7 @@ public class EnvioConsolidado {
     @Column(nullable = false)
     private Long version;
 
-    /** Indica si el envio esta cerrado (no admite mas cambios). */
+    /** Indica si el envio ya fue enviado desde USA (no admite mas cambios). */
     @Transient
     public boolean isCerrado() {
         return fechaCerrado != null;

@@ -10,6 +10,7 @@ Manuales en lenguaje claro para operadores y consultas de cliente:
 |-----------|-------------|
 | [Manual de usuario](usuario/MANUAL_USUARIO.md) | Visión general del sistema, módulos, permisos y parámetros. |
 | [Guía de estados y seguimiento](usuario/GUIA_ESTADOS_Y_SEGUIMIENTO.md) | Cómo cambia el estado de un paquete, Rastreo público y plazos de retiro. |
+| [Detonadores por estado](usuario/DETONADORES_POR_ESTADO.md) | Tabla canónica detonador ↔ estado de producción, consolidados, guías master y Mis entregas. |
 
 ## Convenciones del proyecto
 

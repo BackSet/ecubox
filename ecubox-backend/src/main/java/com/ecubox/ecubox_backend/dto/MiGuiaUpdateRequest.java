@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
  * Body para que el cliente final actualice los metadatos editables de una de
  * sus guías. {@code trackingBase} es opcional (solo se aplica si se envía).
  * La edición solo se permite mientras la guía esté en estado
- * {@code INCOMPLETA} (sin piezas recibidas).
+ * estado inicial de registro (sin piezas recibidas ni enviadas).
  */
 @Data
 @NoArgsConstructor

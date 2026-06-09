@@ -134,25 +134,15 @@ public class OperarioConfigController {
         return ResponseEntity.ok(parametroSistemaService.updateEstadosRastreoPorPunto(
                 request.getEstadoRastreoRegistroPaqueteId(),
                 request.getEstadoRastreoEnLoteRecepcionId(),
+                request.getEstadoRastreoAsociarEnvioConsolidadoId(),
                 request.getEstadoRastreoAsociarGuiaMasterId(),
                 request.getEstadoRastreoEnDespachoId(),
                 request.getEstadoRastreoEnTransitoId(),
                 request.getEstadoRastreoEnviadoDesdeUsaId(),
                 request.getEstadoRastreoArribadoEcId(),
-                request.getEstadoGuiaMasterSinPiezas(),
-                request.getEstadoGuiaMasterEnEsperaRecepcion(),
-                request.getEstadoGuiaMasterRecepcionParcial(),
-                request.getEstadoGuiaMasterRecepcionCompleta(),
-                request.getEstadoGuiaMasterDespachoParcial(),
-                request.getEstadoGuiaMasterDespachoCompletado(),
-                request.getEstadoGuiaMasterDespachoIncompleto(),
-                request.getEstadoGuiaMasterCancelada(),
-                request.getEstadoGuiaMasterEnRevision(),
-                request.getEstadoConsolidadoCreado(),
-                request.getEstadoConsolidadoAgregadoLote(),
-                request.getEstadoConsolidadoCerrado(),
-                request.getEstadoConsolidadoReabierto(),
                 request.getEstadoRastreoInicioCuentaRegresivaId(),
-                request.getEstadoRastreoFinCuentaRegresivaId()));
+                request.getEstadoRastreoFinCuentaRegresivaId(),
+                request.getEstadoRastreoEntregaConfirmadaClienteId(),
+                request.getEstadoRastreoAvisoConfirmacionEntregaId()));
     }
 }

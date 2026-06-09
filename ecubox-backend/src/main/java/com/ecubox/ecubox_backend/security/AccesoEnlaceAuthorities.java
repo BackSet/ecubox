@@ -21,6 +21,9 @@ public final class AccesoEnlaceAuthorities {
             "ROLE_ACCESO_ENLACE",
             "CASILLERO_READ",
             "ACCESO_ENLACE_GUIAS_READ",
+            "MIS_ENTREGAS_CONFIRM",
+            "ACCESO_ENLACE_MIS_ENTREGAS_READ",
+            "ACCESO_ENLACE_MIS_ENTREGAS_EXPORT",
             "ACCESO_ENLACE_CONSIGNATARIOS_READ"
     );
 

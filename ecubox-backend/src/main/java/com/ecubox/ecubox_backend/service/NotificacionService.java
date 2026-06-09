@@ -24,14 +24,18 @@ public class NotificacionService {
 
     private static final int MAX_LIMIT = 50;
     private static final String TIPO_PAQUETE_ESTADO = "PAQUETE_ESTADO";
+    private static final String TIPO_CONFIRMAR_ENTREGA = "CONFIRMAR_ENTREGA";
 
     private final NotificacionUsuarioRepository notificacionRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final ParametroSistemaService parametroSistemaService;
 
     public NotificacionService(NotificacionUsuarioRepository notificacionRepository,
-                               ApplicationEventPublisher eventPublisher) {
+                               ApplicationEventPublisher eventPublisher,
+                               ParametroSistemaService parametroSistemaService) {
         this.notificacionRepository = notificacionRepository;
         this.eventPublisher = eventPublisher;
+        this.parametroSistemaService = parametroSistemaService;
     }
 
     @Transactional
@@ -52,16 +56,28 @@ public class NotificacionService {
                 ? estadoDestino.getNombre()
                 : estadoDestino.getCodigo();
         String numeroGuia = paquete.getNumeroGuia();
-        String mensaje = "La guia " + numeroGuia + " ahora esta en \"" + estado + "\".";
+
+        // Si el paquete entró al estado configurado como "aviso de confirmación de
+        // entrega", el push invita al cliente a confirmar la recepción (CTA a "Mis
+        // entregas"); si no, es el aviso genérico de cambio de estado.
+        boolean pedirConfirmacion = esEstadoAvisoConfirmacion(estadoDestino);
+        String tipo = pedirConfirmacion ? TIPO_CONFIRMAR_ENTREGA : TIPO_PAQUETE_ESTADO;
+        String titulo = pedirConfirmacion ? "¿Recibiste tu envío?" : "Tu paquete cambio de estado";
+        String mensaje = pedirConfirmacion
+                ? "Tu envío (guia " + numeroGuia + ") va en camino. Confírmanos cuando lo recibas."
+                : "La guia " + numeroGuia + " ahora esta en \"" + estado + "\".";
+        String url = pedirConfirmacion
+                ? "/mis-entregas"
+                : "/tracking?codigo=" + URLEncoder.encode(numeroGuia, StandardCharsets.UTF_8);
 
         NotificacionUsuario notification = NotificacionUsuario.builder()
                 .usuario(usuario)
                 .paquete(paquete)
                 .eventId(eventId)
-                .tipo(TIPO_PAQUETE_ESTADO)
-                .titulo("Tu paquete cambio de estado")
+                .tipo(tipo)
+                .titulo(titulo)
                 .mensaje(mensaje)
-                .url("/tracking?codigo=" + URLEncoder.encode(numeroGuia, StandardCharsets.UTF_8))
+                .url(url)
                 .leida(false)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -103,6 +119,14 @@ public class NotificacionService {
     @Transactional
     public void marcarTodasLeidas(Long usuarioId) {
         notificacionRepository.markAllAsRead(usuarioId, LocalDateTime.now());
+    }
+
+    private boolean esEstadoAvisoConfirmacion(EstadoRastreo estadoDestino) {
+        if (estadoDestino == null || estadoDestino.getId() == null) {
+            return false;
+        }
+        Long avisoId = parametroSistemaService.getEstadoRastreoAvisoConfirmacionEntregaId();
+        return avisoId != null && avisoId.equals(estadoDestino.getId());
     }
 
     private Usuario resolverUsuarioDestino(Paquete paquete) {

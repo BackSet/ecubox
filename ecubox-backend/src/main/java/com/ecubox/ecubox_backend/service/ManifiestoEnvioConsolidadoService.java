@@ -4,7 +4,10 @@ import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
+import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
+import com.ecubox.ecubox_backend.util.Strings;
 import com.ecubox.ecubox_backend.util.WeightUtil;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -59,9 +62,12 @@ public class ManifiestoEnvioConsolidadoService {
     private static final Color COLOR_MUTED = new Color(107, 114, 128);               // #6B7280
 
     private final PaqueteRepository paqueteRepository;
+    private final LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
 
-    public ManifiestoEnvioConsolidadoService(PaqueteRepository paqueteRepository) {
+    public ManifiestoEnvioConsolidadoService(PaqueteRepository paqueteRepository,
+                                             LoteRecepcionGuiaRepository loteRecepcionGuiaRepository) {
         this.paqueteRepository = paqueteRepository;
+        this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
     }
 
     // ===================================================================
@@ -233,7 +239,7 @@ public class ManifiestoEnvioConsolidadoService {
         cs.showText(codigo);
         cs.endText();
 
-        String estadoTxt = envio.isCerrado() ? "CERRADO" : "ABIERTO";
+        String estadoTxt = estadoOperativoLabel(envio);
         float estTextWidth = stringWidth(fontBold, 9, estadoTxt) + 14f;
         // Badge de estado (pildora oscura)
         float badgeH = 12f;
@@ -278,8 +284,8 @@ public class ManifiestoEnvioConsolidadoService {
         BigDecimal pesoLbs = envio.getPesoTotalLbs() == null ? BigDecimal.ZERO : envio.getPesoTotalLbs();
         BigDecimal pesoKg = pesoLbs.multiply(LBS_TO_KG).setScale(2, RoundingMode.HALF_UP);
         String[][] right = {
-                {"Estado", envio.isCerrado() ? "Cerrado" : "Abierto"},
-                {"Fecha de cierre", envio.isCerrado() ? fmt(envio.getFechaCerrado()) : "—"},
+                {"Estado", estadoOperativoLabel(envio)},
+                {"Salida USA", envio.isCerrado() ? fmt(envio.getFechaCerrado()) : "—"},
                 {"Peso total", pesoLbs.setScale(2, RoundingMode.HALF_UP).toPlainString() + " lbs ("
                         + pesoKg.toPlainString() + " kg)"},
         };
@@ -467,7 +473,7 @@ public class ManifiestoEnvioConsolidadoService {
             }
             tituloRow.getCell(0).setCellValue("MANIFIESTO DE ENVIO CONSOLIDADO  ·  " + nullSafe(envio.getCodigo()));
             sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, totalCols - 2));
-            tituloRow.getCell(totalCols - 1).setCellValue(envio.isCerrado() ? "CERRADO" : "ABIERTO");
+            tituloRow.getCell(totalCols - 1).setCellValue(estadoOperativoLabel(envio));
             tituloRow.getCell(totalCols - 1).setCellStyle(s.tituloBadge);
             rowIdx++;
 
@@ -487,9 +493,9 @@ public class ManifiestoEnvioConsolidadoService {
             BigDecimal pesoKgEnvio = pesoLbsEnvio.multiply(LBS_TO_KG).setScale(2, RoundingMode.HALF_UP);
             String[][] meta = new String[][]{
                     {"Codigo", nullSafe(envio.getCodigo()),
-                            "Estado", envio.isCerrado() ? "Cerrado" : "Abierto"},
+                            "Estado", estadoOperativoLabel(envio)},
                     {"Fecha creacion", fmt(envio.getCreatedAt()),
-                            "Fecha cierre", envio.isCerrado() ? fmt(envio.getFechaCerrado()) : "—"},
+                            "Salida USA", envio.isCerrado() ? fmt(envio.getFechaCerrado()) : "—"},
                     {"Total paquetes", String.valueOf(paquetes.size()),
                             "Peso total",
                             pesoLbsEnvio.setScale(2, RoundingMode.HALF_UP).toPlainString() + " lbs ("
@@ -1032,6 +1038,25 @@ public class ManifiestoEnvioConsolidadoService {
     private static String fmt(LocalDateTime ldt) {
         if (ldt == null) return "—";
         return ldt.format(FMT_FECHA);
+    }
+
+    private String estadoOperativoLabel(EnvioConsolidado envio) {
+        if (envio == null) return "Vacio";
+        if (envio.getEstadoPago() == EstadoPagoConsolidado.PAGADO) {
+            return "Liquidado";
+        }
+        String codigo = Strings.trimOrNull(envio.getCodigo());
+        if (codigo != null && loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(codigo)) {
+            return "Recibido en bodega";
+        }
+        if (envio.isCerrado()) {
+            return "Enviado desde USA";
+        }
+        Integer total = envio.getTotalPaquetes();
+        if (total == null || total <= 0) {
+            return "Vacio";
+        }
+        return "En preparacion";
     }
 
     private static String truncate(String s, int max) {

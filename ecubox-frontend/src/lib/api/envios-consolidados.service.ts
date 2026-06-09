@@ -7,17 +7,18 @@ import type {
   EnvioConsolidadoPaquetesRequest,
 } from '@/types/envio-consolidado';
 import type { PageResponse } from '@/types/page';
+import type { EstadoRastreo } from '@/types/estado-rastreo';
 
 const BASE = API_ENDPOINTS.enviosConsolidados;
 
-/**
- * Filtro de estado para el listado.
- *
- * El backend acepta `TODOS` (default), `ABIERTO` o `CERRADO`. Internamente
- * traduce a `fecha_cerrado IS NULL/NOT NULL`. La maquina de estados antigua
- * fue eliminada.
- */
-export type EstadoFiltro = 'TODOS' | 'ABIERTO' | 'CERRADO';
+/** Filtro por estado operativo derivado del consolidado. */
+export type EstadoFiltro =
+  | 'TODOS'
+  | 'VACIO'
+  | 'EN_PREPARACION'
+  | 'ENVIADO_DESDE_USA'
+  | 'RECIBIDO_EN_BODEGA'
+  | 'LIQUIDADO';
 export type EstadoPagoFiltro = 'TODOS' | 'PAGADO' | 'NO_PAGADO';
 
 export interface ListarEnviosParams {
@@ -46,7 +47,7 @@ export interface ListarDisponiblesRecepcionParams {
 /**
  * Lista los envíos consolidados que pueden registrarse en un nuevo lote de
  * recepción. A diferencia del listado general, este endpoint es ortogonal a
- * `cerrado` y `estadoPago`: incluye envíos ya liquidados y pagados, porque
+ * la salida USA y el estado de pago: incluye envíos ya liquidados y pagados, porque
  * el flujo físico USA → Ecuador es independiente del flujo administrativo.
  *
  * El backend excluye automáticamente los envíos sin paquetes y los que ya
@@ -74,15 +75,38 @@ export async function crearEnvioConsolidado(
   return data;
 }
 
-/** Cierra un envio consolidado (set fechaCerrado = now en backend). */
-export async function cerrarEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
-  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/cerrar`);
+/** Marca un envio consolidado como enviado desde USA. */
+export async function enviarDesdeUsaEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
+  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/enviar-usa`);
   return data;
 }
 
-/** Reabre un envio consolidado previamente cerrado (set fechaCerrado = null). */
+/** Revierte la salida USA del consolidado (set fechaCerrado = null). */
 export async function reabrirEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
   const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/reabrir`);
+  return data;
+}
+
+export interface AplicarTransicionConsolidadosPayload {
+  estadoOperativoDestino: 'ENVIADO_DESDE_USA' | 'EN_PREPARACION';
+  consolidadoIds?: number[];
+  fechaInicio?: string;
+  fechaFin?: string;
+}
+
+export interface AplicarTransicionConsolidadosResponse {
+  consolidadosProcesados: number;
+  rechazados: { consolidadoId: number; codigo: string; motivo: string }[];
+}
+
+/** Aplica una transición de estado operativo a consolidados (por selección o por periodo). */
+export async function aplicarTransicionConsolidados(
+  payload: AplicarTransicionConsolidadosPayload,
+): Promise<AplicarTransicionConsolidadosResponse> {
+  const { data } = await apiClient.post<AplicarTransicionConsolidadosResponse>(
+    `${BASE}/aplicar-transicion-operativa`,
+    payload,
+  );
   return data;
 }
 
@@ -94,7 +118,7 @@ export async function reabrirEnvioConsolidado(id: number): Promise<EnvioConsolid
  * - {@code eliminarPaquetes=true}: los paquetes se eliminan junto con el envio
  *   (irreversible, borra su tracking).
  *
- * Backend valida que el envio este abierto.
+ * Backend valida que el envio no haya salido de USA.
  */
 export async function eliminarEnvioConsolidado(
   id: number,
@@ -120,6 +144,31 @@ export async function removerPaquetesEnvioConsolidado(
   const { data } = await apiClient.delete<EnvioConsolidado>(`${BASE}/${id}/paquetes`, {
     data: body,
   });
+  return data;
+}
+
+export interface AplicarEstadoConsolidadosParams {
+  consolidadoIds: number[];
+  estadoRastreoId: number;
+}
+
+export interface AplicarEstadoConsolidadosResponse {
+  consolidadosProcesados: number;
+  paquetesActualizados: number;
+}
+
+export async function aplicarEstadoEnConsolidados(
+  body: AplicarEstadoConsolidadosParams
+): Promise<AplicarEstadoConsolidadosResponse> {
+  const { data } = await apiClient.post<AplicarEstadoConsolidadosResponse>(
+    `${BASE}/aplicar-estado`,
+    body
+  );
+  return data;
+}
+
+export async function getEstadosAplicablesConsolidados(): Promise<EstadoRastreo[]> {
+  const { data } = await apiClient.get<EstadoRastreo[]>(`${BASE}/estados-aplicables`);
   return data;
 }
 

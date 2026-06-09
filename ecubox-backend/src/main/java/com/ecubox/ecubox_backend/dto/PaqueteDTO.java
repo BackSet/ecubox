@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.dto;
 
+import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,8 +25,10 @@ public class PaqueteDTO {
     private Integer piezaTotal;
     private Long envioConsolidadoId;
     private String envioConsolidadoCodigo;
-    /** true si el envio consolidado al que pertenece el paquete ya esta cerrado. */
+    /** true si el envio consolidado al que pertenece el paquete ya fue enviado desde USA. */
     private boolean envioConsolidadoCerrado;
+    /** Estado operativo derivado del envío consolidado; null si el paquete no tiene consolidado. */
+    private EstadoEnvioConsolidadoOperativo envioConsolidadoEstadoOperativo;
     private String ref;
     private BigDecimal pesoLbs;
     private BigDecimal pesoKg;
@@ -33,6 +36,10 @@ public class PaqueteDTO {
     private Long estadoRastreoId;
     private String estadoRastreoNombre;
     private String estadoRastreoCodigo;
+    /** Tipo de flujo del estado (NORMAL/ALTERNO); permite derivar el color sin quemar códigos. */
+    private String estadoRastreoTipoFlujo;
+    /** Orden del estado de rastreo actual; permite filtrar elegibilidad sin quemar códigos. */
+    private Integer estadoRastreoOrden;
     private Long consignatarioId;
     private String consignatarioNombre;
     private String consignatarioDireccion;
@@ -51,4 +58,5 @@ public class PaqueteDTO {
     private Boolean enFlujoAlterno;
     private String motivoAlterno;
     private Boolean bloqueado;
+    private LocalDateTime createdAt;
 }

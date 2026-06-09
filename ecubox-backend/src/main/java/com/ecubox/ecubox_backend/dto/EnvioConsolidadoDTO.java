@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.dto;
 
 import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
+import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,8 @@ public class EnvioConsolidadoDTO {
     private String codigo;
     /** true si fechaCerrado != null. Derivado en el servidor para conveniencia del cliente. */
     private boolean cerrado;
+    /** Estado operativo derivado para mostrar el avance real del consolidado. */
+    private EstadoEnvioConsolidadoOperativo estadoOperativo;
     private LocalDateTime fechaCerrado;
     private BigDecimal pesoTotalLbs;
     private Integer totalPaquetes;

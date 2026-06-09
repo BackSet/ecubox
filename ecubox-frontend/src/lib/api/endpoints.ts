@@ -42,6 +42,7 @@ export const API_ENDPOINTS = {
   guiasMaster: '/guias-master',
   enviosConsolidados: '/envios-consolidados',
   misGuias: '/mis-guias',
+  misDespachos: '/mis-despachos',
   notificaciones: '/notificaciones',
   push: '/push',
   configTarifaDistribucion: '/config/tarifa-distribucion',

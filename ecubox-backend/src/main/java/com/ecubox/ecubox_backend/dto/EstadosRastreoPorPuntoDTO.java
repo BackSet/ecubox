@@ -13,26 +13,19 @@ public class EstadosRastreoPorPuntoDTO {
 
     private Long estadoRastreoRegistroPaqueteId;
     private Long estadoRastreoEnLoteRecepcionId;
-    /** Estado aplicado cuando el operario asocia un paquete a una guía master (consolidado). */
+    /** Estado aplicado cuando un paquete se asocia a un envío consolidado. */
+    private Long estadoRastreoAsociarEnvioConsolidadoId;
+    /** Estado aplicado cuando el operario asocia un paquete a una guía master. */
     private Long estadoRastreoAsociarGuiaMasterId;
     private Long estadoRastreoEnDespachoId;
     /** Estado aplicado cuando el operario usa "Aplicar estado por periodo" en despachos. */
     private Long estadoRastreoEnTransitoId;
+    /** Estado que se aplica cuando el cliente confirma la entrega de su parte del despacho. */
+    private Long estadoRastreoEntregaConfirmadaClienteId;
+    /** Estado que, al aplicarse a un paquete, dispara el aviso (push) para que el cliente confirme la entrega. */
+    private Long estadoRastreoAvisoConfirmacionEntregaId;
     private Long estadoRastreoEnviadoDesdeUsaId;
     private Long estadoRastreoArribadoEcId;
-    private String estadoGuiaMasterSinPiezas;
-    private String estadoGuiaMasterEnEsperaRecepcion;
-    private String estadoGuiaMasterRecepcionParcial;
-    private String estadoGuiaMasterRecepcionCompleta;
-    private String estadoGuiaMasterDespachoParcial;
-    private String estadoGuiaMasterDespachoCompletado;
-    private String estadoGuiaMasterDespachoIncompleto;
-    private String estadoGuiaMasterCancelada;
-    private String estadoGuiaMasterEnRevision;
-    private String estadoConsolidadoCreado;
-    private String estadoConsolidadoAgregadoLote;
-    private String estadoConsolidadoCerrado;
-    private String estadoConsolidadoReabierto;
     /**
      * Estado que ANCLA el inicio de la cuenta regresiva de retiro: la cuenta empieza
      * desde la primera vez que el paquete entró a este estado. Si es null, se usa el

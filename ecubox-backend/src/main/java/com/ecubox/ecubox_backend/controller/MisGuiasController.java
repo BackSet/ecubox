@@ -134,7 +134,7 @@ public class MisGuiasController {
 
     /**
      * Edición completa de la guía (tracking + destinatario). Solo permitida
-     * mientras la guía esté en estado inicial {@code INCOMPLETA}.
+     * mientras la guía esté en estado inicial de registro.
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('MIS_GUIAS_CREATE')")

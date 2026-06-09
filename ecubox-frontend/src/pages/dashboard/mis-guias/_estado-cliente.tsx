@@ -23,6 +23,7 @@ import { StatusBadge, type StatusTone } from '@/components/ui/StatusBadge';
 export const MI_GUIA_ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
   SIN_PIEZAS_REGISTRADAS: 'Sin piezas registradas',
   EN_ESPERA_RECEPCION: 'En espera de recepción',
+  EN_TRANSITO_USA_ECUADOR: 'En camino a Ecuador',
   RECEPCION_PARCIAL: 'Recibida parcialmente',
   RECEPCION_COMPLETA: 'Recibida en bodega',
   DESPACHO_PARCIAL: 'En camino (parcial)',
@@ -35,6 +36,7 @@ export const MI_GUIA_ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
 export const MI_GUIA_ESTADO_LABELS_CORTOS: Record<EstadoGuiaMaster, string> = {
   SIN_PIEZAS_REGISTRADAS: 'Sin piezas',
   EN_ESPERA_RECEPCION: 'En espera',
+  EN_TRANSITO_USA_ECUADOR: 'En camino',
   RECEPCION_PARCIAL: 'Parcial en bodega',
   RECEPCION_COMPLETA: 'En bodega',
   DESPACHO_PARCIAL: 'En camino',
@@ -49,6 +51,8 @@ export const MI_GUIA_ESTADO_DESCRIPCIONES: Record<EstadoGuiaMaster, string> = {
     'Registraste la guía pero aún no asociaste piezas. Cuando las registres, podrás seguir su avance.',
   EN_ESPERA_RECEPCION:
     'Ya hay piezas asociadas; aún no hemos recibido ninguna en la bodega de EE.UU. Te avisaremos cuando lleguen.',
+  EN_TRANSITO_USA_ECUADOR:
+    'Tus piezas salieron de EE.UU. y están en tránsito hacia Ecuador.',
   RECEPCION_PARCIAL:
     'Algunas piezas ya llegaron a la bodega de EE.UU. y otras siguen en camino.',
   RECEPCION_COMPLETA:
@@ -68,6 +72,7 @@ export const MI_GUIA_ESTADO_DESCRIPCIONES: Record<EstadoGuiaMaster, string> = {
 export const MI_GUIA_ESTADO_TONES: Record<EstadoGuiaMaster, StatusTone> = {
   SIN_PIEZAS_REGISTRADAS: 'neutral',
   EN_ESPERA_RECEPCION: 'neutral',
+  EN_TRANSITO_USA_ECUADOR: 'primary',
   RECEPCION_PARCIAL: 'info',
   RECEPCION_COMPLETA: 'info',
   DESPACHO_PARCIAL: 'primary',
@@ -80,6 +85,7 @@ export const MI_GUIA_ESTADO_TONES: Record<EstadoGuiaMaster, StatusTone> = {
 export const MI_GUIA_ESTADO_ICONS: Record<EstadoGuiaMaster, LucideIcon> = {
   SIN_PIEZAS_REGISTRADAS: Package,
   EN_ESPERA_RECEPCION: Clock,
+  EN_TRANSITO_USA_ECUADOR: Truck,
   RECEPCION_PARCIAL: PackageOpen,
   RECEPCION_COMPLETA: PackageCheck,
   DESPACHO_PARCIAL: Truck,
@@ -96,6 +102,7 @@ export const MI_GUIA_ESTADO_ICONS: Record<EstadoGuiaMaster, LucideIcon> = {
 export const MI_GUIA_ESTADO_ORDEN: EstadoGuiaMaster[] = [
   'SIN_PIEZAS_REGISTRADAS',
   'EN_ESPERA_RECEPCION',
+  'EN_TRANSITO_USA_ECUADOR',
   'RECEPCION_PARCIAL',
   'RECEPCION_COMPLETA',
   'DESPACHO_PARCIAL',

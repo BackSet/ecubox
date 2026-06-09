@@ -71,6 +71,14 @@ const MisGuiasListPage = lazyNamed(
   () => import('@/pages/dashboard/mis-guias/MisGuiasListPage'),
   'MisGuiasListPage',
 );
+const MisEntregasPage = lazyNamed(
+  () => import('@/pages/dashboard/mis-entregas/MisEntregasPage'),
+  'MisEntregasPage',
+);
+const MiDespachoDetallePage = lazyNamed(
+  () => import('@/pages/dashboard/mis-entregas/MiDespachoDetallePage'),
+  'MiDespachoDetallePage',
+);
 const MiGuiaDetailPage = lazyNamed(
   () => import('@/pages/dashboard/mis-guias/MiGuiaDetailPage'),
   'MiGuiaDetailPage',
@@ -91,9 +99,9 @@ const LiquidacionDetailPage = lazyNamed(
   () => import('@/pages/dashboard/liquidaciones/LiquidacionDetailPage'),
   'LiquidacionDetailPage',
 );
-const GestionarEstadosPaquetesPage = lazyNamed(
-  () => import('@/pages/dashboard/gestionar-estados-paquetes/GestionarEstadosPaquetesPage'),
-  'GestionarEstadosPaquetesPage',
+const GestionarEstadosPage = lazyNamed(
+  () => import('@/pages/dashboard/gestionar-estados-paquetes/GestionarEstadosPage'),
+  'GestionarEstadosPage',
 );
 const DespachoListPage = lazyNamed(
   () => import('@/pages/dashboard/despachos/DespachoListPage'),
@@ -541,6 +549,20 @@ const misGuiasDetailRoute = createRoute({
   component: withDashboardLayout(MiGuiaDetailPage),
 });
 
+const misEntregasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mis-entregas',
+  beforeLoad: requireAnyPermission(['MIS_ENTREGAS_READ', 'ACCESO_ENLACE_MIS_ENTREGAS_READ']),
+  component: withDashboardLayout(MisEntregasPage),
+});
+
+const miDespachoDetalleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mis-entregas/$id',
+  beforeLoad: requireAnyPermission(['MIS_ENTREGAS_READ', 'ACCESO_ENLACE_MIS_ENTREGAS_READ']),
+  component: withDashboardLayout(MiDespachoDetallePage),
+});
+
 const enviosConsolidadosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/envios-consolidados',
@@ -572,8 +594,12 @@ const liquidacionDetailRoute = createRoute({
 const gestionarEstadosPaquetesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/gestionar-estados-paquetes',
-  beforeLoad: requirePermission('PAQUETES_PESO_WRITE'),
-  component: withDashboardLayout(GestionarEstadosPaquetesPage),
+  beforeLoad: requireAnyPermission([
+    'PAQUETES_PESO_WRITE',
+    'GUIAS_MASTER_READ',
+    'ENVIOS_CONSOLIDADOS_READ',
+  ]),
+  component: withDashboardLayout(GestionarEstadosPage),
 });
 
 const despachosRoute = createRoute({
@@ -705,6 +731,8 @@ const routeTree = rootRoute.addChildren([
   guiasMasterDetailRoute,
   misGuiasRoute,
   misGuiasDetailRoute,
+  misEntregasRoute,
+  miDespachoDetalleRoute,
   enviosConsolidadosRoute,
   enviosConsolidadosDetailRoute,
   liquidacionesRoute,

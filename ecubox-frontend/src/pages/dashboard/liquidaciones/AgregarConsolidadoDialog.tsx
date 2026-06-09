@@ -369,7 +369,7 @@ export function AgregarConsolidadoDialog({
                                   ) : (
                                     <Unlock className="h-2.5 w-2.5" />
                                   )}
-                                  {c.cerrado ? 'Cerrado' : 'Abierto'}
+                                  {c.cerrado ? 'Enviado desde USA' : 'En preparación'}
                                 </span>
                                 {sel && <Check className="h-4 w-4 text-[var(--color-primary)]" />}
                               </div>

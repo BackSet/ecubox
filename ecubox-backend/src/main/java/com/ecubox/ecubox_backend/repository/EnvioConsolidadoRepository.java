@@ -44,8 +44,8 @@ public interface EnvioConsolidadoRepository
      * Envios consolidados candidatos para registrarse en un lote de recepcion.
      *
      * <p>El concepto operativo de "estar disponible para recepcion" es
-     * <em>ortogonal</em> a los flags {@code cerrado} y {@code estadoPago}: un
-     * envio puede estar ya cerrado y/o ya liquidado (PAGADO) y aun asi estar
+     * <em>ortogonal</em> a la salida USA y al {@code estadoPago}: un
+     * envio puede estar ya enviado desde USA y/o ya liquidado (PAGADO) y aun asi estar
      * fisicamente en USA esperando llegar a Ecuador, donde se recibe en
      * bodega. Por eso este filtro <strong>no</strong> mira esos campos.
      *

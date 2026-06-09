@@ -149,7 +149,8 @@ export function useEstadosAplicablesDespacho(enabled = true) {
     queryKey: [...DESPACHOS_QUERY_KEY, 'estados-aplicables'],
     queryFn: getEstadosAplicablesDespacho,
     enabled,
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 

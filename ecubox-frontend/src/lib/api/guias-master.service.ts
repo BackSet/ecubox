@@ -151,6 +151,11 @@ export async function reabrirGuiaMaster(
   return data;
 }
 
+export async function recalcularGuiaMaster(id: number): Promise<GuiaMaster> {
+  const { data } = await apiClient.post<GuiaMaster>(`${BASE}/${id}/recalcular`);
+  return data;
+}
+
 export async function listarHistorialGuiaMaster(
   id: number
 ): Promise<GuiaMasterEstadoHistorial[]> {

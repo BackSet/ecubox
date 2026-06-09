@@ -82,6 +82,14 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         keywords: ['guia', 'tracking', 'envio'],
       },
       {
+        to: '/mis-entregas',
+        label: 'Mis entregas',
+        icon: PackageCheck,
+        permission: 'MIS_ENTREGAS_READ',
+        permissionsAny: ['MIS_ENTREGAS_READ', 'ACCESO_ENLACE_MIS_ENTREGAS_READ'],
+        keywords: ['entrega', 'recibi', 'confirmar', 'despacho', 'envio'],
+      },
+      {
         to: '/casillero',
         label: 'Mi casillero',
         icon: MapPin,
@@ -124,10 +132,11 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       },
       {
         to: '/gestionar-estados-paquetes',
-        label: 'Estados de paquetes',
+        label: 'Gestionar estados',
         icon: Tag,
         permission: 'PAQUETES_PESO_WRITE',
-        keywords: ['estado', 'rastreo'],
+        permissionsAny: ['PAQUETES_PESO_WRITE', 'GUIAS_MASTER_READ', 'ENVIOS_CONSOLIDADOS_READ'],
+        keywords: ['estado', 'rastreo', 'guia', 'master', 'consolidado'],
       },
       {
         to: '/paquetes-vencidos',

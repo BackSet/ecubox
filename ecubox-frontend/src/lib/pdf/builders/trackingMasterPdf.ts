@@ -17,6 +17,7 @@ import {
 const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
   SIN_PIEZAS_REGISTRADAS: 'Sin piezas registradas',
   EN_ESPERA_RECEPCION: 'En espera de recepción',
+  EN_TRANSITO_USA_ECUADOR: 'En camino a Ecuador',
   RECEPCION_PARCIAL: 'Recepción parcial',
   RECEPCION_COMPLETA: 'Recepción completa',
   DESPACHO_PARCIAL: 'En despacho parcial',
@@ -32,6 +33,7 @@ function variantFromEstado(estado?: EstadoGuiaMaster): DocumentBadgeVariant {
     case 'DESPACHO_COMPLETADO':
       return 'success';
     case 'RECEPCION_PARCIAL':
+    case 'EN_TRANSITO_USA_ECUADOR':
     case 'DESPACHO_PARCIAL':
       return 'info';
     case 'DESPACHO_INCOMPLETO':

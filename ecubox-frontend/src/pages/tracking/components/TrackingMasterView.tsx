@@ -30,6 +30,7 @@ interface TrackingMasterViewProps {
 const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
   SIN_PIEZAS_REGISTRADAS: 'Sin piezas registradas',
   EN_ESPERA_RECEPCION: 'En espera de recepción',
+  EN_TRANSITO_USA_ECUADOR: 'En camino a Ecuador',
   RECEPCION_PARCIAL: 'Recepción parcial',
   RECEPCION_COMPLETA: 'Recepción completa',
   DESPACHO_PARCIAL: 'En despacho parcial',

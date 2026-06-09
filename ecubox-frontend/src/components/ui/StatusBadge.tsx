@@ -122,7 +122,7 @@ const DOMAIN_TONE_MAP: Record<string, StatusTone> = {
   FINALIZADO: 'success',
   FINALIZADA: 'success',
   CANCELADO: 'error',
-  CANCELADA: 'error',
+  CANCELADA: 'neutral',
   ANULADO: 'error',
   ANULADA: 'error',
   ELIMINADO: 'error',
@@ -136,9 +136,9 @@ const DOMAIN_TONE_MAP: Record<string, StatusTone> = {
   RECIBIDA: 'success',
   RECHAZADO: 'error',
   RECHAZADA: 'error',
-  // Paquete
-  REGISTRADO: 'info',
-  EN_BODEGA: 'info',
+  // NOTA: los estados de rastreo de paquete son configurables en el catálogo, así que
+  // su tono NO se mapea aquí por código (eso sería "quemarlos"). Use getRastreoStatusTone,
+  // que deriva el tono del tipoFlujo del catálogo. Aquí solo van enums fijos del dominio.
   ASIGNADO: 'primary',
   DESPACHADO: 'success',
   VENCIDO: 'error',
@@ -153,12 +153,18 @@ const DOMAIN_TONE_MAP: Record<string, StatusTone> = {
   // Guia master v2 (CANCELADA ya está mapeada arriba como 'error')
   SIN_PIEZAS_REGISTRADAS: 'neutral',
   EN_ESPERA_RECEPCION: 'neutral',
+  EN_TRANSITO_USA_ECUADOR: 'primary',
   RECEPCION_PARCIAL: 'warning',
   RECEPCION_COMPLETA: 'info',
   DESPACHO_PARCIAL: 'primary',
   DESPACHO_COMPLETADO: 'success',
-  DESPACHO_INCOMPLETO: 'warning',
+  DESPACHO_INCOMPLETO: 'error',
   EN_REVISION: 'warning',
+  VACIO: 'neutral',
+  EN_PREPARACION: 'info',
+  ENVIADO_DESDE_USA: 'primary',
+  RECIBIDO_EN_BODEGA: 'success',
+  LIQUIDADO: 'success',
   // Despacho
   PREPARADO: 'info',
   EN_RUTA: 'info',
@@ -173,6 +179,19 @@ export function getDomainStatusTone(status: string | null | undefined): StatusTo
   if (!status) return 'neutral';
   const key = String(status).trim().toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
   return DOMAIN_TONE_MAP[key] ?? 'neutral';
+}
+
+/**
+ * Tono de un estado de rastreo (catálogo configurable). Se deriva del `tipoFlujo`
+ * del catálogo, NO del código del estado, para no quemar códigos en el código fuente:
+ * cualquier estado que la empresa configure funciona sin tocar el front.
+ *  - ALTERNO  → warning (novedad fuera del flujo normal, p. ej. retenido en aduana).
+ *  - NORMAL   → info (paso esperado del recorrido).
+ */
+export function getRastreoStatusTone(
+  tipoFlujo: 'NORMAL' | 'ALTERNO' | null | undefined,
+): StatusTone {
+  return tipoFlujo === 'ALTERNO' ? 'warning' : 'info';
 }
 
 interface DomainStatusBadgeProps extends Omit<StatusBadgeProps, 'tone'> {

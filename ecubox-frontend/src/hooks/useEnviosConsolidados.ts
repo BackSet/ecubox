@@ -1,11 +1,14 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   agregarPaquetesEnvioConsolidado,
-  cerrarEnvioConsolidado,
+  aplicarEstadoEnConsolidados,
+  aplicarTransicionConsolidados,
   crearEnvioConsolidado,
   descargarManifiestoPdf,
   descargarManifiestoXlsx,
   eliminarEnvioConsolidado,
+  enviarDesdeUsaEnvioConsolidado,
+  getEstadosAplicablesConsolidados,
   listarEnviosConsolidados,
   listarEnviosDisponiblesParaRecepcion,
   obtenerEnvioConsolidado,
@@ -35,7 +38,7 @@ export function useEnviosConsolidados(
 
 /**
  * Lista los envíos consolidados elegibles para crearse o agregarse a un lote
- * de recepción. Incluye envíos cerrados y/o pagados (la recepción física es
+ * de recepción. Incluye envíos enviados desde USA y/o pagados (la recepción física es
  * ortogonal al estado administrativo). El backend excluye los que ya están
  * en otro lote y los que no tienen paquetes.
  */
@@ -69,15 +72,49 @@ export function useCrearEnvioConsolidado() {
   });
 }
 
-export function useCerrarEnvioConsolidado() {
+export function useEnviarDesdeUsaEnvioConsolidado() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => cerrarEnvioConsolidado(id),
+    mutationFn: (id: number) => enviarDesdeUsaEnvioConsolidado(id),
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: ENVIOS_CONSOLIDADOS_QUERY_KEY });
       qc.invalidateQueries({
         queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'detail', id],
       });
+    },
+  });
+}
+
+export function useAplicarEstadoEnConsolidados() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: aplicarEstadoEnConsolidados,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ENVIOS_CONSOLIDADOS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['paquetes'] });
+      qc.invalidateQueries({ queryKey: ['operario', 'paquetes'] });
+    },
+  });
+}
+
+export function useEstadosAplicablesConsolidados(enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'estados-aplicables'],
+    queryFn: getEstadosAplicablesConsolidados,
+    enabled,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
+
+export function useAplicarTransicionConsolidados() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: aplicarTransicionConsolidados,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ENVIOS_CONSOLIDADOS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['paquetes'] });
+      qc.invalidateQueries({ queryKey: ['operario', 'paquetes'] });
     },
   });
 }

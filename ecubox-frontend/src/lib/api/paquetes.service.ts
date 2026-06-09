@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
 import type { Paquete, PaqueteCreateRequest, PaqueteUpdateRequest } from '@/types/paquete';
+import type { EstadoRastreo } from '@/types/estado-rastreo';
 import type { PageResponse, PageQuery } from '@/types/page';
 
 const BASE = API_ENDPOINTS.misPaquetes;
@@ -145,6 +146,20 @@ export async function cambiarEstadoRastreoBulk(
   return data;
 }
 
+/**
+ * Estados de rastreo a los que se puede mover la selección de paquetes (intersección
+ * válida para todos, calculada por el backend). Para un combobox con solo destinos válidos.
+ */
+export async function getEstadosDestinoPermitidos(
+  paqueteIds: number[],
+): Promise<EstadoRastreo[]> {
+  const { data } = await apiClient.post<EstadoRastreo[]>(
+    `${OPERARIO_BASE}/estados-destino-permitidos`,
+    { paqueteIds },
+  );
+  return data;
+}
+
 /** Buscar paquetes por lista de números de guía ECUBOX (operario). */
 export async function buscarPaquetesPorGuias(
   numeroGuias: string[]
@@ -153,5 +168,32 @@ export async function buscarPaquetesPorGuias(
     `${OPERARIO_BASE}/buscar-por-guias`,
     { numeroGuias }
   );
+  return data;
+}
+
+/** Estados de rastreo que pueden aplicarse manualmente a paquetes (excluye los reservados para puntos automáticos). */
+export async function getEstadosAplicablesPaquete(): Promise<EstadoRastreo[]> {
+  const { data } = await apiClient.get<EstadoRastreo[]>(`${OPERARIO_BASE}/estados-aplicables`);
+  return data;
+}
+
+/** Aplica un estado de rastreo a todos los paquetes registrados en el periodo. */
+export async function aplicarEstadoPorPeriodoPaquetes(params: {
+  fechaInicio: string;
+  fechaFin: string;
+  estadoRastreoId: number;
+}): Promise<CambiarEstadoRastreoBulkResponse> {
+  const { data } = await apiClient.post<CambiarEstadoRastreoBulkResponse>(
+    `${OPERARIO_BASE}/aplicar-estado-por-periodo`,
+    params
+  );
+  return data;
+}
+
+/** Todos los paquetes del operario (sin paginación, para el diálogo masivo). */
+export async function getAllPaquetesOperario(): Promise<Paquete[]> {
+  const { data } = await apiClient.get<Paquete[]>(OPERARIO_BASE, {
+    params: { sinPeso: false },
+  });
   return data;
 }

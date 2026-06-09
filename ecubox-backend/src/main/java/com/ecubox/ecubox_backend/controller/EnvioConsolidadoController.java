@@ -5,8 +5,14 @@ import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateRequest;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoDTO;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoPaquetesRequest;
+import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosRequest;
+import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosRequest;
+import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
+import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.EnvioConsolidadoService;
@@ -24,6 +30,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "Administración", description = "Gestión de envíos consolidados")
 @OpenApiConstants.StandardApiResponses
@@ -49,21 +57,21 @@ public class EnvioConsolidadoController {
     @Operation(summary = "Listar envíos consolidados", description = "Consulta envíos consolidados con filtros de estado, pago, búsqueda y paginación")
     @ApiResponse(responseCode = "200", description = "Página de envíos consolidados")
     public ResponseEntity<PageResponse<EnvioConsolidadoDTO>> findAll(
-            @Parameter(description = "Filtro de estado: TODOS, ABIERTO o CERRADO") @RequestParam(required = false) String estado,
+            @Parameter(description = "Filtro operativo: TODOS, VACIO, EN_PREPARACION, ENVIADO_DESDE_USA, RECIBIDO_EN_BODEGA o LIQUIDADO") @RequestParam(required = false) String estado,
             @Parameter(description = "Filtro de pago: TODOS, PAGADO o NO_PAGADO") @RequestParam(required = false) String estadoPago,
             @Parameter(description = "Texto de búsqueda") @RequestParam(required = false) String q,
             @Parameter(description = "Número de página (base cero)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Cantidad de elementos por página") @RequestParam(defaultValue = "20") int size) {
-        Boolean cerradoFilter = parseEstadoFilter(estado);
+        EstadoEnvioConsolidadoOperativo estadoOperativoFilter = parseEstadoOperativoFilter(estado);
         com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado pagoFilter = parseEstadoPagoFilter(estadoPago);
-        Page<EnvioConsolidado> resultado = envioConsolidadoService.findAll(cerradoFilter, pagoFilter, q, page, size);
+        Page<EnvioConsolidado> resultado = envioConsolidadoService.findAll(estadoOperativoFilter, pagoFilter, q, page, size);
         return ResponseEntity.ok(PageResponse.of(resultado, e -> envioConsolidadoService.toDTO(e, false)));
     }
 
     /**
      * Lista los envios consolidados que pueden incluirse en un nuevo lote de
-     * recepcion. A diferencia del listado general, no filtra por estado abierto
-     * ni por estado de pago: un consolidado ya liquidado (PAGADO + CERRADO)
+     * recepcion. A diferencia del listado general, no filtra por salida USA
+     * ni por estado de pago: un consolidado ya liquidado (PAGADO + ENVIADO_DESDE_USA)
      * sigue siendo recepcionable mientras no haya llegado fisicamente. Los
      * envios sin paquetes y los que ya estan en algun lote de recepcion se
      * excluyen del resultado.
@@ -102,19 +110,30 @@ public class EnvioConsolidadoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping("/{id}/enviar-usa")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Enviar consolidado desde USA", description = "Marca el consolidado como enviado desde USA y aplica el estado de salida a sus piezas")
+    @ApiResponse(responseCode = "200", description = "Envío consolidado enviado desde USA")
+    public ResponseEntity<EnvioConsolidadoDTO> enviarDesdeUsa(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
+        EnvioConsolidado envio = envioConsolidadoService.enviarDesdeUsa(id, null);
+        return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, false));
+    }
+
+    /** @deprecated Compatibilidad con clientes antiguos. Usar /enviar-usa. */
+    @Deprecated
     @PostMapping("/{id}/cerrar")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
-    @Operation(summary = "Cerrar envío consolidado", description = "Marca un envío consolidado como cerrado")
-    @ApiResponse(responseCode = "200", description = "Envío consolidado cerrado")
+    @Operation(summary = "Enviar consolidado desde USA", description = "Alias heredado de enviar desde USA")
+    @ApiResponse(responseCode = "200", description = "Envío consolidado enviado desde USA")
     public ResponseEntity<EnvioConsolidadoDTO> cerrar(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
-        EnvioConsolidado envio = envioConsolidadoService.cerrar(id, null);
+        EnvioConsolidado envio = envioConsolidadoService.enviarDesdeUsa(id, null);
         return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, false));
     }
 
     @PostMapping("/{id}/reabrir")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
-    @Operation(summary = "Reabrir envío consolidado", description = "Reabre un envío consolidado previamente cerrado")
-    @ApiResponse(responseCode = "200", description = "Envío consolidado reabierto")
+    @Operation(summary = "Revertir salida USA", description = "Devuelve el consolidado a preparación")
+    @ApiResponse(responseCode = "200", description = "Envío consolidado devuelto a preparación")
     public ResponseEntity<EnvioConsolidadoDTO> reabrir(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
         EnvioConsolidado envio = envioConsolidadoService.reabrir(id);
         return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, false));
@@ -151,6 +170,36 @@ public class EnvioConsolidadoController {
         return ResponseEntity.ok(envioConsolidadoService.toDTO(envio, true));
     }
 
+    @GetMapping("/estados-aplicables")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Listar estados aplicables", description = "Obtiene estados posteriores al punto de asociación a consolidado")
+    public ResponseEntity<List<EstadoRastreoDTO>> estadosAplicables() {
+        return ResponseEntity.ok(envioConsolidadoService.listarEstadosAplicables());
+    }
+
+    @PostMapping("/aplicar-estado")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Aplicar estado a consolidados", description = "Aplica un estado de rastreo a todas las piezas de los consolidados seleccionados")
+    public ResponseEntity<AplicarEstadoEnConsolidadosResponse> aplicarEstado(
+            @Valid @RequestBody AplicarEstadoEnConsolidadosRequest request) {
+        return ResponseEntity.ok(envioConsolidadoService.aplicarEstadoRastreo(
+                request.getConsolidadoIds(),
+                request.getEstadoRastreoId()));
+    }
+
+    @PostMapping("/aplicar-transicion-operativa")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Aplicar transición operativa a consolidados",
+            description = "Aplica un estado operativo (Enviado desde USA / En preparación) por selección o por periodo")
+    public ResponseEntity<AplicarTransicionConsolidadosResponse> aplicarTransicionOperativa(
+            @Valid @RequestBody AplicarTransicionConsolidadosRequest request) {
+        return ResponseEntity.ok(envioConsolidadoService.aplicarTransicionOperativa(
+                request.getEstadoOperativoDestino(),
+                request.getConsolidadoIds(),
+                request.getFechaInicio(),
+                request.getFechaFin()));
+    }
+
     @GetMapping(value = "/{id}/manifiesto.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_READ')")
     @Operation(summary = "Descargar manifiesto PDF", description = "Genera y descarga el manifiesto PDF de un envío consolidado")
@@ -180,22 +229,28 @@ public class EnvioConsolidadoController {
     }
 
     /**
-     * Acepta los filtros simples del nuevo modelo (sin maquina de estados):
+     * Acepta los filtros del estado operativo derivado:
      * <ul>
      *   <li>{@code null} o vacio o {@code TODOS}: lista completa.</li>
-     *   <li>{@code ABIERTO} / {@code ABIERTOS}: solo envios sin {@code fecha_cerrado}.</li>
-     *   <li>{@code CERRADO} / {@code CERRADOS} / {@code CERRADA}: solo envios con {@code fecha_cerrado}.</li>
+     *   <li>{@code VACIO}, {@code EN_PREPARACION}, {@code ENVIADO_DESDE_USA},
+     *       {@code RECIBIDO_EN_BODEGA}, {@code LIQUIDADO}: valores canónicos.</li>
      * </ul>
      */
-    private Boolean parseEstadoFilter(String estado) {
+    private EstadoEnvioConsolidadoOperativo parseEstadoOperativoFilter(String estado) {
         if (estado == null || estado.isBlank()) return null;
         String e = estado.trim().toUpperCase();
         return switch (e) {
             case "TODOS", "TODO" -> null;
-            case "ABIERTO", "ABIERTOS" -> Boolean.FALSE;
-            case "CERRADO", "CERRADOS", "CERRADA" -> Boolean.TRUE;
+            case "VACIO" -> EstadoEnvioConsolidadoOperativo.VACIO;
+            case "EN_PREPARACION", "PREPARACION" ->
+                    EstadoEnvioConsolidadoOperativo.EN_PREPARACION;
+            case "ENVIADO_DESDE_USA", "ENVIADO_USA", "ENVIADOS_DESDE_USA" ->
+                    EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA;
+            case "RECIBIDO_EN_BODEGA", "RECIBIDO", "EN_BODEGA" ->
+                    EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA;
+            case "LIQUIDADO", "PAGADO" -> EstadoEnvioConsolidadoOperativo.LIQUIDADO;
             default -> throw new BadRequestException("Filtro no válido: " + estado
-                    + ". Use TODOS, ABIERTO o CERRADO.");
+                    + ". Use TODOS, VACIO, EN_PREPARACION, ENVIADO_DESDE_USA, RECIBIDO_EN_BODEGA o LIQUIDADO.");
         };
     }
 

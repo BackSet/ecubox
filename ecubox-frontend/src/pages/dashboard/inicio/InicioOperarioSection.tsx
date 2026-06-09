@@ -117,16 +117,33 @@ export function InicioOperarioSection() {
     true,
     canLotesRecepcion
   );
-  const { data: enviosAbiertos, isLoading: loadingEnvios } = useEnviosConsolidados(
-    { estado: 'ABIERTO', page: 0, size: 1 },
+  const { data: enviosEnPreparacion, isLoading: loadingEnviosPrep } = useEnviosConsolidados(
+    { estado: 'EN_PREPARACION', page: 0, size: 1 },
     canEnvios
   );
+  const { data: enviosEnviadosUsa, isLoading: loadingEnviosUsa } = useEnviosConsolidados(
+    { estado: 'ENVIADO_DESDE_USA', page: 0, size: 1 },
+    canEnvios
+  );
+  const { data: enviosRecibidos, isLoading: loadingEnviosRecibidos } = useEnviosConsolidados(
+    { estado: 'RECIBIDO_EN_BODEGA', page: 0, size: 1 },
+    canEnvios
+  );
+  const { data: enviosLiquidados, isLoading: loadingEnviosLiquidados } = useEnviosConsolidados(
+    { estado: 'LIQUIDADO', page: 0, size: 1 },
+    canEnvios
+  );
+  const loadingEnvios =
+    loadingEnviosPrep || loadingEnviosUsa || loadingEnviosRecibidos || loadingEnviosLiquidados;
 
   const totalVencidos = vencidos?.length ?? 0;
   const totalSinPeso = sinPeso?.length ?? 0;
   const totalSinSaca = sinSaca?.length ?? 0;
   const totalSacasPend = sacasPendientes?.length ?? 0;
-  const totalEnviosAbiertos = enviosAbiertos?.totalElements ?? 0;
+  const totalEnviosEnPreparacion = enviosEnPreparacion?.totalElements ?? 0;
+  const totalEnviosEnviadosUsa = enviosEnviadosUsa?.totalElements ?? 0;
+  const totalEnviosRecibidos = enviosRecibidos?.totalElements ?? 0;
+  const totalEnviosLiquidados = enviosLiquidados?.totalElements ?? 0;
   const totalCerradasConFaltante = dashGM?.totalCerradasConFaltante ?? 0;
 
   const cargandoGuias = canGuiasMaster && loadingDashGM && !dashGM;
@@ -136,11 +153,11 @@ export function InicioOperarioSection() {
         (loadingSinPeso && !sinPeso) ||
         (loadingSinSaca && !sinSaca))) ||
     (canDespachos && loadingSacas && !sacasPendientes) ||
-    (canEnvios && loadingEnvios && !enviosAbiertos);
+    (canEnvios && loadingEnvios && !enviosEnPreparacion);
 
   const showOperacionSection = canPesoWrite || canDespachos || canEnvios;
   const operacionKpiCount =
-    (canPesoWrite ? 4 : 0) + (canDespachos ? 1 : 0) + (canEnvios ? 1 : 0);
+    (canPesoWrite ? 4 : 0) + (canDespachos ? 1 : 0) + (canEnvios ? 4 : 0);
 
   const visibleActions = QUICK_ACTIONS.filter((a) =>
     a.permission ? hasPermission(a.permission) : true
@@ -268,10 +285,40 @@ export function InicioOperarioSection() {
               {canEnvios && (
                 <KpiCard
                   icon={<Plane className={ICON} strokeWidth={1.75} />}
-                  label="Envíos consolidados abiertos"
-                  value={totalEnviosAbiertos}
-                  hint="Manifiestos en curso"
+                  label="Consolidados en preparación"
+                  value={totalEnviosEnPreparacion}
+                  hint="Admiten cambios"
+                  tone="info"
+                  to="/envios-consolidados"
+                />
+              )}
+              {canEnvios && (
+                <KpiCard
+                  icon={<Truck className={ICON} strokeWidth={1.75} />}
+                  label="Enviados desde USA"
+                  value={totalEnviosEnviadosUsa}
+                  hint="Salida registrada"
                   tone="primary"
+                  to="/envios-consolidados"
+                />
+              )}
+              {canEnvios && (
+                <KpiCard
+                  icon={<ClipboardList className={ICON} strokeWidth={1.75} />}
+                  label="Recibidos en bodega"
+                  value={totalEnviosRecibidos}
+                  hint="En lote de recepción"
+                  tone="success"
+                  to="/envios-consolidados"
+                />
+              )}
+              {canEnvios && (
+                <KpiCard
+                  icon={<Boxes className={ICON} strokeWidth={1.75} />}
+                  label="Liquidados"
+                  value={totalEnviosLiquidados}
+                  hint="Pago registrado"
+                  tone="success"
                   to="/envios-consolidados"
                 />
               )}

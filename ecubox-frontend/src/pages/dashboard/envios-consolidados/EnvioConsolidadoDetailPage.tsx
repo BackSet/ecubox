@@ -19,6 +19,7 @@ import {
   Scale,
   Search,
   Trash2,
+  Truck,
   Unlock,
   Wallet,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ import { toast } from 'sonner';
 import { notify } from '@/lib/notify';
 import { downloadBlob } from '@/lib/download';
 import { Button } from '@/components/ui/button';
+import { StatusBadge, getRastreoStatusTone } from '@/components/ui/StatusBadge';
 import { Input } from '@/components/ui/input';
 import { BulkGuiaInputPanel } from '@/components/BulkGuiaInputPanel';
 import type { BulkGuiaTab } from '@/components/BulkGuiaInputPanel';
@@ -56,8 +58,8 @@ import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/compon
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
   useAgregarPaquetesEnvioConsolidado,
-  useCerrarEnvioConsolidado,
   useDescargarManifiesto,
+  useEnviarDesdeUsaEnvioConsolidado,
   useEnvioConsolidado,
   useReabrirEnvioConsolidado,
   useRemoverPaquetesEnvioConsolidado,
@@ -69,7 +71,11 @@ import {
   GuiaMasterPiezaCell,
   ConsignatarioCell,
 } from '@/pages/dashboard/paquetes/PaqueteCells';
-import { EnvioConsolidadoBadge } from './EnvioConsolidadoBadge';
+import {
+  EnvioConsolidadoBadge,
+  ENVIO_CONSOLIDADO_ESTADO_UI,
+  resolveEstadoOperativoConsolidado,
+} from './EnvioConsolidadoBadge';
 import { useAuthStore } from '@/stores/authStore';
 
 import { formatWeightFromValues, formatWeightInline, LBS_TO_KG } from '@/lib/utils/weight';
@@ -80,11 +86,11 @@ export function EnvioConsolidadoDetailPage() {
   const id = Number(params.id);
   const { data: envio, isLoading, error } = useEnvioConsolidado(id);
   const [agregarOpen, setAgregarOpen] = useState(false);
-  const [confirmCerrar, setConfirmCerrar] = useState(false);
+  const [confirmEnviarUsa, setConfirmEnviarUsa] = useState(false);
   const [confirmReabrir, setConfirmReabrir] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
-  const cerrar = useCerrarEnvioConsolidado();
+  const enviarUsa = useEnviarDesdeUsaEnvioConsolidado();
   const reabrir = useReabrirEnvioConsolidado();
   const remover = useRemoverPaquetesEnvioConsolidado();
   const manifiestos = useDescargarManifiesto();
@@ -169,14 +175,14 @@ export function EnvioConsolidadoDetailPage() {
 
   const puedeAdministrarPaquetes = !envio.cerrado;
 
-  async function handleCerrar() {
+  async function handleEnviarUsa() {
     try {
-      await cerrar.mutateAsync(id);
-      toast.success('Envío cerrado');
-      setConfirmCerrar(false);
+      await enviarUsa.mutateAsync(id);
+      toast.success('Envío enviado desde USA');
+      setConfirmEnviarUsa(false);
     } catch (err: unknown) {
       const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'Error al cerrar el envío');
+      toast.error(res?.data?.message ?? 'Error al enviar desde USA');
     }
   }
 
@@ -227,7 +233,10 @@ export function EnvioConsolidadoDetailPage() {
                   {envio.codigo}
                 </h1>
                 <CopyButton value={envio.codigo} title="Copiar código" />
-                <EnvioConsolidadoBadge cerrado={envio.cerrado} />
+                <EnvioConsolidadoBadge
+                  cerrado={envio.cerrado}
+                  estadoOperativo={resolveEstadoOperativoConsolidado(envio)}
+                />
               </div>
             </div>
           </div>
@@ -304,11 +313,11 @@ export function EnvioConsolidadoDetailPage() {
             ) : (
               <Button
                 size="sm"
-                disabled={cerrar.isPending}
-                onClick={() => setConfirmCerrar(true)}
+                disabled={enviarUsa.isPending}
+                onClick={() => setConfirmEnviarUsa(true)}
               >
-                <Lock className="mr-1.5 h-4 w-4" />
-                Cerrar envío
+                <Truck className="mr-1.5 h-4 w-4" />
+                Enviar desde USA
               </Button>
             )}
           </div>
@@ -343,13 +352,40 @@ export function EnvioConsolidadoDetailPage() {
           tone="neutral"
           hint={relativeTime(envio.createdAt) ?? undefined}
         />
-        <KpiCard
-          icon={envio.cerrado ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
-          label={envio.cerrado ? 'Cerrado el' : 'Abierto'}
-          value={envio.cerrado ? (shortDate(envio.fechaCerrado) ?? '—') : 'En curso'}
-          tone={envio.cerrado ? 'success' : 'warning'}
-          hint={envio.cerrado ? (relativeTime(envio.fechaCerrado) ?? undefined) : undefined}
-        />
+        {(() => {
+          const op =
+            envio.estadoOperativo ??
+            (envio.cerrado ? 'ENVIADO_DESDE_USA' : envio.totalPaquetes > 0 ? 'EN_PREPARACION' : 'VACIO');
+          const ui = ENVIO_CONSOLIDADO_ESTADO_UI[op];
+          const Icon = ui.icon;
+          const value =
+            op === 'ENVIADO_DESDE_USA'
+              ? shortDate(envio.fechaCerrado) ?? '—'
+              : op === 'EN_PREPARACION'
+                ? 'Editable'
+                : op === 'LIQUIDADO'
+                  ? 'Pagado'
+                  : String(envio.totalPaquetes ?? 0);
+          const hint =
+            op === 'ENVIADO_DESDE_USA'
+              ? relativeTime(envio.fechaCerrado) ?? undefined
+              : op === 'LIQUIDADO'
+                ? 'Liquidación registrada'
+                : op === 'RECIBIDO_EN_BODEGA'
+                  ? 'Incluido en lote de recepción'
+                  : undefined;
+          const kpiTone =
+            ui.tone === 'error' ? 'danger' : ui.tone === 'info' ? 'info' : ui.tone;
+          return (
+            <KpiCard
+              icon={<Icon className="h-5 w-5" />}
+              label={ui.label}
+              value={value}
+              tone={kpiTone}
+              hint={hint}
+            />
+          );
+        })()}
       </div>
 
       <SurfaceCard className="space-y-3 p-4">
@@ -365,7 +401,7 @@ export function EnvioConsolidadoDetailPage() {
             {!puedeAdministrarPaquetes && (
               <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Lock className="h-3 w-3" />
-                Envío cerrado: solo lectura. Reábrelo para gestionar paquetes.
+                Envío enviado desde USA: solo lectura. Reábrelo para gestionar paquetes.
               </p>
             )}
           </div>
@@ -406,13 +442,13 @@ export function EnvioConsolidadoDetailPage() {
         <AgregarPaquetesDialog envioId={id} onClose={() => setAgregarOpen(false)} />
       )}
       <ConfirmDialog
-        open={confirmCerrar}
-        onOpenChange={setConfirmCerrar}
-        title="Cerrar envío consolidado"
-        description="Una vez cerrado el envío no podrás agregar ni remover paquetes hasta reabrirlo."
-        confirmLabel="Cerrar envío"
-        loading={cerrar.isPending}
-        onConfirm={handleCerrar}
+        open={confirmEnviarUsa}
+        onOpenChange={setConfirmEnviarUsa}
+        title="Enviar consolidado desde USA"
+        description="Al enviarlo desde USA se aplicará el estado de salida a sus piezas y no podrás agregar ni remover paquetes hasta reabrirlo."
+        confirmLabel="Enviar desde USA"
+        loading={enviarUsa.isPending}
+        onConfirm={handleEnviarUsa}
       />
       <ConfirmDialog
         open={confirmReabrir}
@@ -572,6 +608,7 @@ function PaquetesTable({
               <TableCell>
                 <EstadoBadge
                   nombre={p.estadoRastreoNombre}
+                  tipoFlujo={p.estadoRastreoTipoFlujo}
                   codigo={p.estadoRastreoCodigo}
                 />
               </TableCell>
@@ -621,16 +658,14 @@ function PaquetesTable({
 function EstadoBadge({
   nombre,
   codigo,
+  tipoFlujo,
 }: {
   nombre?: string | null;
   codigo?: string | null;
+  tipoFlujo?: 'NORMAL' | 'ALTERNO' | null;
 }) {
   const label = nombre ?? codigo ?? '—';
-  return (
-    <span className="inline-flex items-center rounded-md border border-border bg-[var(--color-muted)]/40 px-2 py-0.5 text-xs font-medium text-foreground">
-      {label}
-    </span>
-  );
+  return <StatusBadge tone={getRastreoStatusTone(tipoFlujo)}>{label}</StatusBadge>;
 }
 
 function bulkTextToGuiaLines(raw: string): string {

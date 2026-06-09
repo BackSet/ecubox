@@ -9,11 +9,30 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpecificationExecutor<Paquete> {
     Optional<Paquete> findByNumeroGuiaIgnoreCase(String numeroGuia);
+
+    /** Piezas (en algún despacho) cuyo consignatario pertenece al usuario dado. Para la vista de cliente. */
+    @Query("SELECT p FROM Paquete p " +
+           "JOIN FETCH p.saca s " +
+           "JOIN FETCH s.despacho d " +
+           "JOIN FETCH p.estadoRastreo e " +
+           "JOIN FETCH p.consignatario c " +
+           "WHERE c.usuario.id = :usuarioId")
+    List<Paquete> findEnDespachoByConsignatarioUsuarioId(@Param("usuarioId") Long usuarioId);
+
+    /** Piezas (en algún despacho) de un conjunto de consignatarios. Para la sesión de enlace. */
+    @Query("SELECT p FROM Paquete p " +
+           "JOIN FETCH p.saca s " +
+           "JOIN FETCH s.despacho d " +
+           "JOIN FETCH p.estadoRastreo e " +
+           "JOIN FETCH p.consignatario c " +
+           "WHERE c.id IN :consignatarioIds")
+    List<Paquete> findEnDespachoByConsignatarioIdIn(@Param("consignatarioIds") Collection<Long> consignatarioIds);
 
     /**
      * Carga paquete con todas las asociaciones que el endpoint publico de
@@ -55,6 +74,12 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     long countByEstadoRastreoId(Long estadoRastreoId);
 
     long countByGuiaMasterId(Long guiaMasterId);
+
+    @Query("SELECT p.id FROM Paquete p WHERE p.envioConsolidado.id IN :envioIds")
+    List<Long> findIdsByEnvioConsolidadoIdIn(@Param("envioIds") Collection<Long> envioIds);
+
+    @Query("SELECT p.id FROM Paquete p WHERE CAST(p.createdAt AS LocalDate) BETWEEN :inicio AND :fin")
+    List<Long> findIdsByCreatedAtBetween(@Param("inicio") LocalDate inicio, @Param("fin") LocalDate fin);
 
     @Query(value = """
             SELECT date_trunc('month', p.created_at) AS periodo,
@@ -205,6 +230,24 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     /** IDs de paquetes pertenecientes a una lista de sacas (una sola query por lote). */
     @Query("SELECT p.id FROM Paquete p WHERE p.saca.id IN :sacaIds")
     List<Long> findIdsBySacaIdIn(@Param("sacaIds") List<Long> sacaIds);
+
+    /**
+     * IDs de paquetes de las sacas indicadas cuyo estado actual es anterior (menor orden) al
+     * orden destino; permite avanzar de forma masiva sin retroceder los que ya pasaron ese punto.
+     */
+    @Query("SELECT p.id FROM Paquete p WHERE p.saca.id IN :sacaIds " +
+           "AND COALESCE(p.estadoRastreo.orden, p.estadoRastreo.ordenTracking) < :ordenDestino")
+    List<Long> findIdsBySacaIdInConEstadoAnterior(@Param("sacaIds") List<Long> sacaIds,
+                                                  @Param("ordenDestino") Integer ordenDestino);
+
+    /**
+     * Estado de rastreo de los paquetes agrupado por despacho: filas
+     * [despachoId, estadoId, estadoNombre, ordenEfectivo]. Una sola query para todos los despachos.
+     */
+    @Query("SELECT p.saca.despacho.id, p.estadoRastreo.id, p.estadoRastreo.nombre, " +
+           "COALESCE(p.estadoRastreo.orden, p.estadoRastreo.ordenTracking) " +
+           "FROM Paquete p WHERE p.saca.despacho.id IN :despachoIds")
+    List<Object[]> findEstadosPaquetesPorDespacho(@Param("despachoIds") List<Long> despachoIds);
 
     /**
      * IDs distintos de guia_master a los que pertenecen los paquetes indicados.

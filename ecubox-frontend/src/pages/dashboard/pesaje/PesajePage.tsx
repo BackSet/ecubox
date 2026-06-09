@@ -748,7 +748,17 @@ export function PesajePage() {
                               variant="outline"
                               className="text-[10px] font-normal"
                             >
-                              {p.envioConsolidadoCerrado ? 'Cerrado' : 'Abierto'}
+                              {p.envioConsolidadoEstadoOperativo
+                                ? ({
+                                    VACIO: 'Vacío',
+                                    EN_PREPARACION: 'En preparación',
+                                    ENVIADO_DESDE_USA: 'Enviado desde USA',
+                                    RECIBIDO_EN_BODEGA: 'Recibido en bodega',
+                                    LIQUIDADO: 'Liquidado',
+                                  }[p.envioConsolidadoEstadoOperativo] ?? 'Consolidado')
+                                : p.envioConsolidadoCerrado
+                                  ? 'Enviado desde USA'
+                                  : 'En preparación'}
                             </Badge>
                           </div>
                         ) : (

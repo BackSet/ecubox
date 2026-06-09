@@ -1,8 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { usePaquetesSinSaca } from '@/hooks/useOperarioDespachos';
-import { useCambiarEstadoRastreoBulk } from '@/hooks/usePaquetesOperario';
-import { useEstadosRastreoActivos } from '@/hooks/useEstadosRastreo';
+import {
+  useCambiarEstadoRastreoBulk,
+  useEstadosDestinoPermitidos,
+} from '@/hooks/usePaquetesOperario';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
@@ -21,6 +23,8 @@ import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/compon
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge, getRastreoStatusTone } from '@/components/ui/StatusBadge';
+import { EnvioConsolidadoBadge } from '@/pages/dashboard/envios-consolidados/EnvioConsolidadoBadge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import {
@@ -54,9 +58,8 @@ import { GuiaMasterPiezaCell, ConsignatarioCell } from '../paquetes/PaqueteCells
 import type { Paquete } from '@/types/paquete';
 import { gestionarEstadosBulkSchema } from '@/lib/schemas/auth';
 
-export function GestionarEstadosPaquetesPage() {
+export function GestionarEstadosPaquetesTab() {
   const { data: paquetes, isLoading, isFetching, error, refetch } = usePaquetesSinSaca();
-  const { data: estadosRastreo = [] } = useEstadosRastreoActivos();
   const cambiarEstadoBulk = useCambiarEstadoRastreoBulk();
 
   const [search, setSearchRaw] = useState('');
@@ -87,7 +90,10 @@ export function GestionarEstadosPaquetesPage() {
   >(null);
 
   const all = useMemo(() => paquetes ?? [], [paquetes]);
-  const opcionesEstado: EstadoRastreo[] = estadosRastreo;
+  const seleccionIds = useMemo(() => Array.from(selectedIds), [selectedIds]);
+  // Solo destinos válidos para TODA la selección (intersección calculada por el backend).
+  const { data: estadosPermitidos } = useEstadosDestinoPermitidos(seleccionIds);
+  const opcionesEstado: EstadoRastreo[] = estadosPermitidos ?? [];
 
   const estadoTarget = useMemo(
     () => opcionesEstado.find((e) => String(e.id) === estadoTargetId) ?? null,
@@ -184,11 +190,11 @@ export function GestionarEstadosPaquetesPage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 4)
       .map(([nombre]) => {
-        const estado = estadosRastreo.find((e) => e.nombre === nombre);
+        const estado = opcionesEstado.find((e) => e.nombre === nombre);
         return estado ? { id: estado.id, label: estado.nombre } : null;
       })
       .filter((x): x is { id: number; label: string } => x != null);
-  }, [list, estadosRastreo]);
+  }, [list, opcionesEstado]);
 
   const toggleSelected = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -326,7 +332,7 @@ export function GestionarEstadosPaquetesPage() {
         />
       )}
       <ListToolbar
-        title="Gestionar estados de paquetes"
+        title="Paquetes sin despacho"
         searchPlaceholder="Buscar por guía, ref, consignatario, envío, contenido o estado..."
         onSearchChange={setSearch}
       />
@@ -551,9 +557,9 @@ export function GestionarEstadosPaquetesPage() {
                       )}
                     </TableCell>
                     <TableCell className="align-top">
-                      <Badge variant="secondary" className="font-normal">
+                      <StatusBadge tone={getRastreoStatusTone(p.estadoRastreoTipoFlujo)}>
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
-                      </Badge>
+                      </StatusBadge>
                     </TableCell>
                     <TableCell className="max-w-[20rem] align-top">
                       <ConsignatarioCell paquete={p} />
@@ -567,12 +573,10 @@ export function GestionarEstadosPaquetesPage() {
                             tail={6}
                             className="text-xs"
                           />
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] font-normal"
-                          >
-                            {p.envioConsolidadoCerrado ? 'Cerrado' : 'Abierto'}
-                          </Badge>
+                          <EnvioConsolidadoBadge
+                            cerrado={!!p.envioConsolidadoCerrado}
+                            estadoOperativo={p.envioConsolidadoEstadoOperativo}
+                          />
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
@@ -834,4 +838,3 @@ function ResultadoDialog({ data, onClose, paquetes }: ResultadoDialogProps) {
     </Dialog>
   );
 }
-

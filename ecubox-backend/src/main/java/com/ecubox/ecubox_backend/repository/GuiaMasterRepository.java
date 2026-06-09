@@ -26,7 +26,7 @@ public interface GuiaMasterRepository extends JpaRepository<GuiaMaster, Long>,
     /**
      * Guias en estado activo de despacho cuyo primer despacho supero el
      * limite indicado. Usado por el job de auto-cierre por timeout.
-     * Antes de V66 se llamaba con {@code PARCIAL_DESPACHADA}; ahora con
+     * Antes de V66 se llamaba con el estado historico de despacho parcial; ahora con
      * {@link EstadoGuiaMaster#DESPACHO_PARCIAL}.
      */
     @Query("SELECT gm FROM GuiaMaster gm " +

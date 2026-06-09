@@ -711,7 +711,7 @@ function AgregarEnviosDialog({
   const [modo, setModo] = useState<'buscar' | 'lista'>('buscar');
   const [enviosError, setEnviosError] = useState<string | undefined>();
 
-  // Listamos los envios disponibles para recepcion: incluye cerrados y
+  // Listamos los envios disponibles para recepcion: incluye enviados desde USA y
   // pagados (la recepcion fisica es ortogonal al estado administrativo) y
   // excluye los que ya estan en otro lote.
   const { data: enviosResp, isLoading } = useEnviosDisponiblesParaRecepcion(
@@ -823,8 +823,8 @@ function AgregarEnviosDialog({
           <DialogTitle>Agregar envíos consolidados al lote</DialogTitle>
           <DialogDescription>
             Selecciona uno o más envíos consolidados con paquetes pendientes
-            de recepción. Aparecen tanto envíos abiertos como cerrados o ya
-            liquidados; lo importante es que aún no estén en otro lote.
+            de recepción. Aparecen tanto envíos en preparación como enviados
+            desde USA o ya liquidados; lo importante es que aún no estén en otro lote.
           </DialogDescription>
         </DialogHeader>
 
@@ -901,7 +901,7 @@ function AgregarEnviosDialog({
                           )}
                           {o.cerrado && (
                             <Badge variant="secondary" className="font-normal">
-                              Cerrado
+                              Enviado desde USA
                             </Badge>
                           )}
                         </div>
@@ -1003,7 +1003,7 @@ function AgregarEnviosDialog({
                           )}
                           {env.cerrado && (
                             <Badge variant="secondary" className="font-normal">
-                              Cerrado
+                              Enviado desde USA
                             </Badge>
                           )}
                         </div>

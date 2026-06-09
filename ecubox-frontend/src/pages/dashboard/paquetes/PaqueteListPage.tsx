@@ -1,6 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { usePaquetes, usePaquetesPaginated, useDeletePaquete } from '@/hooks/usePaquetes';
+import {
+  useAllPaquetesOperario,
+  useEstadosAplicablesPaquete,
+  useCambiarEstadoRastreoBulk,
+} from '@/hooks/usePaquetesOperario';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { useAuthStore } from '@/stores/authStore';
 import { PaqueteForm } from './PaqueteForm';
@@ -21,17 +26,20 @@ import { PesoCell, PESO_TABLE_CELL_CLASS, PESO_TABLE_HEAD_CLASS } from '@/compon
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu, type RowActionEntry } from '@/components/RowActionsMenu';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusBadge, getRastreoStatusTone } from '@/components/ui/StatusBadge';
+import { EnvioConsolidadoBadge } from '@/pages/dashboard/envios-consolidados/EnvioConsolidadoBadge';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TablePagination } from '@/components/ui/TablePagination';
+import { AplicarEstadoMasivoDialog } from '@/components/AplicarEstadoMasivoDialog';
+import { notify } from '@/lib/notify';
 import {
   ClipboardList,
   Layers,
   Package,
   Pencil,
   Plus,
+  Tag,
   Trash2,
   Users,
   Weight,
@@ -65,6 +73,11 @@ export function PaqueteListPage() {
   const [editandoPiezasGuiaId, setEditandoPiezasGuiaId] = useState<number | null>(
     null,
   );
+
+  // Estado del diálogo "Aplicar estado"
+  const [aplicarEstadoOpen, setAplicarEstadoOpen] = useState(false);
+  const [paquetesSeleccionados, setPaquetesSeleccionados] = useState<number[]>([]);
+  const [estadoRastreoSeleccionado, setEstadoRastreoSeleccionado] = useState('');
   const { q, page, size, setQ, setPage, setSize, resetPage } = useSearchPagination({
     initialSize: 25,
   });
@@ -311,6 +324,44 @@ export function PaqueteListPage() {
     [resetPage],
   );
 
+  // Hooks para "Aplicar estado"
+  const allPaquetesQuery = useAllPaquetesOperario(aplicarEstadoOpen);
+  const { data: estadosAplicables } = useEstadosAplicablesPaquete(aplicarEstadoOpen);
+  const aplicarBulk = useCambiarEstadoRastreoBulk();
+
+  const cerrarAplicarEstado = () => {
+    setAplicarEstadoOpen(false);
+    setPaquetesSeleccionados([]);
+    setEstadoRastreoSeleccionado('');
+  };
+
+  const handleAplicarEstadoPaquetes = async () => {
+    const estadoId = estadoRastreoSeleccionado ? Number(estadoRastreoSeleccionado) : null;
+    if (!estadoId) {
+      toast.warning('Selecciona un estado a aplicar');
+      return;
+    }
+    if (paquetesSeleccionados.length === 0) {
+      toast.warning('Selecciona al menos un paquete');
+      return;
+    }
+    try {
+      await notify.run(
+        aplicarBulk.mutateAsync({ paqueteIds: paquetesSeleccionados, estadoRastreoId: estadoId }),
+        {
+          loading: `Aplicando estado a ${paquetesSeleccionados.length} paquete(s)...`,
+          success: (res) =>
+            `Estado aplicado: ${res.actualizados} paquete(s)` +
+            (res.rechazados.length > 0 ? ` · ${res.rechazados.length} omitido(s)` : ''),
+          error: 'No se pudo aplicar el estado',
+        },
+      );
+      cerrarAplicarEstado();
+    } catch {
+      // notificado por notify.run
+    }
+  };
+
   const pageError = pageQuery.error;
   const pageHasData = (pageQuery.data?.content?.length ?? 0) > 0;
   const pageCanRender = useServerPage && (pageHasData || pageQuery.data != null);
@@ -347,6 +398,16 @@ export function PaqueteListPage() {
         onSearchChange={setQ}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {hasPesoWrite && (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setAplicarEstadoOpen(true)}
+              >
+                <Tag className="mr-2 h-4 w-4" />
+                Aplicar estado
+              </Button>
+            )}
             {hasPaquetesCreate && (
               <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -659,7 +720,7 @@ export function PaqueteListPage() {
                       {p.ref ?? '—'}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      <StatusBadge tone="neutral">
+                      <StatusBadge tone={getRastreoStatusTone(p.estadoRastreoTipoFlujo)}>
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                       </StatusBadge>
                     </TableCell>
@@ -674,9 +735,10 @@ export function PaqueteListPage() {
                               value={p.envioConsolidadoCodigo}
                               className="text-xs"
                             />
-                            <Badge variant="outline" className="text-[10px] font-normal">
-                              {p.envioConsolidadoCerrado ? 'Cerrado' : 'Abierto'}
-                            </Badge>
+                            <EnvioConsolidadoBadge
+                              cerrado={!!p.envioConsolidadoCerrado}
+                              estadoOperativo={p.envioConsolidadoEstadoOperativo}
+                            />
                           </div>
                         ) : (
                           <span className="text-xs italic text-muted-foreground">—</span>
@@ -713,6 +775,15 @@ export function PaqueteListPage() {
                               },
                               hidden:
                                 !hasGuiasMasterUpdate || p.guiaMasterId == null,
+                            },
+                            {
+                              label: 'Aplicar estado',
+                              icon: Tag,
+                              onSelect: () => {
+                                setPaquetesSeleccionados([p.id]);
+                                setAplicarEstadoOpen(true);
+                              },
+                              hidden: !hasPesoWrite,
                             },
                             { type: 'separator' },
                             {
@@ -786,6 +857,85 @@ export function PaqueteListPage() {
             throw error;
           }
         }}
+      />
+
+      <AplicarEstadoMasivoDialog
+        open={aplicarEstadoOpen}
+        title="Aplicar estado a paquetes"
+        description="Selecciona un estado de rastreo y marca los paquetes que lo recibirán."
+        selectionLabel="paquetes"
+        searchPlaceholder="Buscar por pieza, ref, consignatario, guía master o envío..."
+        hideModoSelector={true}
+        mode="seleccion"
+        onModeChange={() => {}}
+        dateFrom=""
+        dateTo=""
+        onDateFromChange={() => {}}
+        onDateToChange={() => {}}
+        items={(estadoRastreoSeleccionado ? allPaquetesQuery.data ?? [] : [])
+          .filter((p) => {
+            const target = (estadosAplicables ?? []).find(
+              (e) => e.id === Number(estadoRastreoSeleccionado),
+            );
+            if (!target) return true;
+            // Estado ALTERNO: solo paquetes actualmente en el estado predecesor exacto
+            // (afterEstadoId define en qué estado debe estar el paquete para recibir este estado alterno).
+            if (target.tipoFlujo === 'ALTERNO' && target.afterEstadoId != null) {
+              return p.estadoRastreoId === target.afterEstadoId;
+            }
+            // Estado NORMAL: paquetes cuyo orden actual es estrictamente anterior al objetivo.
+            const ordenObjetivo = target.orden ?? target.ordenTracking;
+            if (ordenObjetivo == null) return true;
+            return p.estadoRastreoOrden == null || p.estadoRastreoOrden < ordenObjetivo;
+          })
+          .map((p) => ({
+            id: p.id,
+            date: p.createdAt ?? null,
+            searchText: [p.numeroGuia, p.ref, p.consignatarioNombre, p.envioConsolidadoCodigo, p.guiaMasterTrackingBase]
+              .filter(Boolean)
+              .join(' '),
+            content: (
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate font-mono text-xs font-medium">{p.numeroGuia}</span>
+                  {p.consignatarioNombre && (
+                    <span className="truncate text-xs text-muted-foreground">{p.consignatarioNombre}</span>
+                  )}
+                  <span className="text-[11px] text-muted-foreground">
+                    {p.guiaMasterTrackingBase
+                      ? <span className="font-mono">{p.guiaMasterTrackingBase}</span>
+                      : <span className="italic">Sin guía master</span>}
+                    {p.pesoLbs != null
+                      ? ` · ${p.pesoLbs} lbs`
+                      : p.pesoKg != null
+                        ? ` · ${p.pesoKg} kg`
+                        : ''}
+                  </span>
+                </div>
+                <StatusBadge
+                  tone={getRastreoStatusTone(p.estadoRastreoTipoFlujo)}
+                  className="shrink-0 text-[11px]"
+                >
+                  {p.estadoRastreoNombre ?? '—'}
+                </StatusBadge>
+              </div>
+            ),
+          }))}
+        selectedIds={paquetesSeleccionados}
+        onSelectedIdsChange={setPaquetesSeleccionados}
+        options={(estadosAplicables ?? []).map((e) => ({
+          value: String(e.id),
+          label: e.nombre,
+          meta: e.codigo ? `#${e.codigo}` : undefined,
+        }))}
+        selectedOption={estadoRastreoSeleccionado}
+        onSelectedOptionChange={setEstadoRastreoSeleccionado}
+        optionLabel="Estado de rastreo"
+        optionHelp="Solo se listan paquetes cuyo estado actual es anterior al seleccionado. Los que ya están en ese estado o en uno más avanzado no aparecen."
+        periodHelp={null}
+        loading={aplicarBulk.isPending}
+        onConfirm={handleAplicarEstadoPaquetes}
+        onOpenChange={(open) => !open && cerrarAplicarEstado()}
       />
     </div>
   );

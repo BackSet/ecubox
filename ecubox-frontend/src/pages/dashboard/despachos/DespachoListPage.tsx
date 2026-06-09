@@ -38,12 +38,12 @@ import {
   useDespachos,
   useDeleteDespacho,
   useMensajeWhatsAppDespachoGenerado,
-  useAplicarEstadoPorPeriodo,
   useAplicarEstadoEnDespachos,
   useEstadosAplicablesDespacho,
 } from '@/hooks/useOperarioDespachos';
-import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
+import { useEstadosRastreoActivos } from '@/hooks/useEstadosRastreo';
+import { AplicarEstadoMasivoDialog } from '@/components/AplicarEstadoMasivoDialog';
 import { useMensajeWhatsAppDespacho } from '@/hooks/useMensajeWhatsAppDespacho';
 import { getDespachoById } from '@/lib/api/operario-despachos.service';
 import { ListToolbar } from '@/components/ListToolbar';
@@ -134,11 +134,29 @@ export function DespachoListPage() {
   const { data: despachos, isLoading, isFetching, error, refetch } = useDespachos();
   const { data: mensajeWhatsApp } = useMensajeWhatsAppDespacho();
   const deleteMutation = useDeleteDespacho();
-  const aplicarEstadoPorPeriodo = useAplicarEstadoPorPeriodo();
   const aplicarEstadoEnDespachos = useAplicarEstadoEnDespachos();
   const [aplicarEstadoOpen, setAplicarEstadoOpen] = useState(false);
   const { data: estadosAplicables } = useEstadosAplicablesDespacho(aplicarEstadoOpen);
-  const { data: estadosPorPunto } = useEstadosRastreoPorPunto();
+  const { data: todosEstadosActivos } = useEstadosRastreoActivos();
+
+  // Para cada estado aplicable NORMAL, el orden del estado predecesor inmediato
+  // (el máximo orden de todos los estados activos que es estrictamente menor al objetivo).
+  const predecessorOrdenPorEstado = useMemo(() => {
+    const normales = (todosEstadosActivos ?? [])
+      .filter((e) => e.tipoFlujo !== 'ALTERNO')
+      .map((e) => e.orden ?? e.ordenTracking)
+      .filter((o): o is number => o != null);
+    return new Map(
+      (estadosAplicables ?? []).map((target) => {
+        const ordenObj = target.orden ?? target.ordenTracking;
+        if (ordenObj == null || target.tipoFlujo === 'ALTERNO') return [target.id, null];
+        const predOrden = normales
+          .filter((o) => o < ordenObj)
+          .reduce((max, o) => Math.max(max, o), -Infinity);
+        return [target.id, predOrden === -Infinity ? null : predOrden];
+      }),
+    );
+  }, [estadosAplicables, todosEstadosActivos]);
 
   const [search, setSearchRaw] = useState('');
   const [tipoFiltro, setTipoFiltroRaw] = useState<TipoEntrega | typeof SIN_FILTRO>(SIN_FILTRO);
@@ -154,22 +172,9 @@ export function DespachoListPage() {
   const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [whatsappDespachoId, setWhatsappDespachoId] = useState<number | null>(null);
-  const [aplicarModo, setAplicarModo] = useState<'periodo' | 'despachos'>('periodo');
-  const [periodoFechaInicio, setPeriodoFechaInicio] = useState('');
-  const [periodoFechaFin, setPeriodoFechaFin] = useState('');
   const [despachosSeleccionados, setDespachosSeleccionados] = useState<number[]>([]);
   const [estadoRastreoSeleccionado, setEstadoRastreoSeleccionado] = useState<number | null>(null);
   const [exportingId, setExportingId] = useState<{ id: number; mode: 'pdf' | 'print' | 'xlsx' } | null>(null);
-
-  const defaultEstadoId = estadosPorPunto?.estadoRastreoEnTransitoId ?? null;
-  useEffect(() => {
-    if (estadoRastreoSeleccionado != null) return;
-    if (defaultEstadoId && estadosAplicables?.some((e) => e.id === defaultEstadoId)) {
-      setEstadoRastreoSeleccionado(defaultEstadoId);
-    } else if (estadosAplicables && estadosAplicables.length > 0) {
-      setEstadoRastreoSeleccionado(estadosAplicables[0].id);
-    }
-  }, [defaultEstadoId, estadosAplicables, estadoRastreoSeleccionado]);
 
   const handleExportar = async (id: number, mode: 'pdf' | 'print' | 'xlsx') => {
     if (exportingId) return;
@@ -216,21 +221,8 @@ export function DespachoListPage() {
     [despachos, whatsappDespachoId],
   );
 
-  const abrirAplicarEstado = (
-    modo: 'periodo' | 'despachos',
-    despachoIdInicial?: number,
-  ) => {
-    setAplicarModo(modo);
-    if (modo === 'despachos' && despachoIdInicial != null) {
-      setDespachosSeleccionados([despachoIdInicial]);
-    }
-    setAplicarEstadoOpen(true);
-  };
-
   const cerrarAplicarEstado = () => {
     setAplicarEstadoOpen(false);
-    setPeriodoFechaInicio('');
-    setPeriodoFechaFin('');
     setDespachosSeleccionados([]);
   };
 
@@ -239,43 +231,23 @@ export function DespachoListPage() {
       notify.warning('Selecciona un estado a aplicar');
       return;
     }
+    if (despachosSeleccionados.length === 0) {
+      notify.warning('Selecciona al menos un despacho');
+      return;
+    }
     try {
-      if (aplicarModo === 'periodo') {
-        if (!periodoFechaInicio || !periodoFechaFin) {
-          notify.warning('Indica fecha de inicio y fin');
-          return;
-        }
-        await notify.run(
-          aplicarEstadoPorPeriodo.mutateAsync({
-            fechaInicio: periodoFechaInicio,
-            fechaFin: periodoFechaFin,
-            estadoRastreoId: estadoRastreoSeleccionado,
-          }),
-          {
-            loading: 'Aplicando estado por periodo...',
-            success: (res) =>
-              `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s)`,
-            error: 'No se pudo aplicar el estado',
-          },
-        );
-      } else {
-        if (despachosSeleccionados.length === 0) {
-          notify.warning('Selecciona al menos un despacho');
-          return;
-        }
-        await notify.run(
-          aplicarEstadoEnDespachos.mutateAsync({
-            despachoIds: despachosSeleccionados,
-            estadoRastreoId: estadoRastreoSeleccionado,
-          }),
-          {
-            loading: `Aplicando estado a ${despachosSeleccionados.length} despacho${despachosSeleccionados.length === 1 ? '' : 's'}...`,
-            success: (res) =>
-              `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s)`,
-            error: 'No se pudo aplicar el estado',
-          },
-        );
-      }
+      await notify.run(
+        aplicarEstadoEnDespachos.mutateAsync({
+          despachoIds: despachosSeleccionados,
+          estadoRastreoId: estadoRastreoSeleccionado,
+        }),
+        {
+          loading: `Aplicando estado a ${despachosSeleccionados.length} despacho${despachosSeleccionados.length === 1 ? '' : 's'}...`,
+          success: (res) =>
+            `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s)`,
+          error: 'No se pudo aplicar el estado',
+        },
+      );
       cerrarAplicarEstado();
     } catch {
       // notificado por notify.run
@@ -394,22 +366,6 @@ export function DespachoListPage() {
     };
   }, [allDespachos]);
 
-  const despachosEnPeriodo = useMemo(() => {
-    if (!periodoFechaInicio || !periodoFechaFin) return null;
-    const inicio = new Date(`${periodoFechaInicio}T00:00:00`);
-    const fin = new Date(`${periodoFechaFin}T23:59:59.999`);
-    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) return null;
-    if (inicio > fin) return { count: 0, invalid: true };
-    let count = 0;
-    for (const d of allDespachos) {
-      if (!d.fechaHora) continue;
-      const f = new Date(d.fechaHora);
-      if (Number.isNaN(f.getTime())) continue;
-      if (f >= inicio && f <= fin) count += 1;
-    }
-    return { count, invalid: false };
-  }, [allDespachos, periodoFechaInicio, periodoFechaFin]);
-
   const pagedList = useMemo(
     () => list.slice(page * size, page * size + size),
     [list, page, size],
@@ -464,7 +420,7 @@ export function DespachoListPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => abrirAplicarEstado('periodo')}
+              onClick={() => setAplicarEstadoOpen(true)}
               className="w-full sm:w-auto"
             >
               <Tag className="mr-2 h-4 w-4" />
@@ -789,7 +745,10 @@ export function DespachoListPage() {
                           {
                             label: 'Aplicar estado',
                             icon: Tag,
-                            onSelect: () => abrirAplicarEstado('despachos', d.id),
+                            onSelect: () => {
+                              setDespachosSeleccionados([d.id]);
+                              setAplicarEstadoOpen(true);
+                            },
                           },
                           {
                             label: 'Mensaje WhatsApp',
@@ -846,32 +805,85 @@ export function DespachoListPage() {
         onClose={() => setWhatsappDespachoId(null)}
       />
 
-      <AplicarEstadoDialog
+      <AplicarEstadoMasivoDialog
         open={aplicarEstadoOpen}
+        title="Aplicar estado a despachos"
+        description="Selecciona un estado y marca los despachos que lo recibirán. Se aplica a todos los paquetes del despacho."
+        selectionLabel="despachos"
+        searchPlaceholder="Buscar por guía, courier, consignatario..."
+        hideModoSelector={true}
+        mode="seleccion"
+        onModeChange={() => {}}
+        dateFrom=""
+        dateTo=""
+        onDateFromChange={() => {}}
+        onDateToChange={() => {}}
         onOpenChange={(open) => {
           if (!open) cerrarAplicarEstado();
           else setAplicarEstadoOpen(open);
         }}
-        modo={aplicarModo}
-        onModoChange={setAplicarModo}
-        fechaInicio={periodoFechaInicio}
-        fechaFin={periodoFechaFin}
-        onFechaInicioChange={setPeriodoFechaInicio}
-        onFechaFinChange={setPeriodoFechaFin}
-        despachos={allDespachos}
-        despachosSeleccionados={despachosSeleccionados}
-        onDespachosSeleccionadosChange={setDespachosSeleccionados}
-        onConfirm={handleAplicarEstado}
-        loading={
-          aplicarModo === 'periodo'
-            ? aplicarEstadoPorPeriodo.isPending
-            : aplicarEstadoEnDespachos.isPending
+        items={(estadoRastreoSeleccionado != null ? allDespachos : [])
+          .filter((d) => {
+            const target = (estadosAplicables ?? []).find(
+              (e) => e.id === estadoRastreoSeleccionado,
+            );
+            if (!target) return true;
+            if (target.tipoFlujo === 'ALTERNO' && target.afterEstadoId != null) {
+              return d.estadoRastreoComunId === target.afterEstadoId;
+            }
+            // NORMAL: solo despachos cuyo estado común es exactamente el predecesor
+            // inmediato del estado destino según el catálogo configurado.
+            const predOrden = predecessorOrdenPorEstado.get(target.id);
+            if (predOrden == null) return false;
+            return d.estadoRastreoComunOrden === predOrden;
+          })
+          .map((d) => ({
+            id: d.id,
+            date: d.fechaHora,
+            searchText: [
+              d.id,
+              d.numeroGuia,
+              d.courierEntregaNombre,
+              d.consignatarioNombre,
+              d.agenciaNombre,
+              d.agenciaCourierEntregaNombre,
+            ].filter(Boolean).join(' '),
+            content: (
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <MonoTrunc value={d.numeroGuia} copy={false} className="font-medium" />
+                    <span className="font-mono text-[11px] text-muted-foreground">#{d.id}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {d.courierEntregaNombre ?? 'Sin courier'} · {d.sacaIds?.length ?? 0} saca(s)
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                  {d.estadoRastreoComunNombre ?? 'Sin paquetes'}
+                  {d.estadoMixto ? ' · mixto' : ''}
+                </span>
+              </div>
+            ),
+          }))}
+        selectedIds={despachosSeleccionados}
+        onSelectedIdsChange={setDespachosSeleccionados}
+        options={(estadosAplicables ?? []).map((estado) => ({
+          value: String(estado.id),
+          label: estado.nombre,
+          meta: `#${estado.ordenTracking}`,
+        }))}
+        selectedOption={
+          estadoRastreoSeleccionado != null ? String(estadoRastreoSeleccionado) : ''
         }
-        despachosEnPeriodo={despachosEnPeriodo}
-        estadosAplicables={estadosAplicables ?? []}
-        estadoRastreoSeleccionado={estadoRastreoSeleccionado}
-        onEstadoRastreoChange={setEstadoRastreoSeleccionado}
-        defaultEstadoId={defaultEstadoId}
+        onSelectedOptionChange={(value) =>
+          setEstadoRastreoSeleccionado(value ? Number(value) : null)
+        }
+        optionLabel="Estado a aplicar"
+        optionHelp="Solo se listan despachos cuyos paquetes pueden recibir el estado seleccionado. Los estados gestionados por el sistema solo incluyen avance masivo y entrega confirmada."
+        periodHelp={null}
+        onConfirm={handleAplicarEstado}
+        loading={aplicarEstadoEnDespachos.isPending}
       />
     </div>
   );
@@ -1002,7 +1014,7 @@ interface AplicarEstadoDialogProps {
   defaultEstadoId: number | null;
 }
 
-function AplicarEstadoDialog({
+export function AplicarEstadoDialog({
   open,
   onOpenChange,
   modo,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { getDomainStatusTone, StatusBadge } from './StatusBadge';
+import { getDomainStatusTone, getRastreoStatusTone, StatusBadge } from './StatusBadge';
 
 describe('getDomainStatusTone', () => {
   it('mapea estados conocidos', () => {
@@ -17,6 +17,23 @@ describe('getDomainStatusTone', () => {
   it('devuelve neutral para null o desconocido', () => {
     expect(getDomainStatusTone(null)).toBe('neutral');
     expect(getDomainStatusTone('ESTADO_FANTASMA_XYZ')).toBe('neutral');
+  });
+
+  it('mapea estados v2 de guía master y consolidado', () => {
+    expect(getDomainStatusTone('EN_TRANSITO_USA_ECUADOR')).toBe('primary');
+    expect(getDomainStatusTone('DESPACHO_INCOMPLETO')).toBe('error');
+    expect(getDomainStatusTone('CANCELADA')).toBe('neutral');
+    expect(getDomainStatusTone('RECIBIDO_EN_BODEGA')).toBe('success');
+    expect(getDomainStatusTone('LIQUIDADO')).toBe('success');
+  });
+});
+
+describe('getRastreoStatusTone', () => {
+  it('deriva el tono del tipoFlujo sin depender del código', () => {
+    expect(getRastreoStatusTone('ALTERNO')).toBe('warning');
+    expect(getRastreoStatusTone('NORMAL')).toBe('info');
+    expect(getRastreoStatusTone(null)).toBe('info');
+    expect(getRastreoStatusTone(undefined)).toBe('info');
   });
 });
 

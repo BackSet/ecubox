@@ -45,4 +45,15 @@ public class DespachoDTO {
     private Long agenciaCourierEntregaVersionId;
     /** Cuando el despacho fijo el snapshot del destino. */
     private LocalDateTime destinoCongeladoEn;
+
+    /**
+     * Estado de rastreo común de los paquetes del despacho (calculado, no persistido).
+     * El despacho no tiene estado propio: se toma el estado de menor orden (el menos avanzado)
+     * como representante, que es el que puede recibir un avance.
+     */
+    private Long estadoRastreoComunId;
+    private String estadoRastreoComunNombre;
+    private Integer estadoRastreoComunOrden;
+    /** true si los paquetes del despacho no comparten un único estado de rastreo. */
+    private boolean estadoMixto;
 }

@@ -7,7 +7,13 @@ import {
   useActualizarGuiaMaster,
   useEliminarGuiaMaster,
   useCancelarGuiaMaster,
+  useMarcarGuiaMasterEnRevision,
+  useSalirGuiaMasterDeRevision,
+  useRecalcularGuiaMaster,
+  useReabrirGuiaMaster,
+  useAllGuiasMaster,
 } from '@/hooks/useGuiasMaster';
+import { AplicarEstadoMasivoDialog, type AplicarEstadoOption } from '@/components/AplicarEstadoMasivoDialog';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { useConsignatariosOperario } from '@/hooks/useOperarioDespachos';
@@ -20,6 +26,7 @@ import {
   guiaCancelarSchema,
   MAX_MOTIVO,
 } from '@/lib/schemas';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,6 +65,7 @@ import {
   Building2,
   CalendarDays,
   Eye,
+  Tag,
   Pencil,
   Trash2,
   UserRound,
@@ -96,6 +104,61 @@ const STATUS_TO_CHIP_TONE: Record<StatusTone, ChipFiltroTone> = {
   neutral: 'neutral',
 };
 
+/** Estados terminales de guía master (no se puede operar sobre ellos). */
+const ESTADOS_GUIA_TERMINALES: ReadonlySet<EstadoGuiaMaster> = new Set([
+  'DESPACHO_COMPLETADO',
+  'DESPACHO_INCOMPLETO',
+  'CANCELADA',
+]);
+
+/** Acciones de ciclo de vida aplicables en lote a las guías master. */
+const ACCIONES_GUIA: readonly AplicarEstadoOption[] = [
+  { value: 'RECALCULAR', label: 'Recalcular estado' },
+  { value: 'MARCAR_REVISION', label: 'Marcar en revisión' },
+  { value: 'SALIR_REVISION', label: 'Salir de revisión' },
+  { value: 'CANCELAR', label: 'Cancelar guía' },
+  { value: 'REABRIR', label: 'Reabrir guía' },
+];
+
+/** Acciones que requieren un motivo obligatorio antes de aplicarse. */
+const ACCIONES_CON_MOTIVO: ReadonlySet<string> = new Set(['CANCELAR', 'REABRIR']);
+
+/** Texto de ayuda por acción: explica qué guías se listan. */
+const AYUDA_ACCION: Record<string, string> = {
+  RECALCULAR: 'Recalcula el estado derivado. Se listan guías con al menos una pieza registrada (no terminales ni en revisión).',
+  MARCAR_REVISION: 'Pausa el recálculo automático. Se listan guías activas que no están en revisión.',
+  SALIR_REVISION: 'Reanuda el flujo normal. Solo se listan guías en revisión.',
+  CANCELAR: 'Anula la guía. Solo se listan guías sin piezas despachadas y no terminales.',
+  REABRIR: 'Reactiva una guía cerrada o cancelada. Solo se listan guías en estado terminal.',
+};
+
+/**
+ * Indica si una acción de ciclo de vida es aplicable a una guía, reflejando las precondiciones
+ * del backend (GuiaMasterService). Una guía ya despachada/terminal no es elegible para cambios
+ * de estado (salvo reabrir), y recalcular exige al menos una pieza registrada.
+ */
+function guiaElegibleParaAccion(guia: GuiaMaster, accion: string): boolean {
+  const estado = guia.estadoGlobal;
+  const terminal = ESTADOS_GUIA_TERMINALES.has(estado);
+  const piezasRegistradas = guia.piezasRegistradas ?? 0;
+  const piezasDespachadas = guia.piezasDespachadas ?? 0;
+  switch (accion) {
+    case 'RECALCULAR':
+      return !terminal && estado !== 'EN_REVISION' && piezasRegistradas >= 1;
+    case 'MARCAR_REVISION':
+      return !terminal && estado !== 'EN_REVISION';
+    case 'SALIR_REVISION':
+      return estado === 'EN_REVISION';
+    case 'CANCELAR':
+      // No se cancela una guía terminal ni una con piezas ya despachadas.
+      return !terminal && piezasDespachadas === 0;
+    case 'REABRIR':
+      return terminal;
+    default:
+      return false;
+  }
+}
+
 export function GuiasMasterPage() {
   const navigate = useNavigate();
   const { q, page, size, setQ, setPage, setSize, resetPage } = useSearchPagination({
@@ -112,6 +175,14 @@ export function GuiasMasterPage() {
   const hasUpdate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_UPDATE'));
   const hasDelete = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_DELETE'));
   const eliminar = useEliminarGuiaMaster();
+
+  // Estado del diálogo "Aplicar estado"
+  const [aplicarEstadoOpen, setAplicarEstadoOpen] = useState(false);
+  const [guiasSeleccionadas, setGuiasSeleccionadas] = useState<number[]>([]);
+  const [accionSeleccionada, setAccionSeleccionada] = useState('');
+  const [motivoBulkOpen, setMotivoBulkOpen] = useState(false);
+  const [motivoBulk, setMotivoBulk] = useState('');
+  const [accionParaMotivo, setAccionParaMotivo] = useState<'CANCELAR' | 'REABRIR'>('CANCELAR');
 
   // Para chips y KPIs usamos el dashboard agregado, evitando cargar todas las guias.
   const { data: dashGM } = useDashboardGuiasMaster(5, true);
@@ -146,7 +217,9 @@ export function GuiasMasterPage() {
     const c = conteosPorEstado;
     const enEspera = (c.SIN_PIEZAS_REGISTRADAS ?? 0) + (c.EN_ESPERA_RECEPCION ?? 0);
     const enRecepcion =
-      (c.RECEPCION_PARCIAL ?? 0) + (c.RECEPCION_COMPLETA ?? 0);
+      (c.EN_TRANSITO_USA_ECUADOR ?? 0) +
+      (c.RECEPCION_PARCIAL ?? 0) +
+      (c.RECEPCION_COMPLETA ?? 0);
     const enDespacho = (c.DESPACHO_PARCIAL ?? 0) + (c.EN_REVISION ?? 0);
     const cerradas =
       (c.DESPACHO_COMPLETADO ?? 0) +
@@ -163,6 +236,63 @@ export function GuiasMasterPage() {
 
   // Búsqueda y filtros se aplican en servidor; usamos el resultado tal cual.
   const filtered = guias;
+
+  // Hooks y lógica de "Aplicar estado" masivo
+  const allGuiasQuery = useAllGuiasMaster(aplicarEstadoOpen);
+  const marcarRevision = useMarcarGuiaMasterEnRevision();
+  const salirRevision = useSalirGuiaMasterDeRevision();
+  const recalcular = useRecalcularGuiaMaster();
+  const cancelarBulk = useCancelarGuiaMaster();
+  const reabrirBulk = useReabrirGuiaMaster();
+
+  const aplicarIsPending =
+    marcarRevision.isPending || salirRevision.isPending || recalcular.isPending ||
+    cancelarBulk.isPending || reabrirBulk.isPending;
+
+  const cerrarAplicarEstado = () => {
+    setAplicarEstadoOpen(false);
+    setGuiasSeleccionadas([]);
+    setAccionSeleccionada('');
+  };
+
+  const handleAplicarAccionGuias = async () => {
+    if (!accionSeleccionada) {
+      toast.warning('Selecciona una acción a aplicar');
+      return;
+    }
+    if (guiasSeleccionadas.length === 0) {
+      toast.warning('Selecciona al menos una guía');
+      return;
+    }
+    if (ACCIONES_CON_MOTIVO.has(accionSeleccionada)) {
+      setAccionParaMotivo(accionSeleccionada as 'CANCELAR' | 'REABRIR');
+      setAplicarEstadoOpen(false);
+      setMotivoBulkOpen(true);
+      return;
+    }
+    await runBulkAction(accionSeleccionada, guiasSeleccionadas, undefined);
+    cerrarAplicarEstado();
+  };
+
+  const runBulkAction = async (accion: string, ids: number[], motivo: string | undefined) => {
+    const results = await Promise.allSettled(
+      ids.map((id) => {
+        if (accion === 'RECALCULAR') return recalcular.mutateAsync(id);
+        if (accion === 'MARCAR_REVISION') return marcarRevision.mutateAsync({ id, body: { motivo: motivo ?? '' } });
+        if (accion === 'SALIR_REVISION') return salirRevision.mutateAsync({ id, body: { motivo: motivo ?? '' } });
+        if (accion === 'CANCELAR') return cancelarBulk.mutateAsync({ id, body: { motivo: motivo ?? '' } });
+        if (accion === 'REABRIR') return reabrirBulk.mutateAsync({ id, body: { motivo: motivo ?? '' } });
+        return Promise.reject(new Error('Acción desconocida'));
+      }),
+    );
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    const fail = results.filter((r) => r.status === 'rejected').length;
+    if (fail === 0) {
+      toast.success(`Acción aplicada a ${ok} guía(s)`);
+    } else {
+      toast.warning(`${ok} aplicada(s) · ${fail} omitida(s) (ver condiciones)`);
+    }
+  };
 
   function toggleEstado(estado: EstadoGuiaMaster) {
     setEstadosFiltro((prev) => {
@@ -182,7 +312,19 @@ export function GuiasMasterPage() {
         value={q}
         onSearchChange={setQ}
         actions={
-          <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {hasUpdate && (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setAplicarEstadoOpen(true)}
+              >
+                <Tag className="mr-2 h-4 w-4" />
+                Aplicar acción
+              </Button>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
+          </div>
         }
       />
 
@@ -543,6 +685,80 @@ export function GuiasMasterPage() {
           }
         }}
       />
+
+      <AplicarEstadoMasivoDialog
+        open={aplicarEstadoOpen}
+        title="Aplicar acción a guías master"
+        description="Aplica una acción de ciclo de vida a las guías master seleccionadas."
+        selectionLabel="guías"
+        searchPlaceholder="Buscar por tracking base..."
+        hideModoSelector={true}
+        mode="seleccion"
+        onModeChange={() => {}}
+        dateFrom=""
+        dateTo=""
+        onDateFromChange={() => {}}
+        onDateToChange={() => {}}
+        items={(accionSeleccionada ? allGuiasQuery.data ?? [] : [])
+          .filter((g) => guiaElegibleParaAccion(g, accionSeleccionada))
+          .map((g) => ({
+          id: g.id,
+          searchText: [g.trackingBase, g.consignatarioNombre, g.clienteUsuarioNombre]
+            .filter(Boolean)
+            .join(' ') || String(g.id),
+          content: (
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate font-mono text-xs font-medium">{g.trackingBase}</span>
+                {g.consignatarioNombre && (
+                  <span className="truncate text-xs text-muted-foreground">{g.consignatarioNombre}</span>
+                )}
+                <span className="text-[11px] text-muted-foreground">
+                  {g.piezasRegistradas ?? 0}
+                  {g.totalPiezasEsperadas != null ? `/${g.totalPiezasEsperadas}` : ''} piezas
+                  {' · '}{g.piezasRecibidas ?? 0} recibidas
+                  {' · '}{g.piezasDespachadas ?? 0} despachadas
+                </span>
+              </div>
+              <Badge variant="outline" className="shrink-0 text-[11px]">
+                {GUIA_MASTER_ESTADO_LABELS_CORTOS[g.estadoGlobal] ?? g.estadoGlobal}
+              </Badge>
+            </div>
+          ),
+        }))}
+        selectedIds={guiasSeleccionadas}
+        onSelectedIdsChange={setGuiasSeleccionadas}
+        options={[...ACCIONES_GUIA]}
+        selectedOption={accionSeleccionada}
+        onSelectedOptionChange={setAccionSeleccionada}
+        optionLabel="Acción"
+        optionHelp={accionSeleccionada ? AYUDA_ACCION[accionSeleccionada] : undefined}
+        periodHelp={null}
+        loading={aplicarIsPending}
+        onConfirm={handleAplicarAccionGuias}
+        onOpenChange={(open) => !open && cerrarAplicarEstado()}
+      />
+
+      {motivoBulkOpen && (
+        <MotivoBulkDialog
+          accion={accionParaMotivo}
+          count={guiasSeleccionadas.length}
+          loading={accionParaMotivo === 'CANCELAR' ? cancelarBulk.isPending : reabrirBulk.isPending}
+          onClose={() => {
+            setMotivoBulkOpen(false);
+            setMotivoBulk('');
+            setAplicarEstadoOpen(true);
+          }}
+          onConfirm={async (motivo) => {
+            await runBulkAction(accionParaMotivo, guiasSeleccionadas, motivo);
+            setMotivoBulkOpen(false);
+            setMotivoBulk('');
+            cerrarAplicarEstado();
+          }}
+          motivo={motivoBulk}
+          onMotivoChange={setMotivoBulk}
+        />
+      )}
 
     </div>
   );
@@ -925,6 +1141,92 @@ function CancelarGuiaDialog({ guia, onClose }: CancelarGuiaDialogProps) {
             >
               {cancelar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {cancelar.isPending ? 'Cancelando...' : 'Cancelar guía'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface MotivoBulkDialogProps {
+  accion: 'CANCELAR' | 'REABRIR';
+  count: number;
+  motivo: string;
+  loading: boolean;
+  onMotivoChange: (v: string) => void;
+  onClose: () => void;
+  onConfirm: (motivo: string) => Promise<void>;
+}
+
+const MOTIVO_BULK_UI = {
+  CANCELAR: {
+    title: 'Cancelar',
+    nota: 'Solo se cancelarán las guías sin piezas despachadas y no terminales.',
+    placeholder: 'Ej: cliente solicitó anulación / error de registro',
+    submitVariant: 'destructive' as const,
+    pendingLabel: 'Cancelando...',
+  },
+  REABRIR: {
+    title: 'Reabrir',
+    nota: 'Solo se reabrirán guías en estado terminal (cerradas o canceladas); su estado se recalculará.',
+    placeholder: 'Ej: reactivación por nueva pieza / reapertura solicitada',
+    submitVariant: 'default' as const,
+    pendingLabel: 'Reabriendo...',
+  },
+};
+
+function MotivoBulkDialog({ accion, count, motivo, loading, onMotivoChange, onClose, onConfirm }: MotivoBulkDialogProps) {
+  const [motivoError, setMotivoError] = useState<string | undefined>();
+  const ui = MOTIVO_BULK_UI[accion];
+  const plural = count === 1 ? '' : 's';
+
+  async function handleConfirm(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = guiaCancelarSchema.safeParse({ motivo });
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? 'Debes indicar un motivo';
+      setMotivoError(msg);
+      toast.warning(msg);
+      return;
+    }
+    setMotivoError(undefined);
+    await onConfirm(parsed.data.motivo);
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !loading && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{ui.title} {count} guía{plural} master</DialogTitle>
+          <p className="text-sm text-muted-foreground">{ui.nota}</p>
+        </DialogHeader>
+        <form onSubmit={handleConfirm} className="space-y-4">
+          <div>
+            <Label htmlFor="motivo-bulk" className="mb-1 block">
+              Motivo (obligatorio)
+            </Label>
+            <Textarea
+              id="motivo-bulk"
+              rows={3}
+              maxLength={MAX_MOTIVO}
+              value={motivo}
+              onChange={(e) => {
+                onMotivoChange(e.target.value);
+                setMotivoError(undefined);
+              }}
+              placeholder={ui.placeholder}
+              aria-invalid={!!motivoError}
+            />
+            {motivoError && <p className="mt-1 text-xs text-destructive">{motivoError}</p>}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+              Volver
+            </Button>
+            <Button type="submit" variant={ui.submitVariant} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? ui.pendingLabel : `${ui.title} ${count} guía${plural}`}
             </Button>
           </DialogFooter>
         </form>

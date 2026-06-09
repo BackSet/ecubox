@@ -10,6 +10,7 @@ import com.ecubox.ecubox_backend.entity.*;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.enums.TipoEntrega;
+import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.repository.*;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
@@ -30,7 +31,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -144,9 +147,11 @@ public class DespachoService {
 
     @Transactional(readOnly = true)
     public List<DespachoDTO> findAll() {
-        return despachoRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream()
+        List<DespachoDTO> dtos = despachoRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream()
                 .map(this::toDTO)
-                .toList();
+                .collect(Collectors.toList());
+        aplicarEstadoComun(dtos);
+        return dtos;
     }
 
     /**
@@ -166,7 +171,47 @@ public class DespachoService {
                 SearchSpecifications.path("courierEntrega", "nombre"),
                 SearchSpecifications.path("agencia", "nombre"),
                 SearchSpecifications.path("consignatario", "nombre"));
-        return despachoRepository.findAll(spec, pageable).map(this::toDTO);
+        Page<DespachoDTO> pagina = despachoRepository.findAll(spec, pageable).map(this::toDTO);
+        aplicarEstadoComun(pagina.getContent());
+        return pagina;
+    }
+
+    /**
+     * Calcula y asigna el estado de rastreo común de los paquetes de cada despacho (una sola query
+     * por lote). El estado representante es el de menor orden (el menos avanzado), y se marca
+     * {@code estadoMixto} si los paquetes no comparten un único estado.
+     */
+    private void aplicarEstadoComun(List<DespachoDTO> dtos) {
+        if (dtos == null || dtos.isEmpty()) return;
+        List<Long> ids = dtos.stream().map(DespachoDTO::getId).toList();
+        List<Object[]> filas = paqueteRepository.findEstadosPaquetesPorDespacho(ids);
+        // despachoId -> (estadoId -> [nombre, orden])
+        Map<Long, Map<Long, Object[]>> porDespacho = new HashMap<>();
+        for (Object[] f : filas) {
+            Long despachoId = (Long) f[0];
+            Long estadoId = (Long) f[1];
+            porDespacho.computeIfAbsent(despachoId, k -> new HashMap<>())
+                    .putIfAbsent(estadoId, new Object[]{f[2], f[3]});
+        }
+        for (DespachoDTO dto : dtos) {
+            Map<Long, Object[]> estados = porDespacho.get(dto.getId());
+            if (estados == null || estados.isEmpty()) continue;
+            dto.setEstadoMixto(estados.size() > 1);
+            Long menorId = null;
+            String menorNombre = null;
+            Integer menorOrden = null;
+            for (Map.Entry<Long, Object[]> e : estados.entrySet()) {
+                Integer orden = (Integer) e.getValue()[1];
+                if (menorOrden == null || (orden != null && orden < menorOrden)) {
+                    menorId = e.getKey();
+                    menorNombre = (String) e.getValue()[0];
+                    menorOrden = orden;
+                }
+            }
+            dto.setEstadoRastreoComunId(menorId);
+            dto.setEstadoRastreoComunNombre(menorNombre);
+            dto.setEstadoRastreoComunOrden(menorOrden);
+        }
     }
 
     @Transactional
@@ -474,8 +519,8 @@ public class DespachoService {
 
     /**
      * Aplica el estado a todos los paquetes de los despachos indicados (uno o varios).
-     * Si {@code estadoRastreoIdOpcional} es null se usa el estado "en tránsito" configurado.
-     * El estado debe ser estrictamente posterior al "estado del punto de despacho".
+     * El estado es obligatorio, debe ser manual y estrictamente posterior al
+     * "estado del punto de despacho".
      */
     @Transactional
     public AplicarEstadoPorPeriodoResponse aplicarEstadoRastreoEnDespachos(List<Long> despachoIds,
@@ -498,18 +543,44 @@ public class DespachoService {
 
     /**
      * Lista los estados de rastreo activos que el operario puede aplicar a los paquetes
-     * de un despacho. Solo se incluyen estados estrictamente posteriores al "estado del
+     * de un despacho. Se incluyen estados estrictamente posteriores al "estado del
      * punto de despacho" configurado, ordenados por orden de tracking.
+     *
+     * <p>Excepción: el estado de "avance masivo por despacho" ({@code estado_rastreo_en_transito})
+     * se incluye y se ubica como primera opción aunque pertenezca al conjunto de estados
+     * gestionados automáticamente, porque en despachos los estados de los paquetes se manejan
+     * de forma masiva a partir de ese punto. El resto de estados reservados se excluyen.</p>
      */
     @Transactional(readOnly = true)
     public List<EstadoRastreoDTO> listarEstadosPosterioresADespacho() {
         Integer ordenDespacho = ordenEstadoEnDespachoOrThrow();
-        return estadoRastreoService.findActivos().stream()
-                .filter(e -> {
-                    Integer orden = e.getOrden() != null ? e.getOrden() : e.getOrdenTracking();
-                    return orden != null && orden > ordenDespacho;
-                })
-                .toList();
+        Long enTransitoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnTransitoId();
+        Long entregaConfirmadaId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEntregaConfirmadaClienteId();
+        Set<Long> reservados = parametroSistemaService.getIdsEstadosRastreoGestionadosAutomaticamente();
+        List<EstadoRastreoDTO> result = new ArrayList<>(
+                estadoRastreoService.findActivos().stream()
+                        .filter(e -> {
+                            Integer orden = e.getOrden() != null ? e.getOrden() : e.getOrdenTracking();
+                            boolean posterior = orden != null && orden > ordenDespacho;
+                            // Estados ALTERNO (ej. "Retenido en aduana") aplican a paquetes individuales,
+                            // no a despachos completos.
+                            boolean esNormal = e.getTipoFlujo() != TipoFlujoEstado.ALTERNO;
+                            // "en tránsito" y "entrega confirmada" se permiten aunque sean reservados.
+                            boolean permitido = !reservados.contains(e.getId())
+                                    || e.getId().equals(enTransitoId)
+                                    || e.getId().equals(entregaConfirmadaId);
+                            return posterior && esNormal && permitido;
+                        })
+                        .toList());
+        // Ubicar "en tránsito" (avance masivo) como primera opción.
+        if (enTransitoId != null) {
+            result.sort((a, b) -> {
+                if (a.getId().equals(enTransitoId)) return -1;
+                if (b.getId().equals(enTransitoId)) return 1;
+                return 0;
+            });
+        }
+        return result;
     }
 
     /**
@@ -518,12 +589,15 @@ public class DespachoService {
      * abre este flujo, así que solo tiene sentido avanzarlos).
      */
     private Long resolverEstadoIdPosteriorADespacho(Long estadoRastreoIdOpcional) {
-        Long estadoId = estadoRastreoIdOpcional != null
-                ? estadoRastreoIdOpcional
-                : parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnTransitoId();
+        Long estadoId = estadoRastreoIdOpcional;
         if (estadoId == null) {
-            throw new BadRequestException(
-                    "No hay un estado por defecto configurado para aplicar después del despacho. Configure 'En tránsito' en parámetros.");
+            throw new BadRequestException("Seleccione el estado manual que desea aplicar.");
+        }
+        // "en tránsito" y "entrega confirmada" son reservados pero se permiten en despachos.
+        Long enTransitoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnTransitoId();
+        Long entregaConfirmadaId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEntregaConfirmadaClienteId();
+        if (!estadoId.equals(enTransitoId) && !estadoId.equals(entregaConfirmadaId)) {
+            parametroSistemaService.validarEstadoRastreoAplicableManualmente(estadoId);
         }
         Integer ordenDespacho = ordenEstadoEnDespachoOrThrow();
         Integer ordenObjetivo = estadoRastreoService.getOrdenById(estadoId);
@@ -558,6 +632,18 @@ public class DespachoService {
         return orden;
     }
 
+    private Integer ordenEfectivoEstadoOrThrow(Long estadoId) {
+        Integer orden = estadoRastreoService.getOrdenById(estadoId);
+        if (orden == null) {
+            EstadoRastreo entidad = estadoRastreoService.findEntityById(estadoId);
+            orden = entidad.getOrden() != null ? entidad.getOrden() : entidad.getOrdenTracking();
+        }
+        if (orden == null) {
+            throw new BadRequestException("El estado seleccionado no tiene un orden de tracking definido");
+        }
+        return orden;
+    }
+
     private AplicarEstadoPorPeriodoResponse aplicarEstadoEnDespachos(List<Despacho> despachos, Long estadoId) {
         if (despachos.isEmpty()) {
             return AplicarEstadoPorPeriodoResponse.builder().despachosProcesados(0).paquetesActualizados(0).build();
@@ -565,7 +651,11 @@ public class DespachoService {
         List<Long> despachoIds = despachos.stream().map(Despacho::getId).toList();
         List<Saca> sacas = sacaRepository.findByDespachoIdIn(despachoIds);
         List<Long> sacaIds = sacas.stream().map(Saca::getId).toList();
-        List<Long> paqueteIds = sacaIds.isEmpty() ? List.of() : paqueteRepository.findIdsBySacaIdIn(sacaIds);
+        // Solo avanzar los paquetes cuyo estado actual es anterior al destino: nunca retroceder.
+        Integer ordenDestino = ordenEfectivoEstadoOrThrow(estadoId);
+        List<Long> paqueteIds = sacaIds.isEmpty()
+                ? List.of()
+                : paqueteRepository.findIdsBySacaIdInConEstadoAnterior(sacaIds, ordenDestino);
         paqueteService.aplicarEstadoRastreoMasivo(paqueteIds, estadoId);
         return AplicarEstadoPorPeriodoResponse.builder()
                 .despachosProcesados(despachos.size())

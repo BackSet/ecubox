@@ -509,6 +509,92 @@ Base: `/api/operario/estados-rastreo`
 
 ---
 
+## Envíos consolidados
+
+Base: `/api/envios-consolidados`
+
+| Método | Ruta | Permiso | Descripción |
+|--------|------|---------|-------------|
+| GET | `/api/envios-consolidados` | `ENVIOS_CONSOLIDADOS_READ` | Listar con filtros |
+| GET | `/api/envios-consolidados/disponibles-recepcion` | `DESPACHOS_WRITE` | Elegibles para lote (ignora pago y salida USA) |
+| GET | `/api/envios-consolidados/{id}` | `ENVIOS_CONSOLIDADOS_READ` | Detalle (opcionalmente con paquetes) |
+| POST | `/api/envios-consolidados` | `ENVIOS_CONSOLIDADOS_CREATE` | Crear |
+| POST | `/api/envios-consolidados/{id}/enviar-usa` | `ENVIOS_CONSOLIDADOS_UPDATE` | Marcar salida USA |
+| POST | `/api/envios-consolidados/{id}/cerrar` | `ENVIOS_CONSOLIDADOS_UPDATE` | **Deprecated** — alias de `enviar-usa` |
+| POST | `/api/envios-consolidados/{id}/reabrir` | `ENVIOS_CONSOLIDADOS_UPDATE` | Revertir salida USA |
+| DELETE | `/api/envios-consolidados/{id}` | `ENVIOS_CONSOLIDADOS_DELETE` | Eliminar (`?eliminarPaquetes=true` opcional) |
+| POST | `/api/envios-consolidados/{id}/paquetes` | `ENVIOS_CONSOLIDADOS_UPDATE` | Agregar paquetes (dispara estado asociar consolidado) |
+| DELETE | `/api/envios-consolidados/{id}/paquetes` | `ENVIOS_CONSOLIDADOS_UPDATE` | Quitar paquetes |
+| GET | `/api/envios-consolidados/estados-aplicables` | `ENVIOS_CONSOLIDADOS_UPDATE` | Estados posteriores a asociación consolidado |
+| POST | `/api/envios-consolidados/aplicar-estado` | `ENVIOS_CONSOLIDADOS_UPDATE` | Bulk `{ consolidadoIds, estadoRastreoId }` |
+| GET | `/api/envios-consolidados/{id}/manifiesto.pdf` | `ENVIOS_CONSOLIDADOS_READ` | Manifiesto PDF |
+| GET | `/api/envios-consolidados/{id}/manifiesto.xlsx` | `ENVIOS_CONSOLIDADOS_READ` | Manifiesto Excel |
+
+**Query `GET /`:**
+
+| Parámetro | Valores |
+|-----------|---------|
+| `estado` | `TODOS`, `VACIO`, `EN_PREPARACION`, `ENVIADO_DESDE_USA`, `RECIBIDO_EN_BODEGA`, `LIQUIDADO` |
+| `estadoPago` | `TODOS`, `PAGADO`, `NO_PAGADO` |
+| `q`, `page`, `size` | Búsqueda y paginación |
+
+**Response `EnvioConsolidadoDTO`:** `id`, `codigo`, `cerrado` (derivado), `estadoOperativo`, `fechaCerrado`, `estadoPago`, `totalPaquetes`, `pesoTotalLbs`, `paquetes[]`.
+
+---
+
+## Cliente: Mis despachos (Mis entregas)
+
+Base: `/api/mis-despachos`
+
+| Método | Ruta | Permiso | Descripción |
+|--------|------|---------|-------------|
+| GET | `/api/mis-despachos` | `MIS_ENTREGAS_READ` o `ACCESO_ENLACE_MIS_ENTREGAS_READ` | Lista despachos del cliente |
+| GET | `/api/mis-despachos/{id}` | idem | Detalle con piezas del cliente |
+| POST | `/api/mis-despachos/{id}/confirmar-entrega` | `MIS_ENTREGAS_CONFIRM` | Cliente confirma recepción |
+
+**`MiDespachoDTO`:** `id`, `numeroGuia`, `confirmable`, `entregaConfirmada`, fechas, totales.
+
+**`MiDespachoDetalleDTO`:** cabecera + `piezas[]` (`MiDespachoPiezaDTO`).
+
+---
+
+## Paquetes (campos de estado relevantes)
+
+En `PaqueteDTO` (operario y listados):
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `estadoRastreoCodigo` / `Nombre` | string | Estado actual del catálogo |
+| `estadoRastreoTipoFlujo` | `NORMAL` \| `ALTERNO` | Para tono de badge en UI |
+| `guiaMasterEstadoGlobal` | `EstadoGuiaMaster` | Estado global de la guía master |
+| `envioConsolidadoCerrado` | boolean | Compat: `fechaCerrado != null` |
+| `envioConsolidadoEstadoOperativo` | enum | `VACIO` … `LIQUIDADO` (derivado) |
+
+---
+
+## Estados por punto (campos ampliados)
+
+`GET/PUT /api/operario/config/estados-rastreo-por-punto`
+
+**Paquetes (`@NotNull` en PUT):** `estadoRastreoRegistroPaqueteId`, `estadoRastreoEnLoteRecepcionId`, `estadoRastreoAsociarEnvioConsolidadoId`, `estadoRastreoAsociarGuiaMasterId`, `estadoRastreoEnDespachoId`, `estadoRastreoEnTransitoId`, `estadoRastreoEnviadoDesdeUsaId`, `estadoRastreoArribadoEcId`.
+
+**Opcionales:** `estadoRastreoEntregaConfirmadaClienteId`, `estadoRastreoAvisoConfirmacionEntregaId`, `estadoRastreoInicioCuentaRegresivaId`, `estadoRastreoFinCuentaRegresivaId`.
+
+Los estados de guía master y consolidado son enums y reglas internas del sistema. Se
+muestran como referencia en la interfaz, pero no forman parte del contrato editable.
+
+---
+
+## Guías master (estados v2)
+
+Enum `EstadoGuiaMaster`: `SIN_PIEZAS_REGISTRADAS`, `EN_ESPERA_RECEPCION`, `EN_TRANSITO_USA_ECUADOR`, `RECEPCION_PARCIAL`, `RECEPCION_COMPLETA`, `DESPACHO_PARCIAL`, `DESPACHO_COMPLETADO`, `DESPACHO_INCOMPLETO`, `CANCELADA`, `EN_REVISION`.
+
+Valores históricos (`INCOMPLETA`, `CERRADA`, `CERRADA_CON_FALTANTE`, etc.) fueron normalizados en migración V102.
+
+Endpoints de ciclo de vida (base `/api/guias-master`): recálculo automático, `cerrar-con-faltante` → `DESPACHO_INCOMPLETO`, cancelar, marcar en revisión, auto-cierre desde `DESPACHO_PARCIAL`.
+
+---
+
 ## Referencia de permisos
 
 Tabla de permisos usados en `@PreAuthorize` y los endpoints que protegen:
@@ -545,6 +631,15 @@ Tabla de permisos usados en `@PreAuthorize` y los endpoints que protegen:
 | `ESTADOS_RASTREO_CREATE` | POST `/api/operario/estados-rastreo` |
 | `ESTADOS_RASTREO_UPDATE` | PUT `/api/operario/estados-rastreo/*`, `/api/operario/config/estados-rastreo-por-punto` |
 | `ESTADOS_RASTREO_DELETE` | PATCH/DELETE `/api/operario/estados-rastreo/{id}` |
+| `ENVIOS_CONSOLIDADOS_READ` | GET `/api/envios-consolidados/*` (listado, detalle, manifiestos) |
+| `ENVIOS_CONSOLIDADOS_CREATE` | POST `/api/envios-consolidados` |
+| `ENVIOS_CONSOLIDADOS_UPDATE` | POST `/api/envios-consolidados/{id}/enviar-usa`, `/reabrir`, `/paquetes`, `/aplicar-estado` |
+| `ENVIOS_CONSOLIDADOS_DELETE` | DELETE `/api/envios-consolidados/{id}` |
+| `MIS_ENTREGAS_READ` | GET `/api/mis-despachos` |
+| `MIS_ENTREGAS_CONFIRM` | POST `/api/mis-despachos/{id}/confirmar-entrega` |
+| `MIS_ENTREGAS_EXPORT` | Export PDF/XLSX en frontend Mis entregas |
+| `ACCESO_ENLACE_MIS_ENTREGAS_READ` | GET `/api/mis-despachos` (enlace mágico) |
+| `GUIAS_MASTER_READ` | GET `/api/guias-master/*` |
 
 **Nota:** El rol `ADMIN` tiene todos los permisos automáticamente. Algunos endpoints de operario también aceptan roles `ADMIN` u `OPERARIO` directamente.
 

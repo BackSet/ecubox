@@ -356,8 +356,8 @@ public class GuiaMasterService {
 
     /**
      * Actualiza tracking base y/o destinatario de una guía propia del cliente.
-     * Solo permitido mientras la guía esté en estado {@code INCOMPLETA} (i.e.,
-     * ningún paquete recibido/despachado todavía).
+     * Solo permitido mientras la guía esté en estado inicial
+     * {@code SIN_PIEZAS_REGISTRADAS} o {@code EN_ESPERA_RECEPCION}.
      */
     @Transactional
     public GuiaMaster updateForCliente(Long guiaId, String nuevoTrackingBase, Long consignatarioId, Long clienteUsuarioId) {
@@ -408,7 +408,7 @@ public class GuiaMasterService {
 
     /**
      * Elimina una guía propia del cliente. Solo permitido mientras esté en
-     * estado {@code INCOMPLETA}. Reusa la lógica completa de {@link #delete}.
+     * estado inicial de registro. Reusa la lógica completa de {@link #delete}.
      */
     @Transactional
     public void deleteForCliente(Long guiaId, Long clienteUsuarioId) {
@@ -422,9 +422,8 @@ public class GuiaMasterService {
 
     /**
      * El cliente solo puede modificar sus guías mientras estén en estado
-     * {@code INCOMPLETA} (es decir, mientras no se haya recibido ni despachado
-     * ninguna pieza). Una vez la guía progrese su estado, queda inmutable
-     * para el cliente.
+     * {@code SIN_PIEZAS_REGISTRADAS} o {@code EN_ESPERA_RECEPCION}. Una vez la
+     * guía progrese su estado, queda inmutable para el cliente.
      */
     private void guardarSiEsEditablePorCliente(GuiaMaster gm) {
         EstadoGuiaMaster estado = gm.getEstadoGlobal();
@@ -1104,7 +1103,9 @@ public class GuiaMasterService {
         }
         int registradas = piezas.size();
         Long enLoteRecepcionId = getIdEstadoEnLoteRecepcion();
+        Long enviadoDesdeUsaId = getIdEstadoEnviadoDesdeUsa();
         long enRecepcion = piezas.stream().filter(p -> piezaEnRecepcionBodega(p, enLoteRecepcionId)).count();
+        long enviadasDesdeUsa = piezas.stream().filter(p -> piezaEnviadaDesdeUsa(p, enviadoDesdeUsaId)).count();
         long despachadas = piezas.stream().filter(this::piezaDespachada).count();
 
         boolean despachoCompleto = (totalRaw != null && totalRaw >= 1)
@@ -1126,6 +1127,9 @@ public class GuiaMasterService {
         if (enRecepcion > 0) {
             return EstadoGuiaMaster.RECEPCION_PARCIAL;
         }
+        if (enviadasDesdeUsa > 0) {
+            return EstadoGuiaMaster.EN_TRANSITO_USA_ECUADOR;
+        }
         return EstadoGuiaMaster.EN_ESPERA_RECEPCION;
     }
 
@@ -1134,7 +1138,7 @@ public class GuiaMasterService {
      * cambia {@code consignatario} y regenera {@code ref} con el codigoBase
      * del nuevo destinatario via {@link CodigoSecuenciaService}.
      *
-     * <p>Se bloquea si alguna pieza ya fue recibida o despachada para no romper
+     * <p>Se bloquea si alguna pieza ya fue enviada, recibida o despachada para no romper
      * la trazabilidad. La validacion SCD2 (snapshot congelado) la hace el
      * llamador antes de invocar este metodo.
      */
@@ -1143,11 +1147,14 @@ public class GuiaMasterService {
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
         if (piezas.isEmpty()) return;
         Long enLoteRecepcionId = getIdEstadoEnLoteRecepcion();
+        Long enviadoDesdeUsaId = getIdEstadoEnviadoDesdeUsa();
         for (Paquete p : piezas) {
-            if (piezaEnRecepcionBodega(p, enLoteRecepcionId) || piezaDespachada(p)) {
+            if (piezaEnviadaDesdeUsa(p, enviadoDesdeUsaId)
+                    || piezaEnRecepcionBodega(p, enLoteRecepcionId)
+                    || piezaDespachada(p)) {
                 throw new ConflictException(
                         "No se puede cambiar el destinatario: la pieza " + p.getPiezaNumero()
-                                + "/" + p.getPiezaTotal() + " ya fue recibida o despachada.");
+                                + "/" + p.getPiezaTotal() + " ya fue enviada, recibida o despachada.");
             }
         }
         String codigoBase = PaqueteService.resolverCodigoBase(nuevoDest);
@@ -1168,6 +1175,12 @@ public class GuiaMasterService {
         return er != null && estadoEnLoteRecepcionId.equals(er.getId());
     }
 
+    private boolean piezaEnviadaDesdeUsa(Paquete p, Long estadoEnviadoDesdeUsaId) {
+        if (p == null || estadoEnviadoDesdeUsaId == null) return false;
+        EstadoRastreo er = p.getEstadoRastreo();
+        return er != null && estadoEnviadoDesdeUsaId.equals(er.getId());
+    }
+
     /**
      * Una pieza se considera "despachada" cuando tiene una saca asignada a un
      * despacho (es decir, ya fue enrutada en un despacho concreto). Esto alinea
@@ -1183,6 +1196,16 @@ public class GuiaMasterService {
         EstadosRastreoPorPuntoDTO cfg = parametroSistemaService.getEstadosRastreoPorPunto();
         if (cfg == null) return null;
         Long id = cfg.getEstadoRastreoEnLoteRecepcionId();
+        if (id != null && id.equals(cfg.getEstadoRastreoRegistroPaqueteId())) {
+            return null;
+        }
+        return id;
+    }
+
+    private Long getIdEstadoEnviadoDesdeUsa() {
+        EstadosRastreoPorPuntoDTO cfg = parametroSistemaService.getEstadosRastreoPorPunto();
+        if (cfg == null) return null;
+        Long id = cfg.getEstadoRastreoEnviadoDesdeUsaId();
         if (id != null && id.equals(cfg.getEstadoRastreoRegistroPaqueteId())) {
             return null;
         }

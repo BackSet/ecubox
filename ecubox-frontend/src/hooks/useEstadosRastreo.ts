@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import {
   getEstadosRastreo,
   getEstadosRastreoActivos,
@@ -20,6 +25,18 @@ export const ESTADOS_RASTREO_QUERY_KEY = ['estados-rastreo'] as const;
 export const ESTADOS_RASTREO_POR_PUNTO_QUERY_KEY = [
   'estados-rastreo-por-punto',
 ] as const;
+
+/** Listas de estados aplicables que dependen de Parámetros → Estados por punto. */
+const ESTADOS_APLICABLES_DEPENDIENTES_QUERY_KEYS = [
+  ['envios-consolidados', 'estados-aplicables'],
+  ['operario', 'despachos', 'estados-aplicables'],
+] as const;
+
+function invalidateEstadosAplicablesDependientes(qc: QueryClient) {
+  for (const queryKey of ESTADOS_APLICABLES_DEPENDIENTES_QUERY_KEYS) {
+    qc.invalidateQueries({ queryKey });
+  }
+}
 export function useEstadosRastreo() {
   return useQuery({
     queryKey: ESTADOS_RASTREO_QUERY_KEY,
@@ -48,6 +65,7 @@ export function useUpdateEstadosRastreoPorPunto() {
       updateEstadosRastreoPorPunto(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ESTADOS_RASTREO_POR_PUNTO_QUERY_KEY });
+      invalidateEstadosAplicablesDependientes(qc);
     },
   });
 }
@@ -58,6 +76,7 @@ export function useCreateEstadoRastreo() {
     mutationFn: (body: EstadoRastreoRequest) => createEstadoRastreo(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ESTADOS_RASTREO_QUERY_KEY });
+      invalidateEstadosAplicablesDependientes(qc);
     },
   });
 }
@@ -69,6 +88,7 @@ export function useUpdateEstadoRastreoEntity() {
       updateEstadoRastreo(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ESTADOS_RASTREO_QUERY_KEY });
+      invalidateEstadosAplicablesDependientes(qc);
     },
   });
 }
@@ -79,6 +99,7 @@ export function useDesactivarEstadoRastreo() {
     mutationFn: (id: number) => desactivarEstadoRastreo(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ESTADOS_RASTREO_QUERY_KEY });
+      invalidateEstadosAplicablesDependientes(qc);
     },
   });
 }
@@ -89,6 +110,7 @@ export function useDeleteEstadoRastreo() {
     mutationFn: (id: number) => deleteEstadoRastreo(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ESTADOS_RASTREO_QUERY_KEY });
+      invalidateEstadosAplicablesDependientes(qc);
     },
   });
 }
@@ -100,6 +122,7 @@ export function useReorderTrackingEstadosRastreo() {
       reorderTrackingEstadoRastreo(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ESTADOS_RASTREO_QUERY_KEY });
+      invalidateEstadosAplicablesDependientes(qc);
     },
   });
 }

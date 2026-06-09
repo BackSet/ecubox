@@ -98,6 +98,7 @@ export function MisGuiasListPage() {
     const conteos: Record<EstadoGuiaMaster, number> = {
       SIN_PIEZAS_REGISTRADAS: 0,
       EN_ESPERA_RECEPCION: 0,
+      EN_TRANSITO_USA_ECUADOR: 0,
       RECEPCION_PARCIAL: 0,
       RECEPCION_COMPLETA: 0,
       DESPACHO_PARCIAL: 0,
@@ -118,13 +119,15 @@ export function MisGuiasListPage() {
     const c = conteosPorEstado;
     const enEspera = (c.SIN_PIEZAS_REGISTRADAS ?? 0) + (c.EN_ESPERA_RECEPCION ?? 0);
     const enBodega = (c.RECEPCION_PARCIAL ?? 0) + (c.RECEPCION_COMPLETA ?? 0);
-    const enCamino = c.DESPACHO_PARCIAL ?? 0;
+    const enTransitoUsaEc = c.EN_TRANSITO_USA_ECUADOR ?? 0;
+    const enCamino = enTransitoUsaEc + (c.DESPACHO_PARCIAL ?? 0);
     const entregadas =
       (c.DESPACHO_COMPLETADO ?? 0) + (c.DESPACHO_INCOMPLETO ?? 0);
     return {
       total: guias.length,
       enEspera,
       enBodega,
+      enTransitoUsaEc,
       enCamino,
       entregadas,
     };

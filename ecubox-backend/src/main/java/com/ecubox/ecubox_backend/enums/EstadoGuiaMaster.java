@@ -22,8 +22,10 @@ public enum EstadoGuiaMaster {
      * entro a recepcion en bodega.
      */
     SIN_PIEZAS_REGISTRADAS,
-    /** Hay piezas registradas pero ninguna en recepcion bodega ni despachada. */
+    /** Hay piezas registradas pero ninguna salio de origen, entro a recepcion bodega ni fue despachada. */
     EN_ESPERA_RECEPCION,
+    /** Al menos una pieza salio de origen dentro de un consolidado y aun no fue recibida en bodega. */
+    EN_TRANSITO_USA_ECUADOR,
     /** Al menos una pieza recibida en bodega; otras siguen en camino. */
     RECEPCION_PARCIAL,
     /** Todas las piezas esperadas estan recibidas en bodega; ninguna despachada todavia. */

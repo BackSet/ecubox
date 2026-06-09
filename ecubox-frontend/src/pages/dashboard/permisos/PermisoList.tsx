@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   List,
   Lock,
+  PackageCheck,
   PencilLine,
   ShieldCheck,
   Sparkles,
@@ -86,6 +87,7 @@ const MODULO_LABELS: Record<string, string> = {
   LIQUIDACION: 'Liquidación',
   PUNTOS_ENTREGA: 'Puntos de entrega',
   MIS_GUIAS: 'Mis guías',
+  MIS_ENTREGAS: 'Mis entregas',
 };
 
 const MODULO_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -109,6 +111,7 @@ const MODULO_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   CONFIG_TARIFA: Sparkles,
   LOTES_RECEPCION: BookOpen,
   TRACKING_PROJECTOR: ChartNoAxesCombined,
+  MIS_ENTREGAS: PackageCheck,
 };
 
 function getModulo(codigo: string): string {
@@ -125,6 +128,7 @@ function getModulo(codigo: string): string {
   if (codigo.startsWith('LIQUIDACION_CONSOLIDADO_')) return 'LIQUIDACION';
   if (codigo.startsWith('PUNTOS_ENTREGA_')) return 'PUNTOS_ENTREGA';
   if (codigo.startsWith('MIS_GUIAS_')) return 'MIS_GUIAS';
+  if (codigo.startsWith('MIS_ENTREGAS_')) return 'MIS_ENTREGAS';
   if (codigo.startsWith('GUIAS_MASTER_')) return 'GUIAS';
   if (codigo.startsWith('ENVIOS_CONSOLIDADOS_')) return 'ENVIOS';
   if (codigo.startsWith('COURIERS_ENTREGA_')) return 'COURIERS_ENTREGA';
@@ -137,7 +141,7 @@ function getAccion(codigo: string): string {
   return idx > 0 ? codigo.slice(idx + 1) : '';
 }
 
-type TipoAccion = 'READ' | 'CREATE' | 'UPDATE' | 'DELETE' | 'WRITE' | 'OTRO';
+type TipoAccion = 'READ' | 'CREATE' | 'UPDATE' | 'DELETE' | 'WRITE' | 'EXPORT' | 'OTRO';
 
 function getTipoAccion(codigo: string): TipoAccion {
   const accion = getAccion(codigo).toUpperCase();
@@ -146,7 +150,9 @@ function getTipoAccion(codigo: string): TipoAccion {
   if (accion.includes('CREATE') || accion.includes('ADD') || accion.includes('NEW')) return 'CREATE';
   if (accion.includes('UPDATE') || accion.includes('EDIT')) return 'UPDATE';
   if (accion.includes('DELETE') || accion.includes('REMOVE')) return 'DELETE';
+  if (accion.includes('CONFIRM')) return 'WRITE';
   if (accion.includes('WRITE')) return 'WRITE';
+  if (accion.includes('EXPORT') || accion.includes('PRINT')) return 'EXPORT';
   return 'OTRO';
 }
 
@@ -183,6 +189,12 @@ const TIPO_META: Record<
     tone:
       'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
     icon: PencilLine,
+  },
+  EXPORT: {
+    label: 'Exportar',
+    tone:
+      'border-[var(--color-success)]/30 bg-[var(--color-success)]/10 text-[var(--color-success)]',
+    icon: BookOpen,
   },
   OTRO: {
     label: 'Otros',

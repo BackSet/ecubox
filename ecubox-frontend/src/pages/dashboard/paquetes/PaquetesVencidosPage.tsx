@@ -12,7 +12,7 @@ import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
 import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { Button } from '@/components/ui/button';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusBadge, getRastreoStatusTone } from '@/components/ui/StatusBadge';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import {
   Table,
@@ -367,7 +367,7 @@ export function PaquetesVencidosPage() {
                       <PlazoCell paquete={p} />
                     </TableCell>
                     <TableCell className="align-top">
-                      <StatusBadge tone="neutral">
+                      <StatusBadge tone={getRastreoStatusTone(p.estadoRastreoTipoFlujo)}>
                         {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
                       </StatusBadge>
                     </TableCell>

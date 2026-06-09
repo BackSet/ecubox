@@ -49,6 +49,7 @@ class EnvioConsolidadoServiceTest {
     @Mock private PaqueteService paqueteService;
     @Mock private LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository;
     @Mock private LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
+    @Mock private EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver;
 
     private EnvioConsolidadoService service;
 
@@ -63,7 +64,8 @@ class EnvioConsolidadoServiceTest {
                 paqueteRepository,
                 paqueteService,
                 liquidacionConsolidadoLineaRepository,
-                loteRecepcionGuiaRepository);
+                loteRecepcionGuiaRepository,
+                estadoConsolidadoOperativoResolver);
         lenient().when(envioRepository.save(any(EnvioConsolidado.class)))
                 .thenAnswer(inv -> {
                     EnvioConsolidado e = inv.getArgument(0);

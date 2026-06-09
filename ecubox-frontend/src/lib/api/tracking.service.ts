@@ -116,16 +116,8 @@ export interface TrackingResponse {
  */
 export type TrackingTipo = 'PIEZA' | 'GUIA_MASTER';
 
-export type EstadoGuiaMaster =
-  | 'SIN_PIEZAS_REGISTRADAS'
-  | 'EN_ESPERA_RECEPCION'
-  | 'RECEPCION_PARCIAL'
-  | 'RECEPCION_COMPLETA'
-  | 'DESPACHO_PARCIAL'
-  | 'DESPACHO_COMPLETADO'
-  | 'DESPACHO_INCOMPLETO'
-  | 'CANCELADA'
-  | 'EN_REVISION';
+export type { EstadoGuiaMaster } from '@/types/guia-master';
+import type { EstadoGuiaMaster } from '@/types/guia-master';
 
 export interface TrackingPiezaItem {
   numeroGuia: string;

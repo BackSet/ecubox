@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
+import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteCreateRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.entity.Despacho;
@@ -72,6 +73,8 @@ class PaqueteServiceOp3Test {
     private CodigoSecuenciaService codigoSecuenciaService;
     @Mock
     private EnvioConsolidadoService envioConsolidadoService;
+    @Mock
+    private EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver;
 
     private PaqueteService createPaqueteService(boolean useEventTimeline) {
         return new PaqueteService(
@@ -90,6 +93,7 @@ class PaqueteServiceOp3Test {
                 new SacaEnDespachoValidator(),
                 codigoSecuenciaService,
                 envioConsolidadoService,
+                estadoConsolidadoOperativoResolver,
                 useEventTimeline
         );
     }
@@ -462,8 +466,68 @@ class PaqueteServiceOp3Test {
                 .thenReturn(Optional.of(ultimo));
 
         int reverted = paqueteService.revertirEstadoSiUltimoEventoCoincide(List.of(88L), "DESPACHO_AUTO");
-
+ 
         assertEquals(0, reverted);
         verifyNoInteractions(outboxEventRepository);
+    }
+ 
+    @Test
+    void listarEstadosPosterioresAAsociacionConsolidado_filtraPorOrdenLimite() {
+        PaqueteService paqueteService = createPaqueteService(false);
+ 
+        EstadosRastreoPorPuntoDTO config = EstadosRastreoPorPuntoDTO.builder()
+                .estadoRastreoAsociarEnvioConsolidadoId(2L)
+                .estadoRastreoEnLoteRecepcionId(6L)
+                .build();
+        when(parametroSistemaService.getEstadosRastreoPorPunto()).thenReturn(config);
+ 
+        when(estadoRastreoService.getOrdenById(2L)).thenReturn(2);
+        when(estadoRastreoService.getOrdenById(6L)).thenReturn(6);
+ 
+        EstadoRastreoDTO er1 = EstadoRastreoDTO.builder().id(1L).codigo("REGISTRADO").orden(1).tipoFlujo(TipoFlujoEstado.NORMAL).activo(true).build();
+        EstadoRastreoDTO er2 = EstadoRastreoDTO.builder().id(2L).codigo("PLANILLA").orden(2).tipoFlujo(TipoFlujoEstado.NORMAL).activo(true).build();
+        EstadoRastreoDTO er3 = EstadoRastreoDTO.builder().id(4L).codigo("VUELO").orden(4).tipoFlujo(TipoFlujoEstado.NORMAL).activo(true).build();
+        EstadoRastreoDTO er4 = EstadoRastreoDTO.builder().id(7L).codigo("TRABAJO").orden(7).tipoFlujo(TipoFlujoEstado.NORMAL).activo(true).build();
+        EstadoRastreoDTO er5 = EstadoRastreoDTO.builder().id(10L).codigo("RETENIDO").orden(10).tipoFlujo(TipoFlujoEstado.ALTERNO).afterEstadoId(5L).activo(true).build();
+        EstadoRastreoDTO er6 = EstadoRastreoDTO.builder().id(11L).codigo("RETENIDO_POST").orden(11).tipoFlujo(TipoFlujoEstado.ALTERNO).afterEstadoId(7L).activo(true).build();
+ 
+        when(estadoRastreoService.findActivos()).thenReturn(List.of(er1, er2, er3, er4, er5, er6));
+        when(estadoRastreoService.getOrdenById(5L)).thenReturn(5);
+        when(estadoRastreoService.getOrdenById(7L)).thenReturn(7);
+ 
+        List<EstadoRastreoDTO> result = paqueteService.listarEstadosPosterioresAAsociacionConsolidado();
+ 
+        assertEquals(2, result.size());
+        assertTrue(result.stream().anyMatch(e -> e.getCodigo().equals("VUELO")));
+        assertTrue(result.stream().anyMatch(e -> e.getCodigo().equals("RETENIDO")));
+    }
+ 
+    @Test
+    void validarEstadoPosteriorAAsociacionConsolidado_validaRangoCorrectamente() {
+        PaqueteService paqueteService = createPaqueteService(false);
+ 
+        EstadosRastreoPorPuntoDTO config = EstadosRastreoPorPuntoDTO.builder()
+                .estadoRastreoAsociarEnvioConsolidadoId(2L)
+                .estadoRastreoEnLoteRecepcionId(6L)
+                .build();
+        when(parametroSistemaService.getEstadosRastreoPorPunto()).thenReturn(config);
+        when(estadoRastreoService.getOrdenById(2L)).thenReturn(2);
+        when(estadoRastreoService.getOrdenById(6L)).thenReturn(6);
+ 
+        EstadoRastreo planilla = EstadoRastreo.builder().id(2L).codigo("PLANILLA").orden(2).tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        EstadoRastreo vuelo = EstadoRastreo.builder().id(4L).codigo("VUELO").orden(4).tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        EstadoRastreo trabajo = EstadoRastreo.builder().id(7L).codigo("TRABAJO").orden(7).tipoFlujo(TipoFlujoEstado.NORMAL).build();
+ 
+        when(estadoRastreoService.findEntityById(2L)).thenReturn(planilla);
+        when(estadoRastreoService.findEntityById(4L)).thenReturn(vuelo);
+        when(estadoRastreoService.findEntityById(7L)).thenReturn(trabajo);
+ 
+        org.junit.jupiter.api.Assertions.assertThrows(com.ecubox.ecubox_backend.exception.BadRequestException.class,
+                () -> paqueteService.validarEstadoPosteriorAAsociacionConsolidado(2L));
+ 
+        paqueteService.validarEstadoPosteriorAAsociacionConsolidado(4L);
+ 
+        org.junit.jupiter.api.Assertions.assertThrows(com.ecubox.ecubox_backend.exception.BadRequestException.class,
+                () -> paqueteService.validarEstadoPosteriorAAsociacionConsolidado(7L));
     }
 }

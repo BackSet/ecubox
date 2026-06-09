@@ -22,6 +22,7 @@ import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.entity.PaqueteEstadoEvento;
 import com.ecubox.ecubox_backend.entity.Saca;
+import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import com.ecubox.ecubox_backend.enums.TrackingEventType;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
@@ -83,6 +84,7 @@ public class PaqueteService {
     private final SacaEnDespachoValidator sacaEnDespachoValidator;
     private final CodigoSecuenciaService codigoSecuenciaService;
     private final EnvioConsolidadoService envioConsolidadoService;
+    private final EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver;
     private final boolean useEventTimeline;
 
     public PaqueteService(PaqueteRepository paqueteRepository,
@@ -100,6 +102,7 @@ public class PaqueteService {
                           SacaEnDespachoValidator sacaEnDespachoValidator,
                           CodigoSecuenciaService codigoSecuenciaService,
                           @Lazy EnvioConsolidadoService envioConsolidadoService,
+                          EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver,
                           @Value("${tracking.timeline.use-events:true}") boolean useEventTimeline) {
         this.paqueteRepository = paqueteRepository;
         this.consignatarioRepository = consignatarioRepository;
@@ -116,6 +119,7 @@ public class PaqueteService {
         this.sacaEnDespachoValidator = sacaEnDespachoValidator;
         this.codigoSecuenciaService = codigoSecuenciaService;
         this.envioConsolidadoService = envioConsolidadoService;
+        this.estadoConsolidadoOperativoResolver = estadoConsolidadoOperativoResolver;
         this.useEventTimeline = useEventTimeline;
     }
 
@@ -134,12 +138,6 @@ public class PaqueteService {
     private void sincronizarTotalesEnvio(Long envioId) {
         if (envioId != null) {
             envioConsolidadoService.sincronizarTotales(envioId);
-        }
-    }
-
-    private void cerrarEnvioPorCambioEstado(Long envioId, LocalDateTime fechaEvento) {
-        if (envioId != null) {
-            envioConsolidadoService.cerrarPorCambioEstadoPaquete(envioId, fechaEvento);
         }
     }
 
@@ -469,6 +467,111 @@ public class PaqueteService {
                 fechaRecepcionLote);
     }
 
+    /** Aplica el estado configurado al asociar paquetes a un envío consolidado. */
+    @Transactional
+    public void aplicarEstadoAsociarEnvioConsolidado(List<Long> paqueteIds) {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto()
+                .getEstadoRastreoAsociarEnvioConsolidadoId();
+        if (estadoId == null) return;
+        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+                TrackingEventType.ESTADO_APLICADO_ASOCIAR_ENVIO_CONSOLIDADO,
+                "ASOCIAR_ENVIO_CONSOLIDADO_AUTO", "asociar-envio-consolidado");
+    }
+
+    @Transactional(readOnly = true)
+    public List<EstadoRastreoDTO> listarEstadosPosterioresAAsociacionConsolidado() {
+        Integer ordenBase = ordenEstadoAsociarEnvioConsolidado();
+        Integer ordenLimite = ordenEstadoLoteRecepcion();
+        Set<Long> reservados = parametroSistemaService.getIdsEstadosRastreoGestionadosAutomaticamente();
+        return estadoRastreoService.findActivos().stream()
+                .filter(e -> {
+                    if (reservados.contains(e.getId())) {
+                        return false;
+                    }
+                    Integer orden = e.getOrden() != null ? e.getOrden() : e.getOrdenTracking();
+                    if (orden == null || orden <= ordenBase) {
+                        return false;
+                    }
+                    if (e.getTipoFlujo() == TipoFlujoEstado.NORMAL) {
+                        return orden <= ordenLimite;
+                    }
+                    if (e.getTipoFlujo() == TipoFlujoEstado.ALTERNO && e.getAfterEstadoId() != null) {
+                        Integer ordenAfter = estadoRastreoService.getOrdenById(e.getAfterEstadoId());
+                        return ordenAfter != null && ordenAfter <= ordenLimite;
+                    }
+                    return true;
+                })
+                .toList();
+    }
+
+    public void validarEstadoPosteriorAAsociacionConsolidado(Long estadoId) {
+        if (estadoId == null) {
+            throw new BadRequestException("Seleccione el estado a aplicar");
+        }
+        parametroSistemaService.validarEstadoRastreoAplicableManualmente(estadoId);
+        EstadoRastreo estado = estadoRastreoService.findEntityById(estadoId);
+        Integer ordenObjetivo = estado.getOrden() != null ? estado.getOrden() : estado.getOrdenTracking();
+        Integer ordenBase = ordenEstadoAsociarEnvioConsolidado();
+        Integer ordenLimite = ordenEstadoLoteRecepcion();
+
+        if (ordenObjetivo == null || ordenObjetivo <= ordenBase) {
+            throw new BadRequestException(
+                    "Solo se pueden aplicar estados posteriores al punto de asociación a consolidado.");
+        }
+
+        if (estado.getTipoFlujo() == TipoFlujoEstado.NORMAL) {
+            if (ordenObjetivo > ordenLimite) {
+                throw new BadRequestException(
+                        "Solo se pueden aplicar estados hasta la llegada a bodega (lote de recepción) inclusive.");
+            }
+        } else if (estado.getTipoFlujo() == TipoFlujoEstado.ALTERNO && estado.getAfterEstado() != null) {
+            EstadoRastreo after = estado.getAfterEstado();
+            Integer ordenAfter = after.getOrden() != null ? after.getOrden() : after.getOrdenTracking();
+            if (ordenAfter != null && ordenAfter > ordenLimite) {
+                throw new BadRequestException(
+                        "Solo se pueden aplicar estados hasta la llegada a bodega (lote de recepción) inclusive.");
+            }
+        }
+    }
+
+    private Integer ordenEstadoAsociarEnvioConsolidado() {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto()
+                .getEstadoRastreoAsociarEnvioConsolidadoId();
+        if (estadoId == null) {
+            throw new BadRequestException(
+                    "No hay un estado configurado para la asociación a consolidado.");
+        }
+        Integer orden = estadoRastreoService.getOrdenById(estadoId);
+        if (orden == null) {
+            EstadoRastreo estado = estadoRastreoService.findEntityById(estadoId);
+            orden = estado.getOrden() != null ? estado.getOrden() : estado.getOrdenTracking();
+        }
+        if (orden == null) {
+            throw new BadRequestException(
+                    "El estado de asociación a consolidado no tiene orden de tracking.");
+        }
+        return orden;
+    }
+
+    private Integer ordenEstadoLoteRecepcion() {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto()
+                .getEstadoRastreoEnLoteRecepcionId();
+        if (estadoId == null) {
+            throw new BadRequestException(
+                    "No hay un estado configurado para el lote de recepción.");
+        }
+        Integer orden = estadoRastreoService.getOrdenById(estadoId);
+        if (orden == null) {
+            EstadoRastreo estado = estadoRastreoService.findEntityById(estadoId);
+            orden = estado.getOrden() != null ? estado.getOrden() : estado.getOrdenTracking();
+        }
+        if (orden == null) {
+            throw new BadRequestException(
+                    "El estado de lote de recepción no tiene un orden válido.");
+        }
+        return orden;
+    }
+
     /**
      * Aplica el estado configurado "enviado desde USA" a los paquetes indicados.
      */
@@ -525,16 +628,11 @@ public class PaqueteService {
         List<Paquete> paquetes = paqueteRepository.findAllById(paqueteIds);
         if (paquetes.isEmpty()) return;
         Set<Long> guiasAfectadas = new HashSet<>();
-        Set<Long> enviosACerrar = new HashSet<>();
         List<TrackingEventService.PendingTransicion> pendientes = new ArrayList<>(paquetes.size());
         for (Paquete p : paquetes) {
             EstadoRastreo origen = p.getEstadoRastreo();
             aplicarEstadoConReglas(p, estado, null, fechaEfectiva);
             pendientes.add(new TrackingEventService.PendingTransicion(p, origen));
-            if (origen == null || !Objects.equals(origen.getId(), estado.getId())) {
-                Long envioId = envioConsolidadoId(p);
-                if (envioId != null) enviosACerrar.add(envioId);
-            }
             if (p.getGuiaMaster() != null) {
                 guiasAfectadas.add(p.getGuiaMaster().getId());
             }
@@ -556,9 +654,6 @@ public class PaqueteService {
         }
         for (Long gmId : guiasAfectadas) {
             guiaMasterService.recomputarEstado(gmId);
-        }
-        for (Long envioId : enviosACerrar) {
-            cerrarEnvioPorCambioEstado(envioId, fechaEfectiva);
         }
     }
 
@@ -1196,9 +1291,6 @@ public class PaqueteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoRastreoId);
         EstadoRastreo origen = p.getEstadoRastreo();
-        Long envioACerrarId = (origen == null || !Objects.equals(origen.getId(), estado.getId()))
-                ? envioConsolidadoId(p)
-                : null;
         aplicarEstadoConReglas(p, estado, motivoAlterno);
         p = paqueteRepository.save(p);
         trackingEventService.registrarTransicion(
@@ -1214,7 +1306,6 @@ public class PaqueteService {
         if (p.getGuiaMaster() != null) {
             guiaMasterService.recomputarEstado(p.getGuiaMaster().getId());
         }
-        cerrarEnvioPorCambioEstado(envioACerrarId, LocalDateTime.now());
         return toDTO(p);
     }
 
@@ -1227,7 +1318,6 @@ public class PaqueteService {
         }
         List<CambiarEstadoRastreoBulkResponse.RechazoBulk> rechazados = new ArrayList<>();
         Set<Long> guiasAfectadas = new HashSet<>();
-        Set<Long> enviosACerrar = new HashSet<>();
         int actualizados = 0;
         List<Paquete> cargados = paqueteRepository.findAllById(paqueteIds);
         Map<Long, Paquete> porId = new LinkedHashMap<>();
@@ -1248,12 +1338,14 @@ public class PaqueteService {
                 rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, "Está en lote de recepción"));
                 continue;
             }
+            EstadoRastreo origenActual = p.getEstadoRastreo();
+            if (esRetroceso(origenActual, estado)) {
+                rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(
+                        paqueteId, "No se puede aplicar un estado anterior al actual"));
+                continue;
+            }
             try {
                 EstadoRastreo origen = p.getEstadoRastreo();
-                if (origen == null || !Objects.equals(origen.getId(), estado.getId())) {
-                    Long envioId = envioConsolidadoId(p);
-                    if (envioId != null) enviosACerrar.add(envioId);
-                }
                 aplicarEstadoConReglas(p, estado, p.getMotivoAlterno());
                 trackingEventService.registrarTransicion(
                         p,
@@ -1281,10 +1373,6 @@ public class PaqueteService {
         for (Long gmId : guiasAfectadas) {
             guiaMasterService.recomputarEstado(gmId);
         }
-        LocalDateTime fechaCierre = LocalDateTime.now();
-        for (Long envioId : enviosACerrar) {
-            cerrarEnvioPorCambioEstado(envioId, fechaCierre);
-        }
         return CambiarEstadoRastreoBulkResponse.builder()
                 .actualizados(actualizados)
                 .rechazados(rechazados)
@@ -1296,6 +1384,13 @@ public class PaqueteService {
     public void aplicarEstadoRastreoMasivo(List<Long> paqueteIds, Long estadoRastreoId) {
         aplicarEstadoEnConjunto(paqueteIds, estadoRastreoId,
                 TrackingEventType.ESTADO_APLICADO_PERIODO, "PERIODO_AUTO", "periodo");
+    }
+
+    /** Aplica el estado de "entrega confirmada" a las piezas que el cliente confirmó como recibidas. */
+    @Transactional
+    public void aplicarEstadoEntregaConfirmadaCliente(List<Long> paqueteIds, Long estadoRastreoId) {
+        aplicarEstadoEnConjunto(paqueteIds, estadoRastreoId,
+                TrackingEventType.ESTADO_CONFIRMADO_CLIENTE, "CLIENTE_CONFIRMA", "entrega-cliente");
     }
 
     @Transactional
@@ -1394,40 +1489,35 @@ public class PaqueteService {
             return List.of();
         }
         final Set<Long> idsPermitidos = Set.copyOf(interseccion);
-        Set<Long> excluirPorPunto = idsEstadosRastreoGestionadosPorPunto();
+        Set<Long> excluirPorPunto = parametroSistemaService.getIdsEstadosRastreoGestionadosAutomaticamente();
         return estadoRastreoService.findActivos().stream()
                 .filter(e -> idsPermitidos.contains(e.getId()) && !excluirPorPunto.contains(e.getId()))
                 .toList();
     }
 
-    /** Estados configurados por punto operativo: solo se asignan desde sus flujos. */
-    private Set<Long> idsEstadosRastreoGestionadosPorPunto() {
-        var cfg = parametroSistemaService.getEstadosRastreoPorPunto();
-        if (cfg == null) {
-            return Set.of();
-        }
-        Set<Long> ids = new HashSet<>();
-        addIfNotNull(ids, cfg.getEstadoRastreoRegistroPaqueteId());
-        addIfNotNull(ids, cfg.getEstadoRastreoEnLoteRecepcionId());
-        addIfNotNull(ids, cfg.getEstadoRastreoAsociarGuiaMasterId());
-        addIfNotNull(ids, cfg.getEstadoRastreoEnDespachoId());
-        addIfNotNull(ids, cfg.getEstadoRastreoEnTransitoId());
-        addIfNotNull(ids, cfg.getEstadoRastreoEnviadoDesdeUsaId());
-        addIfNotNull(ids, cfg.getEstadoRastreoArribadoEcId());
-        return ids;
+    @Transactional(readOnly = true)
+    public List<EstadoRastreoDTO> getEstadosAplicablesPaquete() {
+        Set<Long> reservados = parametroSistemaService.getIdsEstadosRastreoGestionadosAutomaticamente();
+        return estadoRastreoService.findActivos().stream()
+                .filter(e -> !reservados.contains(e.getId()))
+                .toList();
     }
 
-    private void addIfNotNull(Set<Long> ids, Long id) {
-        if (id != null) {
-            ids.add(id);
+    @Transactional
+    public CambiarEstadoRastreoBulkResponse aplicarEstadoPorPeriodoPaquetes(
+            LocalDate fechaInicio, LocalDate fechaFin, Long estadoRastreoId) {
+        List<Long> ids = paqueteRepository.findIdsByCreatedAtBetween(fechaInicio, fechaFin);
+        if (ids.isEmpty()) {
+            return CambiarEstadoRastreoBulkResponse.builder()
+                    .actualizados(0)
+                    .rechazados(List.of())
+                    .build();
         }
+        return cambiarEstadoRastreoBulk(ids, estadoRastreoId);
     }
 
     private void validarEstadoNoReservadoParaPuntosOperativos(Long estadoRastreoId) {
-        if (estadoRastreoId != null && idsEstadosRastreoGestionadosPorPunto().contains(estadoRastreoId)) {
-            throw new BadRequestException(
-                    "Ese estado está configurado como punto operativo del flujo; no puede aplicarse manualmente.");
-        }
+        parametroSistemaService.validarEstadoRastreoAplicableManualmente(estadoRastreoId);
     }
 
     private String renderLeyenda(String leyenda, Integer diasTranscurridos) {
@@ -1473,11 +1563,36 @@ public class PaqueteService {
         }
     }
 
+    /** Orden efectivo del estado en el flujo: usa {@code orden} y cae a {@code ordenTracking}. */
+    public static Integer ordenEfectivo(EstadoRastreo estado) {
+        if (estado == null) return null;
+        return estado.getOrden() != null ? estado.getOrden() : estado.getOrdenTracking();
+    }
+
+    /**
+     * Indica si aplicar {@code destino} a un paquete en {@code origen} sería un retroceso en el flujo
+     * (el orden del destino es estrictamente menor al del origen). Los estados no están quemados;
+     * el orden proviene del catálogo configurado en producción.
+     */
+    public static boolean esRetroceso(EstadoRastreo origen, EstadoRastreo destino) {
+        if (origen == null || destino == null) return false;
+        if (origen.getId().equals(destino.getId())) return false;
+        Integer ordenOrigen = ordenEfectivo(origen);
+        Integer ordenDestino = ordenEfectivo(destino);
+        return ordenOrigen != null && ordenDestino != null && ordenDestino < ordenOrigen;
+    }
+
     /** Convierte entidad a DTO (público para uso desde SacaService al construir sacas con paquetes completos). */
     public PaqueteDTO toDTO(Paquete p) {
         EstadoRastreo er = p.getEstadoRastreo();
         PlazoRetiroInfo plazoRetiroInfo = calcularPlazoRetiro(p);
         GuiaMaster gm = p.getGuiaMaster();
+        EnvioConsolidado ec = p.getEnvioConsolidado();
+        EstadoEnvioConsolidadoOperativo estadoOperativoConsolidado = null;
+        if (ec != null) {
+            long totalEnConsolidado = paqueteRepository.countByEnvioConsolidadoId(ec.getId());
+            estadoOperativoConsolidado = estadoConsolidadoOperativoResolver.resolve(ec, totalEnConsolidado);
+        }
         return PaqueteDTO.builder()
                 .id(p.getId())
                 .numeroGuia(p.getNumeroGuia())
@@ -1487,9 +1602,10 @@ public class PaqueteService {
                 .guiaMasterTotalPiezas(gm != null ? gm.getTotalPiezasEsperadas() : null)
                 .piezaNumero(p.getPiezaNumero())
                 .piezaTotal(p.getPiezaTotal())
-                .envioConsolidadoId(p.getEnvioConsolidado() != null ? p.getEnvioConsolidado().getId() : null)
-                .envioConsolidadoCodigo(p.getEnvioConsolidado() != null ? p.getEnvioConsolidado().getCodigo() : null)
-                .envioConsolidadoCerrado(p.getEnvioConsolidado() != null && p.getEnvioConsolidado().isCerrado())
+                .envioConsolidadoId(ec != null ? ec.getId() : null)
+                .envioConsolidadoCodigo(ec != null ? ec.getCodigo() : null)
+                .envioConsolidadoCerrado(ec != null && ec.isCerrado())
+                .envioConsolidadoEstadoOperativo(estadoOperativoConsolidado)
                 .ref(p.getRef())
                 .pesoLbs(p.getPesoLbs())
                 .pesoKg(WeightUtil.lbsToKg(p.getPesoLbs()))
@@ -1497,6 +1613,8 @@ public class PaqueteService {
                 .estadoRastreoId(er != null ? er.getId() : null)
                 .estadoRastreoNombre(er != null ? er.getNombre() : null)
                 .estadoRastreoCodigo(er != null ? er.getCodigo() : null)
+                .estadoRastreoTipoFlujo(er != null && er.getTipoFlujo() != null ? er.getTipoFlujo().name() : null)
+                .estadoRastreoOrden(er != null ? (er.getOrden() != null ? er.getOrden() : er.getOrdenTracking()) : null)
                 .consignatarioId(p.getConsignatario() != null ? p.getConsignatario().getId() : null)
                 .consignatarioNombre(p.getConsignatario() != null ? p.getConsignatario().getNombre() : null)
                 .consignatarioDireccion(p.getConsignatario() != null ? p.getConsignatario().getDireccion() : null)
@@ -1515,6 +1633,7 @@ public class PaqueteService {
                 .enFlujoAlterno(p.getEnFlujoAlterno())
                 .motivoAlterno(p.getMotivoAlterno())
                 .bloqueado(p.getBloqueado())
+                .createdAt(p.getCreatedAt())
                 .build();
     }
 }

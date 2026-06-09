@@ -3,21 +3,35 @@ import { useNavigate } from '@tanstack/react-router';
 import {
   AlertCircle,
   Boxes,
+  CalendarClock,
   Check,
+  CheckSquare,
   CheckCircle2,
   CircleDollarSign,
   Eye,
-  Lock,
+  ListChecks,
   Package as PackageIcon,
   Plus,
   Scale,
+  Search,
+  Square,
+  Tag,
   Trash2,
+  Truck,
   Unlock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { BulkGuiaInputPanel } from '@/components/BulkGuiaInputPanel';
 import { buscarPaquetesPorGuias } from '@/lib/api/paquetes.service';
 import { envioConsolidadoCreateSchema, validateGuiaList } from '@/lib/schemas';
@@ -46,14 +60,16 @@ import { EmptyState } from '@/components/EmptyState';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
-import { ChipFiltro } from '@/components/ChipFiltro';
+import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
+import type { StatusTone } from '@/components/ui/StatusBadge';
 import { FiltrosBar } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { cn } from '@/lib/utils';
 import {
-  useCerrarEnvioConsolidado,
+  useEnviarDesdeUsaEnvioConsolidado,
+  useAplicarTransicionConsolidados,
   useCrearEnvioConsolidado,
   useEliminarEnvioConsolidado,
   useEnviosConsolidados,
@@ -61,10 +77,17 @@ import {
 } from '@/hooks/useEnviosConsolidados';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { AplicarEstadoMasivoDialog } from '@/components/AplicarEstadoMasivoDialog';
 import type { EstadoFiltro, EstadoPagoFiltro } from '@/lib/api/envios-consolidados.service';
 import type { EstadoPagoConsolidado } from '@/types/envio-consolidado';
 import { useAuthStore } from '@/stores/authStore';
-import { EnvioConsolidadoBadge } from './EnvioConsolidadoBadge';
+import {
+  EnvioConsolidadoBadge,
+  ENVIO_CONSOLIDADO_ESTADO_ORDEN,
+  ENVIO_CONSOLIDADO_ESTADO_UI,
+  resolveEstadoOperativoConsolidado,
+} from './EnvioConsolidadoBadge';
+import type { EstadoEnvioConsolidadoOperativo } from '@/types/envio-consolidado';
 
 import { formatWeightFromValues, formatWeightInline, LBS_TO_KG } from '@/lib/utils/weight';
 
@@ -76,7 +99,11 @@ export function EnviosConsolidadosListPage() {
   const [estadoFilter, setEstadoFilter] = useState<EstadoFiltro>('TODOS');
   const [estadoPagoFilter, setEstadoPagoFilter] = useState<EstadoPagoFiltro>('TODOS');
   const [createOpen, setCreateOpen] = useState(false);
-  const [confirmCerrar, setConfirmCerrar] = useState<{ id: number; codigo: string } | null>(null);
+  const [aplicarEstadoOpen, setAplicarEstadoOpen] = useState(false);
+  const [estadoOperativoSeleccionado, setEstadoOperativoSeleccionado] =
+    useState<TransicionOperativa | null>(null);
+  const [consolidadosSeleccionados, setConsolidadosSeleccionados] = useState<number[]>([]);
+  const [confirmEnviarUsa, setConfirmEnviarUsa] = useState<{ id: number; codigo: string } | null>(null);
   const [confirmReabrir, setConfirmReabrir] = useState<{ id: number; codigo: string } | null>(null);
   const [confirmEliminar, setConfirmEliminar] = useState<{
     id: number;
@@ -84,9 +111,13 @@ export function EnviosConsolidadosListPage() {
     totalPaquetes: number;
   } | null>(null);
 
-  const cerrarMutation = useCerrarEnvioConsolidado();
+  const enviarUsaMutation = useEnviarDesdeUsaEnvioConsolidado();
   const reabrirMutation = useReabrirEnvioConsolidado();
   const eliminarMutation = useEliminarEnvioConsolidado();
+  const aplicarTransicionMutation = useAplicarTransicionConsolidados();
+  const hasEnviosUpdate = useAuthStore((s) =>
+    s.hasPermission('ENVIOS_CONSOLIDADOS_UPDATE'),
+  );
   const hasEnviosDelete = useAuthStore((s) =>
     s.hasPermission('ENVIOS_CONSOLIDADOS_DELETE'),
   );
@@ -99,15 +130,15 @@ export function EnviosConsolidadosListPage() {
     size,
   });
 
-  async function handleCerrar() {
-    if (!confirmCerrar) return;
+  async function handleEnviarUsa() {
+    if (!confirmEnviarUsa) return;
     try {
-      await cerrarMutation.mutateAsync(confirmCerrar.id);
-      toast.success(`Envío ${confirmCerrar.codigo} cerrado`);
-      setConfirmCerrar(null);
+      await enviarUsaMutation.mutateAsync(confirmEnviarUsa.id);
+      toast.success(`Envío ${confirmEnviarUsa.codigo} enviado desde USA`);
+      setConfirmEnviarUsa(null);
     } catch (err: unknown) {
       const r = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(r?.data?.message ?? 'No se pudo cerrar el envío');
+      toast.error(r?.data?.message ?? 'No se pudo enviar desde USA');
     }
   }
 
@@ -158,15 +189,20 @@ export function EnviosConsolidadosListPage() {
 
   const stats = useMemo(() => {
     const all = dataTodos?.content ?? [];
-    let abiertos = 0;
-    let cerrados = 0;
+    const porOperativo: Record<EstadoEnvioConsolidadoOperativo, number> = {
+      VACIO: 0,
+      EN_PREPARACION: 0,
+      ENVIADO_DESDE_USA: 0,
+      RECIBIDO_EN_BODEGA: 0,
+      LIQUIDADO: 0,
+    };
     let pagados = 0;
     let noPagados = 0;
     let paquetes = 0;
     let pesoLbs = 0;
     for (const e of all) {
-      if (e.cerrado) cerrados += 1;
-      else abiertos += 1;
+      const op = resolveEstadoOperativoConsolidado(e);
+      porOperativo[op] += 1;
       if (e.estadoPago === 'PAGADO') pagados += 1;
       else noPagados += 1;
       paquetes += e.totalPaquetes ?? 0;
@@ -174,8 +210,7 @@ export function EnviosConsolidadosListPage() {
     }
     return {
       total: dataTodos?.totalElements ?? all.length,
-      abiertos,
-      cerrados,
+      porOperativo,
       pagados,
       noPagados,
       paquetes,
@@ -184,10 +219,34 @@ export function EnviosConsolidadosListPage() {
     };
   }, [dataTodos]);
 
+  function chipToneFromStatus(tone: StatusTone): ChipFiltroTone {
+    if (tone === 'info' || tone === 'primary') return 'primary';
+    if (tone === 'error') return 'danger';
+    if (tone === 'warning') return 'warning';
+    if (tone === 'success') return 'success';
+    return 'neutral';
+  }
+
+  const OPERATIVO_FILTROS: {
+    key: EstadoFiltro;
+    estado: EstadoEnvioConsolidadoOperativo;
+  }[] = [
+    { key: 'VACIO', estado: 'VACIO' },
+    { key: 'EN_PREPARACION', estado: 'EN_PREPARACION' },
+    { key: 'ENVIADO_DESDE_USA', estado: 'ENVIADO_DESDE_USA' },
+    { key: 'RECIBIDO_EN_BODEGA', estado: 'RECIBIDO_EN_BODEGA' },
+    { key: 'LIQUIDADO', estado: 'LIQUIDADO' },
+  ];
+
   const items = data?.content ?? [];
   const totalPages = data?.totalPages ?? 0;
   const totalElements = data?.totalElements ?? 0;
   const search = q;
+
+  function abrirAplicarEstado(id?: number) {
+    setConsolidadosSeleccionados(id != null ? [id] : []);
+    setAplicarEstadoOpen(true);
+  }
 
   return (
     <div className="page-stack">
@@ -197,10 +256,18 @@ export function EnviosConsolidadosListPage() {
         value={q}
         onSearchChange={setQ}
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo envío
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {hasEnviosUpdate && (
+              <Button variant="outline" onClick={() => abrirAplicarEstado()}>
+                <Tag className="mr-2 h-4 w-4" />
+                Aplicar estado
+              </Button>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo envío
+            </Button>
+          </div>
         }
       />
 
@@ -212,20 +279,25 @@ export function EnviosConsolidadosListPage() {
           tone="primary"
           hint={`${stats.pagados} pagados · ${stats.noPagados} pendientes`}
         />
-        <KpiCard
-          icon={<Unlock className="h-5 w-5" />}
-          label="Abiertos"
-          value={stats.abiertos}
-          tone="warning"
-          hint="Admiten cambios"
-        />
-        <KpiCard
-          icon={<Lock className="h-5 w-5" />}
-          label="Cerrados"
-          value={stats.cerrados}
-          tone="success"
-          hint="Manifiestos finalizados"
-        />
+        {OPERATIVO_FILTROS.map(({ estado }) => {
+          const ui = ENVIO_CONSOLIDADO_ESTADO_UI[estado];
+          const Icon = ui.icon;
+          const kpiTone =
+            ui.tone === 'error'
+              ? 'danger'
+              : ui.tone === 'info'
+                ? 'info'
+                : ui.tone;
+          return (
+            <KpiCard
+              key={estado}
+              icon={<Icon className="h-5 w-5" />}
+              label={ui.label}
+              value={stats.porOperativo[estado]}
+              tone={kpiTone}
+            />
+          );
+        })}
         <KpiCard
           icon={<PackageIcon className="h-5 w-5" />}
           label="Paquetes acumulados"
@@ -257,26 +329,19 @@ export function EnviosConsolidadosListPage() {
                 resetPage();
               }}
             />
-            <ChipFiltro
-              label="Abiertos"
-              count={stats.abiertos}
-              active={estadoFilter === 'ABIERTO'}
-              tone="warning"
-              onClick={() => {
-                setEstadoFilter('ABIERTO');
-                resetPage();
-              }}
-            />
-            <ChipFiltro
-              label="Cerrados"
-              count={stats.cerrados}
-              active={estadoFilter === 'CERRADO'}
-              tone="success"
-              onClick={() => {
-                setEstadoFilter('CERRADO');
-                resetPage();
-              }}
-            />
+            {OPERATIVO_FILTROS.map(({ key, estado }) => (
+              <ChipFiltro
+                key={key}
+                label={ENVIO_CONSOLIDADO_ESTADO_UI[estado].label}
+                count={stats.porOperativo[estado]}
+                active={estadoFilter === key}
+                tone={chipToneFromStatus(ENVIO_CONSOLIDADO_ESTADO_UI[estado].tone)}
+                onClick={() => {
+                  setEstadoFilter(key);
+                  resetPage();
+                }}
+              />
+            ))}
             <span className="mx-1 hidden h-5 w-px bg-[var(--color-border)] md:inline-block" />
             <ChipFiltro
               label="No pagados"
@@ -326,9 +391,7 @@ export function EnviosConsolidadosListPage() {
               ? 'Sin resultados'
               : estadoFilter === 'TODOS'
                 ? 'Sin envíos'
-                : estadoFilter === 'ABIERTO'
-                  ? 'No hay envíos abiertos'
-                  : 'No hay envíos cerrados'
+                : `No hay envíos ${ENVIO_CONSOLIDADO_ESTADO_UI[estadoFilter as EstadoEnvioConsolidadoOperativo]?.label.toLowerCase() ?? 'con este filtro'}`
           }
           description={
             search
@@ -356,7 +419,7 @@ export function EnviosConsolidadosListPage() {
                   <TableHead className="text-center">Paquetes</TableHead>
                   <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                   <TableHead>Creado</TableHead>
-                  <TableHead className="hidden md:table-cell">Cerrado</TableHead>
+                  <TableHead className="hidden md:table-cell">Salida USA</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
@@ -385,7 +448,10 @@ export function EnviosConsolidadosListPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <EnvioConsolidadoBadge cerrado={e.cerrado} />
+                      <EnvioConsolidadoBadge
+                        cerrado={e.cerrado}
+                        estadoOperativo={resolveEstadoOperativoConsolidado(e)}
+                      />
                     </TableCell>
                     <TableCell>
                       <PagoBadge estado={e.estadoPago} />
@@ -425,6 +491,12 @@ export function EnviosConsolidadosListPage() {
                           },
                           { type: 'separator' },
                           {
+                            label: 'Aplicar estado',
+                            icon: Tag,
+                            hidden: !hasEnviosUpdate,
+                            onSelect: () => abrirAplicarEstado(e.id),
+                          },
+                          {
                             label: 'Reabrir envío',
                             icon: Unlock,
                             hidden: !e.cerrado,
@@ -433,12 +505,12 @@ export function EnviosConsolidadosListPage() {
                               setConfirmReabrir({ id: e.id, codigo: e.codigo }),
                           },
                           {
-                            label: 'Cerrar envío',
-                            icon: Lock,
+                            label: 'Enviar desde USA',
+                            icon: Truck,
                             hidden: e.cerrado,
-                            disabled: cerrarMutation.isPending,
+                            disabled: enviarUsaMutation.isPending,
                             onSelect: () =>
-                              setConfirmCerrar({ id: e.id, codigo: e.codigo }),
+                              setConfirmEnviarUsa({ id: e.id, codigo: e.codigo }),
                           },
                           { type: 'separator', hidden: !hasEnviosDelete },
                           {
@@ -477,18 +549,110 @@ export function EnviosConsolidadosListPage() {
 
       {createOpen && <CrearEnvioConGuiasDialog onClose={() => setCreateOpen(false)} />}
 
+      <AplicarEstadoMasivoDialog
+        open={aplicarEstadoOpen}
+        title="Aplicar estado a consolidados"
+        description="Selecciona una transición operativa y marca los consolidados que la recibirán."
+        selectionLabel="consolidados"
+        searchPlaceholder="Buscar consolidado..."
+        hideModoSelector={true}
+        mode="seleccion"
+        onModeChange={() => {}}
+        dateFrom=""
+        dateTo=""
+        onDateFromChange={() => {}}
+        onDateToChange={() => {}}
+        items={(estadoOperativoSeleccionado ? dataTodos?.content ?? [] : [])
+          .filter((envio) => {
+            const origenRequerido = estadoOperativoSeleccionado
+              ? OPERATIVO_FUENTE[estadoOperativoSeleccionado]
+              : undefined;
+            if (!origenRequerido) return true;
+            return resolveEstadoOperativoConsolidado(envio) === origenRequerido;
+          })
+          .map((envio) => {
+            const operativo = resolveEstadoOperativoConsolidado(envio);
+            return {
+              id: envio.id,
+              date: envio.createdAt,
+              searchText: `${envio.codigo} estado:${operativo}`,
+              content: (
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <MonoTrunc value={envio.codigo} copy={false} className="font-medium" />
+                    <div className="text-xs text-muted-foreground">
+                      {envio.totalPaquetes ?? 0} paquete(s)
+                      {envio.estadoPago === 'PAGADO' ? ' · Pagado' : ''}
+                    </div>
+                  </div>
+                  <EnvioConsolidadoBadge
+                    cerrado={envio.cerrado}
+                    estadoOperativo={operativo}
+                  />
+                </div>
+              ),
+            };
+          })}
+        selectedIds={consolidadosSeleccionados}
+        onSelectedIdsChange={setConsolidadosSeleccionados}
+        options={OPERATIVOS_APLICABLES.map((estado) => ({
+          value: estado,
+          label: ENVIO_CONSOLIDADO_ESTADO_UI[estado].label,
+        }))}
+        selectedOption={estadoOperativoSeleccionado ?? ''}
+        onSelectedOptionChange={(value) =>
+          setEstadoOperativoSeleccionado((value || null) as TransicionOperativa | null)
+        }
+        optionLabel="Estado operativo a aplicar"
+        optionHelp={
+          estadoOperativoSeleccionado
+            ? `Solo se listan consolidados en estado «${
+                ENVIO_CONSOLIDADO_ESTADO_UI[OPERATIVO_FUENTE[estadoOperativoSeleccionado]].label
+              }»; los demás no son elegibles.`
+            : 'Vacío, Recibido en bodega y Liquidado son estados derivados y no se pueden seleccionar.'
+        }
+        periodHelp={null}
+        loading={aplicarTransicionMutation.isPending}
+        onOpenChange={(open) => {
+          setAplicarEstadoOpen(open);
+          if (!open) {
+            setConsolidadosSeleccionados([]);
+            setEstadoOperativoSeleccionado(null);
+          }
+        }}
+        onConfirm={async () => {
+          if (!estadoOperativoSeleccionado) return;
+          try {
+            const resultado = await aplicarTransicionMutation.mutateAsync({
+              estadoOperativoDestino: estadoOperativoSeleccionado,
+              consolidadoIds: consolidadosSeleccionados,
+            });
+            const rechazados = resultado.rechazados?.length ?? 0;
+            const msg = `${resultado.consolidadosProcesados} consolidado(s) actualizado(s)` +
+              (rechazados > 0 ? ` · ${rechazados} omitido(s)` : '');
+            if (rechazados > 0) toast.warning(msg);
+            else toast.success(msg);
+            setAplicarEstadoOpen(false);
+            setConsolidadosSeleccionados([]);
+          } catch (err: unknown) {
+            const r = (err as { response?: { data?: { message?: string } } })?.response;
+            toast.error(r?.data?.message ?? 'No se pudo aplicar el estado');
+          }
+        }}
+      />
+
       <ConfirmDialog
-        open={confirmCerrar !== null}
-        onOpenChange={(o) => !o && setConfirmCerrar(null)}
-        title="Cerrar envío consolidado"
+        open={confirmEnviarUsa !== null}
+        onOpenChange={(o) => !o && setConfirmEnviarUsa(null)}
+        title="Enviar consolidado desde USA"
         description={
-          confirmCerrar
-            ? `Una vez cerrado el envío "${confirmCerrar.codigo}" no podrás agregar ni remover paquetes hasta reabrirlo.`
+          confirmEnviarUsa
+            ? `Al enviar "${confirmEnviarUsa.codigo}" desde USA se aplicará el estado de salida a sus piezas y ya no podrás agregar ni remover paquetes hasta reabrirlo.`
             : ''
         }
-        confirmLabel="Cerrar envío"
-        loading={cerrarMutation.isPending}
-        onConfirm={handleCerrar}
+        confirmLabel="Enviar desde USA"
+        loading={enviarUsaMutation.isPending}
+        onConfirm={handleEnviarUsa}
       />
 
       <ConfirmDialog
@@ -512,6 +676,393 @@ export function EnviosConsolidadosListPage() {
         onConfirm={handleEliminar}
       />
     </div>
+  );
+}
+
+type TransicionOperativa = 'ENVIADO_DESDE_USA' | 'EN_PREPARACION';
+
+interface AplicarTransicionPayload {
+  estadoOperativoDestino: TransicionOperativa;
+  consolidadoIds?: number[];
+  fechaInicio?: string;
+  fechaFin?: string;
+}
+
+interface AplicarEstadoConsolidadosDialogProps {
+  open: boolean;
+  consolidados: import('@/types/envio-consolidado').EnvioConsolidado[];
+  seleccionados: number[];
+  loading: boolean;
+  onSeleccionChange: (ids: number[]) => void;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: (payload: AplicarTransicionPayload) => Promise<void>;
+}
+
+/** Estados operativos que tienen una transición manual real. */
+const OPERATIVOS_APLICABLES: TransicionOperativa[] = ['ENVIADO_DESDE_USA', 'EN_PREPARACION'];
+
+/** Estado de origen requerido para cada transición. */
+const OPERATIVO_FUENTE: Record<string, EstadoEnvioConsolidadoOperativo> = {
+  ENVIADO_DESDE_USA: 'EN_PREPARACION',
+  EN_PREPARACION: 'ENVIADO_DESDE_USA',
+};
+
+function isoDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function chipToneFromStatus(tone: StatusTone): ChipFiltroTone {
+  if (tone === 'info' || tone === 'primary') return 'primary';
+  if (tone === 'error') return 'danger';
+  if (tone === 'warning') return 'warning';
+  if (tone === 'success') return 'success';
+  return 'neutral';
+}
+
+export function AplicarEstadoConsolidadosDialog({
+  open,
+  consolidados,
+  seleccionados,
+  loading,
+  onSeleccionChange,
+  onOpenChange,
+  onConfirm,
+}: AplicarEstadoConsolidadosDialogProps) {
+  const [modo, setModo] = useState<'periodo' | 'consolidados'>('consolidados');
+  const [busqueda, setBusqueda] = useState('');
+  const [estadoOperativo, setEstadoOperativo] = useState<TransicionOperativa | null>(null);
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
+  const [filtroOperativo, setFiltroOperativo] = useState<
+    EstadoEnvioConsolidadoOperativo | 'TODOS'
+  >('TODOS');
+  const seleccion = new Set(seleccionados);
+  const hoy = isoDateLocal(new Date());
+
+  const enPeriodo = useMemo(() => {
+    if (!fechaInicio || !fechaFin) return null;
+    const desde = new Date(`${fechaInicio}T00:00:00`).getTime();
+    const hasta = new Date(`${fechaFin}T23:59:59`).getTime();
+    if (desde > hasta) return { count: 0, invalid: true };
+    const count = consolidados.filter((c) => {
+      if (!c.createdAt) return false;
+      const t = new Date(c.createdAt).getTime();
+      return t >= desde && t <= hasta;
+    }).length;
+    return { count, invalid: false };
+  }, [consolidados, fechaInicio, fechaFin]);
+
+  const conteosOperativos = useMemo(() => {
+    const counts: Record<EstadoEnvioConsolidadoOperativo, number> = {
+      VACIO: 0,
+      EN_PREPARACION: 0,
+      ENVIADO_DESDE_USA: 0,
+      RECIBIDO_EN_BODEGA: 0,
+      LIQUIDADO: 0,
+    };
+    for (const envio of consolidados) {
+      counts[resolveEstadoOperativoConsolidado(envio)] += 1;
+    }
+    return counts;
+  }, [consolidados]);
+
+  const visibles = useMemo(() => {
+    const query = busqueda.trim().toLowerCase();
+    return consolidados.filter((envio) => {
+      if (filtroOperativo !== 'TODOS' && resolveEstadoOperativoConsolidado(envio) !== filtroOperativo) {
+        return false;
+      }
+      if (!query) return true;
+      return envio.codigo.toLowerCase().includes(query);
+    });
+  }, [busqueda, consolidados, filtroOperativo]);
+  const todosVisibles =
+    visibles.length > 0 && visibles.every((envio) => seleccion.has(envio.id));
+
+  const toggle = (id: number) => {
+    onSeleccionChange(
+      seleccion.has(id)
+        ? seleccionados.filter((item) => item !== id)
+        : [...seleccionados, id],
+    );
+  };
+
+  const toggleVisibles = () => {
+    if (todosVisibles) {
+      const idsVisibles = new Set(visibles.map((envio) => envio.id));
+      onSeleccionChange(seleccionados.filter((id) => !idsVisibles.has(id)));
+    } else {
+      onSeleccionChange(
+        Array.from(new Set([...seleccionados, ...visibles.map((envio) => envio.id)])),
+      );
+    }
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setModo('consolidados');
+      setBusqueda('');
+      setEstadoOperativo(null);
+      setFechaInicio('');
+      setFechaFin('');
+      setFiltroOperativo('TODOS');
+    }
+    onOpenChange(next);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Tag className="h-5 w-5 text-primary" />
+            Aplicar estado a consolidados
+          </DialogTitle>
+          <DialogDescription>
+            Aplica un estado operativo (Enviado desde USA o En preparación) a los consolidados,
+            por selección o por periodo.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div
+            role="tablist"
+            aria-label="Modo de aplicación"
+            className="inline-flex w-full rounded-lg border border-border bg-[var(--color-muted)]/30 p-1 text-sm"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={modo === 'periodo'}
+              onClick={() => setModo('periodo')}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 transition-colors',
+                modo === 'periodo'
+                  ? 'bg-background font-medium text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <CalendarClock className="h-4 w-4" />
+              Por periodo
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={modo === 'consolidados'}
+              onClick={() => setModo('consolidados')}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 transition-colors',
+                modo === 'consolidados'
+                  ? 'bg-background font-medium text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <ListChecks className="h-4 w-4" />
+              Por selección
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="estado-operativo-select">Estado operativo a aplicar</Label>
+            <Select
+              value={estadoOperativo ?? ''}
+              onValueChange={(v) => setEstadoOperativo((v || null) as TransicionOperativa | null)}
+            >
+              <SelectTrigger id="estado-operativo-select" className="h-9 w-full">
+                <SelectValue placeholder="Selecciona un estado..." />
+              </SelectTrigger>
+              <SelectContent>
+                {OPERATIVOS_APLICABLES.map((op) => (
+                  <SelectItem key={op} value={op}>
+                    {ENVIO_CONSOLIDADO_ESTADO_UI[op].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {estadoOperativo && (
+              <p className="text-xs text-muted-foreground">
+                Solo se aplicará a consolidados en estado «
+                {ENVIO_CONSOLIDADO_ESTADO_UI[OPERATIVO_FUENTE[estadoOperativo]].label}»; el resto se
+                omitirá.
+              </p>
+            )}
+          </div>
+
+          {modo === 'consolidados' ? (
+            <>
+          <div className="space-y-2">
+            <Label>Estado operativo del consolidado</Label>
+            <div className="flex flex-wrap gap-2">
+              <ChipFiltro
+                label="Todos"
+                count={consolidados.length}
+                active={filtroOperativo === 'TODOS'}
+                onClick={() => setFiltroOperativo('TODOS')}
+              />
+              {ENVIO_CONSOLIDADO_ESTADO_ORDEN.map((estado) => (
+                <ChipFiltro
+                  key={estado}
+                  label={ENVIO_CONSOLIDADO_ESTADO_UI[estado].label}
+                  count={conteosOperativos[estado]}
+                  active={filtroOperativo === estado}
+                  tone={chipToneFromStatus(ENVIO_CONSOLIDADO_ESTADO_UI[estado].tone)}
+                  onClick={() =>
+                    setFiltroOperativo((prev) => (prev === estado ? 'TODOS' : estado))
+                  }
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={busqueda}
+                onChange={(event) => setBusqueda(event.target.value)}
+                placeholder="Buscar consolidado..."
+                className="pl-8"
+              />
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={toggleVisibles}>
+              {todosVisibles ? (
+                <Square className="mr-2 h-4 w-4" />
+              ) : (
+                <CheckSquare className="mr-2 h-4 w-4" />
+              )}
+              {todosVisibles ? 'Quitar visibles' : 'Marcar visibles'}
+            </Button>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto rounded-md border border-border">
+            {visibles.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                {consolidados.length === 0
+                  ? 'No hay consolidados cargados.'
+                  : filtroOperativo !== 'TODOS'
+                    ? `No hay consolidados en estado «${ENVIO_CONSOLIDADO_ESTADO_UI[filtroOperativo].label}».`
+                    : 'No hay consolidados que coincidan con la búsqueda.'}
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {visibles.map((envio) => {
+                  const op = resolveEstadoOperativoConsolidado(envio);
+                  return (
+                    <li key={envio.id}>
+                      <label
+                        className={cn(
+                          'flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors',
+                          seleccion.has(envio.id)
+                            ? 'bg-primary/5'
+                            : 'hover:bg-[var(--color-muted)]/40',
+                        )}
+                      >
+                        <Checkbox
+                          checked={seleccion.has(envio.id)}
+                          onCheckedChange={() => toggle(envio.id)}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <MonoTrunc value={envio.codigo} copy={false} className="font-medium" />
+                          <div className="text-xs text-muted-foreground">
+                            {envio.totalPaquetes ?? 0} paquete(s)
+                            {envio.estadoPago === 'PAGADO' ? ' · Pagado' : ''}
+                          </div>
+                        </div>
+                        <EnvioConsolidadoBadge
+                          cerrado={envio.cerrado}
+                          estadoOperativo={op}
+                        />
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-md border border-border bg-[var(--color-muted)]/30 p-3 text-sm">
+            {seleccionados.length === 0
+              ? 'Selecciona al menos un consolidado.'
+              : `${seleccionados.length} consolidado(s) seleccionado(s).`}
+          </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="periodo-desde">Fecha inicio</Label>
+                  <Input
+                    id="periodo-desde"
+                    type="date"
+                    value={fechaInicio}
+                    max={hoy}
+                    onChange={(e) => setFechaInicio(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="periodo-hasta">Fecha fin</Label>
+                  <Input
+                    id="periodo-hasta"
+                    type="date"
+                    value={fechaFin}
+                    min={fechaInicio || undefined}
+                    max={hoy}
+                    onChange={(e) => setFechaFin(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Se evalúan los consolidados cuya <span className="font-medium">fecha de creación</span>{' '}
+                cae en el rango; se aplica solo a los que estén en el estado de origen.
+              </p>
+              {enPeriodo && (
+                <div
+                  className={cn(
+                    'rounded-md border p-3 text-sm',
+                    enPeriodo.invalid
+                      ? 'border-[var(--color-destructive)]/40 bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]'
+                      : 'border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground',
+                  )}
+                >
+                  {enPeriodo.invalid
+                    ? 'La fecha de inicio debe ser anterior o igual a la fecha de fin.'
+                    : `${enPeriodo.count} consolidado(s) en el periodo (según datos cargados).`}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => {
+              if (estadoOperativo == null) return;
+              if (modo === 'periodo') {
+                void onConfirm({ estadoOperativoDestino: estadoOperativo, fechaInicio, fechaFin });
+              } else {
+                void onConfirm({ estadoOperativoDestino: estadoOperativo, consolidadoIds: seleccionados });
+              }
+            }}
+            disabled={
+              loading ||
+              estadoOperativo == null ||
+              (modo === 'periodo'
+                ? !fechaInicio || !fechaFin || (enPeriodo?.invalid ?? false)
+                : seleccionados.length === 0)
+            }
+          >
+            <Tag className="mr-2 h-4 w-4" />
+            {loading ? 'Aplicando...' : 'Aplicar estado'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

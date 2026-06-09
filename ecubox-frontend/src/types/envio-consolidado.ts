@@ -3,16 +3,24 @@ import type { Paquete } from '@/types/paquete';
 /**
  * Envio consolidado: agrupador interno del operario.
  *
- * El estado se representa por `cerrado` (derivado de `fechaCerrado != null`).
+ * El estado operativo se representa por `estadoOperativo`; `cerrado` se
+ * conserva como bandera compatible de salida USA (`fechaCerrado != null`).
  * No tiene maquina de estados ni se expone en el tracking publico.
  */
 export type EstadoPagoConsolidado = 'NO_PAGADO' | 'PAGADO';
+export type EstadoEnvioConsolidadoOperativo =
+  | 'VACIO'
+  | 'EN_PREPARACION'
+  | 'ENVIADO_DESDE_USA'
+  | 'RECIBIDO_EN_BODEGA'
+  | 'LIQUIDADO';
 
 export interface EnvioConsolidado {
   id: number;
   codigo: string;
-  /** true si fechaCerrado != null. Lo provee el backend por conveniencia. */
+  /** true si ya fue enviado desde USA. Lo provee el backend por conveniencia. */
   cerrado: boolean;
+  estadoOperativo?: EstadoEnvioConsolidadoOperativo;
   fechaCerrado?: string;
   pesoTotalLbs?: number;
   totalPaquetes: number;
