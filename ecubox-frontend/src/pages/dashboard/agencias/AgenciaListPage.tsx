@@ -21,6 +21,7 @@ import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { PageErrorState } from '@/components/PageErrorState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
 import { KpiCard } from '@/components/KpiCard';
@@ -133,7 +134,7 @@ export function AgenciaListPage() {
   // y el banner se muestra ENCIMA para no esconder el último resultado.
   if (error && !data) {
     return (
-      <InlineErrorBanner
+      <PageErrorState
         message="Error al cargar agencias"
         hint="Verifica tu conexión o intenta de nuevo."
         onRetry={() => refetch()}
