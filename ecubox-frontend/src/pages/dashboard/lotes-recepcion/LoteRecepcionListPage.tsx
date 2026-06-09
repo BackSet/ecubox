@@ -17,6 +17,7 @@ import { useDeleteLoteRecepcion, useLotesRecepcion } from '@/hooks/useLotesRecep
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { PageErrorState } from '@/components/PageErrorState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
@@ -215,7 +216,7 @@ export function LoteRecepcionListPage() {
 
   if (error && (!lotes || lotes.length === 0)) {
     return (
-      <InlineErrorBanner
+      <PageErrorState
         message="Error al cargar lotes de recepción"
         hint="Verifica tu conexión o intenta de nuevo."
         onRetry={() => refetch()}

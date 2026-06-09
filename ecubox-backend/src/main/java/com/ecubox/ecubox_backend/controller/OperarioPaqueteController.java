@@ -40,7 +40,7 @@ public class OperarioPaqueteController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAnyAuthority('PAQUETES_OPERARIO', 'PAQUETES_PESO_WRITE')")
     @Operation(summary = "Listar paquetes operativos", description = "Lista paquetes según filtros de peso, saca y vencimiento")
     @ApiResponse(responseCode = "200", description = "Listado de paquetes")
     public ResponseEntity<List<PaqueteDTO>> listar(
@@ -57,7 +57,7 @@ public class OperarioPaqueteController {
     }
 
     @PatchMapping("/{paqueteId}/saca")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAnyAuthority('PAQUETES_OPERARIO', 'PAQUETES_PESO_WRITE')")
     @Operation(summary = "Asignar saca a paquete", description = "Asocia un paquete a una saca operativa")
     @ApiResponse(responseCode = "200", description = "Paquete actualizado")
     public ResponseEntity<PaqueteDTO> asignarSaca(
@@ -76,7 +76,7 @@ public class OperarioPaqueteController {
     }
 
     @PatchMapping("/{paqueteId}/estado-rastreo")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAuthority('PAQUETES_OPERARIO')")
     @Operation(summary = "Cambiar estado de rastreo", description = "Actualiza el estado de rastreo de un paquete")
     @ApiResponse(responseCode = "200", description = "Paquete actualizado")
     public ResponseEntity<PaqueteDTO> cambiarEstadoRastreo(
@@ -86,7 +86,7 @@ public class OperarioPaqueteController {
     }
 
     @PostMapping("/estados-destino-permitidos")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAuthority('PAQUETES_OPERARIO')")
     @Operation(summary = "Consultar estados destino permitidos", description = "Devuelve estados de rastreo válidos para los paquetes seleccionados")
     @ApiResponse(responseCode = "200", description = "Estados de destino permitidos")
     public ResponseEntity<List<EstadoRastreoDTO>> estadosDestinoPermitidos(
@@ -95,7 +95,7 @@ public class OperarioPaqueteController {
     }
 
     @PostMapping("/cambiar-estado-rastreo-bulk")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAuthority('PAQUETES_OPERARIO')")
     @Operation(summary = "Cambiar estado masivo", description = "Aplica un estado de rastreo a múltiples paquetes")
     @ApiResponse(responseCode = "200", description = "Resultado del cambio masivo")
     public ResponseEntity<CambiarEstadoRastreoBulkResponse> cambiarEstadoRastreoBulk(
@@ -105,7 +105,7 @@ public class OperarioPaqueteController {
     }
 
     @PatchMapping("/{paqueteId}/guia-master")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAuthority('PAQUETES_OPERARIO')")
     @Operation(summary = "Asignar guía master a paquete", description = "Vincula un paquete individual a una guía master")
     @ApiResponse(responseCode = "200", description = "Paquete actualizado")
     public ResponseEntity<PaqueteDTO> asignarAGuiaMaster(
@@ -116,7 +116,7 @@ public class OperarioPaqueteController {
     }
 
     @PostMapping("/asignar-guia-master")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAuthority('PAQUETES_OPERARIO')")
     @Operation(summary = "Asignar guía master en lote", description = "Asocia una guía master a múltiples paquetes")
     @ApiResponse(responseCode = "200", description = "Paquetes actualizados")
     public ResponseEntity<List<PaqueteDTO>> asignarGuiaMasterBulk(
@@ -126,7 +126,7 @@ public class OperarioPaqueteController {
     }
 
     @PostMapping("/buscar-por-guias")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAnyAuthority('PAQUETES_OPERARIO', 'PAQUETES_PESO_WRITE')")
     @Operation(summary = "Buscar paquetes por guías", description = "Busca paquetes usando una lista de números de guía")
     @ApiResponse(responseCode = "200", description = "Paquetes encontrados")
     public ResponseEntity<List<PaqueteDTO>> buscarPorGuias(
@@ -135,7 +135,7 @@ public class OperarioPaqueteController {
     }
 
     @GetMapping("/estados-aplicables")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAuthority('PAQUETES_OPERARIO')")
     @Operation(summary = "Listar estados aplicables", description = "Obtiene estados de rastreo que pueden aplicarse manualmente a paquetes")
     @ApiResponse(responseCode = "200", description = "Listado de estados aplicables")
     public ResponseEntity<List<EstadoRastreoDTO>> estadosAplicables() {
@@ -143,7 +143,7 @@ public class OperarioPaqueteController {
     }
 
     @PostMapping("/aplicar-estado-por-periodo")
-    @PreAuthorize("hasAuthority('PAQUETES_PESO_WRITE')")
+    @PreAuthorize("hasAuthority('PAQUETES_OPERARIO')")
     @Operation(summary = "Aplicar estado por periodo", description = "Aplica un estado de rastreo a todos los paquetes registrados en el periodo indicado")
     @ApiResponse(responseCode = "200", description = "Resultado del cambio masivo")
     public ResponseEntity<CambiarEstadoRastreoBulkResponse> aplicarEstadoPorPeriodo(

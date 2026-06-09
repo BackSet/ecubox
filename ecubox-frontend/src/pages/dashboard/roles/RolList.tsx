@@ -22,6 +22,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { RolEditPermisos } from './RolEditPermisos';
 import { ListToolbar } from '@/components/ListToolbar';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { PageErrorState } from '@/components/PageErrorState';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
@@ -146,7 +147,7 @@ export function RolList() {
 
   if (error && !data) {
     return (
-      <InlineErrorBanner
+      <PageErrorState
         message="Error al cargar roles"
         hint="Verifica tu conexión o intenta de nuevo."
         onRetry={() => refetch()}

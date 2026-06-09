@@ -54,6 +54,7 @@ import {
   Variable,
   X,
 } from 'lucide-react';
+import { PageHeader } from '@/components/PageHeader';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -488,20 +489,11 @@ export function ParametrosSistemaPage() {
 
   return (
     <div className="page-stack">
-      <header className="border-b border-[var(--color-border)] pb-4">
-        <div className="flex items-start gap-2.5">
-          <Settings className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-[var(--color-foreground)]">
-              Parámetros del sistema
-            </h1>
-            <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-[var(--color-muted-foreground)]">
-              Configura mensajes automáticos, tarifas públicas y estados de rastreo. Los cambios
-              aplican a todo el sistema.
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        title="Parámetros del sistema"
+        description="Configura mensajes automáticos, tarifas públicas y estados de rastreo. Los cambios aplican a todo el sistema."
+        icon={<Settings className="h-5 w-5" strokeWidth={1.75} />}
+      />
 
       {/* Tabs móviles (segmented horizontal scroll) */}
       <div className="lg:hidden">
@@ -2564,18 +2556,6 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     tone: 'primary',
   },
   {
-    key: 'consolidado-lote',
-    group: 'Consolidados',
-    source: 'consolidado',
-    label: 'Al agregarlo a lote',
-    detonante: 'El consolidado se registra dentro de un lote de recepción.',
-    donde: 'Lotes de recepción → procesar o ampliar lote.',
-    efecto: 'Muestra Recibido en bodega cuando el código del consolidado entra en un lote.',
-    icon: Boxes,
-    required: true,
-    tone: 'success',
-  },
-  {
     key: 'consolidado-enviado-usa',
     group: 'Consolidados',
     source: 'consolidado',
@@ -2584,6 +2564,18 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     donde: 'Consolidados (envíos) → enviar desde USA.',
     efecto: 'Muestra Enviado desde USA al cerrar la salida (fecha de cierre).',
     icon: ArrowUp,
+    required: true,
+    tone: 'success',
+  },
+  {
+    key: 'consolidado-lote',
+    group: 'Consolidados',
+    source: 'consolidado',
+    label: 'Al recibir en bodega (lote)',
+    detonante: 'El consolidado se registra dentro de un lote de recepción en Ecuador.',
+    donde: 'Lotes de recepción → procesar o ampliar lote.',
+    efecto: 'Muestra Recibido en bodega cuando el código del consolidado entra en un lote.',
+    icon: Boxes,
     required: true,
     tone: 'success',
   },

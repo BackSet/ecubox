@@ -81,7 +81,7 @@ export function MiGuiaDetailPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Pieza</TableHead>
-                <TableHead className="hidden md:table-cell">Consignatario</TableHead>
+                <TableHead className="hidden md:table-cell">Destinatario</TableHead>
                 <TableHead className="text-right">Estado</TableHead>
               </TableRow>
             </TableHeader>
@@ -196,7 +196,7 @@ export function MiGuiaDetailPage() {
           <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-warning)]" />
             <p>
-              Esta guía ya tiene piezas en proceso, por lo que el número y el consignatario
+              Esta guía ya tiene piezas en proceso, por lo que el número y el destinatario
               no pueden modificarse. Si necesitas hacer un cambio, contáctanos y con gusto
               te ayudamos.
             </p>
@@ -204,7 +204,7 @@ export function MiGuiaDetailPage() {
         )}
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <InfoBlock label="Consignatario" icon={<UserRound className="h-3.5 w-3.5" />}>
+          <InfoBlock label="Destinatario" icon={<UserRound className="h-3.5 w-3.5" />}>
             <ConsignatarioInfo
               nombre={guia.consignatarioNombre}
               telefono={guia.consignatarioTelefono}

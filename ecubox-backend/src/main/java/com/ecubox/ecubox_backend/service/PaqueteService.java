@@ -1291,6 +1291,7 @@ public class PaqueteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoRastreoId);
         EstadoRastreo origen = p.getEstadoRastreo();
+        validarEsSiguienteInmediato(origen, estado);
         aplicarEstadoConReglas(p, estado, motivoAlterno);
         p = paqueteRepository.save(p);
         trackingEventService.registrarTransicion(
@@ -1339,10 +1340,25 @@ public class PaqueteService {
                 continue;
             }
             EstadoRastreo origenActual = p.getEstadoRastreo();
-            if (esRetroceso(origenActual, estado)) {
-                rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(
-                        paqueteId, "No se puede aplicar un estado anterior al actual"));
-                continue;
+            if (origenActual != null && !origenActual.getId().equals(estado.getId())) {
+                if (!Boolean.TRUE.equals(origenActual.getActivo())) {
+                    rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(
+                            paqueteId, "El estado actual del paquete no está activo en la configuración"));
+                    continue;
+                }
+                Optional<EstadoRastreo> siguiente = estadoRastreoService.findSiguienteEstadoInmediato(origenActual);
+                if (siguiente.isEmpty()) {
+                    rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(
+                            paqueteId, "El paquete ya está en el último estado del flujo configurado"));
+                    continue;
+                }
+                if (!siguiente.get().getId().equals(estado.getId())) {
+                    String motivo = esRetroceso(origenActual, estado)
+                            ? "No se puede retroceder el estado de rastreo"
+                            : "Solo se permite avanzar al siguiente estado inmediato: '" + siguiente.get().getNombre() + "'";
+                    rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, motivo));
+                    continue;
+                }
             }
             try {
                 EstadoRastreo origen = p.getEstadoRastreo();
@@ -1475,23 +1491,27 @@ public class PaqueteService {
         if (paquetes.isEmpty()) {
             return List.of();
         }
+        Set<Long> excluirPorPunto = parametroSistemaService.getIdsEstadosRastreoGestionadosAutomaticamente();
         Set<Long> interseccion = null;
         for (Paquete paquete : paquetes) {
-            List<EstadoRastreo> destinos = estadoRastreoService.findDestinosActivosExcluyendoOrigen(paquete.getEstadoRastreo().getId());
-            Set<Long> destinosIds = destinos.stream().map(EstadoRastreo::getId).collect(Collectors.toSet());
+            Optional<EstadoRastreo> siguiente = estadoRastreoService.findSiguienteEstadoInmediato(paquete.getEstadoRastreo());
+            Set<Long> siguienteSet = siguiente
+                    .filter(e -> !excluirPorPunto.contains(e.getId()))
+                    .map(e -> Set.of(e.getId()))
+                    .orElse(Set.of());
             if (interseccion == null) {
-                interseccion = destinosIds;
+                interseccion = new HashSet<>(siguienteSet);
             } else {
-                interseccion.retainAll(destinosIds);
+                interseccion.retainAll(siguienteSet);
             }
+            if (interseccion.isEmpty()) break;
         }
         if (interseccion == null || interseccion.isEmpty()) {
             return List.of();
         }
-        final Set<Long> idsPermitidos = Set.copyOf(interseccion);
-        Set<Long> excluirPorPunto = parametroSistemaService.getIdsEstadosRastreoGestionadosAutomaticamente();
+        final Set<Long> ids = Set.copyOf(interseccion);
         return estadoRastreoService.findActivos().stream()
-                .filter(e -> idsPermitidos.contains(e.getId()) && !excluirPorPunto.contains(e.getId()))
+                .filter(e -> ids.contains(e.getId()))
                 .toList();
     }
 
@@ -1518,6 +1538,35 @@ public class PaqueteService {
 
     private void validarEstadoNoReservadoParaPuntosOperativos(Long estadoRastreoId) {
         parametroSistemaService.validarEstadoRastreoAplicableManualmente(estadoRastreoId);
+    }
+
+    /**
+     * Valida que {@code estadoDestino} sea exactamente el siguiente inmediato en el orden del flujo
+     * respecto a {@code estadoActual}. Lanza {@link BadRequestException} si se intenta un salto,
+     * retroceso, o si el paquete ya está en el último estado configurado.
+     * Solo se llama desde cambios manuales (individual y masivo); las aplicaciones automáticas del
+     * sistema no pasan por esta validación.
+     */
+    private void validarEsSiguienteInmediato(EstadoRastreo estadoActual, EstadoRastreo estadoDestino) {
+        if (estadoActual == null) return;
+        if (estadoActual.getId().equals(estadoDestino.getId())) return;
+        if (estadoActual.getOrden() == null) return;
+        if (!Boolean.TRUE.equals(estadoActual.getActivo())) {
+            throw new BadRequestException("El estado actual del paquete no está activo en la configuración.");
+        }
+        Optional<EstadoRastreo> siguiente = estadoRastreoService.findSiguienteEstadoInmediato(estadoActual);
+        if (siguiente.isEmpty()) {
+            throw new BadRequestException("El paquete ya está en el último estado del flujo configurado.");
+        }
+        if (!siguiente.get().getId().equals(estadoDestino.getId())) {
+            Integer ordenDestino = estadoDestino.getOrden();
+            Integer ordenActual = estadoActual.getOrden();
+            if (ordenDestino != null && ordenActual != null && ordenDestino < ordenActual) {
+                throw new BadRequestException("No se permite retroceder el estado de rastreo.");
+            }
+            throw new BadRequestException(
+                    "Solo se permite avanzar al siguiente estado inmediato: '" + siguiente.get().getNombre() + "'.");
+        }
     }
 
     private String renderLeyenda(String leyenda, Integer diasTranscurridos) {

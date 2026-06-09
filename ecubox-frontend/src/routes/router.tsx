@@ -99,10 +99,6 @@ const LiquidacionDetailPage = lazyNamed(
   () => import('@/pages/dashboard/liquidaciones/LiquidacionDetailPage'),
   'LiquidacionDetailPage',
 );
-const GestionarEstadosPage = lazyNamed(
-  () => import('@/pages/dashboard/gestionar-estados-paquetes/GestionarEstadosPage'),
-  'GestionarEstadosPage',
-);
 const DespachoListPage = lazyNamed(
   () => import('@/pages/dashboard/despachos/DespachoListPage'),
   'DespachoListPage',
@@ -591,17 +587,6 @@ const liquidacionDetailRoute = createRoute({
   component: withDashboardLayout(LiquidacionDetailPage),
 });
 
-const gestionarEstadosPaquetesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/gestionar-estados-paquetes',
-  beforeLoad: requireAnyPermission([
-    'PAQUETES_PESO_WRITE',
-    'GUIAS_MASTER_READ',
-    'ENVIOS_CONSOLIDADOS_READ',
-  ]),
-  component: withDashboardLayout(GestionarEstadosPage),
-});
-
 const despachosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/despachos',
@@ -737,7 +722,6 @@ const routeTree = rootRoute.addChildren([
   enviosConsolidadosDetailRoute,
   liquidacionesRoute,
   liquidacionDetailRoute,
-  gestionarEstadosPaquetesRoute,
   despachosRoute,
   despachosNuevoRoute,
   despachosDetailRoute,

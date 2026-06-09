@@ -27,6 +27,8 @@ import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { SurfaceCardSkeleton } from '@/components/skeletons/SurfaceCardSkeleton';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
+import { PageHeader } from '@/components/PageHeader';
+import { PageCard } from '@/components/PageCard';
 import {
   Table,
   TableBody,
@@ -187,47 +189,41 @@ export function EstadisticasPage() {
 
   return (
     <div className="page-stack">
-      <header className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <ChartNoAxesCombined className="h-5 w-5 text-[var(--color-primary)]" />
-            <h1 className="text-[18px] font-semibold text-[var(--color-foreground)]">
-              Estadísticas operativas
-            </h1>
-          </div>
-          <p className="mt-1 text-[13px] text-[var(--color-muted-foreground)]">
-            Tendencias y alertas para apoyar decisiones de operación.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <label className="flex items-center gap-2 text-[13px] text-[var(--color-muted-foreground)]">
-            <CalendarRange className="h-4 w-4" />
-            Período
-            <select
-              value={meses}
-              onChange={(event) => setMeses(Number(event.target.value))}
-              className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 text-[var(--color-foreground)]"
+      <PageHeader
+        title="Estadísticas operativas"
+        description="Tendencias y alertas para apoyar decisiones de operación."
+        icon={<ChartNoAxesCombined className="h-5 w-5 text-[var(--color-primary)]" />}
+        actions={
+          <>
+            <label className="flex items-center gap-2 text-[13px] text-[var(--color-muted-foreground)]">
+              <CalendarRange className="h-4 w-4" />
+              Período
+              <select
+                value={meses}
+                onChange={(event) => setMeses(Number(event.target.value))}
+                className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 text-[var(--color-foreground)]"
+              >
+                {PERIODS.map((period) => (
+                  <option key={period} value={period}>
+                    Últimos {period} meses
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={!data || exportando}
+              className="gap-1.5"
             >
-              {PERIODS.map((period) => (
-                <option key={period} value={period}>
-                  Últimos {period} meses
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleExportPdf}
-            disabled={!data || exportando}
-            className="gap-1.5"
-          >
-            <FileDown className="h-4 w-4" aria-hidden />
-            {exportando ? 'Generando...' : 'Exportar PDF'}
-          </Button>
-        </div>
-      </header>
+              <FileDown className="h-4 w-4" aria-hidden />
+              {exportando ? 'Generando...' : 'Exportar PDF'}
+            </Button>
+          </>
+        }
+      />
 
       {isError && (
         <InlineErrorBanner
@@ -358,17 +354,15 @@ export function EstadisticasPage() {
           )}
 
           {proyeccion && (
-            <SurfaceCard className="p-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-[var(--color-primary)]" aria-hidden />
-                <h2 className="text-[14px] font-semibold text-[var(--color-foreground)]">
+            <PageCard
+              title={
+                <span className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-[var(--color-primary)]" aria-hidden />
                   Proyección y ritmo
-                </h2>
-              </div>
-              <p className="mb-4 mt-1 text-[12px] text-[var(--color-muted-foreground)]">
-                Estimación del próximo mes según el promedio de los últimos 3 meses. Úsala como
-                referencia, no como pronóstico exacto.
-              </p>
+                </span>
+              }
+              description="Estimación del próximo mes según el promedio de los últimos 3 meses. Úsala como referencia, no como pronóstico exacto."
+            >
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <MetricTile
                   label="Próx. mes · Despachos"
@@ -392,32 +386,27 @@ export function EstadisticasPage() {
                   hint="Despachados / registrados"
                 />
               </div>
-            </SurfaceCard>
+            </PageCard>
           )}
 
           <div className="grid gap-4 xl:grid-cols-3">
-            <SurfaceCard className="p-4 xl:col-span-2">
-              <h2 className="text-[14px] font-semibold text-[var(--color-foreground)]">
-                Evolución mensual
-              </h2>
-              <p className="mb-4 mt-1 text-[12px] text-[var(--color-muted-foreground)]">
-                Compara despachos realizados con nuevos paquetes registrados.
-              </p>
+            <PageCard
+              title="Evolución mensual"
+              description="Compara despachos realizados con nuevos paquetes registrados."
+              className="xl:col-span-2"
+            >
               <MonthlyChart
                 despachos={data.despachosPorMes}
                 registros={data.paquetesRegistradosPorMes}
               />
-            </SurfaceCard>
+            </PageCard>
 
-            <SurfaceCard className="p-4">
-              <h2 className="text-[14px] font-semibold text-[var(--color-foreground)]">
-                Inventario por estado
-              </h2>
-              <p className="mb-4 mt-1 text-[12px] text-[var(--color-muted-foreground)]">
-                Situación actual de todos los paquetes.
-              </p>
+            <PageCard
+              title="Inventario por estado"
+              description="Situación actual de todos los paquetes."
+            >
               <StatusDistributionChart data={data.paquetesPorEstado} />
-            </SurfaceCard>
+            </PageCard>
           </div>
 
           {data.resumen.entregadosSinDespacho > 0 && (
@@ -575,24 +564,17 @@ export function EstadisticasPage() {
             </SurfaceCard>
           )}
 
-          <SurfaceCard className="overflow-hidden">
-            <div className="border-b border-[var(--color-border)] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-[14px] font-semibold text-[var(--color-foreground)]">
-                    Paquetes demorados sin despacho
-                  </h2>
-                  <p className="mt-1 text-[12px] text-[var(--color-muted-foreground)]">
-                    El proceso completo se estima entre 7 y 12 días laborables. Aquí aparecen los
-                    paquetes que superan {data.diasMaxSinDespachar} días laborables desde su registro
-                    y todavía no tienen despacho.
-                  </p>
-                </div>
-                <span className="rounded-full bg-[var(--color-destructive)]/10 px-2.5 py-1 text-[12px] font-medium text-[var(--color-destructive)]">
-                  {data.resumen.demoradosSinDespachar} casos
-                </span>
-              </div>
-            </div>
+          <PageCard
+            padding="none"
+            title="Paquetes demorados sin despacho"
+            description={`El proceso completo se estima entre 7 y 12 días laborables. Aquí aparecen los paquetes que superan ${data.diasMaxSinDespachar} días laborables desde su registro y todavía no tienen despacho.`}
+            actions={
+              <span className="rounded-full bg-[var(--color-destructive)]/10 px-2.5 py-1 text-[12px] font-medium text-[var(--color-destructive)]">
+                {data.resumen.demoradosSinDespachar} casos
+              </span>
+            }
+            className="overflow-hidden"
+          >
             <div className="table-responsive">
             <Table className="min-w-[820px]">
               <TableHeader>
@@ -662,7 +644,7 @@ export function EstadisticasPage() {
                 Se muestran los 100 casos más antiguos.
               </p>
             )}
-          </SurfaceCard>
+          </PageCard>
         </>
       ) : null}
     </div>

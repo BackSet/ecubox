@@ -53,6 +53,7 @@ import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { PageErrorState } from '@/components/PageErrorState';
 import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
@@ -380,7 +381,7 @@ export function DespachoListPage() {
   // banner arriba (más abajo en el render) y conservamos la tabla previa.
   if (error && !despachos) {
     return (
-      <InlineErrorBanner
+      <PageErrorState
         message="Error al cargar despachos"
         hint="Verifica tu conexión o intenta de nuevo."
         onRetry={() => refetch()}

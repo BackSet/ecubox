@@ -27,7 +27,8 @@ import { SurfaceCard } from '@/components/ui/surface-card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { KpiCard } from '@/components/KpiCard';
-import { ListTableShell } from '@/components/ListTableShell';
+import { KpiCardsGrid } from '@/components/KpiCardsGrid';
+import { PageHeader } from '@/components/PageHeader';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import { obtenerMiDespacho } from '@/lib/api/mis-despachos.service';
 import { cn } from '@/lib/utils';
@@ -119,33 +120,20 @@ export function MisEntregasPage() {
 
   return (
     <div className="page-stack">
-      <SurfaceCard className="p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[color-mix(in_oklab,var(--color-primary)_14%,transparent)] text-[var(--color-primary)]">
-              <Truck className="h-6 w-6" />
-            </span>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Mis despachos
-              </p>
-              <h1 className="mt-0.5 text-xl font-semibold leading-tight text-foreground">
-                Mis entregas
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Consulta tus despachos en modo lectura y confirma la entrega cuando los recibas.
-              </p>
-            </div>
-          </div>
-          {error ? (
+      <PageHeader
+        title="Mis entregas"
+        description="Consulta tus despachos y confirma la entrega cuando recibas tus paquetes."
+        icon={<Truck className="h-5 w-5" strokeWidth={1.75} />}
+        actions={
+          error ? (
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               Reintentar
             </Button>
-          ) : null}
-        </div>
-      </SurfaceCard>
+          ) : undefined
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {!isLoading && !error && despachos.length > 0 && <KpiCardsGrid>
         <KpiCard
           icon={<Truck className="h-5 w-5" />}
           label="Despachos"
@@ -174,33 +162,38 @@ export function MisEntregasPage() {
           tone={stats.confirmados > 0 ? 'success' : 'neutral'}
           hint={`${stats.pendientes} pendiente${stats.pendientes === 1 ? '' : 's'}`}
         />
-      </div>
+      </KpiCardsGrid>}
 
-      <SurfaceCard className="space-y-3 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="inline-flex items-center gap-2 text-base font-semibold">
-              <Truck className="h-4 w-4 text-[var(--color-primary)]" />
-              Despachos
-              <span className="rounded bg-[var(--color-muted)] px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-                {despachos.length}
-              </span>
-            </h2>
-          </div>
+      <SurfaceCard className="overflow-hidden p-0">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-4 py-3 sm:px-5">
+          <Truck className="h-4 w-4 text-[var(--color-primary)]" strokeWidth={1.75} />
+          <h2 className="text-sm font-semibold text-[var(--color-foreground)]">Despachos</h2>
+          <span className="rounded bg-[var(--color-muted)] px-1.5 py-0.5 text-xs font-medium text-[var(--color-muted-foreground)]">
+            {despachos.length}
+          </span>
         </div>
 
         {isLoading ? (
-          <SurfaceCard className="p-6 text-sm text-muted-foreground">Cargando tus despachos...</SurfaceCard>
+          <div className="space-y-2 p-4" aria-busy="true" aria-live="polite">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 animate-pulse rounded-md bg-[var(--color-muted)]/60" />
+            ))}
+            <span className="sr-only">Cargando tus despachos...</span>
+          </div>
         ) : error ? (
-          <div className="ui-alert ui-alert-error">No se pudieron cargar tus despachos.</div>
+          <div className="p-4">
+            <div className="ui-alert ui-alert-error">No se pudieron cargar tus despachos.</div>
+          </div>
         ) : despachos.length === 0 ? (
-          <EmptyState
-            icon={PackageCheck}
-            title="No tienes despachos en camino"
-            description="Cuando tengas un envío en despacho aparecerá aquí para que consultes, imprimas o confirmes su entrega."
-          />
+          <div className="p-4">
+            <EmptyState
+              icon={PackageCheck}
+              title="No tienes despachos en camino"
+              description="Cuando tengas un envío en despacho aparecerá aquí para que consultes, imprimas o confirmes su entrega."
+            />
+          </div>
         ) : (
-          <ListTableShell>
+          <div className="table-responsive">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -274,7 +267,7 @@ export function MisEntregasPage() {
                 ))}
               </TableBody>
             </Table>
-          </ListTableShell>
+          </div>
         )}
       </SurfaceCard>
     </div>

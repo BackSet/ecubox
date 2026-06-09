@@ -17,6 +17,7 @@ import { ListToolbar } from '@/components/ListToolbar';
 import { ListTableShell } from '@/components/ListTableShell';
 import { EmptyState } from '@/components/EmptyState';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
+import { PageErrorState } from '@/components/PageErrorState';
 import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
 import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
@@ -134,8 +135,6 @@ export function PesajePage() {
   const [distribuirOpen, setDistribuirOpen] = useState(false);
   const [bulkSaveInvalidIds, setBulkSaveInvalidIds] = useState<Set<number>>(new Set());
 
-  // Codigos de envio consolidado presentes en los paquetes cargados, para
-  // poblar el filtro. Mantenemos el mismo patron que en gestionar-estados-paquetes.
   const codigosEnvio = useMemo(() => {
     const set = new Set<string>();
     for (const p of paquetes ?? []) {
@@ -399,7 +398,7 @@ export function PesajePage() {
 
   if (error && (!paquetes || paquetes.length === 0)) {
     return (
-      <InlineErrorBanner
+      <PageErrorState
         message="Error al cargar paquetes"
         hint="Verifica tu conexión o intenta de nuevo."
         onRetry={() => refetch()}
