@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Boxes, Layers, Package, type LucideIcon } from 'lucide-react';
+import { PageHeader } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { GestionarEstadosPaquetesTab } from './GestionarEstadosPaquetesPage';
@@ -34,12 +35,10 @@ export function GestionarEstadosPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold leading-tight text-foreground">Gestionar estados</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Cambia el estado de paquetes, guías master o consolidados según las reglas de cada dominio.
-        </p>
-      </div>
+      <PageHeader
+        title="Gestionar estados"
+        description="Cambia el estado de paquetes, guías master o consolidados según las reglas de cada dominio."
+      />
 
       {visibles.length > 1 && (
         <div className="inline-flex flex-wrap gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-1">
