@@ -115,8 +115,3 @@ export const usuarioUpdateSchema = usuarioBaseSchema.superRefine((data, ctx) => 
 export const rolPermisosSchema = z.object({
   permisoIds: z.array(z.number()),
 });
-
-export const gestionarEstadosBulkSchema = z.object({
-  estadoTargetId: z.number().refine((n) => n > 0, 'Selecciona un estado'),
-  paqueteIds: z.array(z.number()).min(1, 'Selecciona al menos un paquete'),
-});

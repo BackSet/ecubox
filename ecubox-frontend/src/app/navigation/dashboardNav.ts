@@ -7,7 +7,6 @@ import {
   MapPin,
   Package,
   Weight,
-  Tag,
   Truck,
   Building2,
   PackageCheck,
@@ -129,14 +128,6 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         icon: Weight,
         permission: 'PAQUETES_PESO_WRITE',
         keywords: ['peso', 'pesar', 'balanza'],
-      },
-      {
-        to: '/gestionar-estados-paquetes',
-        label: 'Gestionar estados',
-        icon: Tag,
-        permission: 'PAQUETES_PESO_WRITE',
-        permissionsAny: ['PAQUETES_PESO_WRITE', 'GUIAS_MASTER_READ', 'ENVIOS_CONSOLIDADOS_READ'],
-        keywords: ['estado', 'rastreo', 'guia', 'master', 'consolidado'],
       },
       {
         to: '/paquetes-vencidos',

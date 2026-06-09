@@ -135,8 +135,6 @@ export function PesajePage() {
   const [distribuirOpen, setDistribuirOpen] = useState(false);
   const [bulkSaveInvalidIds, setBulkSaveInvalidIds] = useState<Set<number>>(new Set());
 
-  // Codigos de envio consolidado presentes en los paquetes cargados, para
-  // poblar el filtro. Mantenemos el mismo patron que en gestionar-estados-paquetes.
   const codigosEnvio = useMemo(() => {
     const set = new Set<string>();
     for (const p of paquetes ?? []) {

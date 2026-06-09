@@ -279,7 +279,7 @@ export function EnviosConsolidadosListPage() {
           tone="primary"
           hint={`${stats.pagados} pagados · ${stats.noPagados} pendientes`}
         />
-        {OPERATIVO_FILTROS.map(({ estado }) => {
+        {(['EN_PREPARACION', 'ENVIADO_DESDE_USA', 'RECIBIDO_EN_BODEGA'] as const).map((estado) => {
           const ui = ENVIO_CONSOLIDADO_ESTADO_UI[estado];
           const Icon = ui.icon;
           const kpiTone =
