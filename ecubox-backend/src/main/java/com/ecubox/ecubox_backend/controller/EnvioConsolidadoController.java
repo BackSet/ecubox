@@ -139,7 +139,7 @@ public class EnvioConsolidadoController {
 
     @PostMapping("/{id}/cancelar")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
-    @Operation(summary = "Cancelar consolidado", description = "Cancela el consolidado desde VACIO o EN_PREPARACION")
+    @Operation(summary = "Cancelar consolidado", description = "Cancela el consolidado desde cualquier estado, salvo LIQUIDADO o CANCELADO")
     @ApiResponse(responseCode = "200", description = "Envío consolidado cancelado")
     public ResponseEntity<EnvioConsolidadoDTO> cancelar(@Parameter(description = "ID del envío consolidado") @PathVariable Long id) {
         EnvioConsolidado envio = envioConsolidadoService.cancelarConsolidado(id);
@@ -202,6 +202,15 @@ public class EnvioConsolidadoController {
     @Operation(summary = "Listar estados aplicables", description = "Obtiene estados posteriores al punto de asociación a consolidado")
     public ResponseEntity<List<EstadoRastreoDTO>> estadosAplicables() {
         return ResponseEntity.ok(envioConsolidadoService.listarEstadosAplicables());
+    }
+
+    @GetMapping("/elegibles-para-estado-rastreo")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Listar consolidados elegibles para un estado de rastreo",
+            description = "Ids de consolidados con paquetes en el estado de rastreo inmediatamente "
+                    + "anterior al indicado (regla de 'ir de 1 en 1')")
+    public ResponseEntity<List<Long>> elegiblesParaEstadoRastreo(@RequestParam Long estadoRastreoId) {
+        return ResponseEntity.ok(envioConsolidadoService.listarElegiblesParaEstadoRastreo(estadoRastreoId));
     }
 
     @PostMapping("/aplicar-estado")

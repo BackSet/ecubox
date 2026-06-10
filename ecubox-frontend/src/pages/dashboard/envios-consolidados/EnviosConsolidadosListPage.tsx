@@ -76,6 +76,7 @@ import {
   useArribarEcuadorEnvioConsolidado,
   useCancelarEnvioConsolidado,
   useAplicarEstadoEnConsolidados,
+  useElegiblesParaEstadoRastreoConsolidados,
   useEstadosAplicablesConsolidados,
   useAplicarTransicionConsolidados,
   useCrearEnvioConsolidado,
@@ -315,6 +316,12 @@ export function EnviosConsolidadosListPage() {
     aplicarEstadoOpen && tipoAccionMasiva === 'rastreo'
   );
 
+  // Consolidados elegibles (regla "ir de 1 en 1") para el estado de rastreo seleccionado
+  const { data: elegiblesEstadoRastreo } = useElegiblesParaEstadoRastreoConsolidados(
+    estadoRastreoSeleccionado,
+    aplicarEstadoOpen && tipoAccionMasiva === 'rastreo'
+  );
+
   const bulkOptions = useMemo(() => {
     if (tipoAccionMasiva === 'operativa') {
       return [
@@ -322,6 +329,7 @@ export function EnviosConsolidadosListPage() {
         { value: 'ENVIADO_DESDE_USA', label: 'Enviar desde USA' },
         { value: 'ARRIBADO_ECUADOR', label: 'Arribar a Ecuador' },
         { value: 'EN_PREPARACION', label: 'Reabrir (En preparación)' },
+        { value: 'CANCELADO', label: 'Cancelar envío' },
       ];
     } else {
       return (estadosAplicables ?? []).map((est) => ({
@@ -384,8 +392,10 @@ export function EnviosConsolidadosListPage() {
         });
     } else {
       if (!estadoRastreoSeleccionado) return [];
+      const elegiblesIds = new Set(elegiblesEstadoRastreo ?? []);
       return all
         .filter((envio) => envio.totalPaquetes > 0 && resolveEstadoOperativoConsolidado(envio) !== 'CANCELADO')
+        .filter((envio) => elegiblesIds.has(envio.id))
         .map((envio) => {
           const operativo = resolveEstadoOperativoConsolidado(envio);
           return {
@@ -410,21 +420,30 @@ export function EnviosConsolidadosListPage() {
           };
         });
     }
-  }, [tipoAccionMasiva, estadoOperativoSeleccionado, estadoRastreoSeleccionado, dataTodos]);
+  }, [tipoAccionMasiva, estadoOperativoSeleccionado, estadoRastreoSeleccionado, dataTodos, elegiblesEstadoRastreo]);
 
   const bulkOptionHelp = useMemo(() => {
     if (tipoAccionMasiva === 'operativa') {
-      return estadoOperativoSeleccionado
-        ? `Solo se listan consolidados en estado ${
-            OPERATIVO_FUENTE[estadoOperativoSeleccionado]
-              .map((src) => `«${ENVIO_CONSOLIDADO_ESTADO_UI[src].label}»`)
-              .join(' o ')
-          }; los demás no son elegibles.`
-        : 'Vacío, Recibido en bodega, Liquidado y Cancelado son estados no transicionables manualmente o derivados.';
+      if (!estadoOperativoSeleccionado) {
+        return 'Vacío, Recibido en bodega y Liquidado son estados no transicionables manualmente o derivados.';
+      }
+      if (estadoOperativoSeleccionado === 'CANCELADO') {
+        return 'Cancela el envío sin importar su estado actual, salvo que ya esté «Liquidado» o «Cancelado».';
+      }
+      return `Solo se listan consolidados en estado ${
+        OPERATIVO_FUENTE[estadoOperativoSeleccionado]
+          .map((src) => `«${ENVIO_CONSOLIDADO_ESTADO_UI[src].label}»`)
+          .join(' o ')
+      }; los demás no son elegibles.`;
     } else {
-      return 'Aplica este estado de rastreo a todos los paquetes contenidos en los consolidados seleccionados. No cambia el estado operativo de los consolidados.';
+      if (!estadoRastreoSeleccionado) {
+        return 'Seleccione un estado de rastreo para ver los consolidados elegibles.';
+      }
+      return 'Solo se listan consolidados con paquetes en el estado de rastreo inmediatamente anterior. '
+        + 'Aplica el estado seleccionado a todos los paquetes de los consolidados elegidos; '
+        + 'no cambia el estado operativo de los consolidados.';
     }
-  }, [tipoAccionMasiva, estadoOperativoSeleccionado]);
+  }, [tipoAccionMasiva, estadoOperativoSeleccionado, estadoRastreoSeleccionado]);
 
   const bulkHeaderExtra = (
     <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/20 p-3">
@@ -958,7 +977,7 @@ export function EnviosConsolidadosListPage() {
   );
 }
 
-type TransicionOperativa = 'CERRADO' | 'ENVIADO_DESDE_USA' | 'ARRIBADO_ECUADOR' | 'EN_PREPARACION';
+type TransicionOperativa = 'CERRADO' | 'ENVIADO_DESDE_USA' | 'ARRIBADO_ECUADOR' | 'EN_PREPARACION' | 'CANCELADO';
 
 interface AplicarTransicionPayload {
   estadoOperativoDestino: TransicionOperativa;
@@ -978,14 +997,20 @@ interface AplicarEstadoConsolidadosDialogProps {
 }
 
 /** Estados operativos que tienen una transición manual real. */
-const OPERATIVOS_APLICABLES: TransicionOperativa[] = ['CERRADO', 'ENVIADO_DESDE_USA', 'ARRIBADO_ECUADOR', 'EN_PREPARACION'];
+const OPERATIVOS_APLICABLES: TransicionOperativa[] = ['CERRADO', 'ENVIADO_DESDE_USA', 'ARRIBADO_ECUADOR', 'EN_PREPARACION', 'CANCELADO'];
 
-/** Estado de origen requerido para cada transición. */
+/**
+ * Estado(s) de origen requerido para cada transición. Todas avanzan/retroceden
+ * 1 paso en el flujo VACIO → EN_PREPARACION → CERRADO → ENVIADO_DESDE_USA →
+ * ARRIBADO_ECUADOR → RECIBIDO_EN_BODEGA → LIQUIDADO, salvo CANCELADO que se
+ * admite desde cualquier estado no terminal (no LIQUIDADO ni CANCELADO).
+ */
 const OPERATIVO_FUENTE: Record<TransicionOperativa, EstadoEnvioConsolidadoOperativo[]> = {
   CERRADO: ['EN_PREPARACION'],
   ENVIADO_DESDE_USA: ['CERRADO'],
   ARRIBADO_ECUADOR: ['ENVIADO_DESDE_USA'],
   EN_PREPARACION: ['CERRADO', 'ENVIADO_DESDE_USA'],
+  CANCELADO: ['VACIO', 'EN_PREPARACION', 'CERRADO', 'ENVIADO_DESDE_USA', 'ARRIBADO_ECUADOR', 'RECIBIDO_EN_BODEGA'],
 };
 
 function isoDateLocal(d: Date): string {

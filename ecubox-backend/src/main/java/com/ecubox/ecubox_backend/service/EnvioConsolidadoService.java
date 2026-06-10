@@ -261,6 +261,27 @@ public class EnvioConsolidadoService {
         return paqueteService.listarEstadosPosterioresAAsociacionConsolidado();
     }
 
+    /**
+     * Ids de los consolidados elegibles para aplicar el estado de rastreo
+     * {@code estadoRastreoId} a sus paquetes, aplicando la regla de "ir de 1
+     * en 1": solo se listan consolidados con paquetes en el estado de
+     * rastreo inmediatamente anterior (ver {@link PaqueteService#resolverEstadoOrigenParaEstadoRastreoConsolidado}).
+     */
+    @Transactional(readOnly = true)
+    public List<Long> listarElegiblesParaEstadoRastreo(Long estadoRastreoId) {
+        if (estadoRastreoId == null) {
+            throw new BadRequestException("Seleccione el estado a aplicar");
+        }
+        PaqueteService.EstadoOrigenConsolidado origen =
+                paqueteService.resolverEstadoOrigenParaEstadoRastreoConsolidado(estadoRastreoId);
+        if (origen.estadoOrigenId() == null && !origen.incluirArribadosEcuador()) {
+            return envioConsolidadoRepository.findAllIdsConPaquetes();
+        }
+        return envioConsolidadoRepository.findIdsElegiblesParaEstadoRastreo(
+                origen.estadoOrigenId(),
+                origen.incluirArribadosEcuador() ? EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR : null);
+    }
+
     @Transactional
     public AplicarEstadoEnConsolidadosResponse aplicarEstadoRastreo(
             List<Long> consolidadoIds,
@@ -291,9 +312,11 @@ public class EnvioConsolidadoService {
 
     /**
      * Aplica una transición de estado OPERATIVO a consolidados (por ids o por periodo
-     * de creación). Solo admite los destinos con acción real: ENVIADO_DESDE_USA
-     * (enviar desde USA) y EN_PREPARACION (reabrir). Cada consolidado debe estar en
-     * el estado de origen correspondiente; los que no, se devuelven como rechazados.
+     * de creación). Solo admite los destinos con acción real: CERRADO (cerrar),
+     * ENVIADO_DESDE_USA (enviar desde USA), ARRIBADO_ECUADOR (arribar a Ecuador),
+     * EN_PREPARACION (reabrir) y CANCELADO (cancelar, desde cualquier estado salvo
+     * LIQUIDADO o CANCELADO). Cada consolidado debe estar en el estado de origen
+     * correspondiente; los que no, se devuelven como rechazados.
      */
     @Transactional
     public AplicarTransicionConsolidadosResponse aplicarTransicionOperativa(
@@ -309,7 +332,7 @@ public class EnvioConsolidadoService {
             throw new BadRequestException("Estado operativo destino no válido");
         }
         boolean destinoValido = switch (destino) {
-            case CERRADO, ENVIADO_DESDE_USA, ARRIBADO_ECUADOR, EN_PREPARACION -> true;
+            case CERRADO, ENVIADO_DESDE_USA, ARRIBADO_ECUADOR, EN_PREPARACION, CANCELADO -> true;
             default -> false;
         };
         if (!destinoValido) {
@@ -343,6 +366,7 @@ public class EnvioConsolidadoService {
                     case ENVIADO_DESDE_USA -> enviarDesdeUsa(envio.getId(), null);
                     case ARRIBADO_ECUADOR -> marcarArribadoEcuador(envio.getId(), null);
                     case EN_PREPARACION -> reabrir(envio.getId());
+                    case CANCELADO -> cancelarConsolidado(envio.getId());
                     default -> throw new BadRequestException("Transición no soportada: " + destino);
                 }
                 procesados++;
@@ -435,15 +459,15 @@ public class EnvioConsolidadoService {
         return guardado;
     }
 
-    /** Cancela el consolidado. Solo desde VACIO o EN_PREPARACION. */
+    /** Cancela el consolidado desde cualquier estado, salvo LIQUIDADO o CANCELADO. */
     @Transactional
     public EnvioConsolidado cancelarConsolidado(Long envioId) {
         EnvioConsolidado envio = findById(envioId);
         EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
-        if (actual != EstadoEnvioConsolidadoOperativo.VACIO
-                && actual != EstadoEnvioConsolidadoOperativo.EN_PREPARACION) {
+        if (actual == EstadoEnvioConsolidadoOperativo.LIQUIDADO
+                || actual == EstadoEnvioConsolidadoOperativo.CANCELADO) {
             throw new BadRequestException(
-                    "Solo se puede cancelar un envío vacío o en preparación. Estado actual: " + actual);
+                    "No se puede cancelar un envío liquidado o ya cancelado. Estado actual: " + actual);
         }
         envio.setEstadoOperativo(EstadoEnvioConsolidadoOperativo.CANCELADO);
         return envioConsolidadoRepository.save(envio);

@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.CambiarEstadoRastreoBulkResponse;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
+import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteCreateRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.dto.PaquetePesoItem;
@@ -532,6 +533,48 @@ public class PaqueteService {
                         "Solo se pueden aplicar estados hasta la llegada a bodega (lote de recepción) inclusive.");
             }
         }
+    }
+
+    /**
+     * Resuelve, para un estado de rastreo {@code destinoId} seleccionado en el
+     * bulk "Aplicar estado a consolidados", cuál es el estado de rastreo
+     * "anterior" que deben tener los paquetes de un consolidado para que este
+     * sea elegible (regla de "ir de 1 en 1").
+     *
+     * <p>Para estados NORMAL, el anterior es el estado NORMAL activo
+     * inmediatamente previo según {@code orden}. Para estados ALTERNO (p.ej.
+     * "Retenido en aduana"), el anterior es {@code afterEstado}.
+     *
+     * <p>Si el estado anterior coincide con el configurado para "Llega a aduana
+     * destino" ({@link EstadosRastreoPorPuntoDTO#getEstadoRastreoArribadoEcId()}),
+     * también se consideran elegibles los consolidados cuyo
+     * {@code estadoOperativo} sea {@code ARRIBADO_ECUADOR}, ya que el estado de
+     * los paquetes puede no haberse propagado aún.
+     */
+    @Transactional(readOnly = true)
+    public EstadoOrigenConsolidado resolverEstadoOrigenParaEstadoRastreoConsolidado(Long destinoId) {
+        EstadoRastreo destino = estadoRastreoService.findEntityById(destinoId);
+        EstadoRastreo origen;
+        if (destino.getTipoFlujo() == TipoFlujoEstado.ALTERNO) {
+            origen = destino.getAfterEstado();
+        } else {
+            Integer ordenDestino = destino.getOrden() != null ? destino.getOrden() : destino.getOrdenTracking();
+            origen = ordenDestino == null ? null : estadoRastreoService.findActivosEntities().stream()
+                    .filter(e -> e.getTipoFlujo() == TipoFlujoEstado.NORMAL)
+                    .filter(e -> {
+                        Integer orden = e.getOrden() != null ? e.getOrden() : e.getOrdenTracking();
+                        return orden != null && orden < ordenDestino;
+                    })
+                    .max(Comparator.comparingInt(e -> e.getOrden() != null ? e.getOrden() : e.getOrdenTracking()))
+                    .orElse(null);
+        }
+        Long llegaAduanaDestinoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoArribadoEcId();
+        boolean incluirArribadosEcuador = origen != null && origen.getId().equals(llegaAduanaDestinoId);
+        return new EstadoOrigenConsolidado(origen != null ? origen.getId() : null, incluirArribadosEcuador);
+    }
+
+    /** @param estadoOrigenId puede ser {@code null} si el destino no tiene un estado anterior identificable. */
+    public record EstadoOrigenConsolidado(Long estadoOrigenId, boolean incluirArribadosEcuador) {
     }
 
     private Integer ordenEstadoAsociarEnvioConsolidado() {

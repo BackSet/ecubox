@@ -3,11 +3,8 @@ import {
   getPaquetesOperario,
   getPaquetesVencidosOperario,
   bulkUpdatePesos,
-  cambiarEstadoRastreoBulk,
   getEstadosDestinoPermitidos,
-  getEstadosAplicablesPaquete,
   aplicarEstadoPorPeriodoPaquetes,
-  getAllPaquetesOperario,
   type PaquetePesoItem,
 } from '@/lib/api/paquetes.service';
 import { PAQUETES_SIN_SACA_QUERY_KEY } from '@/hooks/useOperarioDespachos';
@@ -55,28 +52,6 @@ export function useBulkUpdatePesos() {
   });
 }
 
-export function useCambiarEstadoRastreoBulk() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ paqueteIds, estadoRastreoId }: { paqueteIds: number[]; estadoRastreoId: number }) =>
-      cambiarEstadoRastreoBulk(paqueteIds, estadoRastreoId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: PAQUETES_SIN_SACA_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: OPERARIO_PAQUETES_VENCIDOS_QUERY_KEY });
-    },
-  });
-}
-
-export function useEstadosAplicablesPaquete(enabled = true) {
-  return useQuery({
-    queryKey: [...OPERARIO_PAQUETES_QUERY_KEY, 'estados-aplicables'],
-    queryFn: getEstadosAplicablesPaquete,
-    staleTime: 0,
-    enabled,
-  });
-}
-
 export function useAplicarEstadoPorPeriodoPaquetes() {
   const qc = useQueryClient();
   return useMutation({
@@ -89,11 +64,3 @@ export function useAplicarEstadoPorPeriodoPaquetes() {
   });
 }
 
-export function useAllPaquetesOperario(enabled = true) {
-  return useQuery({
-    queryKey: [...OPERARIO_PAQUETES_QUERY_KEY, 'all'],
-    queryFn: getAllPaquetesOperario,
-    staleTime: 0,
-    enabled,
-  });
-}

@@ -110,6 +110,8 @@ export function GuiaMasterDetailPage() {
   const [reabrirOpen, setReabrirOpen] = useState(false);
   const [aprobarOpen, setAprobarOpen] = useState(false);
 
+  const hasUpdate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_UPDATE'));
+
   if (isLoading) {
     return (
       <div className="page-stack" aria-busy="true" aria-live="polite">
@@ -148,7 +150,6 @@ export function GuiaMasterDetailPage() {
     );
   }
 
-  const hasUpdate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_UPDATE'));
   const enRevision = guia.estadoGlobal === 'EN_REVISION';
   const cancelada = guia.estadoGlobal === 'CANCELADA';
   const cerradaTerminal = GUIA_MASTER_ESTADOS_TERMINALES.has(guia.estadoGlobal);

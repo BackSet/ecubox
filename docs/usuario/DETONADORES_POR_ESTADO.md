@@ -42,7 +42,7 @@ elige **qué estado** del catálogo corresponde a cada uno.
 | 7 | `TRABAJO` | Preparando envío | Normal | En despacho | Despachos → crear / editar despacho |
 | 8 | `EN_TRANSITO` | En tránsito a destino | Normal | Avance masivo por despacho | Despachos → "Aplicar estado por periodo" / "a despachos" |
 | 9 | `ENTREGADO` | Entregado a destinatario | Normal | Cambio manual **o** Entrega confirmada por cliente · *ancla fin cuenta regresiva* | Estados de paquetes **o** Mis entregas |
-| 10 | `RETENIDO_ADUANA` | Retenido en aduana | Alterno | Cambio manual *(novedad)* | Operaciones → Estados de paquetes |
+| 10 | `RETENIDO_ADUANA` | Retenido en aduana | Alterno | Cambio manual masivo (1 paso) | Envíos consolidados → Aplicar estado a consolidados → Estado de rastreo de paquetes |
 
 > Nota sobre la recepción en lote: al procesar un lote se aplican **dos** detonadores en
 > secuencia sobre el mismo paquete — primero **Llega a destino** (`LLEGA_A_ADUANA`) y luego
@@ -72,12 +72,12 @@ elige **qué estado** del catálogo corresponde a cada uno.
 
 ## 3. Qué estados se ponen a mano y cuáles no
 
-- **Reservados a un punto automático** (no se ofrecen en "Estados de paquetes"): `REGISTRADO`,
+- **Reservados a un punto automático** (no se ofrecen para cambio manual): `REGISTRADO`,
   `PLANILLA`, `MANIFESTADO`, `VUELO`, `LLEGA_A_ADUANA`, `EN_BODEGA`, `TRABAJO`, `EN_TRANSITO`. Los aplica
   el flujo correspondiente.
 - **Disponibles para cambio manual** (no atados a un punto): `RETENIDO_ADUANA` y, si no está
-  reservado a un detonador, `ENTREGADO`. Se ponen desde **Operaciones → Estados de paquetes**
-  mientras el paquete no tenga saca.
+  reservado a un detonador, `ENTREGADO`. Se aplican desde **Envíos consolidados → Aplicar estado a
+  consolidados → Estado de rastreo de paquetes**, con la regla de "ir de 1 en 1" (ver sección 5).
 - **`ENTREGADO`** también puede aplicarse por **confirmación del cliente** en Mis entregas cuando
   está configurado el detonador de entrega confirmada.
 
@@ -106,3 +106,9 @@ estado a todas las piezas de los consolidados seleccionados (`POST /api/envios-c
 
 No sustituye los hitos automáticos (registro, planilla, vuelo, etc.); sirve para correcciones o
 avances operativos puntuales después de la asociación.
+
+En la pestaña **"Estado de rastreo de paquetes"** se aplica además la regla de "ir de 1 en 1": al
+seleccionar un estado, solo se listan los consolidados que tienen paquetes en el estado de rastreo
+inmediatamente anterior (`GET /api/envios-consolidados/elegibles-para-estado-rastreo`). Para el estado
+alterno `RETENIDO_ADUANA` (cuyo predecesor configurado es `LLEGA_A_ADUANA`), también se incluyen los
+consolidados con `estadoOperativo = ARRIBADO_ECUADOR`.

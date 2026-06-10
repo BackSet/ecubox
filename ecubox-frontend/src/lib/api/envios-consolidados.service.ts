@@ -109,7 +109,7 @@ export async function reabrirEnvioConsolidado(id: number): Promise<EnvioConsolid
 }
 
 export interface AplicarTransicionConsolidadosPayload {
-  estadoOperativoDestino: 'CERRADO' | 'ENVIADO_DESDE_USA' | 'ARRIBADO_ECUADOR' | 'EN_PREPARACION';
+  estadoOperativoDestino: 'CERRADO' | 'ENVIADO_DESDE_USA' | 'ARRIBADO_ECUADOR' | 'EN_PREPARACION' | 'CANCELADO';
   consolidadoIds?: number[];
   fechaInicio?: string;
   fechaFin?: string;
@@ -190,6 +190,18 @@ export async function aplicarEstadoEnConsolidados(
 
 export async function getEstadosAplicablesConsolidados(): Promise<EstadoRastreo[]> {
   const { data } = await apiClient.get<EstadoRastreo[]>(`${BASE}/estados-aplicables`);
+  return data;
+}
+
+/**
+ * Ids de consolidados elegibles para aplicar `estadoRastreoId` a sus paquetes:
+ * solo los que tienen paquetes en el estado de rastreo inmediatamente
+ * anterior (regla de "ir de 1 en 1").
+ */
+export async function getElegiblesParaEstadoRastreo(estadoRastreoId: number): Promise<number[]> {
+  const { data } = await apiClient.get<number[]>(`${BASE}/elegibles-para-estado-rastreo`, {
+    params: { estadoRastreoId },
+  });
   return data;
 }
 

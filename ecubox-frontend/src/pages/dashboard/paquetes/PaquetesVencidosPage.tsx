@@ -86,7 +86,7 @@ export function PaquetesVencidosPage() {
         (p.ref?.toLowerCase().includes(q) ?? false) ||
         (p.consignatarioNombre?.toLowerCase().includes(q) ?? false) ||
         (p.consignatarioTelefono?.toLowerCase().includes(q) ?? false) ||
-        (p.estadoRastreoNombre?.toLowerCase().includes(q) ?? false)
+        ((p.estadoRastreoNombre?.toLowerCase().includes(q) || p.estadoRastreoCodigo?.toLowerCase().includes(q)) ?? false)
       );
     });
   }, [paquetes, search, consignatarioFiltro, estadoFiltro]);

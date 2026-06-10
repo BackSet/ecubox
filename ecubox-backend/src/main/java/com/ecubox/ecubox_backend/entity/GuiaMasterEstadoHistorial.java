@@ -32,13 +32,17 @@ public class GuiaMasterEstadoHistorial {
     @JoinColumn(name = "guia_master_id", nullable = false)
     private GuiaMaster guiaMaster;
 
-    @Enumerated(EnumType.STRING)
+    /**
+     * Nombre del estado anterior (puede ser un valor legacy que ya no
+     * existe en {@link EstadoGuiaMaster}, ver migracion V107). Se guarda
+     * como texto para no romper la lectura de historial antiguo.
+     */
     @Column(name = "estado_anterior", length = 40)
-    private EstadoGuiaMaster estadoAnterior;
+    private String estadoAnterior;
 
-    @Enumerated(EnumType.STRING)
+    /** Nombre del estado nuevo; mismo motivo que {@link #estadoAnterior}. */
     @Column(name = "estado_nuevo", length = 40, nullable = false)
-    private EstadoGuiaMaster estadoNuevo;
+    private String estadoNuevo;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_cambio", length = 40, nullable = false)

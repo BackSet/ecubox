@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.repository;
 
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
+import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface EnvioConsolidadoRepository
@@ -72,4 +74,29 @@ public interface EnvioConsolidadoRepository
             """)
     Page<EnvioConsolidado> findDisponiblesParaRecepcion(
             @Param("q") String q, Pageable pageable);
+
+    /** Ids de consolidados que tienen al menos un paquete asociado. */
+    @Query("""
+            SELECT DISTINCT e.id FROM EnvioConsolidado e
+            WHERE EXISTS (SELECT 1 FROM Paquete p WHERE p.envioConsolidado = e)
+            """)
+    List<Long> findAllIdsConPaquetes();
+
+    /**
+     * Ids de consolidados elegibles para aplicar un estado de rastreo masivo:
+     * los que tienen al menos un paquete en {@code estadoOrigenId}, o
+     * (si {@code estadoOperativoAlterno} no es nulo) cuyo estado operativo
+     * coincide con ese valor.
+     */
+    @Query("""
+            SELECT DISTINCT e.id FROM EnvioConsolidado e
+            WHERE EXISTS (
+              SELECT 1 FROM Paquete p
+              WHERE p.envioConsolidado = e AND p.estadoRastreo.id = :estadoOrigenId
+            )
+            OR (:estadoOperativoAlterno IS NOT NULL AND e.estadoOperativo = :estadoOperativoAlterno)
+            """)
+    List<Long> findIdsElegiblesParaEstadoRastreo(
+            @Param("estadoOrigenId") Long estadoOrigenId,
+            @Param("estadoOperativoAlterno") EstadoEnvioConsolidadoOperativo estadoOperativoAlterno);
 }

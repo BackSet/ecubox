@@ -8,6 +8,7 @@ import {
   descargarManifiestoXlsx,
   eliminarEnvioConsolidado,
   enviarDesdeUsaEnvioConsolidado,
+  getElegiblesParaEstadoRastreo,
   getEstadosAplicablesConsolidados,
   listarEnviosConsolidados,
   listarEnviosDisponiblesParaRecepcion,
@@ -146,6 +147,20 @@ export function useEstadosAplicablesConsolidados(enabled = true) {
     enabled,
     staleTime: 0,
     refetchOnMount: 'always',
+  });
+}
+
+/**
+ * Ids de consolidados elegibles para aplicar `estadoRastreoId` a sus paquetes
+ * (regla de "ir de 1 en 1"). `estadoRastreoId` es `null` mientras no se haya
+ * seleccionado un estado.
+ */
+export function useElegiblesParaEstadoRastreoConsolidados(estadoRastreoId: number | null, enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'elegibles-para-estado-rastreo', estadoRastreoId],
+    queryFn: () => getElegiblesParaEstadoRastreo(estadoRastreoId as number),
+    enabled: enabled && estadoRastreoId != null,
+    staleTime: 0,
   });
 }
 

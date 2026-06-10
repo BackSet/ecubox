@@ -2197,7 +2197,7 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Flujo de paquete',
     source: 'rastreo',
     numero: 1,
-    label: '1. Registrado EE.UU',
+    label: '1. Paquete registrado',
     detonante: 'El paquete se registra para una Guía master.',
     donde: 'Paquetes / Guías master.',
     efecto: 'Aplica el estado configurado. La Guía master puede quedar en CON_PAQUETES_REGISTRADOS.',
@@ -2239,7 +2239,7 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Flujo de paquete',
     source: 'rastreo',
     numero: 4,
-    label: '4. En vuelo a Ecuador',
+    label: '4. Envío en tránsito internacional',
     detonante: 'El Envío consolidado pasa a ENVIADO_DESDE_USA.',
     donde: 'Envíos consolidados → Aplicar estado.',
     efecto: 'Aplica el estado configurado a paquetes elegibles.',
@@ -2267,7 +2267,7 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Flujo de paquete',
     source: 'rastreo',
     numero: 6,
-    label: '6. Llega a bodega Quito',
+    label: '6. Llegada a bodega de destino',
     detonante: 'El Envío consolidado pasa a RECIBIDO_EN_BODEGA.',
     donde: 'Lotes de recepción.',
     efecto: 'Aplica el estado configurado a paquetes recibidos.',
@@ -2325,7 +2325,7 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     numero: 10,
     label: '10. Retenido en aduana',
     detonante: 'Se identifica retención o incidencia aduanera.',
-    donde: 'Paquetes → Aplicar estado a paquetes.',
+    donde: 'Envíos consolidados → Aplicar estado a consolidados → Estado de rastreo de paquetes.',
     efecto: 'Aplica Retenido en aduana como estado alterno.',
     icon: AlertTriangle,
     required: false,
@@ -2621,7 +2621,7 @@ const ENVIO_CONSOLIDADO_REFERENCIAS: ReferenciaEstado[] = [
     label: 'Recibido en bodega',
     detonante: 'El Envío consolidado se recibe en Lote de recepción.',
     donde: 'Lotes de recepción.',
-    efecto: 'El Envío consolidado queda recibido en bodega Quito.',
+    efecto: 'El Envío consolidado queda recibido en bodega de destino.',
     icon: Warehouse,
   },
   {
@@ -2688,6 +2688,99 @@ function ReferenciaCard({ codigo, label, detonante, donde, efecto, icon: Icon, n
   );
 }
 
+function badgeToneClass(badgeText?: string): string {
+  switch (badgeText) {
+    case 'Requerido':
+      return 'border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 text-[var(--color-destructive)]';
+    case 'Recomendado':
+      return 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 text-[var(--color-primary)]';
+    case 'Alterno':
+      return 'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/5 text-[var(--color-warning)]';
+    case 'Alterno / Referencia':
+      return 'border-dashed border-[var(--color-warning)]/30 text-[var(--color-warning)] bg-[var(--color-muted)]/10';
+    default:
+      return 'border-[var(--color-border)] text-muted-foreground';
+  }
+}
+
+interface FlowTimelineItem {
+  key: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  sublabel: string;
+  sublabelPending?: boolean;
+  state: 'configured' | 'missing-required' | 'empty';
+  badgeText?: string;
+}
+
+function FlowTimeline({ items }: { items: FlowTimelineItem[] }) {
+  return (
+    <ol className="relative">
+      {items.map((item, idx) => {
+        const Icon = item.icon;
+        const isLast = idx === items.length - 1;
+        const configured = item.state !== 'empty';
+        return (
+          <li key={item.key} className="relative pl-10 pb-3 last:pb-0">
+            {!isLast && (
+              <span
+                aria-hidden
+                className="absolute top-7 left-[14px] h-[calc(100%-1.25rem)] w-px bg-[var(--color-border)]"
+              />
+            )}
+            <span
+              className={cn(
+                'absolute left-0 top-0 inline-flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold',
+                item.state === 'configured'
+                  ? 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                  : item.state === 'missing-required'
+                    ? 'border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
+                    : 'border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground',
+              )}
+            >
+              {idx + 1}
+            </span>
+            <div
+              className={cn(
+                'flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2 transition-colors',
+                configured
+                  ? 'border-[var(--color-border)] bg-[var(--color-card)]'
+                  : 'border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/15',
+              )}
+            >
+              <Icon
+                className={cn(
+                  'h-4 w-4 shrink-0',
+                  configured ? 'text-[var(--color-primary)]' : 'text-muted-foreground',
+                )}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-foreground">{item.label}</p>
+                <p
+                  className={cn(
+                    'truncate text-[11px] text-muted-foreground',
+                    item.sublabelPending && 'italic',
+                  )}
+                >
+                  {item.sublabel}
+                </p>
+              </div>
+              {item.badgeText ? (
+                <Badge
+                  variant="outline"
+                  className={cn('h-5 shrink-0 rounded px-1.5 text-[10px] font-medium', badgeToneClass(item.badgeText))}
+                >
+                  {item.badgeText}
+                </Badge>
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function EstadosRastreoPorPuntoView() {
   const { data: config, isLoading, error } = useEstadosRastreoPorPunto();
   const { data: estados = [] } = useEstadosRastreoActivos();
@@ -2719,10 +2812,38 @@ function EstadosRastreoPorPuntoView() {
     (p) => p.source !== 'rastreo' || !p.required || valuesByKey[p.key] !== '',
   );
 
+  const flowPuntos = useMemo(
+    () => PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete' && p.source === 'rastreo' && !p.readOnly),
+    [],
+  );
+
+  const duplicateEstadoKeys = useMemo(() => {
+    const byValue = new Map<number, PuntoKey[]>();
+    for (const p of flowPuntos) {
+      const v = valuesByKey[p.key];
+      if (v === '') continue;
+      const num = Number(v);
+      byValue.set(num, [...(byValue.get(num) ?? []), p.key]);
+    }
+    const dup = new Set<PuntoKey>();
+    for (const keys of byValue.values()) {
+      if (keys.length > 1) keys.forEach((k) => dup.add(k));
+    }
+    return dup;
+  }, [flowPuntos, valuesByKey]);
+
   const handleGuardar = async () => {
     if (!config) return;
     if (!allRequiredSelected) {
       toast.error('Seleccione todos los estados obligatorios');
+      return;
+    }
+    if (duplicateEstadoKeys.size > 0) {
+      const labels = flowPuntos
+        .filter((p) => duplicateEstadoKeys.has(p.key))
+        .map((p) => p.label.replace(/^\d+\.\s*/, ''))
+        .join(', ');
+      toast.error(`No puedes asignar el mismo estado a varios puntos del flujo: ${labels}`);
       return;
     }
     const estadoId = (key: PuntoKey) => (valuesByKey[key] === '' ? null : Number(valuesByKey[key]));
@@ -2841,6 +2962,7 @@ function EstadosRastreoPorPuntoView() {
                       }
                       options={optionsForPunto(punto, estados)}
                       readOnly={punto.readOnly ?? false}
+                      duplicate={duplicateEstadoKeys.has(punto.key)}
                     />
                   ))}
                 </div>
@@ -2874,6 +2996,25 @@ function EstadosRastreoPorPuntoView() {
             />
           ))}
         </div>
+
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+          <header className="mb-4 flex items-center justify-between gap-2">
+            <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Eye className="h-4 w-4 text-muted-foreground" />
+              Vista del flujo de Guía master
+            </h3>
+            <span className="text-[11px] text-muted-foreground">{GUIA_MASTER_REFERENCIAS.length} estados</span>
+          </header>
+          <FlowTimeline
+            items={GUIA_MASTER_REFERENCIAS.map((ref) => ({
+              key: ref.codigo,
+              icon: ref.icon,
+              label: ref.label,
+              sublabel: ref.codigo,
+              state: 'configured',
+            }))}
+          />
+        </div>
       </section>
 
       {/* SECCIÓN C: Estados de Envío consolidado */}
@@ -2900,6 +3041,25 @@ function EstadosRastreoPorPuntoView() {
             />
           ))}
         </div>
+
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+          <header className="mb-4 flex items-center justify-between gap-2">
+            <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Eye className="h-4 w-4 text-muted-foreground" />
+              Vista del flujo de Envío consolidado
+            </h3>
+            <span className="text-[11px] text-muted-foreground">{ENVIO_CONSOLIDADO_REFERENCIAS.length} estados</span>
+          </header>
+          <FlowTimeline
+            items={ENVIO_CONSOLIDADO_REFERENCIAS.map((ref) => ({
+              key: ref.codigo,
+              icon: ref.icon,
+              label: ref.label,
+              sublabel: ref.codigo,
+              state: 'configured',
+            }))}
+          />
+        </div>
       </section>
 
       {/* Vista del flujo */}
@@ -2916,89 +3076,26 @@ function EstadosRastreoPorPuntoView() {
           </span>
         </header>
         <div className="space-y-5">
-          <ol className="relative">
-            {PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete').map((punto, idx) => {
-              const Icon = punto.icon;
+          <FlowTimeline
+            items={PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete').map((punto) => {
               const value = valuesByKey[punto.key];
               const estadoLabel = selectedOptionLabel(punto, value, estados);
-              const isLast = idx === PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete').length - 1;
               const configured = value !== '';
               const isMissingRequired = punto.required && !configured;
-              return (
-                <li key={punto.key} className="relative pl-10 pb-3 last:pb-0">
-                  {!isLast && (
-                    <span
-                      aria-hidden
-                      className="absolute top-7 left-[14px] h-[calc(100%-1.25rem)] w-px bg-[var(--color-border)]"
-                    />
-                  )}
-                  <span
-                    className={cn(
-                      'absolute left-0 top-0 inline-flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold',
-                      configured
-                        ? 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
-                        : isMissingRequired
-                          ? 'border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 text-[var(--color-warning)]'
-                          : 'border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/30 text-muted-foreground',
-                    )}
-                  >
-                    {idx + 1}
-                  </span>
-                  <div
-                    className={cn(
-                      'flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2 transition-colors',
-                      configured
-                        ? 'border-[var(--color-border)] bg-[var(--color-card)]'
-                        : 'border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/15',
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        'h-4 w-4 shrink-0',
-                        configured ? 'text-[var(--color-primary)]' : 'text-muted-foreground',
-                      )}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-foreground">
-                        {punto.label}
-                      </p>
-                      {punto.source === 'referencia' ? (
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {punto.efecto}
-                        </p>
-                      ) : estadoLabel ? (
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {estadoLabel}
-                        </p>
-                      ) : (
-                        <p className="truncate text-[11px] italic text-muted-foreground">
-                          {punto.required ? 'Pendiente' : 'No configurado'}
-                        </p>
-                      )}
-                    </div>
-                    {punto.badgeText ? (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'h-5 shrink-0 rounded px-1.5 text-[10px] font-medium',
-                          punto.badgeText === 'Requerido' &&
-                            'border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 text-[var(--color-destructive)]',
-                          punto.badgeText === 'Recomendado' &&
-                            'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 text-[var(--color-primary)]',
-                          punto.badgeText === 'Alterno' &&
-                            'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/5 text-[var(--color-warning)]',
-                          punto.badgeText === 'Opcional' &&
-                            'border-[var(--color-border)] text-muted-foreground',
-                        )}
-                      >
-                        {punto.badgeText}
-                      </Badge>
-                    ) : null}
-                  </div>
-                </li>
-              );
+              return {
+                key: punto.key,
+                icon: punto.icon,
+                label: punto.label,
+                sublabel:
+                  punto.source === 'referencia'
+                    ? punto.efecto
+                    : (estadoLabel ?? (punto.required ? 'Pendiente' : 'No configurado')),
+                sublabelPending: punto.source !== 'referencia' && !estadoLabel,
+                state: configured ? 'configured' : isMissingRequired ? 'missing-required' : 'empty',
+                badgeText: punto.badgeText,
+              };
             })}
-          </ol>
+          />
         </div>
       </section>
 
@@ -3037,9 +3134,10 @@ interface PuntoCardProps {
   onChange: (v: PuntoValue) => void;
   options: PuntoOption[];
   readOnly: boolean;
+  duplicate?: boolean;
 }
 
-function PuntoCard({ punto, value, onChange, options, readOnly }: PuntoCardProps) {
+function PuntoCard({ punto, value, onChange, options, readOnly, duplicate }: PuntoCardProps) {
   const Icon = punto.icon;
   const toneIcon: Record<PuntoConfig['tone'], string> = {
     primary: 'bg-[var(--color-muted)] text-[var(--color-primary)]',
@@ -3052,9 +3150,11 @@ function PuntoCard({ punto, value, onChange, options, readOnly }: PuntoCardProps
     <article
       className={cn(
         'flex flex-col gap-3 rounded-xl border bg-[var(--color-card)] p-4 transition-colors',
-        isPending
-          ? 'border-[var(--color-warning)]/40'
-          : 'border-[var(--color-border)]',
+        duplicate
+          ? 'border-[var(--color-destructive)]/50'
+          : isPending
+            ? 'border-[var(--color-warning)]/40'
+            : 'border-[var(--color-border)]',
       )}
     >
       <header className="flex items-start gap-3">
@@ -3072,23 +3172,7 @@ function PuntoCard({ punto, value, onChange, options, readOnly }: PuntoCardProps
             {punto.badgeText ? (
               <Badge
                 variant="outline"
-                className={cn(
-                  'h-5 rounded px-1.5 text-[10px] font-medium',
-                  punto.badgeText === 'Requerido' &&
-                    'border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 text-[var(--color-destructive)]',
-                  punto.badgeText === 'Recomendado' &&
-                    'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 text-[var(--color-primary)]',
-                  punto.badgeText === 'Alterno' &&
-                    'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/5 text-[var(--color-warning)]',
-                  punto.badgeText === 'Solo referencia' &&
-                    'border-[var(--color-border)] text-muted-foreground',
-                  punto.badgeText === 'Alterno / Referencia' &&
-                    'border-dashed border-[var(--color-warning)]/30 text-[var(--color-warning)] bg-[var(--color-muted)]/10',
-                  punto.badgeText === 'Referencia o sin cambio' &&
-                    'border-[var(--color-border)] text-muted-foreground',
-                  punto.badgeText === 'Opcional' &&
-                    'border-[var(--color-border)] text-muted-foreground',
-                )}
+                className={cn('h-5 rounded px-1.5 text-[10px] font-medium', badgeToneClass(punto.badgeText))}
               >
                 {punto.badgeText}
               </Badge>
@@ -3099,6 +3183,15 @@ function PuntoCard({ punto, value, onChange, options, readOnly }: PuntoCardProps
                 className="h-5 rounded border-[var(--color-primary)]/20 px-1.5 text-[10px] font-medium text-muted-foreground"
               >
                 Asociado al punto {punto.vinculadoA}
+              </Badge>
+            )}
+            {duplicate && (
+              <Badge
+                variant="outline"
+                className="h-5 rounded border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 px-1.5 text-[10px] font-medium text-[var(--color-destructive)]"
+              >
+                <AlertTriangle className="mr-1 h-2.5 w-2.5" />
+                Duplicado
               </Badge>
             )}
           </div>
@@ -3248,6 +3341,13 @@ function PuntoCard({ punto, value, onChange, options, readOnly }: PuntoCardProps
             )}
           </div>
         </div>
+      )}
+
+      {duplicate && (
+        <p className="inline-flex items-center gap-1 text-[11px] text-[var(--color-destructive)]">
+          <AlertTriangle className="h-3 w-3" />
+          Este estado ya está asignado a otro punto del flujo. Elige uno distinto.
+        </p>
       )}
 
       {isPending && (

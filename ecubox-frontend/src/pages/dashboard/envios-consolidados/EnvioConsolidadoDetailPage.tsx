@@ -397,7 +397,7 @@ export function EnvioConsolidadoDetailPage() {
                 </Button>
               </>
             )}
-            {(op === 'VACIO' || op === 'EN_PREPARACION') && (
+            {op !== 'LIQUIDADO' && op !== 'CANCELADO' && (
               <Button
                 size="sm"
                 variant="destructive"

@@ -134,18 +134,6 @@ export interface CambiarEstadoRastreoBulkResponse {
   rechazados: { paqueteId: number; motivo: string }[];
 }
 
-/** Cambiar estado de rastreo a una lista de paquetes (solo elegibles: sin lote, sin despacho). */
-export async function cambiarEstadoRastreoBulk(
-  paqueteIds: number[],
-  estadoRastreoId: number
-): Promise<CambiarEstadoRastreoBulkResponse> {
-  const { data } = await apiClient.post<CambiarEstadoRastreoBulkResponse>(
-    `${OPERARIO_BASE}/cambiar-estado-rastreo-bulk`,
-    { paqueteIds, estadoRastreoId }
-  );
-  return data;
-}
-
 /**
  * Estados de rastreo a los que se puede mover la selección de paquetes (intersección
  * válida para todos, calculada por el backend). Para un combobox con solo destinos válidos.
@@ -171,12 +159,6 @@ export async function buscarPaquetesPorGuias(
   return data;
 }
 
-/** Estados de rastreo que pueden aplicarse manualmente a paquetes (excluye los reservados para puntos automáticos). */
-export async function getEstadosAplicablesPaquete(): Promise<EstadoRastreo[]> {
-  const { data } = await apiClient.get<EstadoRastreo[]>(`${OPERARIO_BASE}/estados-aplicables`);
-  return data;
-}
-
 /** Aplica un estado de rastreo a todos los paquetes registrados en el periodo. */
 export async function aplicarEstadoPorPeriodoPaquetes(params: {
   fechaInicio: string;
@@ -187,13 +169,5 @@ export async function aplicarEstadoPorPeriodoPaquetes(params: {
     `${OPERARIO_BASE}/aplicar-estado-por-periodo`,
     params
   );
-  return data;
-}
-
-/** Todos los paquetes del operario (sin paginación, para el diálogo masivo). */
-export async function getAllPaquetesOperario(): Promise<Paquete[]> {
-  const { data } = await apiClient.get<Paquete[]>(OPERARIO_BASE, {
-    params: { sinPeso: false },
-  });
   return data;
 }
