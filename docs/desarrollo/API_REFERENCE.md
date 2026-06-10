@@ -259,14 +259,23 @@ Paquetes del usuario autenticado (ADMIN/OPERARIO ven todos).
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
 | GET | `/api/mis-paquetes` | `PAQUETES_READ` | Listar paquetes |
-| GET | `/api/mis-paquetes/page?q=&estado=&consignatarioId=&envio=&guiaMasterId=&chip=&page=&size=` | `PAQUETES_READ` | Listado paginado con filtros |
+| GET | `/api/mis-paquetes/page?q=&estado=&consignatarioId=&envio=&guiaMasterId=&chip=&page=&size=` | `PAQUETES_READ` | Listado paginado con filtros (el chip `vencidos` se resuelve server-side) |
+| GET | `/api/mis-paquetes/resumen?q=&estado=&consignatarioId=&envio=&guiaMasterId=` | `PAQUETES_READ` | Resumen liviano: KPIs del universo, conteos por chip (respetando filtros) y opciones de filtro. Evita descargar el dataset completo en el cliente |
 | GET | `/api/mis-paquetes/sugerir-ref?consignatarioId=...` | `PAQUETES_PESO_WRITE` | Sugerir referencia |
 | POST | `/api/mis-paquetes` | `PAQUETES_CREATE` | Crear paquete |
 | PUT | `/api/mis-paquetes/{id}` | `PAQUETES_UPDATE` | Actualizar paquete |
 | DELETE | `/api/mis-paquetes/{id}` | `PAQUETES_DELETE` | Eliminar paquete (limpia eventos/outbox del paquete) |
 
 **Request:** `PaqueteCreateRequest` (POST), `PaqueteUpdateRequest` (PUT).
-**Response:** `PaqueteDTO`.
+**Response:** `PaqueteDTO`; `PaqueteResumenDTO` para `/resumen`.
+
+> **Vencimiento (V108):** `paquete.fecha_limite_retiro` persiste el instante a
+> partir del cual un paquete queda vencido, de modo que "vencido" sea el
+> predicado SQL `fecha_limite_retiro <= now()` (filtro/conteo server-side). Se
+> recalcula en cada transición de estado y asignación de saca; tras editar
+> configuración que cambie los días máximos de retiro debe recalcularse
+> (`PaqueteService.recomputarFechaLimiteRetiroBatch`). Backfill idempotente al
+> arranque: `PaqueteVencimientoBackfillRunner`.
 
 > El parámetro `consignatarioId` reemplaza al antiguo `destinatarioFinalId` (renombrado en V71).
 
