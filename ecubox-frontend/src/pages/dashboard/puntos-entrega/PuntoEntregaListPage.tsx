@@ -191,7 +191,7 @@ export function PuntoEntregaListPage() {
       )}
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} withHint />
+        <KpiCardsGridSkeleton count={3} withHint />
       ) : (
         totalElements > 0 && (
         <KpiCardsGrid>
@@ -210,17 +210,6 @@ export function PuntoEntregaListPage() {
             value={stats.distribs}
             tone="neutral"
             hint={`de ${couriersEntrega.length} en total`}
-          />
-          <KpiCard
-            icon={<MapPin className="h-4 w-4" />}
-            label="Provincias cubiertas"
-            value={stats.provs}
-            tone="neutral"
-            hint={
-              stats.provs === 0
-                ? 'Sin provincia asignada'
-                : `${stats.provs} provincia(s) con punto`
-            }
           />
           <KpiCard
             icon={<Clock className="h-4 w-4" />}

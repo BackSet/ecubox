@@ -166,7 +166,7 @@ export function CourierEntregaListPage() {
       )}
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} withHint />
+        <KpiCardsGridSkeleton count={3} withHint />
       ) : (
         totalElements > 0 && (
         <KpiCardsGrid>
@@ -178,13 +178,6 @@ export function CourierEntregaListPage() {
             hint={
               stats.total === 1 ? '1 registrado' : `${stats.total} registrados`
             }
-          />
-          <KpiCard
-            icon={<Building2 className="h-4 w-4" />}
-            label="Puntos de entrega asociados"
-            value={stats.totalAgencias}
-            tone="neutral"
-            hint="Suma de puntos de entrega de todos los couriers"
           />
           <KpiCard
             icon={<Link2 className="h-4 w-4" />}

@@ -166,6 +166,12 @@ import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 ```
 
 - Envuelve las tarjetas en `KpiCardsGrid` para un grid responsive uniforme (`auto-fill`).
+- **Máximo 2-3 KPIs por listado**; usa 4 solo si todas las métricas son accionables.
+  Prioriza métricas accionables (huecos por completar, vencidos, pendientes) sobre
+  totales decorativos. No dupliques un dato que ya aparece en el `hint` de otra
+  tarjeta, en los chips o en el `resumen` de `FiltrosBar`. Si un listado solo
+  necesita un total, llévalo al `resumen` de `FiltrosBar` en vez de dejar una sola
+  tarjeta. Mantén el `count` de `KpiCardsGridSkeleton` igual al número real de KPIs.
 - Iconos en `h-5 w-5`; el badge del icono toma color según `tone`.
 - Usa `hint` con contexto útil (promedios, porcentajes, desglose); admite hasta 2 líneas.
 - Si no hay `hint`, no se muestra texto vacío: solo se reserva el espacio.

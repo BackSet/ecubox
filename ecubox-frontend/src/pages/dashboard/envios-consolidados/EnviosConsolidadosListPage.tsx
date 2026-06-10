@@ -555,13 +555,6 @@ export function EnviosConsolidadosListPage() {
       />
 
       <KpiCardsGrid>
-        <KpiCard
-          icon={<Boxes className="h-5 w-5" />}
-          label="Total de envíos"
-          value={stats.total}
-          tone="primary"
-          hint={`${stats.pagados} pagados · ${stats.noPagados} pendientes`}
-        />
         {(['EN_PREPARACION', 'ENVIADO_DESDE_USA', 'RECIBIDO_EN_BODEGA'] as const).map((estado) => {
           const ui = ENVIO_CONSOLIDADO_ESTADO_UI[estado];
           const Icon = ui.icon;
@@ -581,17 +574,6 @@ export function EnviosConsolidadosListPage() {
             />
           );
         })}
-        <KpiCard
-          icon={<PackageIcon className="h-5 w-5" />}
-          label="Paquetes acumulados"
-          value={stats.paquetes}
-          tone="neutral"
-          hint={
-            stats.pesoLbs > 0
-              ? formatWeightInline(stats.pesoLbs, stats.pesoKg)
-              : 'Sin peso registrado'
-          }
-        />
       </KpiCardsGrid>
 
       <FiltrosBar

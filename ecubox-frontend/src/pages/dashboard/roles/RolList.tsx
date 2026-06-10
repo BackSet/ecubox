@@ -175,7 +175,7 @@ export function RolList() {
       )}
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} withHint />
+        <KpiCardsGridSkeleton count={3} withHint />
       ) : (
       <KpiCardsGrid>
         <KpiCard
@@ -184,13 +184,6 @@ export function RolList() {
           value={stats.total}
           tone="primary"
           hint={`${stats.totalPermisosSistema} permisos en el catálogo`}
-        />
-        <KpiCard
-          icon={<Lock className="h-5 w-5" />}
-          label="Permisos del sistema"
-          value={stats.totalPermisosSistema}
-          tone="neutral"
-          hint="Total disponibles para asignar"
         />
         <KpiCard
           icon={<PieChart className="h-5 w-5" />}

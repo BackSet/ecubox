@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Eraser,
   Loader2,
-  PackageX,
   Save,
   Scale,
   Split,
@@ -469,17 +468,10 @@ export function PesajePage() {
       />
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} />
+        <KpiCardsGridSkeleton count={3} />
       ) : (
         allPaquetes.length > 0 && (
         <KpiCardsGrid>
-          <KpiCard
-            icon={<PackageX className="h-5 w-5" />}
-            label="Sin peso"
-            value={stats.pendientes}
-            tone="neutral"
-            hint="Paquetes en la lista actual"
-          />
           <KpiCard
             icon={<CheckCircle2 className="h-5 w-5" />}
             label="Listos para guardar"

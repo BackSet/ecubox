@@ -4,7 +4,6 @@ import {
   CalendarClock,
   Check,
   Copy,
-  Infinity as InfinityIcon,
   Link2,
   Loader2,
   Plus,
@@ -200,7 +199,7 @@ export function EnlacesAccesoPage() {
       </p>
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} />
+        <KpiCardsGridSkeleton count={3} />
       ) : (
         enlaces.length > 0 && (
           <KpiCardsGrid>
@@ -217,13 +216,6 @@ export function EnlacesAccesoPage() {
               value={stats.vigentes}
               tone={stats.vigentes > 0 ? 'success' : 'neutral'}
               hint={`${stats.total - stats.vigentes} caducados`}
-            />
-            <KpiCard
-              icon={<InfinityIcon className="h-5 w-5" />}
-              label="Persistentes"
-              value={stats.persistentes}
-              tone="neutral"
-              hint="Sin caducidad"
             />
             <KpiCard
               icon={<CalendarClock className="h-5 w-5" />}

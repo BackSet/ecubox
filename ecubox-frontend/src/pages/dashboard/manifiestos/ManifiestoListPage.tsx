@@ -252,7 +252,7 @@ export function ManifiestoListPage() {
       />
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} />
+        <KpiCardsGridSkeleton count={3} />
       ) : (
         allManifiestos.length > 0 && (
         <KpiCardsGrid>
@@ -288,13 +288,6 @@ export function ManifiestoListPage() {
                 ? `${stats.porCourier} por courier · ${stats.porAgencia} por agencia`
                 : 'Filtro por rango de fechas'
             }
-          />
-          <KpiCard
-            icon={<Building2 className="h-5 w-5" />}
-            label="Otros filtros"
-            value={stats.porCourier + stats.porAgencia}
-            tone="neutral"
-            hint="Manifiestos por courier o agencia"
           />
         </KpiCardsGrid>
         )

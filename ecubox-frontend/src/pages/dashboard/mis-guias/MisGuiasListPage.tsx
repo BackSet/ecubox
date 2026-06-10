@@ -177,13 +177,6 @@ export function MisGuiasListPage() {
       {!isLoading && !error && guias.length > 0 && (
         <KpiCardsGrid>
           <KpiCard
-            icon={<Boxes className="h-5 w-5" />}
-            label="Total guías"
-            value={stats.total}
-            tone="primary"
-            hint="Todas tus guías registradas"
-          />
-          <KpiCard
             icon={<Clock className="h-5 w-5" />}
             label="En espera"
             value={stats.enEspera}

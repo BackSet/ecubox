@@ -163,17 +163,6 @@ export function LiquidacionesListPage() {
           hint="Pendientes de cobro"
         />
         <KpiCard
-          icon={<CircleDollarSign className="h-5 w-5" />}
-          label="Pagadas"
-          value={stats.pagadas}
-          tone="success"
-          hint={
-            stats.total > 0
-              ? `${Math.round((stats.pagadas / stats.total) * 100)}% del total`
-              : 'Sin liquidaciones'
-          }
-        />
-        <KpiCard
           icon={
             stats.netoAcum >= 0 ? (
               <TrendingUp className="h-5 w-5" />

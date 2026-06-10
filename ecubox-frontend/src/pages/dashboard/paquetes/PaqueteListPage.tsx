@@ -37,7 +37,6 @@ import {
   Pencil,
   Plus,
   Trash2,
-  Users,
   Weight,
 } from 'lucide-react';
 import type { Paquete } from '@/types/paquete';
@@ -254,7 +253,7 @@ export function PaqueteListPage() {
       )}
 
       {resumenLoading ? (
-        <KpiCardsGridSkeleton count={4} />
+        <KpiCardsGridSkeleton count={3} />
       ) : (
         hasDatos && (
         <KpiCardsGrid>
@@ -271,13 +270,6 @@ export function PaqueteListPage() {
             value={stats.conPeso}
             tone={stats.conPeso > 0 ? 'success' : 'neutral'}
             hint={`${stats.total - stats.conPeso} sin peso registrado`}
-          />
-          <KpiCard
-            icon={<Users className="h-5 w-5" />}
-            label="Consignatarios únicos"
-            value={stats.consignatarios}
-            tone="neutral"
-            hint="Consignatarios distintos en catálogo"
           />
           <KpiCard
             icon={<ClipboardList className="h-5 w-5" />}
