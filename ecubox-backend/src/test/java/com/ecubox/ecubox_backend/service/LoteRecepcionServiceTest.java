@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.LoteRecepcionCreateRequest;
 import com.ecubox.ecubox_backend.dto.LoteRecepcionDTO;
+import com.ecubox.ecubox_backend.dto.LoteRecepcionResumenDTO;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.LoteRecepcion;
 import com.ecubox.ecubox_backend.entity.LoteRecepcionGuia;
@@ -85,6 +86,23 @@ class LoteRecepcionServiceTest {
                 .fechaCerrado(cerrado ? LocalDateTime.now().minusDays(2) : null)
                 .estadoPago(pago)
                 .build();
+    }
+
+    @Test
+    void resumen_agregaKpisYOperarios() {
+        when(loteRecepcionRepository.count()).thenReturn(7L);
+        when(loteRecepcionRepository.countPaquetesRecibidos()).thenReturn(42L);
+        when(loteRecepcionRepository.countGuiasUnicas()).thenReturn(5L);
+        when(loteRecepcionRepository.countByFechaRecepcionEntre(any(), any())).thenReturn(2L);
+        when(loteRecepcionRepository.findDistinctOperarios()).thenReturn(List.of("ana", "luis"));
+
+        LoteRecepcionResumenDTO resumen = service.resumen();
+
+        assertEquals(7L, resumen.getTotal());
+        assertEquals(42L, resumen.getPaquetes());
+        assertEquals(5L, resumen.getGuiasUnicas());
+        assertEquals(2L, resumen.getHoy());
+        assertEquals(List.of("ana", "luis"), resumen.getOperarios());
     }
 
     @Test

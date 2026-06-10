@@ -1,6 +1,8 @@
 package com.ecubox.ecubox_backend.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -8,12 +10,24 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ecubox.ecubox_backend.dto.LoteRecepcionCreateRequest;
 import com.ecubox.ecubox_backend.dto.LoteRecepcionDTO;
+import com.ecubox.ecubox_backend.dto.LoteRecepcionResumenDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
+import com.ecubox.ecubox_backend.util.Pageables;
+import com.ecubox.ecubox_backend.util.Strings;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.LoteRecepcion;
 import com.ecubox.ecubox_backend.entity.LoteRecepcionGuia;
@@ -199,6 +213,88 @@ public class LoteRecepcionService {
         return loteRecepcionRepository.findAllByOrderByFechaRecepcionDesc().stream()
                 .map(l -> toDTO(l, false))
                 .toList();
+    }
+
+    private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
+
+    private static Long parseLongOrNull(String s) {
+        if (s == null) return null;
+        try {
+            return Long.valueOf(s.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Listado paginado server-side con búsqueda libre, filtro por operario y
+     * rango de fechas. Se usa una {@link Specification} (predicados solo cuando el
+     * parámetro no es nulo) para evitar el problema de inferencia de tipo de
+     * Postgres con {@code :param IS NULL OR ...} sobre binds nulos. La búsqueda en
+     * guías usa un subquery EXISTS (sin JOIN) para no duplicar filas.
+     */
+    @Transactional(readOnly = true)
+    public Page<LoteRecepcionDTO> findAllPaginated(String q, String operario,
+                                                   LocalDateTime desde, LocalDateTime hasta,
+                                                   int page, int size) {
+        String operarioTrim = Strings.trimOrNull(operario);
+        String trimmed = Strings.trimOrNull(q);
+        String qLike = trimmed != null ? "%" + trimmed.toLowerCase() + "%" : null;
+
+        Specification<LoteRecepcion> spec = (root, query, cb) -> {
+            Join<LoteRecepcion, Usuario> operarioJoin = root.join("operario", JoinType.LEFT);
+            List<Predicate> preds = new ArrayList<>();
+            if (operarioTrim != null) {
+                preds.add(cb.equal(operarioJoin.get("username"), operarioTrim));
+            }
+            if (desde != null) {
+                preds.add(cb.greaterThanOrEqualTo(root.get("fechaRecepcion"), desde));
+            }
+            if (hasta != null) {
+                preds.add(cb.lessThan(root.get("fechaRecepcion"), hasta));
+            }
+            if (qLike != null) {
+                Subquery<Long> sub = query.subquery(Long.class);
+                Root<LoteRecepcionGuia> g = sub.from(LoteRecepcionGuia.class);
+                sub.select(cb.literal(1L)).where(
+                        cb.equal(g.get("loteRecepcion"), root),
+                        cb.like(cb.lower(g.get("numeroGuiaEnvio")), qLike));
+                List<Predicate> orPreds = new ArrayList<>();
+                orPreds.add(cb.like(cb.lower(root.get("observaciones")), qLike));
+                orPreds.add(cb.like(cb.lower(operarioJoin.get("username")), qLike));
+                orPreds.add(cb.exists(sub));
+                // Búsqueda por # de lote: coincidencia exacta si el término es numérico.
+                Long idBuscado = parseLongOrNull(trimmed);
+                if (idBuscado != null) {
+                    orPreds.add(cb.equal(root.get("id"), idBuscado));
+                }
+                preds.add(cb.or(orPreds.toArray(new Predicate[0])));
+            }
+            return cb.and(preds.toArray(new Predicate[0]));
+        };
+
+        Pageable pageable = Pageables.bounded(page, size, 100,
+                Sort.by(Sort.Direction.DESC, "fechaRecepcion").and(Sort.by(Sort.Direction.DESC, "id")));
+        return loteRecepcionRepository.findAll(spec, pageable).map(l -> toDTO(l, false));
+    }
+
+    /**
+     * Resumen liviano del listado: KPIs (total, paquetes recibidos, guías únicas,
+     * lotes de hoy) y operarios distintos para el filtro. Se calcula con consultas
+     * de agregación, sin materializar todos los lotes.
+     */
+    @Transactional(readOnly = true)
+    public LoteRecepcionResumenDTO resumen() {
+        LocalDate hoy = LocalDate.now(ZONA_ECUADOR);
+        long lotesHoy = loteRecepcionRepository.countByFechaRecepcionEntre(
+                hoy.atStartOfDay(), hoy.plusDays(1).atStartOfDay());
+        return LoteRecepcionResumenDTO.builder()
+                .total(loteRecepcionRepository.count())
+                .paquetes(loteRecepcionRepository.countPaquetesRecibidos())
+                .guiasUnicas(loteRecepcionRepository.countGuiasUnicas())
+                .hoy(lotesHoy)
+                .operarios(loteRecepcionRepository.findDistinctOperarios())
+                .build();
     }
 
     @Transactional

@@ -1,10 +1,18 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import {
   getLotesRecepcion,
+  getLotesRecepcionPaginated,
+  getLoteRecepcionResumen,
   getLoteRecepcionById,
   createLoteRecepcion,
   addGuiasToLoteRecepcion,
   deleteLoteRecepcion,
+  type LoteRecepcionListParams,
 } from '@/lib/api/lotes-recepcion.service';
 import type { LoteRecepcionCreateRequest } from '@/types/lote-recepcion';
 
@@ -14,6 +22,24 @@ export function useLotesRecepcion() {
   return useQuery({
     queryKey: LOTES_RECEPCION_QUERY_KEY,
     queryFn: getLotesRecepcion,
+  });
+}
+
+/** Listado paginado server-side con búsqueda, filtro por operario y rango de fechas. */
+export function useLotesRecepcionPaginated(params: LoteRecepcionListParams) {
+  return useQuery({
+    queryKey: [...LOTES_RECEPCION_QUERY_KEY, 'page', params],
+    queryFn: () => getLotesRecepcionPaginated(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Resumen liviano (KPIs + operarios distintos) del listado de lotes. */
+export function useLoteRecepcionResumen() {
+  return useQuery({
+    queryKey: [...LOTES_RECEPCION_QUERY_KEY, 'resumen'],
+    queryFn: getLoteRecepcionResumen,
+    placeholderData: keepPreviousData,
   });
 }
 
