@@ -8,7 +8,6 @@ import {
   FileSpreadsheet,
   Loader2,
   PackageCheck,
-  Package as PackageIcon,
   Printer,
   Truck,
 } from 'lucide-react';
@@ -36,6 +35,7 @@ import {
   ListToolbar,
   ListTableShell,
   FiltrosBar,
+  FiltroCampo,
   ChipFiltro,
   KpiCard,
   KpiCardsGrid,
@@ -43,6 +43,15 @@ import {
   PageErrorState,
   InlineErrorBanner,
 } from '@/components/page-components';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+type TipoEntregaFiltro = 'TODOS' | 'DOMICILIO' | 'AGENCIA' | 'AGENCIA_COURIER_ENTREGA';
 
 const TIPO_LABELS: Record<string, string> = {
   DOMICILIO: 'Domicilio',
@@ -85,23 +94,37 @@ export function MisEntregasPage() {
 
   const [search, setSearchRaw] = useState('');
   const [estadoFiltro, setEstadoFiltroRaw] = useState<'TODAS' | 'PENDIENTES' | 'CONFIRMADOS'>('TODAS');
+  const [tipoFiltro, setTipoFiltroRaw] = useState<TipoEntregaFiltro>('TODOS');
   const [page, setPage] = useState(0);
   const [size, setSizeRaw] = useState(25);
 
   const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
   const setEstadoFiltro = (v: 'TODAS' | 'PENDIENTES' | 'CONFIRMADOS') => { setEstadoFiltroRaw(v); setPage(0); };
+  const setTipoFiltro = (v: TipoEntregaFiltro) => { setTipoFiltroRaw(v); setPage(0); };
   const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
 
+  const limpiarFiltros = () => {
+    setEstadoFiltroRaw('TODAS');
+    setTipoFiltroRaw('TODOS');
+    setPage(0);
+  };
+
   const stats = useMemo(() => {
-    const totalPiezas = despachos.reduce((total, d) => total + d.totalPiezas, 0);
     const pendientes = despachos.filter((d) => !d.entregaConfirmada).length;
     const confirmables = despachos.filter((d) => d.confirmable && !d.entregaConfirmada).length;
     const confirmados = despachos.filter((d) => d.entregaConfirmada).length;
-    return { totalPiezas, pendientes, confirmables, confirmados };
+    return { pendientes, confirmables, confirmados };
   }, [despachos]);
 
   const countPendientes = useMemo(() => despachos.filter(d => !d.entregaConfirmada).length, [despachos]);
   const countConfirmados = useMemo(() => despachos.filter(d => d.entregaConfirmada).length, [despachos]);
+
+  // El filtro "Tipo de entrega" solo aporta si hay variedad de tipos.
+  const tiposPresentes = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of despachos) if (d.tipoEntrega) set.add(d.tipoEntrega);
+    return set;
+  }, [despachos]);
 
   const onConfirmar = async (id: number) => {
     try {
@@ -143,13 +166,21 @@ export function MisEntregasPage() {
     return despachos.filter((d) => {
       if (estadoFiltro === 'PENDIENTES' && d.entregaConfirmada) return false;
       if (estadoFiltro === 'CONFIRMADOS' && !d.entregaConfirmada) return false;
+      if (tipoFiltro !== 'TODOS' && d.tipoEntrega !== tipoFiltro) return false;
 
       if (!q) return true;
       const idStr = String(d.despachoId);
       const tipoStr = tipoLabel(d.tipoEntrega).toLowerCase();
       return idStr.includes(q) || tipoStr.includes(q);
     });
-  }, [despachos, search, estadoFiltro]);
+  }, [despachos, search, estadoFiltro, tipoFiltro]);
+
+  const piezasFiltradas = useMemo(
+    () => filtered.reduce((total, d) => total + d.totalPiezas, 0),
+    [filtered],
+  );
+  const hayFiltrosActivos = estadoFiltro !== 'TODAS' || tipoFiltro !== 'TODOS';
+  const filtrosActivosCount = (estadoFiltro !== 'TODAS' ? 1 : 0) + (tipoFiltro !== 'TODOS' ? 1 : 0);
 
   const pagedFiltered = useMemo(
     () => filtered.slice(page * size, page * size + size),
@@ -200,13 +231,6 @@ export function MisEntregasPage() {
             hint="Despachos asociados a tus piezas"
           />
           <KpiCard
-            icon={<PackageIcon className="h-5 w-5" />}
-            label="Piezas"
-            value={stats.totalPiezas}
-            tone="neutral"
-            hint="Total de piezas visibles para tu cuenta"
-          />
-          <KpiCard
             icon={<CheckCircle2 className="h-5 w-5" />}
             label="Confirmables"
             value={stats.confirmables}
@@ -225,8 +249,12 @@ export function MisEntregasPage() {
 
       {!isLoading && despachos.length > 0 && (
         <FiltrosBar
-          hayFiltrosActivos={estadoFiltro !== 'TODAS'}
-          onLimpiar={() => setEstadoFiltro('TODAS')}
+          hayFiltrosActivos={hayFiltrosActivos}
+          onLimpiar={limpiarFiltros}
+          filtrosActivosCount={filtrosActivosCount}
+          resumen={`${filtered.length} entrega${filtered.length === 1 ? '' : 's'}${
+            filtered.length !== despachos.length ? ` de ${despachos.length}` : ''
+          } · ${piezasFiltradas} pieza${piezasFiltradas === 1 ? '' : 's'}`}
           chips={
             <>
               <ChipFiltro
@@ -250,6 +278,32 @@ export function MisEntregasPage() {
                 tone="success"
               />
             </>
+          }
+          filtros={
+            tiposPresentes.size > 1 ? (
+              <FiltroCampo label="Tipo de entrega">
+                <Select
+                  value={tipoFiltro}
+                  onValueChange={(v) => setTipoFiltro(v as TipoEntregaFiltro)}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODOS">Todos</SelectItem>
+                    {tiposPresentes.has('DOMICILIO') && (
+                      <SelectItem value="DOMICILIO">Domicilio</SelectItem>
+                    )}
+                    {tiposPresentes.has('AGENCIA') && (
+                      <SelectItem value="AGENCIA">Agencia</SelectItem>
+                    )}
+                    {tiposPresentes.has('AGENCIA_COURIER_ENTREGA') && (
+                      <SelectItem value="AGENCIA_COURIER_ENTREGA">Punto de entrega</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </FiltroCampo>
+            ) : null
           }
         />
       )}
@@ -275,9 +329,9 @@ export function MisEntregasPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={PackageCheck}
-          title={search || estadoFiltro !== 'TODAS' ? "No se encontraron resultados" : "No tienes despachos en camino"}
+          title={search || hayFiltrosActivos ? "No se encontraron resultados" : "No tienes despachos en camino"}
           description={
-            search || estadoFiltro !== 'TODAS'
+            search || hayFiltrosActivos
               ? "Prueba cambiando los filtros o el término de búsqueda."
               : "Cuando tengas un envío en despacho aparecerá aquí para que consultes, imprimas o confirmes su entrega."
           }
