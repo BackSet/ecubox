@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
@@ -12,7 +12,11 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useDeleteLoteRecepcion, useLotesRecepcion } from '@/hooks/useLotesRecepcion';
+import {
+  useDeleteLoteRecepcion,
+  useLotesRecepcionPaginated,
+  useLoteRecepcionResumen,
+} from '@/hooks/useLotesRecepcion';
 import { ListToolbar } from '@/components/ListToolbar';
 import { EmptyState } from '@/components/EmptyState';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
@@ -52,56 +56,49 @@ import { useAuthStore } from '@/stores/authStore';
 const SIN_FILTRO = '__todos__';
 type Periodo = typeof SIN_FILTRO | 'hoy' | '7d' | '30d' | 'mes' | 'custom';
 
-/**
- * Devuelve el rango [inicio, fin) en milisegundos para un periodo dado, o
- * null si el periodo no implica un rango fijo (todos / personalizado).
- * El "fin" es exclusivo (00:00 del dia siguiente).
- */
-function rangoDePeriodo(p: Periodo): { from: number; to: number } | null {
-  if (p === SIN_FILTRO || p === 'custom') return null;
-  const ahora = new Date();
-  const inicioHoy = new Date(
-    ahora.getFullYear(),
-    ahora.getMonth(),
-    ahora.getDate(),
-  );
-  const dia = 24 * 60 * 60 * 1000;
-  if (p === 'hoy') {
-    return { from: inicioHoy.getTime(), to: inicioHoy.getTime() + dia };
-  }
-  if (p === '7d') {
-    return {
-      from: inicioHoy.getTime() - 6 * dia,
-      to: inicioHoy.getTime() + dia,
-    };
-  }
-  if (p === '30d') {
-    return {
-      from: inicioHoy.getTime() - 29 * dia,
-      to: inicioHoy.getTime() + dia,
-    };
-  }
-  // mes en curso
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-  const inicioMesSig = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1);
-  return { from: inicioMes.getTime(), to: inicioMesSig.getTime() };
+/** Formatea una fecha local como yyyy-MM-dd (formato que espera el backend). */
+function ymd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 /**
- * Convierte un input type="date" (yyyy-mm-dd) a timestamp en hora local.
- * Si el input esta vacio o invalido, retorna null.
+ * Resuelve el rango de fechas (inclusive, yyyy-MM-dd) que se envía al servidor
+ * según el período seleccionado o los inputs personalizados. Devuelve campos
+ * vacíos cuando no hay restricción de fecha.
  */
-function dateInputAMs(s: string, finDelDia: boolean): number | null {
-  if (!s) return null;
-  const [y, m, d] = s.split('-').map(Number);
-  if (!y || !m || !d) return null;
-  const date = new Date(y, m - 1, d, finDelDia ? 23 : 0, finDelDia ? 59 : 0, finDelDia ? 59 : 0, finDelDia ? 999 : 0);
-  return date.getTime();
+function rangoFechas(
+  periodo: Periodo,
+  desde: string,
+  hasta: string,
+): { desde?: string; hasta?: string } {
+  if (periodo === 'custom') {
+    return { desde: desde || undefined, hasta: hasta || undefined };
+  }
+  if (periodo === SIN_FILTRO) return {};
+  const ahora = new Date();
+  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  if (periodo === 'hoy') return { desde: ymd(hoy), hasta: ymd(hoy) };
+  if (periodo === '7d') {
+    const f = new Date(hoy);
+    f.setDate(f.getDate() - 6);
+    return { desde: ymd(f), hasta: ymd(hoy) };
+  }
+  if (periodo === '30d') {
+    const f = new Date(hoy);
+    f.setDate(f.getDate() - 29);
+    return { desde: ymd(f), hasta: ymd(hoy) };
+  }
+  // mes en curso: del día 1 al último día del mes.
+  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  const finMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
+  return { desde: ymd(inicioMes), hasta: ymd(finMes) };
 }
 
 export function LoteRecepcionListPage() {
   const navigate = useNavigate();
-  const { data: lotes, isLoading, isFetching, error, refetch } = useLotesRecepcion();
   const deleteLote = useDeleteLoteRecepcion();
   const hasLotesCreate = useAuthStore((s) => s.hasPermission('LOTES_RECEPCION_CREATE'));
   const hasLotesDelete = useAuthStore((s) => s.hasPermission('LOTES_RECEPCION_DELETE'));
@@ -122,56 +119,43 @@ export function LoteRecepcionListPage() {
   const setHasta = (v: string) => { setHastaRaw(v); setPage(0); };
   const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
 
-  // Operarios distintos presentes en los lotes, para poblar el dropdown.
-  const operarios = useMemo(() => {
-    const set = new Set<string>();
-    for (const l of lotes ?? []) {
-      const n = l.operarioNombre?.trim();
-      if (n) set.add(n);
-    }
-    return Array.from(set).sort((a, b) =>
-      a.localeCompare(b, 'es', { sensitivity: 'base' }),
-    );
-  }, [lotes]);
+  // Rango de fechas server-side derivado del período o de los inputs custom.
+  const { desde: desdeParam, hasta: hastaParam } = useMemo(
+    () => rangoFechas(periodo, desde, hasta),
+    [periodo, desde, hasta],
+  );
 
-  const list = useMemo(() => {
-    const raw = lotes ?? [];
-    const q = search.trim().toLowerCase();
+  // Resumen liviano (KPIs del universo + operarios para el dropdown).
+  const resumenQuery = useLoteRecepcionResumen();
+  const resumen = resumenQuery.data;
+  const operarios = resumen?.operarios ?? [];
+  const stats = {
+    total: resumen?.total ?? 0,
+    paquetes: resumen?.paquetes ?? 0,
+    guiasUnicas: resumen?.guiasUnicas ?? 0,
+    hoy: resumen?.hoy ?? 0,
+  };
 
-    // Resolver el rango de fecha activo. Si periodo === 'custom' usamos
-    // los inputs desde/hasta; si no, derivamos del periodo seleccionado.
-    let rango: { from: number; to: number } | null = null;
-    if (periodo === 'custom') {
-      const from = dateInputAMs(desde, false);
-      const to = dateInputAMs(hasta, true);
-      if (from != null || to != null) {
-        rango = {
-          from: from ?? Number.NEGATIVE_INFINITY,
-          to: to ?? Number.POSITIVE_INFINITY,
-        };
-      }
-    } else {
-      rango = rangoDePeriodo(periodo);
-    }
+  // Tabla paginada server-side (búsqueda + operario + rango de fechas).
+  const pageQuery = useLotesRecepcionPaginated({
+    q: search.trim() || undefined,
+    operario: operarioFiltro,
+    desde: desdeParam,
+    hasta: hastaParam,
+    page,
+    size,
+  });
+  const list = pageQuery.data?.content ?? [];
+  const totalElements = pageQuery.data?.totalElements ?? 0;
+  const totalPages = pageQuery.data?.totalPages ?? 0;
 
-    return raw.filter((l) => {
-      if (operarioFiltro && (l.operarioNombre ?? '') !== operarioFiltro) {
-        return false;
-      }
-      if (rango) {
-        const t = l.fechaRecepcion ? new Date(l.fechaRecepcion).getTime() : NaN;
-        if (Number.isNaN(t)) return false;
-        if (t < rango.from || t > rango.to) return false;
-      }
-      if (!q) return true;
-      return (
-        String(l.id).includes(q) ||
-        (l.observaciones?.toLowerCase().includes(q) ?? false) ||
-        (l.operarioNombre?.toLowerCase().includes(q) ?? false) ||
-        (l.numeroGuiasEnvio?.some((g) => g.toLowerCase().includes(q)) ?? false)
-      );
-    });
-  }, [lotes, search, operarioFiltro, periodo, desde, hasta]);
+  const isLoading = pageQuery.isLoading;
+  const isFetching = pageQuery.isFetching || resumenQuery.isFetching;
+  const error = pageQuery.error;
+  const refetch = () => {
+    pageQuery.refetch();
+    resumenQuery.refetch();
+  };
 
   const tieneFiltros =
     !!operarioFiltro || periodo !== SIN_FILTRO || desde !== '' || hasta !== '';
@@ -183,40 +167,7 @@ export function LoteRecepcionListPage() {
     setHasta('');
   }, []);
 
-  const stats = useMemo(() => {
-    const all = lotes ?? [];
-    if (all.length === 0) {
-      return { total: 0, paquetes: 0, hoy: 0, guiasUnicas: 0 };
-    }
-    const guias = new Set<string>();
-    let paquetes = 0;
-    let hoy = 0;
-    const ahora = new Date();
-    const hoyStr = `${ahora.getFullYear()}-${ahora.getMonth()}-${ahora.getDate()}`;
-    for (const l of all) {
-      paquetes += l.totalPaquetes ?? 0;
-      l.numeroGuiasEnvio?.forEach((g) => guias.add(g));
-      if (l.fechaRecepcion) {
-        const d = new Date(l.fechaRecepcion);
-        if (!Number.isNaN(d.getTime())) {
-          const dStr = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-          if (dStr === hoyStr) hoy += 1;
-        }
-      }
-    }
-    return { total: all.length, paquetes, hoy, guiasUnicas: guias.size };
-  }, [lotes]);
-
-  const pagedList = useMemo(
-    () => list.slice(page * size, page * size + size),
-    [list, page, size],
-  );
-  const totalPages = Math.max(1, Math.ceil(list.length / Math.max(1, size)));
-  useEffect(() => {
-    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
-  }, [page, totalPages]);
-
-  if (error && (!lotes || lotes.length === 0)) {
+  if (error && totalElements === 0) {
     return (
       <PageErrorState
         message="Error al cargar lotes de recepción"
@@ -227,11 +178,11 @@ export function LoteRecepcionListPage() {
     );
   }
 
-  const allLotes = lotes ?? [];
+  const hayLotes = stats.total > 0;
 
   return (
     <div className="page-stack">
-      {error && allLotes.length > 0 && (
+      {error && list.length > 0 && (
         <InlineErrorBanner
           message="No se pudieron actualizar los lotes"
           hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
@@ -258,7 +209,7 @@ export function LoteRecepcionListPage() {
       {isLoading ? (
         <KpiCardsGridSkeleton count={3} />
       ) : (
-        allLotes.length > 0 && (
+        hayLotes && (
         <KpiCardsGrid>
           <KpiCard
             icon={<PackageCheck className="h-5 w-5" />}
@@ -292,7 +243,7 @@ export function LoteRecepcionListPage() {
       {isLoading ? (
         <FiltrosBarSkeleton chips={0} filters={2} />
       ) : (
-        allLotes.length > 0 && (
+        hayLotes && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -382,7 +333,7 @@ export function LoteRecepcionListPage() {
             </TableBody>
           </Table>
         </ListTableShell>
-      ) : allLotes.length === 0 ? (
+      ) : stats.total === 0 ? (
         <EmptyState
           icon={PackageCheck}
           title="No hay lotes de recepción"
@@ -419,8 +370,8 @@ export function LoteRecepcionListPage() {
       ) : (
         <>
           <p className="text-xs text-muted-foreground">
-            {list.length} lote{list.length === 1 ? '' : 's'}
-            {list.length !== allLotes.length ? ` de ${allLotes.length}` : ''}
+            {totalElements} lote{totalElements === 1 ? '' : 's'}
+            {totalElements !== stats.total ? ` de ${stats.total}` : ''}
           </p>
           <ListTableShell>
             <Table className="min-w-[820px] text-left">
@@ -435,7 +386,7 @@ export function LoteRecepcionListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pagedList.map((l) => (
+                {list.map((l) => (
                   <TableRow
                     key={l.id}
                     className="cursor-pointer"
@@ -495,7 +446,7 @@ export function LoteRecepcionListPage() {
           <TablePagination
             page={page}
             size={size}
-            totalElements={list.length}
+            totalElements={totalElements}
             totalPages={totalPages}
             onPageChange={setPage}
             onSizeChange={setSize}

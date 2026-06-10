@@ -4,6 +4,8 @@ import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.dto.AgregarGuiasLoteRequest;
 import com.ecubox.ecubox_backend.dto.LoteRecepcionCreateRequest;
 import com.ecubox.ecubox_backend.dto.LoteRecepcionDTO;
+import com.ecubox.ecubox_backend.dto.LoteRecepcionResumenDTO;
+import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.service.LoteRecepcionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,11 +13,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +43,31 @@ public class OperarioLoteRecepcionController {
     @ApiResponse(responseCode = "200", description = "Listado de lotes")
     public ResponseEntity<List<LoteRecepcionDTO>> findAll() {
         return ResponseEntity.ok(loteRecepcionService.findAll());
+    }
+
+    @GetMapping("/page")
+    @PreAuthorize("hasAuthority('LOTES_RECEPCION_READ')")
+    @Operation(summary = "Listar lotes paginados", description = "Lotes con búsqueda, filtro por operario, rango de fechas y paginación")
+    @ApiResponse(responseCode = "200", description = "Página de lotes")
+    public ResponseEntity<PageResponse<LoteRecepcionDTO>> findAllPage(
+            @Parameter(description = "Búsqueda libre (#, observaciones, operario o guía)") @RequestParam(required = false) String q,
+            @Parameter(description = "Filtro por nombre de operario") @RequestParam(required = false) String operario,
+            @Parameter(description = "Fecha desde (inclusive, yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @Parameter(description = "Fecha hasta (inclusive, yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @Parameter(description = "Número de página (base cero)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Cantidad de elementos por página") @RequestParam(defaultValue = "25") int size) {
+        LocalDateTime desdeDt = desde != null ? desde.atStartOfDay() : null;
+        LocalDateTime hastaDt = hasta != null ? hasta.plusDays(1).atStartOfDay() : null;
+        return ResponseEntity.ok(PageResponse.of(
+                loteRecepcionService.findAllPaginated(q, operario, desdeDt, hastaDt, page, size)));
+    }
+
+    @GetMapping("/resumen")
+    @PreAuthorize("hasAuthority('LOTES_RECEPCION_READ')")
+    @Operation(summary = "Resumen del listado de lotes", description = "KPIs y operarios distintos para la cabecera del listado")
+    @ApiResponse(responseCode = "200", description = "Resumen de lotes")
+    public ResponseEntity<LoteRecepcionResumenDTO> resumen() {
+        return ResponseEntity.ok(loteRecepcionService.resumen());
     }
 
     @GetMapping("/{id}")
