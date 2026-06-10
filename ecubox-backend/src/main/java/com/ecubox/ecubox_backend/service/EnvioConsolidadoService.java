@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoDTO;
+import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosResponse;
@@ -126,6 +127,42 @@ public class EnvioConsolidadoService {
                     SearchSpecifications.field("codigo")));
         }
         return envioConsolidadoRepository.findAll(spec, pageable);
+    }
+
+    /**
+     * Resumen liviano del listado: conteo por estado operativo (KPIs/chips) y por
+     * estado de pago, sin descargar el dataset completo. Se cuenta por la columna
+     * {@code estado_operativo} (la misma que usa el filtro paginado), de modo que
+     * los conteos sean coherentes con la tabla.
+     */
+    @Transactional(readOnly = true)
+    public EnvioConsolidadoResumenDTO resumen() {
+        java.util.Map<EstadoEnvioConsolidadoOperativo, Long> porOperativo =
+                new java.util.EnumMap<>(EstadoEnvioConsolidadoOperativo.class);
+        for (EstadoEnvioConsolidadoOperativo estado : EstadoEnvioConsolidadoOperativo.values()) {
+            porOperativo.put(estado, 0L);
+        }
+        long total = 0;
+        for (Object[] fila : envioConsolidadoRepository.countAgrupadoPorEstadoOperativo()) {
+            EstadoEnvioConsolidadoOperativo estado = (EstadoEnvioConsolidadoOperativo) fila[0];
+            long count = ((Number) fila[1]).longValue();
+            total += count;
+            if (estado != null) porOperativo.put(estado, count);
+        }
+        long pagados = 0;
+        long noPagados = 0;
+        for (Object[] fila : envioConsolidadoRepository.countAgrupadoPorEstadoPago()) {
+            EstadoPagoConsolidado pago = (EstadoPagoConsolidado) fila[0];
+            long count = ((Number) fila[1]).longValue();
+            if (pago == EstadoPagoConsolidado.PAGADO) pagados = count;
+            else if (pago == EstadoPagoConsolidado.NO_PAGADO) noPagados = count;
+        }
+        return EnvioConsolidadoResumenDTO.builder()
+                .total(total)
+                .porOperativo(porOperativo)
+                .pagados(pagados)
+                .noPagados(noPagados)
+                .build();
     }
 
     @Transactional

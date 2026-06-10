@@ -5,6 +5,7 @@ import type {
   EnvioConsolidadoCreateRequest,
   EnvioConsolidadoCreateResponse,
   EnvioConsolidadoPaquetesRequest,
+  EstadoEnvioConsolidadoOperativo,
 } from '@/types/envio-consolidado';
 import type { PageResponse } from '@/types/page';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
@@ -37,6 +38,23 @@ export async function listarEnviosConsolidados(
   params: ListarEnviosParams = {}
 ): Promise<PageResponse<EnvioConsolidado>> {
   const { data } = await apiClient.get<PageResponse<EnvioConsolidado>>(BASE, { params });
+  return data;
+}
+
+/**
+ * Resumen liviano del listado: conteo por estado operativo (KPIs/chips) y por
+ * estado de pago. Reemplaza la descarga del dataset completo solo para la
+ * cabecera del listado.
+ */
+export interface EnvioConsolidadoResumen {
+  total: number;
+  porOperativo: Record<EstadoEnvioConsolidadoOperativo, number>;
+  pagados: number;
+  noPagados: number;
+}
+
+export async function obtenerResumenEnviosConsolidados(): Promise<EnvioConsolidadoResumen> {
+  const { data } = await apiClient.get<EnvioConsolidadoResumen>(`${BASE}/resumen`);
   return data;
 }
 

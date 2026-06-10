@@ -12,6 +12,7 @@ import {
   getEstadosAplicablesConsolidados,
   listarEnviosConsolidados,
   listarEnviosDisponiblesParaRecepcion,
+  obtenerResumenEnviosConsolidados,
   obtenerEnvioConsolidado,
   reabrirEnvioConsolidado,
   removerPaquetesEnvioConsolidado,
@@ -36,6 +37,15 @@ export function useEnviosConsolidados(
     queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'list', params],
     queryFn: () => listarEnviosConsolidados(params),
     enabled,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Resumen liviano (KPIs/chips): conteo por estado operativo y por estado de pago. */
+export function useEnvioConsolidadoResumen() {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'resumen'],
+    queryFn: () => obtenerResumenEnviosConsolidados(),
     placeholderData: keepPreviousData,
   });
 }
