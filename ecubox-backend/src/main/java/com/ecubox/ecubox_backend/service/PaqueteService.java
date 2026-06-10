@@ -373,7 +373,7 @@ public class PaqueteService {
                 .contenido(request.getContenido())
                 .pesoLbs(pesoLbs)
                 .estadoRastreo(estadoInicial)
-                .fechaEstadoActualDesde(LocalDateTime.now())
+                .fechaEstadoActualDesde(LocalDateTime.now(ZONA_ECUADOR))
                 .build();
         p = paqueteRepository.save(p);
         trackingEventService.registrarTransicion(
@@ -778,7 +778,7 @@ public class PaqueteService {
                                          String idempotencyPrefix,
                                          LocalDateTime fechaEfectivaOrNull) {
         if (paqueteIds == null || paqueteIds.isEmpty()) return;
-        LocalDateTime fechaEfectiva = fechaEfectivaOrNull != null ? fechaEfectivaOrNull : LocalDateTime.now();
+        LocalDateTime fechaEfectiva = fechaEfectivaOrNull != null ? fechaEfectivaOrNull : LocalDateTime.now(ZONA_ECUADOR);
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoDestinoId);
         List<Paquete> paquetes = paqueteRepository.findAllById(paqueteIds);
         if (paquetes.isEmpty()) return;
@@ -841,7 +841,7 @@ public class PaqueteService {
                 continue;
             }
             paquete.setEstadoRastreo(estadoOrigen);
-            paquete.setFechaEstadoActualDesde(LocalDateTime.now());
+            paquete.setFechaEstadoActualDesde(LocalDateTime.now(ZONA_ECUADOR));
             paquete.setEnFlujoAlterno(TipoFlujoEstado.ALTERNO.equals(estadoOrigen.getTipoFlujo()));
             if (!TipoFlujoEstado.ALTERNO.equals(estadoOrigen.getTipoFlujo())) {
                 paquete.setMotivoAlterno(null);
@@ -1799,7 +1799,7 @@ public class PaqueteService {
     }
 
     private void aplicarEstadoConReglas(Paquete paquete, EstadoRastreo estadoDestino, String motivoAlterno) {
-        aplicarEstadoConReglas(paquete, estadoDestino, motivoAlterno, LocalDateTime.now());
+        aplicarEstadoConReglas(paquete, estadoDestino, motivoAlterno, LocalDateTime.now(ZONA_ECUADOR));
     }
 
     private void aplicarEstadoConReglas(Paquete paquete, EstadoRastreo estadoDestino, String motivoAlterno,
