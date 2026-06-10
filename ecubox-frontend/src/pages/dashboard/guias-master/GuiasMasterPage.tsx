@@ -12,6 +12,7 @@ import {
   useRecalcularGuiaMaster,
   useReabrirGuiaMaster,
   useAllGuiasMaster,
+  useAprobarGuiaMaster,
 } from '@/hooks/useGuiasMaster';
 import { AplicarEstadoMasivoDialog, type AplicarEstadoOption } from '@/components/AplicarEstadoMasivoDialog';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
@@ -65,6 +66,7 @@ import {
   Building2,
   CalendarDays,
   Eye,
+  EyeOff,
   Tag,
   Pencil,
   Trash2,
@@ -76,6 +78,7 @@ import {
   Layers,
   Loader2,
   Ban,
+  Check,
 } from 'lucide-react';
 import {
   GUIA_MASTER_ESTADO_ICONS,
@@ -112,6 +115,7 @@ const ESTADOS_GUIA_TERMINALES: ReadonlySet<EstadoGuiaMaster> = new Set<EstadoGui
 
 /** Acciones de ciclo de vida aplicables en lote a las guías master. */
 const ACCIONES_GUIA: readonly AplicarEstadoOption[] = [
+  { value: 'APROBAR', label: 'Aprobar guía' },
   { value: 'RECALCULAR', label: 'Recalcular estado' },
   { value: 'MARCAR_REVISION', label: 'Marcar en revisión' },
   { value: 'SALIR_REVISION', label: 'Salir de revisión' },
@@ -124,6 +128,7 @@ const ACCIONES_CON_MOTIVO: ReadonlySet<string> = new Set(['CANCELAR', 'REABRIR']
 
 /** Texto de ayuda por acción: explica qué guías se listan. */
 const AYUDA_ACCION: Record<string, string> = {
+  APROBAR: 'Aprueba una guía en verificación o en revisión para reanudar el flujo y calcular su estado.',
   RECALCULAR: 'Recalcula el estado derivado. Se listan guías con al menos una pieza registrada (no terminales ni en revisión).',
   MARCAR_REVISION: 'Pausa el recálculo automático. Se listan guías activas que no están en revisión.',
   SALIR_REVISION: 'Reanuda el flujo normal. Solo se listan guías en revisión.',
@@ -142,6 +147,8 @@ function guiaElegibleParaAccion(guia: GuiaMaster, accion: string): boolean {
   const piezasRegistradas = guia.piezasRegistradas ?? 0;
   const piezasDespachadas = guia.piezasDespachadas ?? 0;
   switch (accion) {
+    case 'APROBAR':
+      return estado === 'PENDIENTE_VERIFICACION' || estado === 'EN_REVISION';
     case 'RECALCULAR':
       return !terminal && estado !== 'EN_REVISION' && piezasRegistradas >= 1;
     case 'MARCAR_REVISION':
@@ -246,10 +253,11 @@ export function GuiasMasterPage() {
   const recalcular = useRecalcularGuiaMaster();
   const cancelarBulk = useCancelarGuiaMaster();
   const reabrirBulk = useReabrirGuiaMaster();
+  const aprobarBulk = useAprobarGuiaMaster();
 
   const aplicarIsPending =
     marcarRevision.isPending || salirRevision.isPending || recalcular.isPending ||
-    cancelarBulk.isPending || reabrirBulk.isPending;
+    cancelarBulk.isPending || reabrirBulk.isPending || aprobarBulk.isPending;
 
   const cerrarAplicarEstado = () => {
     setAplicarEstadoOpen(false);
@@ -279,6 +287,7 @@ export function GuiasMasterPage() {
   const runBulkAction = async (accion: string, ids: number[], motivo: string | undefined) => {
     const results = await Promise.allSettled(
       ids.map((id) => {
+        if (accion === 'APROBAR') return aprobarBulk.mutateAsync(id);
         if (accion === 'RECALCULAR') return recalcular.mutateAsync(id);
         if (accion === 'MARCAR_REVISION') return marcarRevision.mutateAsync({ id, body: { motivo: motivo ?? '' } });
         if (accion === 'SALIR_REVISION') return salirRevision.mutateAsync({ id, body: { motivo: motivo ?? '' } });
@@ -388,7 +397,7 @@ export function GuiasMasterPage() {
               {GUIA_MASTER_ESTADO_ORDEN.map((estado) => {
                 const count = conteosPorEstado[estado] ?? 0;
                 const active = estadosFiltro.has(estado);
-                if (count === 0 && !active) return null;
+                if (count === 0 && !active && estado !== 'PENDIENTE_VERIFICACION') return null;
                 const Icon = GUIA_MASTER_ESTADO_ICONS[estado];
                 return (
                   <ChipFiltro
@@ -596,6 +605,52 @@ export function GuiasMasterPage() {
                             icon: Pencil,
                             onSelect: () => setEditingGuia(g),
                             hidden: !hasUpdate,
+                          },
+                          {
+                            label: 'Aprobar guía',
+                            icon: Check,
+                            onSelect: async () => {
+                              try {
+                                await aprobarBulk.mutateAsync(g.id);
+                                toast.success('Guía master aprobada');
+                              } catch (err: unknown) {
+                                toast.error(getApiErrorMessage(err) ?? 'No se pudo aprobar la guía');
+                              }
+                            },
+                            hidden:
+                              !hasUpdate ||
+                              !(g.estadoGlobal === 'PENDIENTE_VERIFICACION' || g.estadoGlobal === 'EN_REVISION'),
+                          },
+                          {
+                            label: 'Mandar a revisión',
+                            icon: Eye,
+                            onSelect: async () => {
+                              try {
+                                await marcarRevision.mutateAsync({ id: g.id, body: {} });
+                                toast.success('Guía marcada en revisión');
+                              } catch (err: unknown) {
+                                toast.error(getApiErrorMessage(err) ?? 'No se pudo marcar en revisión');
+                              }
+                            },
+                            hidden:
+                              !hasUpdate ||
+                              !(
+                                !GUIA_MASTER_ESTADOS_TERMINALES.has(g.estadoGlobal) &&
+                                g.estadoGlobal !== 'EN_REVISION'
+                              ),
+                          },
+                          {
+                            label: 'Salir de revisión',
+                            icon: EyeOff,
+                            onSelect: async () => {
+                              try {
+                                await salirRevision.mutateAsync({ id: g.id, body: {} });
+                                toast.success('Revisión finalizada');
+                              } catch (err: unknown) {
+                                toast.error(getApiErrorMessage(err) ?? 'No se pudo salir de revisión');
+                              }
+                            },
+                            hidden: !hasUpdate || g.estadoGlobal !== 'EN_REVISION',
                           },
                           {
                             label: 'Cancelar guía',

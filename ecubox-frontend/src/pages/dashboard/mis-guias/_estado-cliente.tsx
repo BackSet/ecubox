@@ -53,29 +53,29 @@ export const MI_GUIA_ESTADO_LABELS_CORTOS: Record<EstadoGuiaMaster, string> = {
 
 export const MI_GUIA_ESTADO_DESCRIPCIONES: Record<EstadoGuiaMaster, string> = {
   SIN_PAQUETES_REGISTRADOS:
-    'Registraste la guía pero aún no asociaste paquetes. Cuando los registres, podrás seguir su avance.',
+    'La Guía master existe en el sistema pero aún no tiene paquetes asociados.',
   CON_PAQUETES_REGISTRADOS:
-    'Ya hay paquetes asociados; están a la espera de ser incluidos en un envío consolidado.',
+    'Hay paquetes registrados pero ninguno fue asignado a un envío consolidado todavía.',
   PENDIENTE_VERIFICACION:
-    'Tu guía está siendo revisada por nuestro equipo. Te notificaremos cuando sea aprobada.',
+    'La Guía master fue registrada, pero aún no fue validada. Pendiente de revisión por admin/operario.',
   VERIFICADA:
-    'Tu guía fue aprobada. El sistema actualizará automáticamente su estado conforme avancen los paquetes.',
+    'Aprobada por el equipo. El sistema calcula automáticamente el estado derivado.',
   ENVIO_PARCIAL:
-    'Algunos de tus paquetes ya están en un envío consolidado hacia Ecuador; otros aún están pendientes.',
+    'Algunos paquetes de la Guía master fueron incluidos en Envío consolidado, pero no todos.',
   ENVIO_COMPLETO:
-    'Todos tus paquetes están en un envío consolidado y pronto saldrán hacia Ecuador.',
+    'Todos los paquetes registrados de la Guía master fueron incluidos en Envío consolidado.',
   RECEPCION_PARCIAL:
-    'Algunos paquetes ya llegaron a la bodega en Ecuador y otros siguen en camino.',
+    'Algunos paquetes enviados de esa Guía master fueron recibidos en Ecuador.',
   RECEPCION_COMPLETA:
-    'Todos los paquetes están en la bodega en Ecuador, listos para ser despachados.',
+    'Todos los paquetes enviados de esa Guía master fueron recibidos.',
   DESPACHO_PARCIAL:
-    'Parte de tus paquetes ya está en camino a tu dirección. El resto se enviará pronto.',
+    'Algunos paquetes recibidos de la Guía master fueron despachados.',
   DESPACHO_COMPLETADO:
-    'Todos los paquetes fueron despachados y entregados a tu consignatario.',
+    'Todos los paquetes recibidos/despachables fueron despachados o entregados.',
   CANCELADA:
-    'Esta guía fue cancelada. Si crees que es un error, contáctanos.',
+    'La Guía master fue anulada.',
   EN_REVISION:
-    'Estamos revisando algún detalle de tu guía. Te contactaremos pronto.',
+    'La Guía master está incorrecta, dudosa o requiere corrección.',
 };
 
 export const MI_GUIA_ESTADO_TONES: Record<EstadoGuiaMaster, StatusTone> = {
@@ -85,7 +85,7 @@ export const MI_GUIA_ESTADO_TONES: Record<EstadoGuiaMaster, StatusTone> = {
   VERIFICADA: 'info',
   ENVIO_PARCIAL: 'primary',
   ENVIO_COMPLETO: 'primary',
-  RECEPCION_PARCIAL: 'info',
+  RECEPCION_PARCIAL: 'warning',
   RECEPCION_COMPLETA: 'info',
   DESPACHO_PARCIAL: 'primary',
   DESPACHO_COMPLETADO: 'success',
@@ -95,7 +95,7 @@ export const MI_GUIA_ESTADO_TONES: Record<EstadoGuiaMaster, StatusTone> = {
 
 export const MI_GUIA_ESTADO_ICONS: Record<EstadoGuiaMaster, LucideIcon> = {
   SIN_PAQUETES_REGISTRADOS: Package,
-  CON_PAQUETES_REGISTRADOS: Clock,
+  CON_PAQUETES_REGISTRADOS: Package,
   PENDIENTE_VERIFICACION: Clock,
   VERIFICADA: ShieldCheck,
   ENVIO_PARCIAL: Send,
@@ -110,19 +110,19 @@ export const MI_GUIA_ESTADO_ICONS: Record<EstadoGuiaMaster, LucideIcon> = {
 
 /**
  * Orden recomendado para presentar al cliente: flujo natural del envío.
- * EN_REVISION y CANCELADA van al final por ser excepcionales.
  */
 export const MI_GUIA_ESTADO_ORDEN: EstadoGuiaMaster[] = [
+  'PENDIENTE_VERIFICACION',
+  'VERIFICADA',
+  'EN_REVISION',
   'SIN_PAQUETES_REGISTRADOS',
   'CON_PAQUETES_REGISTRADOS',
-  'PENDIENTE_VERIFICACION',
   'ENVIO_PARCIAL',
   'ENVIO_COMPLETO',
   'RECEPCION_PARCIAL',
   'RECEPCION_COMPLETA',
   'DESPACHO_PARCIAL',
   'DESPACHO_COMPLETADO',
-  'EN_REVISION',
   'CANCELADA',
 ];
 

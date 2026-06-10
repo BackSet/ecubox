@@ -10,6 +10,7 @@ import {
   cerrarGuiaMasterConFaltante,
   confirmarDespachoParcialGuiaMaster,
   obtenerDashboardGuiasMaster,
+  aprobarGuiaMaster,
   cancelarGuiaMaster,
   marcarGuiaMasterEnRevision,
   salirGuiaMasterDeRevision,
@@ -66,7 +67,7 @@ export function useGuiaMaster(id: number | null | undefined) {
   return useQuery({
     queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', id],
     queryFn: () => obtenerGuiaMaster(id as number),
-    enabled: id != null,
+    enabled: id != null && !isNaN(id) && id > 0,
   });
 }
 
@@ -74,7 +75,7 @@ export function useGuiaMasterPiezas(id: number | null | undefined) {
   return useQuery({
     queryKey: [...GUIAS_MASTER_QUERY_KEY, 'piezas', id],
     queryFn: () => listarPiezasDeGuiaMaster(id as number),
-    enabled: id != null,
+    enabled: id != null && !isNaN(id) && id > 0,
   });
 }
 
@@ -131,6 +132,18 @@ export function useConfirmarDespachoParcial() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
       qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', vars.id] });
+    },
+  });
+}
+
+export function useAprobarGuiaMaster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => aprobarGuiaMaster(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'detail', id] });
+      qc.invalidateQueries({ queryKey: [...GUIAS_MASTER_QUERY_KEY, 'historial', id] });
     },
   });
 }
@@ -203,7 +216,7 @@ export function useGuiaMasterHistorial(id: number | null | undefined) {
   return useQuery({
     queryKey: [...GUIAS_MASTER_QUERY_KEY, 'historial', id],
     queryFn: () => listarHistorialGuiaMaster(id as number),
-    enabled: id != null,
+    enabled: id != null && !isNaN(id) && id > 0,
   });
 }
 

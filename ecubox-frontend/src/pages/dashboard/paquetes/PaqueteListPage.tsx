@@ -458,7 +458,7 @@ export function PaqueteListPage() {
             label="Consignatarios únicos"
             value={stats.consignatarios}
             tone="neutral"
-            hint="Destinatarios distintos en catálogo"
+            hint="Consignatarios distintos en catálogo"
           />
           <KpiCard
             icon={<ClipboardList className="h-5 w-5" />}

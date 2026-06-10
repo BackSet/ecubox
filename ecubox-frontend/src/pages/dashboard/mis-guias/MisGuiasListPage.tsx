@@ -276,7 +276,7 @@ export function MisGuiasListPage() {
           }
           description={
             guias.length === 0
-              ? 'Registra el número de guía que envías desde tu casillero y asígnale un consignatario para hacer seguimiento.'
+              ? 'Registra el número de guía que envías desde tu casillero y asígnale un destinatario para conocer su avance.'
               : estadoFiltro !== 'TODAS'
                 ? 'Cambia el filtro para ver tus otras guías.'
                 : 'Prueba con otro término de búsqueda.'

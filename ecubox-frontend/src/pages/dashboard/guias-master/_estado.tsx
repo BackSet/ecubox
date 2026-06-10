@@ -121,17 +121,17 @@ export const GUIA_MASTER_ESTADO_ICONS: Record<EstadoGuiaMaster, LucideIcon> = {
   EN_REVISION: Eye,
 };
 
-/** Orden recomendado para chips/filtros (sigue el ciclo de vida natural). */
 export const GUIA_MASTER_ESTADO_ORDEN: EstadoGuiaMaster[] = [
+  'PENDIENTE_VERIFICACION',
+  'VERIFICADA',
+  'EN_REVISION',
   'SIN_PAQUETES_REGISTRADOS',
   'CON_PAQUETES_REGISTRADOS',
-  'PENDIENTE_VERIFICACION',
   'ENVIO_PARCIAL',
   'ENVIO_COMPLETO',
   'RECEPCION_PARCIAL',
   'RECEPCION_COMPLETA',
   'DESPACHO_PARCIAL',
-  'EN_REVISION',
   'DESPACHO_COMPLETADO',
   'CANCELADA',
 ];

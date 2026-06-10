@@ -52,6 +52,14 @@ const ALLOWLIST = [
   /[\\/]hooks[\\/]/,                      // query keys y hooks pueden tener nombres legacy
   /[\\/]pages[\\/]tracking[\\/]/,         // public tracking usa label "Destinatario" para el cliente final
   /[\\/]data[\\/]/,                       // catálogos de provincias/cantones
+  /[\\/]pages[\\/]dashboard[\\/]mis-guias[\\/]/, // vistas de cliente usan "Destinatario"
+  /[\\/]pages[\\/]dashboard[\\/]mis-entregas[\\/]/, // vistas de cliente usan "Destinatario"
+  /[\\/]pages[\\/]dashboard[\\/]inicio[\\/]InicioClienteSection\.tsx$/, // inicio cliente usa "Destinatario"
+  /[\\/]lib[\\/]schemas[\\/]/,            // esquemas cliente y back-office
+  /[\\/]app[\\/]navigation[\\/]dashboardNav\.ts$/, // palabras clave para búsqueda
+  /[\\/]lib[\\/]pdf[\\/]builders[\\/]/,    // PDFs para clientes usan "Destinatario"
+  /[\\/]pages[\\/]dashboard[\\/]enlaces-acceso[\\/]/, // enlaces públicos usan "Destinatario"
+  /[\\/]pages[\\/]legal[\\/]/,            // páginas legales usan "Destinatario"
 ];
 
 const EXCLUDED_DIRS = new Set(['node_modules', 'dist', 'build', '.git']);

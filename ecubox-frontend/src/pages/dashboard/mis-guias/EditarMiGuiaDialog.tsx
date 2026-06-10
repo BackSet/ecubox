@@ -143,7 +143,7 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
               className="mb-1 flex items-center gap-1 text-xs"
             >
               <UserRound className="h-3.5 w-3.5" />
-              Consignatario *
+              Destinatario *
             </Label>
             <SearchableCombobox
               id="mi-guia-edit-consignatario"
@@ -163,10 +163,10 @@ export function EditarMiGuiaDialog({ guia, open, onClose }: Props) {
               }
               placeholder={
                 loadingDest
-                  ? 'Cargando consignatarios...'
+                  ? 'Cargando destinatarios...'
                   : sinConsignatarios
-                    ? 'Sin consignatarios'
-                    : 'Selecciona un consignatario'
+                    ? 'Sin destinatarios'
+                    : 'Selecciona un destinatario'
               }
               searchPlaceholder="Buscar por nombre, código, cantón..."
               emptyMessage="Sin coincidencias"

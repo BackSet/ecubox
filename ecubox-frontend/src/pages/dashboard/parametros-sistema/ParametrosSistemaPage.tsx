@@ -2309,7 +2309,7 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     group: 'Flujo de paquete',
     source: 'rastreo',
     numero: 9,
-    label: '9. Entregado a destinatario',
+    label: '9. Entregado a consignatario',
     detonante: 'Cliente u operario confirma recepción.',
     donde: 'Mis entregas / Despachos.',
     efecto: 'Aplica el estado configurado.',
