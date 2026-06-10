@@ -77,6 +77,17 @@ public class Paquete {
     @Column(name = "fecha_bloqueo_desde")
     private LocalDateTime fechaBloqueoDesde;
 
+    /**
+     * Fecha limite de retiro persistida. Permite derivar el estado "vencido" como
+     * predicado SQL ({@code fecha_limite_retiro < now()}) sin recalcular la logica
+     * de cuenta regresiva por fila. Es {@code null} cuando el paquete esta en el
+     * estado de fin de cuenta regresiva (entregado) o cuando aun no hay fecha
+     * ancla / dias maximos de retiro resueltos. Se recalcula en cada cambio de
+     * los insumos del plazo (transicion de estado, asignacion de saca/despacho).
+     */
+    @Column(name = "fecha_limite_retiro")
+    private LocalDateTime fechaLimiteRetiro;
+
     @Version
     @Column(nullable = false)
     private Long version;
