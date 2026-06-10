@@ -168,7 +168,7 @@ export function AgenciaListPage() {
       )}
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} withHint />
+        <KpiCardsGridSkeleton count={3} withHint />
       ) : (
         totalElements > 0 && (
           <KpiCardsGrid>
@@ -188,17 +188,6 @@ export function AgenciaListPage() {
                 stats.provs === 0
                   ? 'Sin provincia asignada'
                   : `${stats.provs} provincia(s) distintas`
-              }
-            />
-            <KpiCard
-              icon={<MapPin className="h-4 w-4" />}
-              label="Cantones cubiertos"
-              value={stats.cantones}
-              tone="neutral"
-              hint={
-                stats.cantones === 0
-                  ? 'Sin cantón asignado'
-                  : `${stats.cantones} cantón(es) distintos`
               }
             />
             <KpiCard

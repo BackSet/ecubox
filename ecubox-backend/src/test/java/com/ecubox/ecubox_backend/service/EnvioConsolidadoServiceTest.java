@@ -1,7 +1,10 @@
 package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
+import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
+import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
+import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
@@ -76,6 +79,26 @@ class EnvioConsolidadoServiceTest {
         lenient().when(paqueteRepository.sumPesoLbsByEnvioConsolidadoId(anyLong())).thenReturn(BigDecimal.ZERO);
         lenient().when(paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(anyLong()))
                 .thenReturn(List.of());
+    }
+
+    @Test
+    void resumen_agrupaConteosPorEstadoOperativoYPago() {
+        when(envioRepository.countAgrupadoPorEstadoOperativo()).thenReturn(List.of(
+                new Object[]{EstadoEnvioConsolidadoOperativo.EN_PREPARACION, 3L},
+                new Object[]{EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA, 2L}));
+        when(envioRepository.countAgrupadoPorEstadoPago()).thenReturn(List.of(
+                new Object[]{EstadoPagoConsolidado.PAGADO, 1L},
+                new Object[]{EstadoPagoConsolidado.NO_PAGADO, 4L}));
+
+        EnvioConsolidadoResumenDTO resumen = service.resumen();
+
+        assertEquals(5L, resumen.getTotal());
+        assertEquals(3L, resumen.getPorOperativo().get(EstadoEnvioConsolidadoOperativo.EN_PREPARACION));
+        assertEquals(2L, resumen.getPorOperativo().get(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA));
+        // Los estados sin filas en el GROUP BY quedan en cero, no ausentes.
+        assertEquals(0L, resumen.getPorOperativo().get(EstadoEnvioConsolidadoOperativo.VACIO));
+        assertEquals(1L, resumen.getPagados());
+        assertEquals(4L, resumen.getNoPagados());
     }
 
     @Test

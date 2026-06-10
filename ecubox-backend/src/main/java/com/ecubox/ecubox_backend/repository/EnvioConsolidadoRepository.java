@@ -99,4 +99,12 @@ public interface EnvioConsolidadoRepository
     List<Long> findIdsElegiblesParaEstadoRastreo(
             @Param("estadoOrigenId") Long estadoOrigenId,
             @Param("estadoOperativoAlterno") EstadoEnvioConsolidadoOperativo estadoOperativoAlterno);
+
+    /** Conteo agrupado por estado operativo: filas [estadoOperativo, total] (para el resumen liviano). */
+    @Query("SELECT e.estadoOperativo, COUNT(e) FROM EnvioConsolidado e GROUP BY e.estadoOperativo")
+    List<Object[]> countAgrupadoPorEstadoOperativo();
+
+    /** Conteo agrupado por estado de pago: filas [estadoPago, total] (para el resumen liviano). */
+    @Query("SELECT e.estadoPago, COUNT(e) FROM EnvioConsolidado e GROUP BY e.estadoPago")
+    List<Object[]> countAgrupadoPorEstadoPago();
 }

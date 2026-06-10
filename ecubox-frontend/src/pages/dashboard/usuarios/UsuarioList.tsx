@@ -185,7 +185,7 @@ export function UsuarioList() {
       )}
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} withHint />
+        <KpiCardsGridSkeleton count={3} withHint />
       ) : (
       <KpiCardsGrid>
         <KpiCard
@@ -194,13 +194,6 @@ export function UsuarioList() {
           value={stats.total}
           tone="primary"
           hint={`${stats.activos} activo(s) · ${stats.inactivos} inactivo(s)`}
-        />
-        <KpiCard
-          icon={<CheckCircle2 className="h-5 w-5" />}
-          label="Activos"
-          value={stats.activos}
-          tone="success"
-          hint={stats.total ? `${Math.round((stats.activos / stats.total) * 100)}% del total` : undefined}
         />
         <KpiCard
           icon={<UserMinus className="h-5 w-5" />}

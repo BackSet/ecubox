@@ -324,7 +324,7 @@ export function PermisoList() {
       )}
 
       {isLoading || loadingPermisosCompletos ? (
-        <KpiCardsGridSkeleton count={4} withHint />
+        <KpiCardsGridSkeleton count={3} withHint />
       ) : (
       <KpiCardsGrid>
         <KpiCard
@@ -333,13 +333,6 @@ export function PermisoList() {
           value={stats.total}
           tone="primary"
           hint={`${stats.modulos} módulo(s) del sistema`}
-        />
-        <KpiCard
-          icon={<Layers className="h-5 w-5" />}
-          label="Módulos cubiertos"
-          value={stats.modulos}
-          tone="neutral"
-          hint="Áreas funcionales del sistema"
         />
         <KpiCard
           icon={<Eye className="h-5 w-5" />}

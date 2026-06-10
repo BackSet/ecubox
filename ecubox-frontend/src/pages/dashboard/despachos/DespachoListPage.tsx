@@ -30,7 +30,6 @@ import {
   Trash2,
   Truck,
   UserCircle2,
-  Users,
 } from 'lucide-react';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
@@ -445,7 +444,7 @@ export function DespachoListPage() {
       />
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} />
+        <KpiCardsGridSkeleton count={3} />
       ) : (
         allDespachos.length > 0 && (
         <KpiCardsGrid>
@@ -481,13 +480,6 @@ export function DespachoListPage() {
                 ? `~${(stats.sacas / stats.total).toFixed(1)} sacas por despacho`
                 : 'Total de sacas en despachos'
             }
-          />
-          <KpiCard
-            icon={<Users className="h-5 w-5" />}
-            label="Couriers de entrega"
-            value={stats.couriersEntrega}
-            tone="neutral"
-            hint="Couriers con al menos un despacho"
           />
         </KpiCardsGrid>
         )

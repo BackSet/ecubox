@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateRequest;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoDTO;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoPaquetesRequest;
+import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosRequest;
@@ -66,6 +67,14 @@ public class EnvioConsolidadoController {
         com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado pagoFilter = parseEstadoPagoFilter(estadoPago);
         Page<EnvioConsolidado> resultado = envioConsolidadoService.findAll(estadoOperativoFilter, pagoFilter, q, page, size);
         return ResponseEntity.ok(PageResponse.of(resultado, e -> envioConsolidadoService.toDTO(e, false)));
+    }
+
+    @GetMapping("/resumen")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_READ')")
+    @Operation(summary = "Resumen del listado de envíos consolidados", description = "Conteo por estado operativo y por estado de pago para KPIs y chips")
+    @ApiResponse(responseCode = "200", description = "Resumen de envíos consolidados")
+    public ResponseEntity<EnvioConsolidadoResumenDTO> resumen() {
+        return ResponseEntity.ok(envioConsolidadoService.resumen());
     }
 
     /**

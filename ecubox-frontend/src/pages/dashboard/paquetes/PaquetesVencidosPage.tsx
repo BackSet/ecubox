@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { AlertTriangle, Clock, Eye, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Eye, TrendingUp } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { ListToolbar } from '@/components/ListToolbar';
@@ -180,13 +180,6 @@ export function PaquetesVencidosPage() {
             value={`${stats.maximo}d`}
             tone="warning"
             hint="Mayor días de atraso en la lista"
-          />
-          <KpiCard
-            icon={<Clock className="h-5 w-5" />}
-            label="Atraso promedio"
-            value={`${stats.promedio}d`}
-            tone="neutral"
-            hint={`${stats.criticos} crítico(s) con ≥15 días`}
           />
           <KpiCard
             icon={<AlertTriangle className="h-5 w-5" />}

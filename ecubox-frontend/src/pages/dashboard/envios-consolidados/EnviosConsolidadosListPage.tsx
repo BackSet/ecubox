@@ -82,6 +82,7 @@ import {
   useCrearEnvioConsolidado,
   useEliminarEnvioConsolidado,
   useEnviosConsolidados,
+  useEnvioConsolidadoResumen,
   useReabrirEnvioConsolidado,
 } from '@/hooks/useEnviosConsolidados';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
@@ -240,15 +241,19 @@ export function EnviosConsolidadosListPage() {
     }
   }
 
-  // Carga ligera de todos los envíos para los KPIs globales
-  const { data: dataTodos } = useEnviosConsolidados({
-    estado: 'TODOS',
-    page: 0,
-    size: 1000,
-  });
+  // Resumen liviano server-side: conteo por estado operativo (KPIs/chips) y por
+  // estado de pago. Evita descargar el dataset completo en cada visita al listado.
+  const { data: resumen } = useEnvioConsolidadoResumen();
+
+  // Carga completa SOLO para el selector de acción masiva operativa, que filtra
+  // por estado operativo derivado en cliente. Se carga de forma diferida (lazy):
+  // únicamente cuando el modal de acción masiva operativa está abierto.
+  const { data: dataTodos } = useEnviosConsolidados(
+    { estado: 'TODOS', page: 0, size: 1000 },
+    aplicarEstadoOpen && tipoAccionMasiva === 'operativa',
+  );
 
   const stats = useMemo(() => {
-    const all = dataTodos?.content ?? [];
     const porOperativo: Record<EstadoEnvioConsolidadoOperativo, number> = {
       VACIO: 0,
       EN_PREPARACION: 0,
@@ -259,28 +264,13 @@ export function EnviosConsolidadosListPage() {
       LIQUIDADO: 0,
       CANCELADO: 0,
     };
-    let pagados = 0;
-    let noPagados = 0;
-    let paquetes = 0;
-    let pesoLbs = 0;
-    for (const e of all) {
-      const op = resolveEstadoOperativoConsolidado(e);
-      porOperativo[op] += 1;
-      if (e.estadoPago === 'PAGADO') pagados += 1;
-      else noPagados += 1;
-      paquetes += e.totalPaquetes ?? 0;
-      pesoLbs += Number(e.pesoTotalLbs ?? 0);
-    }
     return {
-      total: dataTodos?.totalElements ?? all.length,
-      porOperativo,
-      pagados,
-      noPagados,
-      paquetes,
-      pesoLbs,
-      pesoKg: pesoLbs * LBS_TO_KG,
+      total: resumen?.total ?? 0,
+      porOperativo: resumen?.porOperativo ?? porOperativo,
+      pagados: resumen?.pagados ?? 0,
+      noPagados: resumen?.noPagados ?? 0,
     };
-  }, [dataTodos]);
+  }, [resumen]);
 
   function chipToneFromStatus(tone: StatusTone): ChipFiltroTone {
     if (tone === 'info' || tone === 'primary') return 'primary';
@@ -555,13 +545,6 @@ export function EnviosConsolidadosListPage() {
       />
 
       <KpiCardsGrid>
-        <KpiCard
-          icon={<Boxes className="h-5 w-5" />}
-          label="Total de envíos"
-          value={stats.total}
-          tone="primary"
-          hint={`${stats.pagados} pagados · ${stats.noPagados} pendientes`}
-        />
         {(['EN_PREPARACION', 'ENVIADO_DESDE_USA', 'RECIBIDO_EN_BODEGA'] as const).map((estado) => {
           const ui = ENVIO_CONSOLIDADO_ESTADO_UI[estado];
           const Icon = ui.icon;
@@ -581,17 +564,6 @@ export function EnviosConsolidadosListPage() {
             />
           );
         })}
-        <KpiCard
-          icon={<PackageIcon className="h-5 w-5" />}
-          label="Paquetes acumulados"
-          value={stats.paquetes}
-          tone="neutral"
-          hint={
-            stats.pesoLbs > 0
-              ? formatWeightInline(stats.pesoLbs, stats.pesoKg)
-              : 'Sin peso registrado'
-          }
-        />
       </KpiCardsGrid>
 
       <FiltrosBar

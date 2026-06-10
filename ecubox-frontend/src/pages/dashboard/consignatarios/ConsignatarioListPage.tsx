@@ -14,7 +14,6 @@ import {
   Trash2,
   UserCheck,
   UserRound,
-  Users,
   X,
 } from 'lucide-react';
 import { useConsignatarios, useDeleteConsignatario } from '@/hooks/useConsignatarios';
@@ -314,7 +313,7 @@ export function ConsignatarioListPage() {
       />
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={hasConsignatariosOperario ? 4 : 2} />
+        <KpiCardsGridSkeleton count={hasConsignatariosOperario ? 3 : 2} />
       ) : (
         allConsignatarios.length > 0 && (
         <KpiCardsGrid>
@@ -341,15 +340,6 @@ export function ConsignatarioListPage() {
             tone="neutral"
             hint="Provincias distintas en catálogo"
           />
-          {hasConsignatariosOperario && (
-            <KpiCard
-              icon={<Users className="h-5 w-5" />}
-              label="Clientes únicos"
-              value={stats.clientes}
-              tone="neutral"
-              hint="Cuentas con consignatarios propios"
-            />
-          )}
         </KpiCardsGrid>
         )
       )}

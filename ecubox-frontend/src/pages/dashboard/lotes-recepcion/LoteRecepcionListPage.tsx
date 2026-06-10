@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
-  Boxes,
   CalendarClock,
   Eye,
   FileText,
@@ -257,7 +256,7 @@ export function LoteRecepcionListPage() {
       />
 
       {isLoading ? (
-        <KpiCardsGridSkeleton count={4} />
+        <KpiCardsGridSkeleton count={3} />
       ) : (
         allLotes.length > 0 && (
         <KpiCardsGrid>
@@ -267,17 +266,6 @@ export function LoteRecepcionListPage() {
             value={stats.total}
             tone="primary"
             hint={`${stats.paquetes} paquete(s) recibidos`}
-          />
-          <KpiCard
-            icon={<Boxes className="h-5 w-5" />}
-            label="Paquetes recibidos"
-            value={stats.paquetes}
-            tone="success"
-            hint={
-              stats.total > 0
-                ? `~${Math.round(stats.paquetes / stats.total)} por lote`
-                : 'Acumulado en todos los lotes'
-            }
           />
           <KpiCard
             icon={<FileText className="h-5 w-5" />}
