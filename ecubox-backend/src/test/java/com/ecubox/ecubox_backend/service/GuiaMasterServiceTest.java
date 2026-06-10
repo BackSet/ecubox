@@ -309,7 +309,9 @@ class GuiaMasterServiceTest {
         verify(guiaMasterRepository).save(captor.capture());
         GuiaMaster saved = captor.getValue();
         assertEquals("TRK-1", saved.getTrackingBase());
-        assertEquals(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS, saved.getEstadoGlobal());
+        // Las guías creadas por el cliente nacen PENDIENTE_VERIFICACION (requieren
+        // verificación del operario); las del operario nacen SIN_PAQUETES_REGISTRADOS.
+        assertEquals(EstadoGuiaMaster.PENDIENTE_VERIFICACION, saved.getEstadoGlobal());
         assertSame(dest, saved.getConsignatario());
         assertSame(cliente, saved.getClienteUsuario());
         assertEquals(null, saved.getTotalPiezasEsperadas());

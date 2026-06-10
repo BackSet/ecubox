@@ -23,6 +23,7 @@ class EstadoConsolidadoOperativoResolverTest {
     void resolve_pagado_siempreLiquidado_aunqueEnLote() {
         EnvioConsolidado envio = EnvioConsolidado.builder()
                 .codigo("PAG-1")
+                .estadoOperativo(null) // registro pre-migración: fuerza la lógica de fallback
                 .estadoPago(EstadoPagoConsolidado.PAGADO)
                 .fechaCerrado(LocalDateTime.now())
                 .build();
@@ -44,6 +45,7 @@ class EstadoConsolidadoOperativoResolverTest {
     void resolve_cerradoSinEstadoPersistido_fallbackEnviadoDesdeUsa() {
         EnvioConsolidado envio = EnvioConsolidado.builder()
                 .codigo("USA-1")
+                .estadoOperativo(null) // registro pre-migración: fuerza la lógica de fallback
                 .fechaCerrado(LocalDateTime.now())
                 .build();
 
@@ -59,7 +61,10 @@ class EstadoConsolidadoOperativoResolverTest {
 
     @Test
     void resolve_conPaquetesAbierto_enPreparacion() {
-        EnvioConsolidado envio = EnvioConsolidado.builder().codigo("PREP-1").build();
+        EnvioConsolidado envio = EnvioConsolidado.builder()
+                .codigo("PREP-1")
+                .estadoOperativo(null) // registro pre-migración: fuerza la lógica de fallback
+                .build();
 
         assertEquals(EstadoEnvioConsolidadoOperativo.EN_PREPARACION, resolver.resolve(envio, 4));
     }
