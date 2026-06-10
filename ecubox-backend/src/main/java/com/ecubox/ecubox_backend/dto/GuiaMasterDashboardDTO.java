@@ -19,6 +19,7 @@ public class GuiaMasterDashboardDTO {
     /** DESPACHO_COMPLETADO. */
     private Long totalCerradas;
     /** @deprecated DESPACHO_INCOMPLETO eliminado; siempre 0. */
+    @Deprecated
     private Long totalCerradasConFaltante;
     /** CANCELADA (anulaciones administrativas). */
     private Long totalCanceladas;
