@@ -209,7 +209,10 @@ public class PaqueteService {
     @Transactional(readOnly = true)
     public PaqueteResumenDTO resumen(Long usuarioIdOrNull, String q, PaqueteListFilters filters) {
         LocalDateTime ahora = LocalDateTime.now(ZONA_ECUADOR);
-        Specification<Paquete> ownership = usuarioIdOrNull == null ? null
+        // En Spring Data JPA 4.0 Specification.where(null) lanza IllegalArgumentException
+        // (antes se toleraba). Para la vista operario/admin no hay restriccion de
+        // propietario, asi que partimos de Specification.unrestricted().
+        Specification<Paquete> ownership = usuarioIdOrNull == null ? Specification.unrestricted()
                 : (root, query, cb) -> cb.equal(root.get("consignatario").get("usuario").get("id"), usuarioIdOrNull);
         Specification<Paquete> pesoNotNull = (root, query, cb) -> cb.isNotNull(root.get("pesoLbs"));
         Specification<Paquete> pesoNull = (root, query, cb) -> cb.isNull(root.get("pesoLbs"));
@@ -219,7 +222,7 @@ public class PaqueteService {
                 cb.lessThanOrEqualTo(root.get("fechaLimiteRetiro"), ahora));
 
         // KPIs del universo visible (solo ownership, sin filtros activos).
-        Specification<Paquete> universe = Specification.where(ownership);
+        Specification<Paquete> universe = ownership;
         long total = paqueteRepository.count(universe);
         long conPeso = paqueteRepository.count(universe.and(pesoNotNull));
         long vencidos = paqueteRepository.count(universe.and(vencido));
