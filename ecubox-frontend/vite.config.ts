@@ -35,13 +35,30 @@ export default defineConfig({
     // Politica explicita: navegadores Baseline con soporte completo de PWA,
     // Web Push, CSS moderno y modulos ES.
     target: ['chrome111', 'edge111', 'firefox114', 'safari16.4'],
-    // Sin `codeSplitting.groups` manual: el agrupamiento por regex forzaba a React
-    // a duplicarse (una copia en vendor-react y otra arrastrada por react-hook-form
-    // en vendor-forms). Dos instancias de React rompen el estado interno de
-    // `lazy`/`Suspense`, lo que hacia que algunos imports diferidos resolvieran a
-    // `undefined` (p. ej. "can't access property GuiasMasterPage of undefined").
-    // El split automatico de rolldown mantiene una unica instancia de React y
-    // evita ciclos de inicializacion entre chunks.
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          // Un unico grupo `vendor` con TODO el ecosistema de React (react,
+          // react-dom, scheduler, router/query, radix, forms, iconos...). Clave:
+          // React y todas las librerias que dependen de el deben quedar en EL
+          // MISMO chunk. Separarlas en grupos distintos (vendor-react /
+          // vendor-forms / vendor-radix) hacia que rolldown duplicara React en
+          // cada grupo, y dos instancias de React rompen `lazy`/`Suspense`
+          // (imports diferidos resolviendo a `undefined`).
+          //
+          // El resto de node_modules (jspdf, html2canvas, exceljs, etc., que solo
+          // se importan de forma diferida) NO entra aqui: se deja al split
+          // automatico para que siga cargandose bajo demanda y no infle el
+          // bundle inicial.
+          groups: [
+            {
+              name: 'vendor',
+              test: /node_modules\/(?:@?react|react-dom|scheduler|@tanstack|@radix-ui|@floating-ui|react-hook-form|@hookform|zod|lucide-react|sonner|class-variance-authority|clsx|tailwind-merge|aria-hidden|react-remove-scroll|react-style-singleton|get-nonce|use-callback-ref|use-sidecar|tslib)(?:[\\/]|$)/,
+            },
+          ],
+        },
+      },
+    },
   },
   resolve: {
     alias: {
