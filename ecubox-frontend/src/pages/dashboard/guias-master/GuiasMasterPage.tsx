@@ -180,6 +180,7 @@ export function GuiasMasterPage() {
 
   const hasUpdate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_UPDATE'));
   const hasDelete = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_DELETE'));
+  const hasGuiasCreate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_CREATE'));
   const eliminar = useEliminarGuiaMaster();
 
   // Estado del diálogo "Aplicar estado"
@@ -334,7 +335,9 @@ export function GuiasMasterPage() {
                 Aplicar acción
               </Button>
             )}
-            <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
+            {hasGuiasCreate && (
+              <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
+            )}
           </div>
         }
       />

@@ -142,6 +142,9 @@ export function EnviosConsolidadosListPage() {
   const hasEnviosDelete = useAuthStore((s) =>
     s.hasPermission('ENVIOS_CONSOLIDADOS_DELETE'),
   );
+  const hasEnviosCreate = useAuthStore((s) =>
+    s.hasPermission('ENVIOS_CONSOLIDADOS_CREATE'),
+  );
 
   const { data, isLoading, isFetching, error, refetch } = useEnviosConsolidados({
     estado: estadoFilter,
@@ -541,10 +544,12 @@ export function EnviosConsolidadosListPage() {
                 Aplicar estado
               </Button>
             )}
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo envío
-            </Button>
+            {hasEnviosCreate && (
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo envío
+              </Button>
+            )}
           </div>
         }
       />
@@ -783,7 +788,7 @@ export function EnviosConsolidadosListPage() {
                             {
                               label: 'Cerrar envío',
                               icon: Lock,
-                              hidden: op !== 'EN_PREPARACION',
+                              hidden: !hasEnviosUpdate || op !== 'EN_PREPARACION',
                               disabled: cerrarMutation.isPending,
                               onSelect: () =>
                                 setConfirmCerrar({ id: e.id, codigo: e.codigo }),
@@ -791,7 +796,7 @@ export function EnviosConsolidadosListPage() {
                             {
                               label: 'Enviar desde USA',
                               icon: Truck,
-                              hidden: op !== 'CERRADO',
+                              hidden: !hasEnviosUpdate || op !== 'CERRADO',
                               disabled: enviarUsaMutation.isPending,
                               onSelect: () =>
                                 setConfirmEnviarUsa({ id: e.id, codigo: e.codigo }),
@@ -799,7 +804,7 @@ export function EnviosConsolidadosListPage() {
                             {
                               label: 'Arribar a Ecuador',
                               icon: PlaneLanding,
-                              hidden: op !== 'ENVIADO_DESDE_USA',
+                              hidden: !hasEnviosUpdate || op !== 'ENVIADO_DESDE_USA',
                               disabled: arribarEcuadorMutation.isPending,
                               onSelect: () =>
                                 setConfirmArribarEcuador({ id: e.id, codigo: e.codigo }),
@@ -807,7 +812,7 @@ export function EnviosConsolidadosListPage() {
                             {
                               label: 'Reabrir envío',
                               icon: Unlock,
-                              hidden: op !== 'CERRADO' && op !== 'ENVIADO_DESDE_USA',
+                              hidden: !hasEnviosUpdate || (op !== 'CERRADO' && op !== 'ENVIADO_DESDE_USA'),
                               disabled: reabrirMutation.isPending,
                               onSelect: () =>
                                 setConfirmReabrir({ id: e.id, codigo: e.codigo }),
@@ -815,7 +820,7 @@ export function EnviosConsolidadosListPage() {
                             {
                               label: 'Cancelar consolidado',
                               icon: Ban,
-                              hidden: op !== 'VACIO' && op !== 'EN_PREPARACION',
+                              hidden: !hasEnviosUpdate || (op !== 'VACIO' && op !== 'EN_PREPARACION'),
                               disabled: cancelarMutation.isPending,
                               onSelect: () =>
                                 setConfirmCancelar({ id: e.id, codigo: e.codigo }),

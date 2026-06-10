@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/table';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { LoteRecepcion } from '@/types/lote-recepcion';
+import { useAuthStore } from '@/stores/authStore';
 
 const SIN_FILTRO = '__todos__';
 type Periodo = typeof SIN_FILTRO | 'hoy' | '7d' | '30d' | 'mes' | 'custom';
@@ -103,6 +104,8 @@ export function LoteRecepcionListPage() {
   const navigate = useNavigate();
   const { data: lotes, isLoading, isFetching, error, refetch } = useLotesRecepcion();
   const deleteLote = useDeleteLoteRecepcion();
+  const hasLotesCreate = useAuthStore((s) => s.hasPermission('LOTES_RECEPCION_CREATE'));
+  const hasLotesDelete = useAuthStore((s) => s.hasPermission('LOTES_RECEPCION_DELETE'));
   const [search, setSearchRaw] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [operarioFiltro, setOperarioFiltroRaw] = useState<string | undefined>(
@@ -242,12 +245,14 @@ export function LoteRecepcionListPage() {
         searchPlaceholder="Buscar por #, observaciones, operario o número de guía..."
         onSearchChange={setSearch}
         actions={
+          hasLotesCreate && (
           <Link to="/lotes-recepcion/nuevo">
             <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Registrar nuevo lote
             </Button>
           </Link>
+          )
         }
       />
 
@@ -395,12 +400,14 @@ export function LoteRecepcionListPage() {
           title="No hay lotes de recepción"
           description='Registra un lote desde el botón "Registrar nuevo lote". Solo se incluirán las guías que tengan paquetes en el sistema.'
           action={
+            hasLotesCreate ? (
             <Link to="/lotes-recepcion/nuevo">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Registrar nuevo lote
               </Button>
             </Link>
+            ) : undefined
           }
         />
       ) : list.length === 0 ? (
@@ -486,6 +493,7 @@ export function LoteRecepcionListPage() {
                             label: 'Eliminar lote',
                             icon: Trash2,
                             destructive: true,
+                            hidden: !hasLotesDelete,
                             onSelect: () => setDeleteConfirmId(l.id),
                           },
                         ]}

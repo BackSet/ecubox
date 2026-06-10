@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAuthStore } from '@/stores/authStore';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
@@ -114,6 +115,7 @@ const SIN_FILTRO = '__all__';
 
 export function DespachoListPage() {
   const navigate = useNavigate();
+  const hasDespachoWrite = useAuthStore((s) => s.hasPermission('DESPACHOS_WRITE'));
   // NOTA(deuda técnica - cliente vs servidor):
   // Este listado todavía carga TODO el dataset (`useDespachos()`) y filtra en
   // cliente porque hay funcionalidad que depende del universo completo:
@@ -418,6 +420,7 @@ export function DespachoListPage() {
         onSearchChange={setSearch}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {hasDespachoWrite && (
             <Button
               type="button"
               variant="outline"
@@ -427,6 +430,8 @@ export function DespachoListPage() {
               <Tag className="mr-2 h-4 w-4" />
               Aplicar estado
             </Button>
+            )}
+            {hasDespachoWrite && (
             <Link
               to="/despachos/nuevo"
               className={cn(buttonVariants(), 'w-full sm:w-auto')}
@@ -434,6 +439,7 @@ export function DespachoListPage() {
               <Plus className="mr-2 h-4 w-4" />
               Nuevo despacho
             </Link>
+            )}
           </div>
         }
       />
@@ -711,6 +717,7 @@ export function DespachoListPage() {
                           {
                             label: 'Editar despacho',
                             icon: Pencil,
+                            hidden: !hasDespachoWrite,
                             onSelect: () =>
                               navigate({
                                 to: '/despachos/$id/editar',
@@ -746,6 +753,7 @@ export function DespachoListPage() {
                           {
                             label: 'Aplicar estado',
                             icon: Tag,
+                            hidden: !hasDespachoWrite,
                             onSelect: () => {
                               setDespachosSeleccionados([d.id]);
                               setAplicarEstadoOpen(true);
@@ -755,13 +763,14 @@ export function DespachoListPage() {
                             label: 'Mensaje WhatsApp',
                             icon: MessageCircle,
                             onSelect: () => setWhatsappDespachoId(d.id),
-                            hidden: !plantilla,
+                            hidden: !plantilla || !hasDespachoWrite,
                           },
                           { type: 'separator' },
                           {
                             label: 'Eliminar',
                             icon: Trash2,
                             destructive: true,
+                            hidden: !hasDespachoWrite,
                             onSelect: () => setDeleteConfirmId(d.id),
                           },
                         ]}
