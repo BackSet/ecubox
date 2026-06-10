@@ -24,7 +24,13 @@ export function isModuleLoadError(reason: unknown): boolean {
   );
 }
 
-function reloadOnce(): void {
+/**
+ * Recarga la pestaña una sola vez por ventana de tiempo. Util tanto ante
+ * `vite:preloadError` como cuando un import diferido resuelve a un modulo
+ * incompleto (deploy obsoleto): en ambos casos un index.html fresco con los
+ * hashes nuevos resuelve la situacion. La guarda evita bucles de recarga.
+ */
+export function reloadOnce(): void {
   let last = 0;
   try {
     last = Number(window.sessionStorage.getItem(RELOAD_FLAG) ?? 0);

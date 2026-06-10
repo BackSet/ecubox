@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { lazy, Suspense, useEffect, type ComponentType, type ElementType } from 'react';
 import { AppToaster } from '@/components/ui/sonner';
 import { RouteErrorScreen } from '@/components/RouteErrorScreen';
+import { reloadOnce } from '@/lib/chunkRecovery';
 import { useAuthStore } from '@/stores/authStore';
 import { applyTheme, useThemeStore } from '@/stores/themeStore';
 import {
@@ -178,8 +179,17 @@ const PerfilPage = lazyNamed(() => import('@/pages/perfil/PerfilPage'), 'PerfilP
 
 function lazyNamed<T extends ComponentType<object>>(loader: () => Promise<unknown>, exportName: string) {
   return lazy(async () => {
-    const mod = (await loader()) as Record<string, T>;
-    return { default: mod[exportName] };
+    const mod = (await loader()) as Record<string, T> | undefined;
+    const component = mod?.[exportName];
+    if (!component) {
+      // El chunk se descargo pero el export esperado no esta disponible: suele
+      // pasar con un index.html obsoleto tras un deploy o un chunk corrupto.
+      // Recargamos una vez para traer el bundle nuevo en lugar de romper la ruta
+      // con un TypeError de pantalla en blanco.
+      reloadOnce();
+      throw new Error(`Modulo diferido sin export "${exportName}"; recargando.`);
+    }
+    return { default: component };
   });
 }
 

@@ -35,24 +35,13 @@ export default defineConfig({
     // Politica explicita: navegadores Baseline con soporte completo de PWA,
     // Web Push, CSS moderno y modulos ES.
     target: ['chrome111', 'edge111', 'firefox114', 'safari16.4'],
-    rolldownOptions: {
-      output: {
-        codeSplitting: {
-          groups: [
-            {
-              name: 'vendor-forms',
-              test: /node_modules\/(?:react-hook-form|@hookform|zod)/,
-            },
-            {
-              name: 'vendor-react',
-              test: /node_modules\/(?:react|react-dom|scheduler|@tanstack)\//,
-            },
-            { name: 'vendor-radix', test: /node_modules\/@radix-ui\// },
-            { name: 'vendor-icons', test: /node_modules\/lucide-react\// },
-          ],
-        },
-      },
-    },
+    // Sin `codeSplitting.groups` manual: el agrupamiento por regex forzaba a React
+    // a duplicarse (una copia en vendor-react y otra arrastrada por react-hook-form
+    // en vendor-forms). Dos instancias de React rompen el estado interno de
+    // `lazy`/`Suspense`, lo que hacia que algunos imports diferidos resolvieran a
+    // `undefined` (p. ej. "can't access property GuiasMasterPage of undefined").
+    // El split automatico de rolldown mantiene una unica instancia de React y
+    // evita ciclos de inicializacion entre chunks.
   },
   resolve: {
     alias: {
