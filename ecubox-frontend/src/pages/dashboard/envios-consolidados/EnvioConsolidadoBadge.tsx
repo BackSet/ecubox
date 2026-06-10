@@ -35,7 +35,7 @@ export function resolveEstadoOperativoConsolidado(
   if (envio.estadoOperativo) return envio.estadoOperativo;
   // Fallback para respuestas pre-V107
   if (envio.estadoPago === 'PAGADO') return 'LIQUIDADO';
-  if (envio.cerrado) return 'ENVIADO_DESDE_USA';
+  if (envio.cerrado) return 'CERRADO';
   if (envio.totalPaquetes > 0) return 'EN_PREPARACION';
   return 'VACIO';
 }
@@ -76,22 +76,13 @@ export function EnvioConsolidadoBadge({
   cerrado: boolean;
   estadoOperativo?: EstadoEnvioConsolidadoOperativo | null;
 }) {
-  const ui = estadoOperativo ? ENVIO_CONSOLIDADO_ESTADO_UI[estadoOperativo] : null;
-  if (ui) {
-    const Icon = ui.icon;
-    return (
-      <StatusBadge tone={ui.tone}>
-        <Icon className="h-3 w-3" />
-        {ui.label}
-      </StatusBadge>
-    );
-  }
-  // Fallback para respuestas pre-V107
-  const Icon = cerrado ? Lock : Unlock;
+  const estado = estadoOperativo || (cerrado ? 'CERRADO' : 'EN_PREPARACION');
+  const ui = ENVIO_CONSOLIDADO_ESTADO_UI[estado];
+  const Icon = ui.icon;
   return (
-    <StatusBadge tone={cerrado ? 'neutral' : 'info'}>
+    <StatusBadge tone={ui.tone} title={ENVIO_CONSOLIDADO_ESTADO_DESCRIPCIONES[estado]}>
       <Icon className="h-3 w-3" />
-      {cerrado ? 'Enviado desde USA' : 'En preparación'}
+      {ui.label}
     </StatusBadge>
   );
 }
