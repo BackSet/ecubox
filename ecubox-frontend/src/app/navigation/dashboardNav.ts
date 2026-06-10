@@ -173,7 +173,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       },
       {
         to: '/guias-master',
-        label: 'Guías',
+        label: 'Guías master',
         icon: Boxes,
         permission: 'GUIAS_MASTER_READ',
         keywords: ['guia', 'master', 'piezas'],
@@ -187,14 +187,14 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       },
       {
         to: '/pesaje',
-        label: 'Registro de peso',
+        label: 'Pesaje',
         icon: Weight,
         permission: 'PAQUETES_PESO_WRITE',
         keywords: ['peso', 'pesar', 'balanza'],
       },
       {
         to: '/paquetes-vencidos',
-        label: 'Retiros vencidos',
+        label: 'Paquetes vencidos',
         icon: AlertTriangle,
         permission: 'PAQUETES_PESO_WRITE',
         keywords: ['vencido', 'retiro', 'plazo'],
@@ -232,7 +232,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       },
       {
         to: '/manifiestos',
-        label: 'Manifiestos de carga',
+        label: 'Manifiestos',
         icon: FileText,
         permission: 'MANIFIESTOS_READ',
         keywords: ['manifiesto', 'carga'],
