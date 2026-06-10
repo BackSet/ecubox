@@ -25,7 +25,7 @@ import {
   Eye,
   EyeOff,
   Hash,
-  Hourglass,
+  FileText,
   Info,
   Italic,
   Layers,
@@ -2159,46 +2159,40 @@ function EstadosRastreoView() {
 
 type PuntoKey =
   | 'registro'
-  | 'guia-master'
-  | 'guia-master-verificada'
-  | 'envio-consolidado'
-  | 'cierre-consolidado'
-  | 'enviado-usa'
-  | 'arribo-ecuador'
-  | 'arribado-ec'
-  | 'lote'
-  | 'despacho'
-  | 'transito'
+  | 'guia-master-registro'
+  | 'guia-master-verificacion'
+  | 'guia-master-revision'
+  | 'guia-master-asociacion'
+  | 'consolidado-agregar'
+  | 'consolidado-cierre'
+  | 'consolidado-enviado'
+  | 'consolidado-arribado-aduana'
+  | 'consolidado-recibido-bodega'
+  | 'despacho-agregar'
+  | 'despacho-transito'
   | 'aviso-confirmacion'
-  | 'entrega-cliente'
-  | 'inicio-cuenta'
-  | 'fin';
+  | 'entrega-confirmada'
+  | 'retenido-aduana'
+  | 'revision';
 
 interface PuntoConfig {
   key: PuntoKey;
-  group: 'Flujo operativo' | 'Rastreo';
-  /** 'referencia': hito sin estado de rastreo de paquete configurable, se muestra solo como referencia del modelo. */
+  group: 'Flujo operativo';
   source: 'rastreo' | 'referencia';
-  /** Posición (1-10) en la tabla canónica «Estados por punto del flujo». Solo puntos principales. */
   numero?: number;
-  /** Punto principal (1-10) al que está asociado este paso adicional. */
   vinculadoA?: number;
   label: string;
-  /** Qué acción del sistema dispara este punto. */
   detonante: string;
-  /** En qué pantalla/menú ocurre la acción que lo dispara. */
   donde: string;
-  /** Qué hace el sistema cuando se cumple el detonante. */
   efecto: string;
-  /** Estado de entidad que se produce (referencia, no editable). */
   entityState?: string;
   icon: React.ComponentType<{ className?: string }>;
   required: boolean;
   tone: 'primary' | 'success' | 'warning' | 'neutral';
+  badgeText: 'Requerido' | 'Recomendado' | 'Opcional' | 'Alterno' | 'Solo referencia' | 'Alterno / Referencia' | 'Referencia o sin cambio';
 }
 
 const PUNTOS_FLUJO: PuntoConfig[] = [
-  // ── Flujo operativo (sigue la tabla "Estados por punto del flujo") ───────
   {
     key: 'registro',
     group: 'Flujo operativo',
@@ -2208,203 +2202,236 @@ const PUNTOS_FLUJO: PuntoConfig[] = [
     detonante: 'Se crea el paquete.',
     donde: 'Paquetes → Registrar paquete.',
     efecto: 'Asigna el estado de rastreo seleccionado al paquete recién creado.',
-    entityState: 'Paquete creado',
+    entityState: 'Registrado EE.UU',
     icon: Package,
     required: true,
     tone: 'primary',
+    badgeText: 'Requerido',
   },
   {
-    key: 'guia-master',
-    group: 'Flujo operativo',
-    source: 'rastreo',
-    vinculadoA: 1,
-    label: 'Asociación a Guía master',
-    detonante: 'El paquete recién registrado coincide con el tracking base de una Guía master existente.',
-    donde: 'Paquetes → Registrar paquete / Guías master → asociar paquetes.',
-    efecto: 'Asigna el estado de rastreo seleccionado al paquete al quedar vinculado a la Guía master.',
-    entityState: 'Guía master: con piezas registradas',
-    icon: Link2,
-    required: true,
-    tone: 'primary',
-  },
-  {
-    key: 'guia-master-verificada',
+    key: 'guia-master-registro',
     group: 'Flujo operativo',
     source: 'referencia',
     numero: 2,
-    label: '2. Verificación de Guía master',
-    detonante: 'Admin u operario revisa y aprueba la Guía master.',
+    label: '2. Registro de Guía master',
+    detonante: 'Se crea la Guía master para agrupar paquetes en origen.',
+    donde: 'Guías master → Crear guía.',
+    efecto: 'La Guía master se registra en el sistema.',
+    entityState: 'No aplica',
+    icon: FileText,
+    required: false,
+    tone: 'neutral',
+    badgeText: 'Solo referencia',
+  },
+  {
+    key: 'guia-master-verificacion',
+    group: 'Flujo operativo',
+    source: 'referencia',
+    numero: 3,
+    label: '3. Verificación de Guía master',
+    detonante: 'El operario aprueba la Guía master tras verificar los pesos y piezas.',
     donde: 'Guías master → Verificar guía.',
     efecto: 'La Guía master pasa a VERIFICADA.',
-    entityState: 'Guía master: VERIFICADA',
+    entityState: 'No aplica',
     icon: CheckCircle2,
     required: false,
     tone: 'neutral',
+    badgeText: 'Solo referencia',
   },
   {
-    key: 'envio-consolidado',
+    key: 'guia-master-revision',
     group: 'Flujo operativo',
-    source: 'rastreo',
-    numero: 3,
-    label: '3. Paquete agregado a Envío consolidado',
-    detonante: 'El paquete se agrega o reasigna a un Envío consolidado.',
-    donde: 'Envíos consolidados → agregar paquetes.',
-    efecto: 'Asigna el estado de rastreo seleccionado al paquete al entrar al Envío consolidado.',
-    entityState: 'Envío consolidado: en preparación',
-    icon: Layers,
-    required: true,
-    tone: 'primary',
-  },
-  {
-    key: 'cierre-consolidado',
-    group: 'Flujo operativo',
-    source: 'rastreo',
+    source: 'referencia',
     numero: 4,
-    label: '4. Envío consolidado cerrado',
-    detonante: 'El operario cierra el Envío consolidado al terminar de registrar su información.',
-    donde: 'Envíos consolidados → Cerrar consolidado.',
-    efecto: 'Aplica el estado de rastreo seleccionado a todos los paquetes del Envío consolidado.',
-    entityState: 'Envío consolidado: cerrado',
-    icon: Layers,
+    label: '4. Guía master en revisión',
+    detonante: 'El operario pausa la Guía master para solventar discrepancias o inspeccionar piezas.',
+    donde: 'Guías master → Mandar a revisión.',
+    efecto: 'La Guía master pasa a EN_REVISION.',
+    entityState: 'Opcional: En revisión',
+    icon: AlertTriangle,
     required: false,
-    tone: 'primary',
+    tone: 'warning',
+    badgeText: 'Alterno / Referencia',
   },
   {
-    key: 'enviado-usa',
+    key: 'guia-master-asociacion',
     group: 'Flujo operativo',
     source: 'rastreo',
     numero: 5,
-    label: '5. Envío consolidado enviado desde USA',
-    detonante: 'El operario marca el Envío consolidado como enviado desde USA.',
-    donde: 'Envíos consolidados → Enviar desde USA.',
-    efecto: 'Aplica el estado de rastreo seleccionado a todos los paquetes del Envío consolidado.',
-    entityState: 'Envío consolidado: enviado desde USA',
-    icon: ArrowUp,
+    label: '5. Asociación a Guía master',
+    detonante: 'El paquete se vincula al tracking base de una Guía master.',
+    donde: 'Paquetes → Registrar paquete / Guías master.',
+    efecto: 'Asigna el estado de rastreo seleccionado al asociar el paquete.',
+    entityState: 'Mantener Registrado EE.UU o sin asignar',
+    icon: Link2,
     required: true,
-    tone: 'success',
+    tone: 'primary',
+    badgeText: 'Referencia o sin cambio',
   },
   {
-    key: 'arribo-ecuador',
+    key: 'consolidado-agregar',
     group: 'Flujo operativo',
     source: 'rastreo',
     numero: 6,
-    label: '6. Envío consolidado arribado a Ecuador',
-    detonante: 'El operario marca el Envío consolidado como arribado a Ecuador / aduana destino.',
-    donde: 'Envíos consolidados → Arribar a Ecuador.',
-    efecto: 'Aplica el estado de rastreo seleccionado a todos los paquetes del Envío consolidado.',
-    entityState: 'Envío consolidado: arribado a Ecuador',
-    icon: ArrowDown,
-    required: false,
-    tone: 'success',
-  },
-  {
-    key: 'arribado-ec',
-    group: 'Flujo operativo',
-    source: 'rastreo',
-    vinculadoA: 7,
-    label: 'Paso intermedio: llegada a aduana destino',
-    detonante: 'El paquete se procesa para entrar a un Lote de recepción, justo antes de quedar registrado en el lote.',
-    donde: 'Lotes de recepción → crear lote o agregar guías.',
-    efecto: 'Aplica el estado de rastreo seleccionado como paso intermedio, previo al estado del Lote de recepción.',
-    entityState: 'Paquete: paso intermedio de recepción',
-    icon: ArrowDown,
+    label: '6. Paquete agregado a Envío consolidado',
+    detonante: 'El paquete se incorpora a un Envío consolidado en preparación.',
+    donde: 'Envíos consolidados → Agregar paquetes.',
+    efecto: 'Asigna el estado de rastreo seleccionado al paquete.',
+    entityState: 'En planilla',
+    icon: Layers,
     required: true,
-    tone: 'success',
+    tone: 'primary',
+    badgeText: 'Requerido',
   },
   {
-    key: 'lote',
+    key: 'consolidado-cierre',
     group: 'Flujo operativo',
     source: 'rastreo',
     numero: 7,
-    label: '7. Envío consolidado recibido en bodega',
-    detonante: 'El paquete se incorpora a un Lote de recepción en bodega Quito.',
-    donde: 'Lotes de recepción → crear lote o agregar guías.',
-    efecto: 'Asigna el estado de rastreo seleccionado al paquete al quedar registrado en el lote.',
-    entityState: 'Envío consolidado: recibido en bodega',
-    icon: Boxes,
-    required: true,
+    label: '7. Envío consolidado cerrado',
+    detonante: 'El operario cierra el Envío consolidado al terminar de registrar su información.',
+    donde: 'Envíos consolidados → Cerrar consolidado.',
+    efecto: 'Aplica el estado de rastreo seleccionado a todos los paquetes del Envío consolidado.',
+    entityState: 'Manifestado',
+    icon: Layers,
+    required: false,
     tone: 'primary',
+    badgeText: 'Recomendado',
   },
   {
-    key: 'despacho',
+    key: 'consolidado-enviado',
     group: 'Flujo operativo',
     source: 'rastreo',
     numero: 8,
-    label: '8. Paquete agregado a Despacho',
-    detonante: 'El paquete se agrega a un Despacho para su entrega al cliente.',
-    donde: 'Despachos → crear o editar despacho.',
-    efecto: 'Asigna el estado de rastreo seleccionado al paquete al quedar en el Despacho.',
-    entityState: 'Despacho creado',
-    icon: Truck,
+    label: '8. Envío consolidado enviado desde USA',
+    detonante: 'El operario marca el Envío consolidado como enviado desde USA.',
+    donde: 'Envíos consolidados → Enviar desde USA.',
+    efecto: 'Aplica el estado de rastreo seleccionado a todos los paquetes del Envío consolidado.',
+    entityState: 'En vuelo a Ecuador',
+    icon: ArrowUp,
     required: true,
     tone: 'success',
+    badgeText: 'Requerido',
   },
   {
-    key: 'transito',
+    key: 'consolidado-arribado-aduana',
     group: 'Flujo operativo',
     source: 'rastreo',
     numero: 9,
-    label: '9. Despacho en tránsito',
+    label: '9. Envío consolidado arribado a Ecuador',
+    detonante: 'El operario marca el Envío consolidado como arribado a Ecuador / aduana destino.',
+    donde: 'Envíos consolidados → Arribar a Ecuador.',
+    efecto: 'Aplica el estado de rastreo seleccionado a todos los paquetes del Envío consolidado.',
+    entityState: 'Llega a aduana destino',
+    icon: ArrowDown,
+    required: true,
+    tone: 'success',
+    badgeText: 'Requerido',
+  },
+  {
+    key: 'consolidado-recibido-bodega',
+    group: 'Flujo operativo',
+    source: 'rastreo',
+    numero: 10,
+    label: '10. Envío consolidado recibido en bodega',
+    detonante: 'El paquete se incorpora a un Lote de recepción en bodega Quito.',
+    donde: 'Lotes de recepción → crear lote o agregar guías.',
+    efecto: 'Asigna el estado de rastreo seleccionado al paquete al quedar registrado en el lote.',
+    entityState: 'Llega a bodega Quito',
+    icon: Boxes,
+    required: true,
+    tone: 'primary',
+    badgeText: 'Requerido',
+  },
+  {
+    key: 'despacho-agregar',
+    group: 'Flujo operativo',
+    source: 'rastreo',
+    numero: 11,
+    label: '11. Paquete agregado a Despacho',
+    detonante: 'El paquete se agrega a un Despacho para su entrega al cliente.',
+    donde: 'Despachos → crear o editar despacho.',
+    efecto: 'Asigna el estado de rastreo seleccionado al paquete al quedar en el Despacho.',
+    entityState: 'Preparando envío',
+    icon: Truck,
+    required: true,
+    tone: 'success',
+    badgeText: 'Requerido',
+  },
+  {
+    key: 'despacho-transito',
+    group: 'Flujo operativo',
+    source: 'rastreo',
+    numero: 12,
+    label: '12. Despacho en tránsito',
     detonante: 'El operario aplica un avance masivo sobre paquetes ya despachados.',
     donde: 'Despachos → “Aplicar estado por periodo” o “Aplicar estado a despachos”.',
     efecto: 'Estado de rastreo aplicado en el avance masivo; debe ser posterior al estado del Despacho.',
-    entityState: 'Despacho: en ruta',
+    entityState: 'En tránsito a destino',
     icon: MapPin,
     required: true,
     tone: 'success',
+    badgeText: 'Requerido',
   },
   {
     key: 'aviso-confirmacion',
     group: 'Flujo operativo',
     source: 'rastreo',
-    vinculadoA: 10,
-    label: 'Aviso de confirmación al cliente',
+    numero: 13,
+    label: '13. Aviso de confirmación al cliente',
     detonante: 'El paquete alcanza el estado de rastreo configurado aquí.',
     donde: 'Cualquier flujo que aplique ese estado (Despacho, avance masivo, etc.).',
     efecto: 'Envía notificación push al cliente y habilita el botón “Ya lo recibí”, previo a la entrega confirmada.',
-    entityState: 'Notificación push enviada al cliente',
+    entityState: 'En tránsito a destino',
     icon: MessageCircle,
     required: false,
     tone: 'warning',
+    badgeText: 'Opcional',
   },
   {
-    key: 'entrega-cliente',
+    key: 'entrega-confirmada',
     group: 'Flujo operativo',
     source: 'rastreo',
-    numero: 10,
-    label: '10. Entrega confirmada',
+    numero: 14,
+    label: '14. Entrega confirmada',
     detonante: 'El cliente pulsa “Ya lo recibí” o el operario confirma la entrega.',
     donde: 'Vista de cliente → Mis entregas / Despachos → confirmar entrega.',
     efecto: 'Aplica el estado de rastreo seleccionado a los paquetes confirmados.',
-    entityState: 'Entrega confirmada',
+    entityState: 'Entregado a destinatario',
     icon: CheckCircle2,
-    required: false,
+    required: true,
     tone: 'success',
-  },
-  // ── Rastreo público ──────────────────────────────────────────────────────
-  {
-    key: 'inicio-cuenta',
-    group: 'Rastreo',
-    source: 'rastreo',
-    label: 'Inicio de cuenta regresiva',
-    detonante: 'El paquete entra por primera vez al estado de rastreo seleccionado.',
-    donde: 'Rastreo público → bloque “Progreso y plazos”.',
-    efecto: 'Ancla el inicio de la cuenta regresiva de retiro desde ese estado.',
-    icon: Hourglass,
-    required: false,
-    tone: 'warning',
+    badgeText: 'Requerido',
   },
   {
-    key: 'fin',
-    group: 'Rastreo',
-    source: 'rastreo',
-    label: 'Fin de cuenta regresiva',
-    detonante: 'El paquete alcanza el estado de rastreo seleccionado.',
-    donde: 'Rastreo público → bloque “Progreso y plazos”.',
-    efecto: 'Cierra la cuenta regresiva de retiro en el rastreo público.',
-    icon: CheckCircle2,
+    key: 'retenido-aduana',
+    group: 'Flujo operativo',
+    source: 'referencia',
+    numero: 15,
+    label: '15. Retenido en aduana',
+    detonante: 'Aduana notifica retención del paquete o consolidado.',
+    donde: 'Envíos consolidados / Guías master.',
+    efecto: 'El estado del paquete pasa a ser Retenido en aduana.',
+    entityState: 'Retenido en aduana',
+    icon: AlertTriangle,
     required: false,
     tone: 'warning',
+    badgeText: 'Alterno',
+  },
+  {
+    key: 'revision',
+    group: 'Flujo operativo',
+    source: 'referencia',
+    numero: 16,
+    label: '16. Paquete / Guía master en revisión',
+    detonante: 'El paquete o la Guía master requieren verificación o corrección de datos.',
+    donde: 'Paquetes / Guías master.',
+    efecto: 'El estado de rastreo opcional pasa a ser En revisión.',
+    entityState: 'Opcional: En revisión',
+    icon: AlertTriangle,
+    required: false,
+    tone: 'warning',
+    badgeText: 'Alterno',
   },
 ];
 
@@ -2413,22 +2440,19 @@ type PuntoValues = Record<PuntoKey, PuntoValue>;
 
 const PUNTO_FIELD_BY_KEY: Partial<Record<PuntoKey, keyof EstadosRastreoPorPunto>> = {
   registro: 'estadoRastreoRegistroPaqueteId',
-  lote: 'estadoRastreoEnLoteRecepcionId',
-  'envio-consolidado': 'estadoRastreoAsociarEnvioConsolidadoId',
-  'guia-master': 'estadoRastreoAsociarGuiaMasterId',
-  despacho: 'estadoRastreoEnDespachoId',
-  'enviado-usa': 'estadoRastreoEnviadoDesdeUsaId',
-  'arribado-ec': 'estadoRastreoArribadoEcId',
-  'cierre-consolidado': 'estadoRastreoCierreConsolidadoId',
-  'arribo-ecuador': 'estadoRastreoArriboEcuadorId',
-  transito: 'estadoRastreoEnTransitoId',
+  'guia-master-asociacion': 'estadoRastreoAsociarGuiaMasterId',
+  'consolidado-agregar': 'estadoRastreoAsociarEnvioConsolidadoId',
+  'consolidado-cierre': 'estadoRastreoCierreConsolidadoId',
+  'consolidado-enviado': 'estadoRastreoEnviadoDesdeUsaId',
+  'consolidado-arribado-aduana': 'estadoRastreoArriboEcuadorId',
+  'consolidado-recibido-bodega': 'estadoRastreoArribadoEcId',
+  'despacho-agregar': 'estadoRastreoEnDespachoId',
+  'despacho-transito': 'estadoRastreoEnTransitoId',
   'aviso-confirmacion': 'estadoRastreoAvisoConfirmacionEntregaId',
-  'entrega-cliente': 'estadoRastreoEntregaConfirmadaClienteId',
-  'inicio-cuenta': 'estadoRastreoInicioCuentaRegresivaId',
-  fin: 'estadoRastreoFinCuentaRegresivaId',
+  'entrega-confirmada': 'estadoRastreoEntregaConfirmadaClienteId',
 };
 
-const PUNTO_GROUPS: PuntoConfig['group'][] = ['Flujo operativo', 'Rastreo'];
+const PUNTO_GROUPS: PuntoConfig['group'][] = ['Flujo operativo'];
 
 function emptyPuntoValues(): PuntoValues {
   return Object.fromEntries(PUNTOS_FLUJO.map((p) => [p.key, ''])) as PuntoValues;
@@ -2436,17 +2460,16 @@ function emptyPuntoValues(): PuntoValues {
 
 const RASTREO_DEFAULT_CODIGO_BY_KEY: Partial<Record<PuntoKey, string>> = {
   registro: 'REGISTRADO',
-  lote: 'EN_BODEGA',
-  'envio-consolidado': 'PLANILLA',
-  'guia-master': 'MANIFESTADO',
-  despacho: 'TRABAJO',
-  'enviado-usa': 'VUELO',
-  'arribado-ec': 'LLEGA_A_ADUANA',
-  transito: 'EN_TRANSITO',
+  'guia-master-asociacion': 'REGISTRADO',
+  'consolidado-agregar': 'PLANILLA',
+  'consolidado-cierre': 'MANIFESTADO',
+  'consolidado-enviado': 'VUELO',
+  'consolidado-arribado-aduana': 'LLEGA_A_ADUANA',
+  'consolidado-recibido-bodega': 'EN_BODEGA',
+  'despacho-agregar': 'TRABAJO',
+  'despacho-transito': 'EN_TRANSITO',
   'aviso-confirmacion': 'EN_TRANSITO',
-  'entrega-cliente': 'ENTREGADO',
-  'inicio-cuenta': 'EN_BODEGA',
-  fin: 'ENTREGADO',
+  'entrega-confirmada': 'ENTREGADO',
 };
 
 interface PuntoOption {
@@ -2521,35 +2544,28 @@ function EstadosRastreoPorPuntoView() {
   );
 
   const handleGuardar = async () => {
+    if (!config) return;
     if (!allRequiredSelected) {
       toast.error('Seleccione todos los estados obligatorios');
-      return;
-    }
-    if (
-      valuesByKey['inicio-cuenta'] !== '' &&
-      valuesByKey.fin !== '' &&
-      valuesByKey['inicio-cuenta'] === valuesByKey.fin
-    ) {
-      toast.error('El estado de inicio y fin de la cuenta regresiva deben ser distintos');
       return;
     }
     const estadoId = (key: PuntoKey) => (valuesByKey[key] === '' ? null : Number(valuesByKey[key]));
     try {
       await updateMutation.mutateAsync({
         estadoRastreoRegistroPaqueteId: Number(valuesByKey.registro),
-        estadoRastreoEnLoteRecepcionId: Number(valuesByKey.lote),
-        estadoRastreoAsociarEnvioConsolidadoId: Number(valuesByKey['envio-consolidado']),
-        estadoRastreoAsociarGuiaMasterId: Number(valuesByKey['guia-master']),
-        estadoRastreoEnDespachoId: Number(valuesByKey.despacho),
-        estadoRastreoEnTransitoId: Number(valuesByKey.transito),
-        estadoRastreoEnviadoDesdeUsaId: Number(valuesByKey['enviado-usa']),
-        estadoRastreoArribadoEcId: Number(valuesByKey['arribado-ec']),
-        estadoRastreoInicioCuentaRegresivaId: estadoId('inicio-cuenta'),
-        estadoRastreoFinCuentaRegresivaId: estadoId('fin'),
+        estadoRastreoEnLoteRecepcionId: Number(valuesByKey['consolidado-recibido-bodega']),
+        estadoRastreoAsociarEnvioConsolidadoId: Number(valuesByKey['consolidado-agregar']),
+        estadoRastreoAsociarGuiaMasterId: Number(valuesByKey['guia-master-asociacion']),
+        estadoRastreoEnDespachoId: Number(valuesByKey['despacho-agregar']),
+        estadoRastreoEnTransitoId: Number(valuesByKey['despacho-transito']),
+        estadoRastreoEnviadoDesdeUsaId: Number(valuesByKey['consolidado-enviado']),
+        estadoRastreoArribadoEcId: Number(valuesByKey['consolidado-recibido-bodega']),
+        estadoRastreoInicioCuentaRegresivaId: config.estadoRastreoInicioCuentaRegresivaId,
+        estadoRastreoFinCuentaRegresivaId: config.estadoRastreoFinCuentaRegresivaId,
         estadoRastreoAvisoConfirmacionEntregaId: estadoId('aviso-confirmacion'),
-        estadoRastreoEntregaConfirmadaClienteId: estadoId('entrega-cliente'),
-        estadoRastreoCierreConsolidadoId: estadoId('cierre-consolidado'),
-        estadoRastreoArriboEcuadorId: estadoId('arribo-ecuador'),
+        estadoRastreoEntregaConfirmadaClienteId: estadoId('entrega-confirmada'),
+        estadoRastreoCierreConsolidadoId: estadoId('consolidado-cierre'),
+        estadoRastreoArriboEcuadorId: estadoId('consolidado-arribado-aduana'),
       });
       toast.success('Configuración guardada');
     } catch (err) {
@@ -2805,26 +2821,28 @@ function EstadosRastreoPorPuntoView() {
                       </p>
                     )}
                   </div>
-                  {punto.source === 'referencia' ? (
+                  {punto.badgeText ? (
                     <Badge
                       variant="outline"
-                      className="h-5 shrink-0 rounded px-1.5 text-[10px] font-medium text-muted-foreground"
+                      className={cn(
+                        'h-5 shrink-0 rounded px-1.5 text-[10px] font-medium',
+                        punto.badgeText === 'Requerido' &&
+                          'border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 text-[var(--color-destructive)]',
+                        punto.badgeText === 'Recomendado' &&
+                          'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 text-[var(--color-primary)]',
+                        punto.badgeText === 'Alterno' &&
+                          'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/5 text-[var(--color-warning)]',
+                        punto.badgeText === 'Solo referencia' &&
+                          'border-[var(--color-border)] text-muted-foreground',
+                        punto.badgeText === 'Alterno / Referencia' &&
+                          'border-dashed border-[var(--color-warning)]/30 text-[var(--color-warning)] bg-[var(--color-muted)]/10',
+                        punto.badgeText === 'Referencia o sin cambio' &&
+                          'border-[var(--color-border)] text-muted-foreground',
+                        punto.badgeText === 'Opcional' &&
+                          'border-[var(--color-border)] text-muted-foreground',
+                      )}
                     >
-                      Referencia
-                    </Badge>
-                  ) : isMissingRequired ? (
-                    <Badge
-                      variant="outline"
-                      className="h-5 shrink-0 rounded border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-1.5 text-[10px] font-medium text-[var(--color-warning)]"
-                    >
-                      Requerido
-                    </Badge>
-                  ) : !configured ? (
-                    <Badge
-                      variant="outline"
-                      className="h-5 shrink-0 rounded px-1.5 text-[10px] font-medium text-muted-foreground"
-                    >
-                      Opcional
+                      {punto.badgeText}
                     </Badge>
                   ) : null}
                 </div>
@@ -2905,35 +2923,30 @@ function PuntoCard({ punto, value, onChange, options, readOnly }: PuntoCardProps
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <h4 className="text-sm font-semibold text-foreground">{punto.label}</h4>
-            {readOnly ? (
+            {punto.badgeText ? (
               <Badge
                 variant="outline"
-                className="h-5 rounded border-primary/20 px-1.5 text-[10px] font-medium text-muted-foreground"
+                className={cn(
+                  'h-5 rounded px-1.5 text-[10px] font-medium',
+                  punto.badgeText === 'Requerido' &&
+                    'border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 text-[var(--color-destructive)]',
+                  punto.badgeText === 'Recomendado' &&
+                    'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 text-[var(--color-primary)]',
+                  punto.badgeText === 'Alterno' &&
+                    'border-[var(--color-warning)]/30 bg-[var(--color-warning)]/5 text-[var(--color-warning)]',
+                  punto.badgeText === 'Solo referencia' &&
+                    'border-[var(--color-border)] text-muted-foreground',
+                  punto.badgeText === 'Alterno / Referencia' &&
+                    'border-dashed border-[var(--color-warning)]/30 text-[var(--color-warning)] bg-[var(--color-muted)]/10',
+                  punto.badgeText === 'Referencia o sin cambio' &&
+                    'border-[var(--color-border)] text-muted-foreground',
+                  punto.badgeText === 'Opcional' &&
+                    'border-[var(--color-border)] text-muted-foreground',
+                )}
               >
-                Definido por el sistema
+                {punto.badgeText}
               </Badge>
-            ) : punto.source === 'referencia' ? (
-              <Badge
-                variant="outline"
-                className="h-5 rounded px-1.5 text-[10px] font-medium text-muted-foreground"
-              >
-                Solo referencia
-              </Badge>
-            ) : punto.required ? (
-              <Badge
-                variant="outline"
-                className="h-5 rounded border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 px-1.5 text-[10px] font-medium text-[var(--color-destructive)]"
-              >
-                Requerido
-              </Badge>
-            ) : (
-              <Badge
-                variant="outline"
-                className="h-5 rounded px-1.5 text-[10px] font-medium text-muted-foreground"
-              >
-                Opcional
-              </Badge>
-            )}
+            ) : null}
             {punto.vinculadoA != null && (
               <Badge
                 variant="outline"
