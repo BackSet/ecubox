@@ -121,9 +121,9 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
         )}
 
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-4">
-          <p className="text-sm font-semibold text-[var(--color-foreground)]">Seguimiento en la web del courier de entrega</p>
+          <p className="text-sm font-semibold text-[var(--color-foreground)]">Rastreo en la web del courier de entrega</p>
           <p className="mt-1.5 text-sm text-[var(--color-muted-foreground)]">
-            También puedes revisar el estado en su sitio oficial. Copia tu número de guía y pégalo en su buscador para ver el seguimiento del paquete.
+            También puedes revisar el estado en su sitio oficial. Copia tu número de guía y pégalo en su buscador para ver el rastreo del paquete.
           </p>
           {trackingUrl.href ? (
             <div className="mt-3 space-y-2.5">
@@ -136,7 +136,7 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition"
               >
-                Ver seguimiento en el sitio oficial
+                Ver rastreo en el sitio oficial
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>

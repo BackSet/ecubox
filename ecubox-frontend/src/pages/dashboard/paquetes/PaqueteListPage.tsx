@@ -607,7 +607,7 @@ export function PaqueteListPage() {
           title={!hasAnyPaquetes ? 'No hay paquetes' : 'Sin resultados'}
           description={
             !hasAnyPaquetes
-              ? 'Registra un paquete con su número de guía y consignatario para hacer seguimiento.'
+              ? 'Registra un paquete con su número de guía y consignatario para hacer rastreo.'
               : tieneFiltros
                 ? 'No hay paquetes que coincidan con los filtros aplicados.'
                 : 'No se encontraron paquetes con ese criterio.'

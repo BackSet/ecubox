@@ -29,6 +29,8 @@ const RULES = [
   { pat: /\bDistribuidor(?:es)?\b/g, fix: 'Courier(s) de entrega', msg: 'Usa "Courier(s) de entrega".' },
   { pat: /\bdistribuidor(?:es)?\b/g, fix: 'courier(s) de entrega', msg: 'Usa "courier(s) de entrega".' },
   { pat: /Cargar pesos?/g, fix: 'Pesaje', msg: 'Usa "Pesaje" o "Registrar peso".' },
+  { pat: /\bSeguimiento\b/g, fix: 'Rastreo', msg: 'Usa "Rastreo" en copy UI (no "Seguimiento").' },
+  { pat: /\bseguimiento\b/g, fix: 'rastreo', msg: 'Usa "rastreo" en copy UI (no "seguimiento").' },
   { pat: /Oficina en USA/g, fix: 'Mi casillero', msg: 'Usa "Casillero" / "Mi casillero".' },
   { pat: /Agencia EEUU/g, fix: 'Casillero', msg: 'Usa "Casillero".' },
   { pat: /Agencias asociadas/g, fix: 'Puntos de entrega', msg: 'Usa "Puntos de entrega".' },

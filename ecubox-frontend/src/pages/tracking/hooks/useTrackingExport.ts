@@ -55,7 +55,7 @@ export function useTrackingExport(
   const handleShare = useCallback(async (): Promise<'shared' | 'copied' | 'cancelled' | 'failed'> => {
     if (!shareUrl || !resolved) return 'failed';
     const cod = codigoFromResolved(resolved, codigo);
-    const title = 'Seguimiento de envío ECUBOX';
+    const title = 'Rastreo de envío ECUBOX';
     const text = `Revisa el estado de tu envío con el código ${cod}.`;
 
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {

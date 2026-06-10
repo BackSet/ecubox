@@ -211,7 +211,7 @@ export function RegistroSimplePage() {
             </h1>
             <p className="landing-text-muted max-w-md text-base">
               Activa tu casillero personal en menos de un minuto y desbloquea todas
-              las funciones de seguimiento y envío.
+              las funciones de rastreo y envío.
             </p>
 
             <ul className="space-y-3">

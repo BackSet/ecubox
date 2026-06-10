@@ -32,7 +32,7 @@ const STEPS: Step[] = [
     number: '03',
     title: 'Despachamos a Ecuador',
     description:
-      'Consolidamos tus envíos y los enviamos en nuestros despachos frecuentes con seguimiento.',
+      'Consolidamos tus envíos y los enviamos en nuestros despachos frecuentes con rastreo.',
     icon: Plane,
   },
   {

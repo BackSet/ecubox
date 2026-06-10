@@ -333,7 +333,7 @@ const trackingRoute = createRoute({
     buildPublicPageHead({
       title: 'Rastreo de paquetes y guías | ECUBOX',
       description:
-        'Consulta el estado de tu envío con el número de guía o código del consolidador. ECUBOX muestra el seguimiento por pieza en tiempo real.',
+        'Consulta el estado de tu envío con el número de guía o código del consolidador. ECUBOX muestra el rastreo por pieza en tiempo real.',
       path: '/tracking',
     }) as RouteHeadResult,
 });

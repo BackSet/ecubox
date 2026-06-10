@@ -192,6 +192,6 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
     });
   }
 
-  renderer.drawFooters(`Guía ${pdfSafe(data.trackingBase)} · Comprobante de seguimiento`);
+  renderer.drawFooters(`Guía ${pdfSafe(data.trackingBase)} · Comprobante de rastreo`);
   return doc;
 }

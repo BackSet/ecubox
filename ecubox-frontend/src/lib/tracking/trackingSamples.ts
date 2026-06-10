@@ -21,7 +21,7 @@ export const TRACKING_SAMPLES: TrackingSampleEntry[] = [
   {
     codigo: 'ABC1234567890 1/2',
     titulo: 'Pieza 1 de 2',
-    descripcion: 'Seguimiento detallado de una pieza en tránsito internacional.',
+    descripcion: 'Rastreo detallado de una pieza en tránsito internacional.',
     tipo: 'PIEZA',
   },
   {
