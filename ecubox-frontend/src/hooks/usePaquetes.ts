@@ -2,10 +2,12 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import {
   getPaquetes,
   getPaquetesPaginated,
+  getPaqueteResumen,
   createPaquete,
   updatePaquete,
   deletePaquete,
   type PaqueteListParams,
+  type PaqueteResumenParams,
 } from '@/lib/api/paquetes.service';
 import type { PaqueteCreateRequest, PaqueteUpdateRequest } from '@/types/paquete';
 
@@ -34,6 +36,27 @@ export function usePaquetesPaginated(params: PaqueteListParams) {
       params.size ?? 25,
     ] as const,
     queryFn: () => getPaquetesPaginated(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * Resumen liviano del listado: KPIs, conteos por chip y opciones de filtro.
+ * Reemplaza la descarga del dataset completo en {@link usePaquetes} para la
+ * vista de listado de Paquetes.
+ */
+export function usePaqueteResumen(params: PaqueteResumenParams) {
+  return useQuery({
+    queryKey: [
+      'paquetes',
+      'resumen',
+      params.q ?? '',
+      params.estado ?? '',
+      params.consignatarioId ?? '',
+      params.envio ?? '',
+      params.guiaMasterId ?? '',
+    ] as const,
+    queryFn: () => getPaqueteResumen(params),
     placeholderData: keepPreviousData,
   });
 }

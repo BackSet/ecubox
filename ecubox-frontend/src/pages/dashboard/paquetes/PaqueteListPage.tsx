@@ -1,6 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { usePaquetes, usePaquetesPaginated, useDeletePaquete } from '@/hooks/usePaquetes';
+import {
+  usePaqueteResumen,
+  usePaquetesPaginated,
+  useDeletePaquete,
+} from '@/hooks/usePaquetes';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { useAuthStore } from '@/stores/authStore';
 import { PaqueteForm } from './PaqueteForm';
@@ -48,16 +52,6 @@ export function PaqueteListPage() {
   const hasGuiasMasterUpdate = useAuthStore((s) =>
     s.hasPermission('GUIAS_MASTER_UPDATE'),
   );
-  // Dataset completo: alimenta KPIs, comboboxes de filtro y conteos de chips
-  // (que requieren el universo total). La tabla principal usa la versión
-  // paginada para soportar búsqueda en todo el dataset desde el server.
-  const {
-    data: paquetes,
-    isLoading,
-    error,
-    isFetching: isFetchingAll,
-    refetch: refetchAll,
-  } = usePaquetes();
   const deletePaquete = useDeletePaquete();
   const [createOpen, setCreateOpen] = useState(false);
   const [editingPaquete, setEditingPaquete] = useState<Paquete | null>(null);
@@ -74,7 +68,7 @@ export function PaqueteListPage() {
     'todos' | 'sin_peso' | 'con_peso' | 'sin_guia_master' | 'vencidos'
   >('todos');
   const [estadoFiltro, setEstadoFiltro] = useState<string | undefined>(undefined);
-  const [consignatarioFiltro, setConsignatarioFiltro] = useState<string | undefined>(
+  const [consignatarioFiltro, setConsignatarioFiltro] = useState<number | undefined>(
     undefined,
   );
   const [envioFiltro, setEnvioFiltro] = useState<string | undefined>(undefined);
@@ -82,24 +76,29 @@ export function PaqueteListPage() {
     undefined,
   );
 
-  // Resolver el id de consignatario a partir del nombre seleccionado (porque el
-  // combobox actual filtra por nombre y el server filtra por id).
-  const consignatarioIdFiltro = useMemo(() => {
-    if (!consignatarioFiltro) return undefined;
-    const match = (paquetes ?? []).find(
-      (p) => (p.consignatarioNombre ?? '') === consignatarioFiltro,
-    );
-    return match?.consignatarioId ?? undefined;
-  }, [consignatarioFiltro, paquetes]);
+  // Resumen liviano del backend: KPIs del universo, conteos por chip (respetando
+  // los filtros estructurales activos) y opciones distintas de los comboboxes.
+  // Reemplaza la descarga del dataset completo solo para alimentar la cabecera.
+  const {
+    data: resumen,
+    isLoading: resumenLoading,
+    error: resumenError,
+    isFetching: resumenFetching,
+    refetch: refetchResumen,
+  } = usePaqueteResumen({
+    q: q.trim() || undefined,
+    estado: estadoFiltro,
+    consignatarioId: consignatarioFiltro,
+    envio: envioFiltro,
+    guiaMasterId: guiaMasterFiltro,
+  });
 
-  // Solo activamos paginación servidor si el chip no es "vencidos" (que se
-  // sigue resolviendo cliente sobre dataset completo).
-  const useServerPage = chipActivo !== 'vencidos';
-
+  // La tabla se sirve siempre paginada desde el servidor (incluido el chip
+  // "vencidos", ahora resuelto server-side vía fecha_limite_retiro).
   const pageQuery = usePaquetesPaginated({
     q: q.trim() || undefined,
     estado: estadoFiltro,
-    consignatarioId: consignatarioIdFiltro,
+    consignatarioId: consignatarioFiltro,
     envio: envioFiltro,
     guiaMasterId: guiaMasterFiltro,
     chip: chipActivo === 'todos' ? undefined : chipActivo,
@@ -107,162 +106,41 @@ export function PaqueteListPage() {
     size,
   });
 
-  // Listas distintas presentes en los paquetes para poblar los comboboxes.
-  const estadosDisponibles = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of paquetes ?? []) {
-      const key = p.estadoRastreoCodigo ?? p.estadoRastreoNombre;
-      if (!key) continue;
-      const label = p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? key;
-      if (!map.has(key)) map.set(key, label);
-    }
-    return Array.from(map.entries())
-      .map(([codigo, nombre]) => ({ codigo, nombre }))
-      .sort((a, b) =>
-        a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),
-      );
-  }, [paquetes]);
+  // Opciones de filtro y conteos provienen del resumen (universo visible).
+  const estadosDisponibles = resumen?.estados ?? [];
+  const consignatarios = resumen?.consignatarios ?? [];
+  const codigosEnvio = resumen?.codigosEnvio ?? [];
+  const guiasMasterDisponibles = resumen?.guiasMaster ?? [];
 
-  const consignatarios = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of paquetes ?? []) {
-      const n = p.consignatarioNombre?.trim();
-      if (n) set.add(n);
-    }
-    return Array.from(set).sort((a, b) =>
-      a.localeCompare(b, 'es', { sensitivity: 'base' }),
-    );
-  }, [paquetes]);
+  const chipCounts = resumen?.chips ?? {
+    todos: 0,
+    sinPeso: 0,
+    conPeso: 0,
+    sinGuiaMaster: 0,
+    vencidos: 0,
+  };
 
-  const codigosEnvio = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of paquetes ?? []) {
-      if (p.envioConsolidadoCodigo) set.add(p.envioConsolidadoCodigo);
-    }
-    return Array.from(set).sort();
-  }, [paquetes]);
+  const stats = {
+    total: resumen?.total ?? 0,
+    conPeso: resumen?.conPeso ?? 0,
+    vencidos: resumen?.vencidos ?? 0,
+    consignatarios: resumen?.consignatariosDistintos ?? 0,
+  };
 
-  const guiasMasterDisponibles = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const p of paquetes ?? []) {
-      if (p.guiaMasterId == null) continue;
-      const label = p.guiaMasterTrackingBase ?? `#${p.guiaMasterId}`;
-      if (!map.has(p.guiaMasterId)) map.set(p.guiaMasterId, label);
-    }
-    return Array.from(map.entries())
-      .map(([id, trackingBase]) => ({ id, trackingBase }))
-      .sort((a, b) =>
-        a.trackingBase.localeCompare(b.trackingBase, 'es', { sensitivity: 'base' }),
-      );
-  }, [paquetes]);
-
-  // baseList: aplica los filtros estructurales (sin chip) sobre el dataset
-  // completo. Sirve únicamente para calcular los conteos de los chips, que
-  // necesitan el universo total (no la página).
-  const baseList = useMemo(() => {
-    const raw = paquetes ?? [];
-    const qLower = q.trim().toLowerCase();
-    return raw.filter((p) => {
-      if (estadoFiltro) {
-        const key = p.estadoRastreoCodigo ?? p.estadoRastreoNombre ?? '';
-        if (key !== estadoFiltro) return false;
-      }
-      if (
-        consignatarioFiltro &&
-        (p.consignatarioNombre ?? '') !== consignatarioFiltro
-      ) {
-        return false;
-      }
-      if (envioFiltro && (p.envioConsolidadoCodigo ?? '') !== envioFiltro) {
-        return false;
-      }
-      if (guiaMasterFiltro != null && p.guiaMasterId !== guiaMasterFiltro) {
-        return false;
-      }
-      if (!qLower) return true;
-      return (
-        p.numeroGuia?.toLowerCase().includes(qLower) ||
-        (hasPesoWrite &&
-          (p.guiaMasterTrackingBase?.toLowerCase().includes(qLower) ?? false)) ||
-        (hasPesoWrite &&
-          (p.envioConsolidadoCodigo?.toLowerCase().includes(qLower) ?? false)) ||
-        (p.ref?.toLowerCase().includes(qLower) ?? false) ||
-        (p.consignatarioNombre?.toLowerCase().includes(qLower) ?? false) ||
-        (p.contenido?.toLowerCase().includes(qLower) ?? false)
-      );
-    });
-  }, [
-    paquetes,
-    q,
-    hasPesoWrite,
-    estadoFiltro,
-    consignatarioFiltro,
-    envioFiltro,
-    guiaMasterFiltro,
-  ]);
-
-  const chipCounts = useMemo(() => {
-    let sinPeso = 0;
-    let conPeso = 0;
-    let sinGuiaMaster = 0;
-    let vencidos = 0;
-    for (const p of baseList) {
-      const tienePeso = p.pesoLbs != null || p.pesoKg != null;
-      if (tienePeso) conPeso += 1;
-      else sinPeso += 1;
-      if (p.guiaMasterId == null) sinGuiaMaster += 1;
-      if (p.paqueteVencido) vencidos += 1;
-    }
-    return { todos: baseList.length, sinPeso, conPeso, sinGuiaMaster, vencidos };
-  }, [baseList]);
-
-  // Lista visible en la tabla. Si el chip "vencidos" está activo, fallback a
-  // cliente sobre baseList (porque la lógica de vencimiento es compleja y no
-  // está implementada server-side). En el resto de casos, usamos la página
-  // del servidor (búsqueda + filtros + chip se aplican en backend).
-  const list = useMemo(() => {
-    if (!useServerPage) {
-      return baseList.filter((p) => !!p.paqueteVencido);
-    }
-    return pageQuery.data?.content ?? [];
-  }, [useServerPage, baseList, pageQuery.data]);
-
-  const totalElements = useServerPage
-    ? pageQuery.data?.totalElements ?? 0
-    : list.length;
-  const totalPages = useServerPage
-    ? pageQuery.data?.totalPages ?? 0
-    : Math.ceil(list.length / size);
-
-  // KPIs sobre el universo total (no afectados por filtros para ser referencia).
-  const stats = useMemo(() => {
-    const all = paquetes ?? [];
-    let conPeso = 0;
-    let vencidos = 0;
-    const consignatariosSet = new Set<number>();
-    for (const p of all) {
-      if (p.pesoLbs != null || p.pesoKg != null) conPeso += 1;
-      if (p.paqueteVencido) vencidos += 1;
-      if (p.consignatarioId != null) consignatariosSet.add(p.consignatarioId);
-    }
-    return {
-      total: all.length,
-      conPeso,
-      vencidos,
-      consignatarios: consignatariosSet.size,
-    };
-  }, [paquetes]);
+  const list = pageQuery.data?.content ?? [];
+  const totalElements = pageQuery.data?.totalElements ?? 0;
+  const totalPages = pageQuery.data?.totalPages ?? 0;
 
   const tieneFiltros =
     !!estadoFiltro ||
-    !!consignatarioFiltro ||
+    consignatarioFiltro != null ||
     !!envioFiltro ||
     guiaMasterFiltro != null ||
     chipActivo !== 'todos';
 
   const filtrosActivosCount =
     (estadoFiltro ? 1 : 0) +
-    (consignatarioFiltro ? 1 : 0) +
+    (consignatarioFiltro != null ? 1 : 0) +
     (envioFiltro ? 1 : 0) +
     (guiaMasterFiltro != null ? 1 : 0) +
     (chipActivo !== 'todos' ? 1 : 0);
@@ -284,7 +162,7 @@ export function PaqueteListPage() {
     [resetPage],
   );
   const handleSetConsignatario = useCallback(
-    (v?: string) => {
+    (v?: number) => {
       setConsignatarioFiltro(v);
       resetPage();
     },
@@ -314,30 +192,31 @@ export function PaqueteListPage() {
 
   const pageError = pageQuery.error;
   const pageHasData = (pageQuery.data?.content?.length ?? 0) > 0;
-  const pageCanRender = useServerPage && (pageHasData || pageQuery.data != null);
+  const pageCanRender = pageHasData || pageQuery.data != null;
 
-  // La tabla principal se alimenta del endpoint paginado. El GET completo es
+  // La tabla principal se alimenta del endpoint paginado. El resumen es
   // auxiliar para KPIs/filtros; si falla no debe impedir listar paquetes.
-  if (error && !paquetes && !pageCanRender) {
+  if (pageError && !pageCanRender && resumenError) {
     return (
       <InlineErrorBanner
         message="Error al cargar paquetes"
         hint="Verifica tu conexión o intenta de nuevo."
         onRetry={() => {
-          refetchAll();
-          if (useServerPage) pageQuery.refetch();
+          refetchResumen();
+          pageQuery.refetch();
         }}
-        retrying={isFetchingAll || pageQuery.isFetching}
+        retrying={resumenFetching || pageQuery.isFetching}
       />
     );
   }
 
-  const allPaquetes = paquetes ?? [];
-  const showStaleAllBanner = !!error && allPaquetes.length > 0;
-  const showAuxDataBanner = !!error && allPaquetes.length === 0 && pageCanRender;
+  // Banner suave: el resumen (KPIs/filtros) está obsoleto o la página no pudo
+  // refrescarse pero aún muestra resultados previos.
+  const showResumenBanner = !!resumenError;
   const showPageBanner = !!pageError && pageHasData;
-  const tableLoading = useServerPage ? pageQuery.isLoading : isLoading;
-  const hasAnyPaquetes = allPaquetes.length > 0 || totalElements > 0;
+  const tableLoading = pageQuery.isLoading;
+  const hasDatos = stats.total > 0;
+  const hasAnyPaquetes = hasDatos || totalElements > 0;
 
   return (
     <div className="page-stack">
@@ -358,26 +237,26 @@ export function PaqueteListPage() {
         }
       />
 
-      {(showStaleAllBanner || showAuxDataBanner || showPageBanner) && (
+      {(showResumenBanner || showPageBanner) && (
         <InlineErrorBanner
           message="No se pudieron actualizar los paquetes"
           hint={
-            showAuxDataBanner
-              ? 'Mostrando la lista paginada. Los KPIs y filtros avanzados pueden estar incompletos.'
+            showResumenBanner
+              ? 'Mostrando la lista paginada. Los KPIs y filtros pueden estar incompletos.'
               : 'Mostrando los resultados anteriores. Reintentando en segundo plano.'
           }
           onRetry={() => {
-            if (showStaleAllBanner || showAuxDataBanner) refetchAll();
+            if (showResumenBanner) refetchResumen();
             if (showPageBanner) pageQuery.refetch();
           }}
-          retrying={isFetchingAll || pageQuery.isFetching}
+          retrying={resumenFetching || pageQuery.isFetching}
         />
       )}
 
-      {isLoading ? (
+      {resumenLoading ? (
         <KpiCardsGridSkeleton count={4} />
       ) : (
-        allPaquetes.length > 0 && (
+        hasDatos && (
         <KpiCardsGrid>
           <KpiCard
             icon={<Package className="h-5 w-5" />}
@@ -415,16 +294,16 @@ export function PaqueteListPage() {
         )
       )}
 
-      {isLoading ? (
+      {resumenLoading ? (
         <FiltrosBarSkeleton chips={5} filters={4} />
       ) : (
-        allPaquetes.length > 0 && (
+        hasDatos && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
           filtrosActivosCount={filtrosActivosCount}
           resumen={`${totalElements} paquete${totalElements === 1 ? '' : 's'}${
-            totalElements !== allPaquetes.length ? ` de ${allPaquetes.length}` : ''
+            totalElements !== stats.total ? ` de ${stats.total}` : ''
           }`}
           chips={
             <>
@@ -492,16 +371,16 @@ export function PaqueteListPage() {
                 )}
                 {consignatarios.length > 0 && (
                   <FiltroCampo label="Consignatario">
-                    <SearchableCombobox<string>
+                    <SearchableCombobox<number>
                       value={consignatarioFiltro}
                       onChange={(v) =>
-                        handleSetConsignatario(
-                          v === undefined ? undefined : String(v),
-                        )
+                        handleSetConsignatario(v === undefined ? undefined : Number(v))
                       }
-                      options={consignatarios}
-                      getKey={(n) => n}
-                      getLabel={(n) => n}
+                      options={consignatarios.map((c) => c.id)}
+                      getKey={(id) => id}
+                      getLabel={(id) =>
+                        consignatarios.find((c) => c.id === id)?.nombre ?? `#${id}`
+                      }
                       placeholder="Todos"
                       searchPlaceholder="Buscar consignatario..."
                       emptyMessage="Sin consignatarios"
@@ -626,8 +505,8 @@ export function PaqueteListPage() {
         <>
           <p className="text-xs text-muted-foreground">
             {totalElements} paquete{totalElements === 1 ? '' : 's'}
-            {totalElements !== allPaquetes.length ? ` de ${allPaquetes.length}` : ''}
-            {pageQuery.isFetching && useServerPage ? ' · cargando...' : ''}
+            {totalElements !== stats.total ? ` de ${stats.total}` : ''}
+            {pageQuery.isFetching ? ' · cargando...' : ''}
           </p>
           <p className="text-xs text-muted-foreground md:hidden">
             Desliza horizontalmente para ver todas las columnas.
@@ -733,17 +612,15 @@ export function PaqueteListPage() {
               </TableBody>
             </Table>
         </ListTableShell>
-        {useServerPage && (
-          <TablePagination
-            page={page}
-            size={size}
-            totalElements={totalElements}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            onSizeChange={setSize}
-            loading={pageQuery.isFetching}
-          />
-        )}
+        <TablePagination
+          page={page}
+          size={size}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={setSize}
+          loading={pageQuery.isFetching}
+        />
         </>
       )}
 

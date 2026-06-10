@@ -1,6 +1,11 @@
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
-import type { Paquete, PaqueteCreateRequest, PaqueteUpdateRequest } from '@/types/paquete';
+import type {
+  Paquete,
+  PaqueteCreateRequest,
+  PaqueteUpdateRequest,
+  PaqueteResumen,
+} from '@/types/paquete';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import type { PageResponse, PageQuery } from '@/types/page';
 
@@ -34,10 +39,39 @@ export async function getPaquetesPaginated(
       consignatarioId: params.consignatarioId,
       envio: params.envio,
       guiaMasterId: params.guiaMasterId,
-      // El chip "vencidos" se sigue resolviendo en cliente; el resto va al server.
-      chip: params.chip && params.chip !== 'vencidos' ? params.chip : undefined,
+      // Todos los chips (incluido "vencidos") se resuelven server-side: el
+      // vencimiento ahora es un predicado SQL sobre fecha_limite_retiro.
+      chip: params.chip || undefined,
       page: params.page ?? 0,
       size: params.size ?? 25,
+    },
+  });
+  return data;
+}
+
+export interface PaqueteResumenParams {
+  q?: string;
+  estado?: string;
+  consignatarioId?: number;
+  envio?: string;
+  guiaMasterId?: number;
+}
+
+/**
+ * Resumen liviano del listado de paquetes: KPIs del universo, conteos por chip
+ * (respetando los filtros estructurales) y opciones distintas de filtro. Evita
+ * descargar el dataset completo solo para alimentar KPIs, comboboxes y chips.
+ */
+export async function getPaqueteResumen(
+  params: PaqueteResumenParams = {}
+): Promise<PaqueteResumen> {
+  const { data } = await apiClient.get<PaqueteResumen>(`${BASE}/resumen`, {
+    params: {
+      q: params.q,
+      estado: params.estado,
+      consignatarioId: params.consignatarioId,
+      envio: params.envio,
+      guiaMasterId: params.guiaMasterId,
     },
   });
   return data;
