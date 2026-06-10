@@ -3,6 +3,7 @@ package com.ecubox.ecubox_backend.service;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoPorPeriodoResponse;
 import com.ecubox.ecubox_backend.dto.DespachoCreateRequest;
 import com.ecubox.ecubox_backend.dto.DespachoDTO;
+import com.ecubox.ecubox_backend.dto.DespachoResumenDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoGeneradoDTO;
 import com.ecubox.ecubox_backend.dto.SacaDTO;
@@ -154,14 +155,19 @@ public class DespachoService {
         return dtos;
     }
 
+    private static final java.time.ZoneId ZONA_ECUADOR = java.time.ZoneId.of("America/Guayaquil");
+
     /**
-     * Variante paginada con búsqueda libre. Campos contemplados por {@code q}:
-     * {@code numeroGuia}, {@code codigoPrecinto}, {@code observaciones},
+     * Variante paginada con búsqueda libre + filtros estructurales (tipo de
+     * entrega, courier de entrega, rango de fechas). Campos contemplados por
+     * {@code q}: {@code numeroGuia}, {@code codigoPrecinto}, {@code observaciones},
      * {@code courierEntrega.nombre}, {@code agencia.nombre},
      * {@code consignatario.nombre}.
      */
     @Transactional(readOnly = true)
-    public Page<DespachoDTO> findAllPaginated(String q, int page, int size) {
+    public Page<DespachoDTO> findAllPaginated(String q, TipoEntrega tipo, String courier,
+                                              LocalDateTime desde, LocalDateTime hasta,
+                                              int page, int size) {
         Pageable pageable = Pageables.bounded(page, size, 200,
                 Sort.by(Sort.Direction.DESC, "id"));
         Specification<Despacho> spec = SearchSpecifications.tokensLike(q,
@@ -171,9 +177,66 @@ public class DespachoService {
                 SearchSpecifications.path("courierEntrega", "nombre"),
                 SearchSpecifications.path("agencia", "nombre"),
                 SearchSpecifications.path("consignatario", "nombre"));
+        spec = spec.and(filtrosEstructurales(tipo, courier, desde, hasta));
         Page<DespachoDTO> pagina = despachoRepository.findAll(spec, pageable).map(this::toDTO);
         aplicarEstadoComun(pagina.getContent());
         return pagina;
+    }
+
+    /** Spec con los filtros estructurales (solo agrega predicados no nulos). */
+    private Specification<Despacho> filtrosEstructurales(TipoEntrega tipo, String courier,
+                                                         LocalDateTime desde, LocalDateTime hasta) {
+        return (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> preds = new java.util.ArrayList<>();
+            if (tipo != null) {
+                preds.add(cb.equal(root.get("tipoEntrega"), tipo));
+            }
+            if (courier != null) {
+                preds.add(cb.equal(root.get("courierEntrega").get("nombre"), courier));
+            }
+            if (desde != null) {
+                preds.add(cb.greaterThanOrEqualTo(root.get("fechaHora"), desde));
+            }
+            if (hasta != null) {
+                preds.add(cb.lessThan(root.get("fechaHora"), hasta));
+            }
+            return cb.and(preds.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+    }
+
+    /**
+     * Resumen liviano del listado: KPIs del universo (total, hoy, últimos 7 días,
+     * sacas, couriers) y conteos por tipo de entrega respetando el filtro de
+     * courier y el rango de período activo (para los chips). Sin materializar
+     * todos los despachos.
+     */
+    @Transactional(readOnly = true)
+    public DespachoResumenDTO resumen(String courier, LocalDateTime desde, LocalDateTime hasta) {
+        // Conteos por tipo que respetan courier + período (no el tipo en sí).
+        Specification<Despacho> base = filtrosEstructurales(null, courier, desde, hasta);
+        long tipoCountsTotal = despachoRepository.count(base);
+        java.util.Map<TipoEntrega, Long> tipoCounts = new java.util.EnumMap<>(TipoEntrega.class);
+        for (TipoEntrega t : TipoEntrega.values()) {
+            tipoCounts.put(t, despachoRepository.count(base.and(filtrosEstructurales(t, null, null, null))));
+        }
+
+        // KPIs del universo (independientes de los filtros).
+        LocalDate hoyD = LocalDate.now(ZONA_ECUADOR);
+        LocalDateTime inicioHoy = hoyD.atStartOfDay();
+        LocalDateTime finHoy = hoyD.plusDays(1).atStartOfDay();
+        LocalDateTime inicio7d = hoyD.minusDays(6).atStartOfDay();
+
+        return DespachoResumenDTO.builder()
+                .total(despachoRepository.count())
+                .hoy(despachoRepository.countByFechaHoraEntre(inicioHoy, finHoy))
+                .ultimos7d(despachoRepository.countByFechaHoraEntre(inicio7d, finHoy))
+                .sacas(despachoRepository.countSacasEnDespachos())
+                .couriersEntrega(despachoRepository.countDistinctCouriers())
+                .tipoCountsTotal(tipoCountsTotal)
+                .tipoCounts(tipoCounts)
+                .couriers(despachoRepository.findDistinctCouriers())
+                .tipos(despachoRepository.findDistinctTipos())
+                .build();
     }
 
     /**

@@ -126,4 +126,30 @@ public interface DespachoRepository extends JpaRepository<Despacho, Long>,
                    OR LOWER(COALESCE(d.courierEntrega.nombre, '')) LIKE LOWER(CONCAT('%', :q, '%')))
             """)
     Page<Despacho> findDisponiblesParaLiquidacion(@Param("q") String q, Pageable pageable);
+
+    // ---------------------------------------------------------------------
+    // Resumen liviano del listado (KPIs + opciones de filtro). Los conteos por
+    // tipo (respetando courier/período) se calculan con Specification en el
+    // servicio para evitar el problema de binds nulos en Postgres.
+    // ---------------------------------------------------------------------
+
+    /** Despachos con fecha en el rango [inicio, fin) (KPIs "hoy" y "últimos 7d"). */
+    @Query("SELECT COUNT(d) FROM Despacho d WHERE d.fechaHora >= :inicio AND d.fechaHora < :fin")
+    long countByFechaHoraEntre(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+
+    /** Total de sacas asignadas a algún despacho (KPI "Sacas asignadas"). */
+    @Query("SELECT COUNT(s) FROM Saca s WHERE s.despacho IS NOT NULL")
+    long countSacasEnDespachos();
+
+    /** Couriers de entrega distintos con al menos un despacho (KPI). */
+    @Query("SELECT COUNT(DISTINCT d.courierEntrega.nombre) FROM Despacho d WHERE d.courierEntrega IS NOT NULL")
+    long countDistinctCouriers();
+
+    /** Nombres de couriers de entrega distintos (opciones del filtro). */
+    @Query("SELECT DISTINCT d.courierEntrega.nombre FROM Despacho d WHERE d.courierEntrega.nombre IS NOT NULL ORDER BY d.courierEntrega.nombre")
+    List<String> findDistinctCouriers();
+
+    /** Tipos de entrega distintos presentes en los despachos (opciones del filtro). */
+    @Query("SELECT DISTINCT d.tipoEntrega FROM Despacho d ORDER BY d.tipoEntrega")
+    List<com.ecubox.ecubox_backend.enums.TipoEntrega> findDistinctTipos();
 }
