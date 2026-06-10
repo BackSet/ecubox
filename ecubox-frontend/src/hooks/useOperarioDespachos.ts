@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import {
   getDespachos,
   getDespachosPaginado,
+  getDespachoResumen,
   getDespachoById,
   createDespacho,
   updateDespacho,
@@ -31,9 +32,12 @@ import {
   asignarPaqueteSaca,
 } from '@/lib/api/paquetes.service';
 import type { DespachoCreateRequest, SacaCreateRequest, TamanioSaca } from '@/types/despacho';
-import type { CreateAgenciaCourierEntregaOperarioBody } from '@/lib/api/operario-despachos.service';
+import type {
+  CreateAgenciaCourierEntregaOperarioBody,
+  DespachoListParams,
+  DespachoResumenParams,
+} from '@/lib/api/operario-despachos.service';
 import type { ConsignatarioRequest } from '@/types/consignatario';
-import type { PageQuery } from '@/types/page';
 
 export const DESPACHOS_QUERY_KEY = ['operario', 'despachos'] as const;
 export const COURIERS_ENTREGA_QUERY_KEY = ['operario', 'couriersEntrega'] as const;
@@ -44,24 +48,44 @@ export const CLIENTES_OP_QUERY_KEY = ['operario', 'clientes'] as const;
 export const SACAS_QUERY_KEY = ['operario', 'sacas'] as const;
 export const PAQUETES_SIN_SACA_QUERY_KEY = ['operario', 'paquetes', 'sinSaca'] as const;
 
-export function useDespachos() {
+export function useDespachos(enabled = true) {
   return useQuery({
     queryKey: DESPACHOS_QUERY_KEY,
     queryFn: getDespachos,
+    enabled,
   });
 }
 
-/** Versión paginada con búsqueda servidor. */
-export function useDespachosPaginados(params: PageQuery) {
+/** Versión paginada con búsqueda + filtros server-side. */
+export function useDespachosPaginados(params: DespachoListParams) {
   return useQuery({
     queryKey: [
       ...DESPACHOS_QUERY_KEY,
       'page',
       params.q ?? '',
+      params.tipo ?? '',
+      params.courier ?? '',
+      params.desde ?? '',
+      params.hasta ?? '',
       params.page ?? 0,
       params.size ?? 25,
     ] as const,
     queryFn: () => getDespachosPaginado(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Resumen liviano (KPIs + conteos por tipo + filtros) del listado de despachos. */
+export function useDespachoResumen(params: DespachoResumenParams) {
+  return useQuery({
+    queryKey: [
+      ...DESPACHOS_QUERY_KEY,
+      'resumen',
+      params.courier ?? '',
+      params.desde ?? '',
+      params.hasta ?? '',
+    ] as const,
+    queryFn: () => getDespachoResumen(params),
     placeholderData: keepPreviousData,
   });
 }

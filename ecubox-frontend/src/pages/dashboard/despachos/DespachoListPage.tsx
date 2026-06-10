@@ -36,6 +36,8 @@ import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { notify } from '@/lib/notify';
 import {
   useDespachos,
+  useDespachosPaginados,
+  useDespachoResumen,
   useDeleteDespacho,
   useMensajeWhatsAppDespachoGenerado,
   useAplicarEstadoEnDespachos,
@@ -112,28 +114,31 @@ function esRetiroEnOficina(d: Despacho): boolean {
 
 const SIN_FILTRO = '__all__';
 
+/** Formatea una fecha local como yyyy-MM-dd (formato que espera el backend). */
+function ymd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Rango de fechas (inclusive, yyyy-MM-dd) del chip de período activo. */
+function rangoPeriodoChip(chip: 'todos' | 'hoy' | '7d'): { desde?: string; hasta?: string } {
+  if (chip === 'todos') return {};
+  const ahora = new Date();
+  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  if (chip === 'hoy') return { desde: ymd(hoy), hasta: ymd(hoy) };
+  const f = new Date(hoy);
+  f.setDate(f.getDate() - 6);
+  return { desde: ymd(f), hasta: ymd(hoy) };
+}
+
 export function DespachoListPage() {
   const navigate = useNavigate();
   const hasDespachoWrite = useAuthStore((s) => s.hasPermission('DESPACHOS_WRITE'));
-  // NOTA(deuda técnica - cliente vs servidor):
-  // Este listado todavía carga TODO el dataset (`useDespachos()`) y filtra en
-  // cliente porque hay funcionalidad que depende del universo completo:
-  //   - KPIs globales (total, hoy, sacas, couriersEntrega).
-  //   - Chips con conteo por tipo/periodo.
-  //   - `couriersEntregaPresentes` y `tiposPresentes` para el combobox/filtros.
-  //   - El diálogo "Aplicar estado a despachos" (modo "por despachos") lista
-  //     TODOS los despachos para selección bulk.
-  //   - `despachosEnPeriodo` se calcula sobre la lista completa.
-  // Para migrar a `useDespachosPaginados` (servidor) habría que:
-  //   1. Crear endpoints de KPIs/chips/couriersEntrega agregados en el backend.
-  //   2. Cargar el catálogo completo bajo demanda solo cuando se abre el
-  //      diálogo de aplicar estado por despachos.
-  //   3. Mover `q + tipo + courierEntrega + periodo` al servidor como params.
-  // Mientras tanto, conservamos el patrón actual pero con:
-  //   - Toolbar con búsqueda debounced (`ListToolbar` ya usa `useDebouncedValue`).
-  //   - Manejo de errores que NO oculta resultados previos (banner inline).
-  //   - QueryKey estable (`DESPACHOS_QUERY_KEY`) para evitar re-fetches.
-  const { data: despachos, isLoading, isFetching, error, refetch } = useDespachos();
+  // El listado se sirve paginado desde el servidor y los KPIs/chips/filtros vienen
+  // del resumen liviano. El dataset completo solo se carga de forma diferida para
+  // el diálogo de acción masiva por despachos (ver `despachos` más abajo).
   const { data: mensajeWhatsApp } = useMensajeWhatsAppDespacho();
   const deleteMutation = useDeleteDespacho();
   const aplicarEstadoEnDespachos = useAplicarEstadoEnDespachos();
@@ -178,6 +183,58 @@ export function DespachoListPage() {
   const [estadoRastreoSeleccionado, setEstadoRastreoSeleccionado] = useState<number | null>(null);
   const [exportingId, setExportingId] = useState<{ id: number; mode: 'pdf' | 'print' | 'xlsx' } | null>(null);
 
+  // Período activo → rango de fechas (params del servidor).
+  const { desde: desdeParam, hasta: hastaParam } = useMemo(
+    () => rangoPeriodoChip(chipPeriodo),
+    [chipPeriodo],
+  );
+
+  // Resumen liviano: KPIs del universo + conteos por tipo (respetan courier+período).
+  const resumenQuery = useDespachoResumen({
+    courier: courierEntregaFiltro,
+    desde: desdeParam,
+    hasta: hastaParam,
+  });
+  const resumen = resumenQuery.data;
+  const couriersEntregaPresentes = resumen?.couriers ?? [];
+  const tiposPresentes = resumen?.tipos ?? [];
+  const tipoCounts: Record<string, number> = {
+    TODOS: resumen?.tipoCountsTotal ?? 0,
+    ...(resumen?.tipoCounts ?? {}),
+  };
+  const stats = {
+    total: resumen?.total ?? 0,
+    hoy: resumen?.hoy ?? 0,
+    sacas: resumen?.sacas ?? 0,
+    couriersEntrega: resumen?.couriersEntrega ?? 0,
+  };
+  const count7d = resumen?.ultimos7d ?? 0;
+
+  // Tabla paginada server-side (búsqueda + tipo + courier + período).
+  const pageQuery = useDespachosPaginados({
+    q: search.trim() || undefined,
+    tipo: tipoFiltro === SIN_FILTRO ? undefined : tipoFiltro,
+    courier: courierEntregaFiltro,
+    desde: desdeParam,
+    hasta: hastaParam,
+    page,
+    size,
+  });
+  const list = pageQuery.data?.content ?? [];
+  const totalElements = pageQuery.data?.totalElements ?? 0;
+  const totalPages = pageQuery.data?.totalPages ?? 0;
+  const isLoading = pageQuery.isLoading;
+  const isFetching = pageQuery.isFetching || resumenQuery.isFetching;
+  const error = pageQuery.error;
+  const refetch = () => {
+    pageQuery.refetch();
+    resumenQuery.refetch();
+  };
+
+  // Catálogo completo SOLO para el diálogo de acción masiva por despachos (lazy).
+  const { data: despachos } = useDespachos(aplicarEstadoOpen);
+  const allDespachos = despachos ?? [];
+
   const handleExportar = async (id: number, mode: 'pdf' | 'print' | 'xlsx') => {
     if (exportingId) return;
     setExportingId({ id, mode });
@@ -218,9 +275,9 @@ export function DespachoListPage() {
   const despachoWhatsapp = useMemo(
     () =>
       whatsappDespachoId != null
-        ? (despachos ?? []).find((d) => d.id === whatsappDespachoId) ?? null
+        ? list.find((d) => d.id === whatsappDespachoId) ?? null
         : null,
-    [despachos, whatsappDespachoId],
+    [list, whatsappDespachoId],
   );
 
   const cerrarAplicarEstado = () => {
@@ -256,131 +313,10 @@ export function DespachoListPage() {
     }
   };
 
-  const allDespachos = despachos ?? [];
-
-  const couriersEntregaPresentes = useMemo(() => {
-    const set = new Map<string, string>();
-    for (const d of allDespachos) {
-      if (d.courierEntregaNombre) set.set(d.courierEntregaNombre, d.courierEntregaNombre);
-    }
-    return Array.from(set.values()).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [allDespachos]);
-
-  const tiposPresentes = useMemo(() => {
-    const set = new Set<TipoEntrega>();
-    for (const d of allDespachos) set.add(d.tipoEntrega);
-    return Array.from(set);
-  }, [allDespachos]);
-
-  // Devuelve el rango (ms) acotado por el chip de periodo activo.
-  const rangoChip = useMemo<{ from: number; to: number } | null>(() => {
-    if (chipPeriodo === 'todos') return null;
-    const ahora = new Date();
-    const inicioHoy = new Date(
-      ahora.getFullYear(),
-      ahora.getMonth(),
-      ahora.getDate(),
-    );
-    const dia = 24 * 60 * 60 * 1000;
-    if (chipPeriodo === 'hoy') {
-      return { from: inicioHoy.getTime(), to: inicioHoy.getTime() + dia };
-    }
-    return { from: inicioHoy.getTime() - 6 * dia, to: inicioHoy.getTime() + dia };
-  }, [chipPeriodo]);
-
-  const list = useMemo(() => {
-    let raw = allDespachos;
-    if (tipoFiltro !== SIN_FILTRO) {
-      raw = raw.filter((d) => d.tipoEntrega === tipoFiltro);
-    }
-    if (courierEntregaFiltro) {
-      raw = raw.filter((d) => d.courierEntregaNombre === courierEntregaFiltro);
-    }
-    if (rangoChip) {
-      raw = raw.filter((d) => {
-        if (!d.fechaHora) return false;
-        const t = new Date(d.fechaHora).getTime();
-        return Number.isFinite(t) && t >= rangoChip.from && t < rangoChip.to;
-      });
-    }
-    const q = search.trim().toLowerCase();
-    if (!q) return raw;
-    return raw.filter(
-      (d) =>
-        d.numeroGuia?.toLowerCase().includes(q) ||
-        d.courierEntregaNombre?.toLowerCase().includes(q) ||
-        d.consignatarioNombre?.toLowerCase().includes(q) ||
-        d.consignatarioTelefono?.toLowerCase().includes(q) ||
-        d.consignatarioDireccion?.toLowerCase().includes(q) ||
-        d.agenciaNombre?.toLowerCase().includes(q) ||
-        d.agenciaCourierEntregaNombre?.toLowerCase().includes(q) ||
-        d.observaciones?.toLowerCase().includes(q) ||
-        d.codigoPrecinto?.toLowerCase().includes(q) ||
-        d.operarioNombre?.toLowerCase().includes(q) ||
-        String(d.id).includes(q),
-    );
-  }, [allDespachos, search, tipoFiltro, courierEntregaFiltro, rangoChip]);
-
-  // Conteo por tipo para los chips rapidos, considerando los demas filtros activos.
-  const tipoCounts = useMemo(() => {
-    const counts: Record<string, number> = { TODOS: 0 };
-    for (const d of allDespachos) {
-      // Los chips de tipo deben reflejar el universo actualmente filtrado por
-      // los OTROS filtros (courierEntrega + periodo + busqueda).
-      if (courierEntregaFiltro && d.courierEntregaNombre !== courierEntregaFiltro) continue;
-      if (rangoChip) {
-        if (!d.fechaHora) continue;
-        const t = new Date(d.fechaHora).getTime();
-        if (!Number.isFinite(t) || t < rangoChip.from || t >= rangoChip.to) continue;
-      }
-      counts.TODOS += 1;
-      counts[d.tipoEntrega] = (counts[d.tipoEntrega] ?? 0) + 1;
-    }
-    return counts;
-  }, [allDespachos, courierEntregaFiltro, rangoChip]);
-
-  const stats = useMemo(() => {
-    const all = allDespachos;
-    if (all.length === 0) {
-      return { total: 0, hoy: 0, sacas: 0, couriersEntrega: 0 };
-    }
-    const couriersEntrega = new Set<string>();
-    let hoy = 0;
-    let sacas = 0;
-    const ahora = new Date();
-    const hoyStr = `${ahora.getFullYear()}-${ahora.getMonth()}-${ahora.getDate()}`;
-    for (const d of all) {
-      sacas += d.sacaIds?.length ?? 0;
-      if (d.courierEntregaNombre) couriersEntrega.add(d.courierEntregaNombre);
-      if (d.fechaHora) {
-        const f = new Date(d.fechaHora);
-        if (!Number.isNaN(f.getTime())) {
-          const dStr = `${f.getFullYear()}-${f.getMonth()}-${f.getDate()}`;
-          if (dStr === hoyStr) hoy += 1;
-        }
-      }
-    }
-    return {
-      total: all.length,
-      hoy,
-      sacas,
-      couriersEntrega: couriersEntrega.size,
-    };
-  }, [allDespachos]);
-
-  const pagedList = useMemo(
-    () => list.slice(page * size, page * size + size),
-    [list, page, size],
-  );
-  const totalPages = Math.max(1, Math.ceil(list.length / Math.max(1, size)));
-  useEffect(() => {
-    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
-  }, [page, totalPages]);
-
   // Solo bloqueamos la página completa si nunca tuvimos datos. Si el usuario
   // ya estaba viendo despachos y la siguiente recarga falla, mostramos el
   // banner arriba (más abajo en el render) y conservamos la tabla previa.
-  if (error && !despachos) {
+  if (error && totalElements === 0) {
     return (
       <PageErrorState
         message="Error al cargar despachos"
@@ -446,7 +382,7 @@ export function DespachoListPage() {
       {isLoading ? (
         <KpiCardsGridSkeleton count={3} />
       ) : (
-        allDespachos.length > 0 && (
+        stats.total > 0 && (
         <KpiCardsGrid>
           <KpiCard
             icon={<Truck className="h-5 w-5" />}
@@ -488,7 +424,7 @@ export function DespachoListPage() {
       {isLoading ? (
         <FiltrosBarSkeleton chips={5} filters={1} />
       ) : (
-        allDespachos.length > 0 && (
+        stats.total > 0 && (
         <FiltrosBar
           hayFiltrosActivos={tieneFiltros}
           onLimpiar={limpiarFiltros}
@@ -535,24 +471,7 @@ export function DespachoListPage() {
               />
               <ChipFiltro
                 label="Últimos 7d"
-                count={(() => {
-                  const ahora = new Date();
-                  const inicioHoy = new Date(
-                    ahora.getFullYear(),
-                    ahora.getMonth(),
-                    ahora.getDate(),
-                  );
-                  const dia = 24 * 60 * 60 * 1000;
-                  const from = inicioHoy.getTime() - 6 * dia;
-                  const to = inicioHoy.getTime() + dia;
-                  let n = 0;
-                  for (const d of allDespachos) {
-                    if (!d.fechaHora) continue;
-                    const t = new Date(d.fechaHora).getTime();
-                    if (Number.isFinite(t) && t >= from && t < to) n += 1;
-                  }
-                  return n;
-                })()}
+                count={count7d}
                 active={chipPeriodo === '7d'}
                 tone="warning"
                 onClick={() =>
@@ -609,7 +528,7 @@ export function DespachoListPage() {
             </TableBody>
           </Table>
         </ListTableShell>
-      ) : allDespachos.length === 0 ? (
+      ) : stats.total === 0 ? (
         <EmptyState
           icon={Truck}
           title="No hay despachos"
@@ -637,8 +556,8 @@ export function DespachoListPage() {
       ) : (
         <>
           <p className="text-xs text-muted-foreground">
-            {list.length} despacho{list.length === 1 ? '' : 's'}
-            {list.length !== allDespachos.length ? ` de ${allDespachos.length}` : ''}
+            {totalElements} despacho{totalElements === 1 ? '' : 's'}
+            {totalElements !== stats.total ? ` de ${stats.total}` : ''}
           </p>
           <ListTableShell>
             <Table className="min-w-[820px] text-left">
@@ -653,7 +572,7 @@ export function DespachoListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pagedList.map((d) => (
+                {list.map((d) => (
                   <TableRow
                     key={d.id}
                     className="cursor-pointer"
@@ -776,7 +695,7 @@ export function DespachoListPage() {
           <TablePagination
             page={page}
             size={size}
-            totalElements={list.length}
+            totalElements={totalElements}
             totalPages={totalPages}
             onPageChange={setPage}
             onSizeChange={setSize}

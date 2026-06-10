@@ -6,9 +6,11 @@ import com.ecubox.ecubox_backend.dto.AplicarEstadoPorPeriodoRequest;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoPorPeriodoResponse;
 import com.ecubox.ecubox_backend.dto.DespachoCreateRequest;
 import com.ecubox.ecubox_backend.dto.DespachoDTO;
+import com.ecubox.ecubox_backend.dto.DespachoResumenDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoGeneradoDTO;
 import com.ecubox.ecubox_backend.dto.PageResponse;
+import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.service.DespachoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,11 +18,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Tag(name = "Operario", description = "Gestión operativa de despachos")
@@ -44,16 +49,36 @@ public class OperarioDespachoController {
         return ResponseEntity.ok(despachoService.findAll());
     }
 
-    /** Variante paginada con búsqueda libre. */
+    /** Variante paginada con búsqueda libre + filtros (tipo, courier, fechas). */
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
-    @Operation(summary = "Listar despachos paginados", description = "Consulta despachos con búsqueda libre y paginación")
+    @Operation(summary = "Listar despachos paginados", description = "Consulta despachos con búsqueda, filtros y paginación")
     @ApiResponse(responseCode = "200", description = "Página de despachos")
     public ResponseEntity<PageResponse<DespachoDTO>> findAllPage(
             @Parameter(description = "Texto de búsqueda") @RequestParam(required = false) String q,
+            @Parameter(description = "Filtro por tipo de entrega") @RequestParam(required = false) TipoEntrega tipo,
+            @Parameter(description = "Filtro por nombre de courier de entrega") @RequestParam(required = false) String courier,
+            @Parameter(description = "Fecha desde (inclusive, yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @Parameter(description = "Fecha hasta (inclusive, yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @Parameter(description = "Número de página (base cero)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Cantidad de elementos por página") @RequestParam(defaultValue = "25") int size) {
-        return ResponseEntity.ok(PageResponse.of(despachoService.findAllPaginated(q, page, size)));
+        LocalDateTime desdeDt = desde != null ? desde.atStartOfDay() : null;
+        LocalDateTime hastaDt = hasta != null ? hasta.plusDays(1).atStartOfDay() : null;
+        return ResponseEntity.ok(PageResponse.of(
+                despachoService.findAllPaginated(q, tipo, courier, desdeDt, hastaDt, page, size)));
+    }
+
+    @GetMapping("/resumen")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @Operation(summary = "Resumen del listado de despachos", description = "KPIs, conteos por tipo y opciones de filtro")
+    @ApiResponse(responseCode = "200", description = "Resumen de despachos")
+    public ResponseEntity<DespachoResumenDTO> resumen(
+            @Parameter(description = "Filtro por courier (para conteos por tipo)") @RequestParam(required = false) String courier,
+            @Parameter(description = "Fecha desde (inclusive, yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @Parameter(description = "Fecha hasta (inclusive, yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        LocalDateTime desdeDt = desde != null ? desde.atStartOfDay() : null;
+        LocalDateTime hastaDt = hasta != null ? hasta.plusDays(1).atStartOfDay() : null;
+        return ResponseEntity.ok(despachoService.resumen(courier, desdeDt, hastaDt));
     }
 
     @PostMapping

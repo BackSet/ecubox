@@ -9,6 +9,7 @@ import type {
   Saca,
   SacaCreateRequest,
   TamanioSaca,
+  TipoEntrega,
 } from '@/types/despacho';
 import type { Consignatario, ConsignatarioRequest } from '@/types/consignatario';
 import type { UsuarioDTO } from '@/types/usuario';
@@ -149,16 +150,58 @@ export async function getDespachos(): Promise<Despacho[]> {
   return data;
 }
 
-/** Listado paginado con búsqueda libre (numero, código precinto, courierEntrega, agencia, consignatario). */
+export interface DespachoListParams extends PageQuery {
+  /** Filtro por tipo de entrega. */
+  tipo?: TipoEntrega;
+  /** Nombre exacto del courier de entrega. */
+  courier?: string;
+  /** Rango de fechas (inclusive), formato yyyy-MM-dd. */
+  desde?: string;
+  hasta?: string;
+}
+
+/** Listado paginado con búsqueda libre + filtros (tipo, courier, rango de fechas). */
 export async function getDespachosPaginado(
-  params: PageQuery = {}
+  params: DespachoListParams = {}
 ): Promise<PageResponse<Despacho>> {
   const { data } = await apiClient.get<PageResponse<Despacho>>(`${DESPACHOS}/page`, {
     params: {
       q: params.q,
+      tipo: params.tipo,
+      courier: params.courier,
+      desde: params.desde,
+      hasta: params.hasta,
       page: params.page ?? 0,
       size: params.size ?? 25,
     },
+  });
+  return data;
+}
+
+/** Resumen liviano del listado: KPIs, conteos por tipo (respetando courier/período) y filtros. */
+export interface DespachoResumen {
+  total: number;
+  hoy: number;
+  ultimos7d: number;
+  sacas: number;
+  couriersEntrega: number;
+  tipoCountsTotal: number;
+  tipoCounts: Partial<Record<TipoEntrega, number>>;
+  couriers: string[];
+  tipos: TipoEntrega[];
+}
+
+export interface DespachoResumenParams {
+  courier?: string;
+  desde?: string;
+  hasta?: string;
+}
+
+export async function getDespachoResumen(
+  params: DespachoResumenParams = {}
+): Promise<DespachoResumen> {
+  const { data } = await apiClient.get<DespachoResumen>(`${DESPACHOS}/resumen`, {
+    params: { courier: params.courier, desde: params.desde, hasta: params.hasta },
   });
   return data;
 }
