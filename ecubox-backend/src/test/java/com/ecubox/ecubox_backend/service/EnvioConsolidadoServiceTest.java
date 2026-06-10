@@ -6,6 +6,7 @@ import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
 import com.ecubox.ecubox_backend.repository.LiquidacionConsolidadoLineaRepository;
@@ -162,8 +163,10 @@ class EnvioConsolidadoServiceTest {
 
     @Test
     void agregarPaquetes_envioCerrado_lanzaConflict() {
+        // "Cerrado" se determina por el estado operativo persistido (no por fechaCerrado).
         EnvioConsolidado envio = EnvioConsolidado.builder()
-                .id(1L).codigo("X").fechaCerrado(LocalDateTime.now()).build();
+                .id(1L).codigo("X")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA).build();
         when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
 
         ConflictException ex = assertThrows(ConflictException.class,
@@ -174,7 +177,8 @@ class EnvioConsolidadoServiceTest {
     @Test
     void removerPaquetes_envioCerrado_lanzaConflict() {
         EnvioConsolidado envio = EnvioConsolidado.builder()
-                .id(1L).codigo("X").fechaCerrado(LocalDateTime.now()).build();
+                .id(1L).codigo("X")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA).build();
         when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
 
         ConflictException ex = assertThrows(ConflictException.class,
@@ -183,39 +187,44 @@ class EnvioConsolidadoServiceTest {
     }
 
     @Test
-    void cerrar_envioAbierto_seteaFechaCerrado() {
-        EnvioConsolidado envio = EnvioConsolidado.builder().id(1L).codigo("X").build();
+    void enviarDesdeUsa_envioCerrado_marcaEnviadoYFecha() {
+        // enviarDesdeUsa solo opera desde CERRADO; marca ENVIADO_DESDE_USA y setea fechaCerrado.
+        EnvioConsolidado envio = EnvioConsolidado.builder()
+                .id(1L).codigo("X")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.CERRADO).build();
         when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
 
-        EnvioConsolidado res = service.cerrar(1L, null);
+        EnvioConsolidado res = service.enviarDesdeUsa(1L, null);
 
-        assertNotNull(res.getFechaCerrado(), "cerrar debe setear fechaCerrado");
+        assertEquals(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA, res.getEstadoOperativo());
+        assertNotNull(res.getFechaCerrado(), "enviar desde USA debe setear fechaCerrado");
         assertTrue(res.isCerrado());
         verify(envioRepository).save(envio);
     }
 
     @Test
-    void cerrar_envioYaCerrado_esIdempotente() {
-        LocalDateTime original = LocalDateTime.now().minusDays(3);
+    void enviarDesdeUsa_envioNoCerrado_lanzaBadRequest() {
         EnvioConsolidado envio = EnvioConsolidado.builder()
-                .id(1L).codigo("X").fechaCerrado(original).build();
+                .id(1L).codigo("X")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build();
         when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
 
-        EnvioConsolidado res = service.cerrar(1L, LocalDateTime.now());
-
-        assertEquals(original, res.getFechaCerrado(), "no debe sobrescribir fechaCerrado original");
+        assertThrows(BadRequestException.class, () -> service.enviarDesdeUsa(1L, null));
         verify(envioRepository, never()).save(any());
     }
 
     @Test
-    void reabrir_envioCerrado_limpiaFechaCerrado() {
+    void reabrir_envioEnviadoDesdeUsa_limpiaFechaCerradoYVuelveAPreparacion() {
         EnvioConsolidado envio = EnvioConsolidado.builder()
-                .id(1L).codigo("X").fechaCerrado(LocalDateTime.now()).build();
+                .id(1L).codigo("X")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA)
+                .fechaCerrado(LocalDateTime.now()).build();
         when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
 
         EnvioConsolidado res = service.reabrir(1L);
 
         assertNull(res.getFechaCerrado());
+        assertEquals(EstadoEnvioConsolidadoOperativo.EN_PREPARACION, res.getEstadoOperativo());
         assertTrue(res.isAbierto());
     }
 
@@ -223,7 +232,8 @@ class EnvioConsolidadoServiceTest {
     void agregarPaquetes_paqueteEnEnvioYaCerrado_lanzaConflict() {
         EnvioConsolidado destino = EnvioConsolidado.builder().id(1L).codigo("DEST").build();
         EnvioConsolidado origenCerrado = EnvioConsolidado.builder()
-                .id(2L).codigo("ORIG-CERRADO").fechaCerrado(LocalDateTime.now()).build();
+                .id(2L).codigo("ORIG-CERRADO")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA).build();
         Paquete p = Paquete.builder().id(10L).numeroGuia("ABC 1/1")
                 .envioConsolidado(origenCerrado).build();
         when(envioRepository.findById(1L)).thenReturn(Optional.of(destino));
