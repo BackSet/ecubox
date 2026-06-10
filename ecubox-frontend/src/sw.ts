@@ -18,8 +18,9 @@ declare let self: ServiceWorkerGlobalScope & {
 
 // Precache de la app shell + assets con hash inyectados por vite-plugin-pwa.
 // Cada build genera un manifiesto consistente: el SW solo sirve un snapshot
-// coherente y `autoUpdate` lo reemplaza de forma atomica, evitando los fallos
-// de "chunk dinamico no encontrado" tras un deploy.
+// coherente y el flujo `prompt` lo reemplaza de forma atomica al confirmar la
+// actualizacion, evitando los fallos de "chunk dinamico no encontrado" tras un
+// deploy.
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
