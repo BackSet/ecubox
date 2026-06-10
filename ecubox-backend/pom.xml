@@ -189,11 +189,22 @@
 							<version>${lombok-mapstruct-binding.version}</version>
 						</path>
 					</annotationProcessorPaths>
-					<compilerArgs>
-						<arg>-Amapstruct.defaultComponentModel=spring</arg>
-						<arg>-Amapstruct.unmappedTargetPolicy=IGNORE</arg>
-					</compilerArgs>
 				</configuration>
+				<executions>
+					<!-- Las opciones -A de MapStruct solo aplican a la compilacion
+					     principal (donde viven los @Mapper). En test-compile no hay
+					     mappers, asi que pasarlas alli provoca el warning
+					     "options not recognized by any processor". -->
+					<execution>
+						<id>default-compile</id>
+						<configuration>
+							<compilerArgs>
+								<arg>-Amapstruct.defaultComponentModel=spring</arg>
+								<arg>-Amapstruct.unmappedTargetPolicy=IGNORE</arg>
+							</compilerArgs>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
