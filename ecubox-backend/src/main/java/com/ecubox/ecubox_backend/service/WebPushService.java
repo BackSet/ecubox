@@ -79,18 +79,28 @@ public class WebPushService {
         }
 
         String payload = toPayload(event);
-        for (WebPushSubscription subscription :
-                subscriptionRepository.findByUsuarioIdAndActiveTrue(event.usuarioId())) {
-            enviarASuscripcion(subscription, payload);
-        }
-    }
-
-    private void enviarASuscripcion(WebPushSubscription subscription, String payload) {
+        // Una sola instancia de PushService por envio: reconstruirla por cada
+        // suscripcion reinicializa innecesariamente el proveedor criptografico.
+        // Un fallo aqui implica claves VAPID mal configuradas, asi que no tiene
+        // sentido seguir intentando con las suscripciones.
+        PushService pushService;
         try {
-            PushService pushService = new PushService(
+            pushService = new PushService(
                     properties.getPublicKey(),
                     properties.getPrivateKey(),
                     properties.getSubject());
+        } catch (java.security.GeneralSecurityException ex) {
+            log.error("web_push_init_failed message={}", ex.getMessage());
+            return;
+        }
+        for (WebPushSubscription subscription :
+                subscriptionRepository.findByUsuarioIdAndActiveTrue(event.usuarioId())) {
+            enviarASuscripcion(pushService, subscription, payload);
+        }
+    }
+
+    private void enviarASuscripcion(PushService pushService, WebPushSubscription subscription, String payload) {
+        try {
             Notification notification = Notification.builder()
                     .endpoint(subscription.getEndpoint())
                     .userPublicKey(subscription.getP256dh())
@@ -102,9 +112,11 @@ public class WebPushService {
             HttpResponse response = pushService.send(notification);
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode == 404 || statusCode == 410) {
+                // Suscripcion caducada o dada de baja por el navegador: es la
+                // limpieza esperada del ciclo Web Push, no un fallo. Se desactiva
+                // sin contar como error ni generar ruido en los logs.
                 subscription.setActive(false);
-            }
-            if (statusCode >= 200 && statusCode < 300) {
+            } else if (statusCode >= 200 && statusCode < 300) {
                 subscription.setLastSuccessAt(LocalDateTime.now());
                 subscription.setFailureCount(0);
             } else {
