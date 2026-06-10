@@ -72,7 +72,7 @@ export function Hero() {
             </h1>
             <p className="landing-text-muted responsive-subtitle mb-7 max-w-2xl lg:mb-8">
               Recibe tus compras de Amazon, eBay, Shein y más en nuestra dirección de
-              New Jersey. Nosotros lo enviamos a Ecuador con seguimiento de extremo a
+              New Jersey. Nosotros lo enviamos a Ecuador con rastreo de extremo a
               extremo.
             </p>
 

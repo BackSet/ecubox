@@ -1,6 +1,11 @@
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
-import type { Paquete, PaqueteCreateRequest, PaqueteUpdateRequest } from '@/types/paquete';
+import type {
+  Paquete,
+  PaqueteCreateRequest,
+  PaqueteUpdateRequest,
+  PaqueteResumen,
+} from '@/types/paquete';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import type { PageResponse, PageQuery } from '@/types/page';
 
@@ -34,10 +39,39 @@ export async function getPaquetesPaginated(
       consignatarioId: params.consignatarioId,
       envio: params.envio,
       guiaMasterId: params.guiaMasterId,
-      // El chip "vencidos" se sigue resolviendo en cliente; el resto va al server.
-      chip: params.chip && params.chip !== 'vencidos' ? params.chip : undefined,
+      // Todos los chips (incluido "vencidos") se resuelven server-side: el
+      // vencimiento ahora es un predicado SQL sobre fecha_limite_retiro.
+      chip: params.chip || undefined,
       page: params.page ?? 0,
       size: params.size ?? 25,
+    },
+  });
+  return data;
+}
+
+export interface PaqueteResumenParams {
+  q?: string;
+  estado?: string;
+  consignatarioId?: number;
+  envio?: string;
+  guiaMasterId?: number;
+}
+
+/**
+ * Resumen liviano del listado de paquetes: KPIs del universo, conteos por chip
+ * (respetando los filtros estructurales) y opciones distintas de filtro. Evita
+ * descargar el dataset completo solo para alimentar KPIs, comboboxes y chips.
+ */
+export async function getPaqueteResumen(
+  params: PaqueteResumenParams = {}
+): Promise<PaqueteResumen> {
+  const { data } = await apiClient.get<PaqueteResumen>(`${BASE}/resumen`, {
+    params: {
+      q: params.q,
+      estado: params.estado,
+      consignatarioId: params.consignatarioId,
+      envio: params.envio,
+      guiaMasterId: params.guiaMasterId,
     },
   });
   return data;
@@ -134,18 +168,6 @@ export interface CambiarEstadoRastreoBulkResponse {
   rechazados: { paqueteId: number; motivo: string }[];
 }
 
-/** Cambiar estado de rastreo a una lista de paquetes (solo elegibles: sin lote, sin despacho). */
-export async function cambiarEstadoRastreoBulk(
-  paqueteIds: number[],
-  estadoRastreoId: number
-): Promise<CambiarEstadoRastreoBulkResponse> {
-  const { data } = await apiClient.post<CambiarEstadoRastreoBulkResponse>(
-    `${OPERARIO_BASE}/cambiar-estado-rastreo-bulk`,
-    { paqueteIds, estadoRastreoId }
-  );
-  return data;
-}
-
 /**
  * Estados de rastreo a los que se puede mover la selección de paquetes (intersección
  * válida para todos, calculada por el backend). Para un combobox con solo destinos válidos.
@@ -171,12 +193,6 @@ export async function buscarPaquetesPorGuias(
   return data;
 }
 
-/** Estados de rastreo que pueden aplicarse manualmente a paquetes (excluye los reservados para puntos automáticos). */
-export async function getEstadosAplicablesPaquete(): Promise<EstadoRastreo[]> {
-  const { data } = await apiClient.get<EstadoRastreo[]>(`${OPERARIO_BASE}/estados-aplicables`);
-  return data;
-}
-
 /** Aplica un estado de rastreo a todos los paquetes registrados en el periodo. */
 export async function aplicarEstadoPorPeriodoPaquetes(params: {
   fechaInicio: string;
@@ -187,13 +203,5 @@ export async function aplicarEstadoPorPeriodoPaquetes(params: {
     `${OPERARIO_BASE}/aplicar-estado-por-periodo`,
     params
   );
-  return data;
-}
-
-/** Todos los paquetes del operario (sin paginación, para el diálogo masivo). */
-export async function getAllPaquetesOperario(): Promise<Paquete[]> {
-  const { data } = await apiClient.get<Paquete[]>(OPERARIO_BASE, {
-    params: { sinPeso: false },
-  });
   return data;
 }

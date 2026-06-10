@@ -29,6 +29,8 @@ const RULES = [
   { pat: /\bDistribuidor(?:es)?\b/g, fix: 'Courier(s) de entrega', msg: 'Usa "Courier(s) de entrega".' },
   { pat: /\bdistribuidor(?:es)?\b/g, fix: 'courier(s) de entrega', msg: 'Usa "courier(s) de entrega".' },
   { pat: /Cargar pesos?/g, fix: 'Pesaje', msg: 'Usa "Pesaje" o "Registrar peso".' },
+  { pat: /\bSeguimiento\b/g, fix: 'Rastreo', msg: 'Usa "Rastreo" en copy UI (no "Seguimiento").' },
+  { pat: /\bseguimiento\b/g, fix: 'rastreo', msg: 'Usa "rastreo" en copy UI (no "seguimiento").' },
   { pat: /Oficina en USA/g, fix: 'Mi casillero', msg: 'Usa "Casillero" / "Mi casillero".' },
   { pat: /Agencia EEUU/g, fix: 'Casillero', msg: 'Usa "Casillero".' },
   { pat: /Agencias asociadas/g, fix: 'Puntos de entrega', msg: 'Usa "Puntos de entrega".' },
@@ -52,6 +54,14 @@ const ALLOWLIST = [
   /[\\/]hooks[\\/]/,                      // query keys y hooks pueden tener nombres legacy
   /[\\/]pages[\\/]tracking[\\/]/,         // public tracking usa label "Destinatario" para el cliente final
   /[\\/]data[\\/]/,                       // catálogos de provincias/cantones
+  /[\\/]pages[\\/]dashboard[\\/]mis-guias[\\/]/, // vistas de cliente usan "Destinatario"
+  /[\\/]pages[\\/]dashboard[\\/]mis-entregas[\\/]/, // vistas de cliente usan "Destinatario"
+  /[\\/]pages[\\/]dashboard[\\/]inicio[\\/]InicioClienteSection\.tsx$/, // inicio cliente usa "Destinatario"
+  /[\\/]lib[\\/]schemas[\\/]/,            // esquemas cliente y back-office
+  /[\\/]app[\\/]navigation[\\/]dashboardNav\.ts$/, // palabras clave para búsqueda
+  /[\\/]lib[\\/]pdf[\\/]builders[\\/]/,    // PDFs para clientes usan "Destinatario"
+  /[\\/]pages[\\/]dashboard[\\/]enlaces-acceso[\\/]/, // enlaces públicos usan "Destinatario"
+  /[\\/]pages[\\/]legal[\\/]/,            // páginas legales usan "Destinatario"
 ];
 
 const EXCLUDED_DIRS = new Set(['node_modules', 'dist', 'build', '.git']);

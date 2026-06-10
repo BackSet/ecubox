@@ -47,7 +47,7 @@ function resolveHeroVisual(
     return {
       tone: 'warning',
       icon: <RefreshCcw className="h-7 w-7" />,
-      kicker: 'Seguimiento especial',
+      kicker: 'Rastreo especial',
     };
   }
   if (completo) {
@@ -177,13 +177,13 @@ export function TrackingSummaryCard({
         </div>
       </div>
 
-      {/* Aviso de seguimiento especial (incidencia) */}
+      {/* Aviso de rastreo especial (incidencia) */}
       {result.flujoActual === 'ALTERNO' && result.motivoAlterno ? (
         <div className="border-t border-[var(--color-border)] bg-[color-mix(in_oklab,var(--color-warning)_7%,var(--color-card))] px-5 py-4 sm:px-6">
           <p className="flex items-start gap-2 text-sm text-[var(--color-foreground)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" />
             <span>
-              <span className="font-semibold">Seguimiento especial por una incidencia. </span>
+              <span className="font-semibold">Rastreo especial por una incidencia. </span>
               {result.motivoAlterno}
             </span>
           </p>

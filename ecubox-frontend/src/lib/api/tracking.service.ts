@@ -225,7 +225,7 @@ export async function getTrackingByCodigo(
     signal: options?.signal,
   });
   if (!res.ok) {
-    throw await parseError(res, 'No pudimos cargar el seguimiento.');
+    throw await parseError(res, 'No pudimos cargar el rastreo.');
   }
   return res.json();
 }

@@ -4,61 +4,80 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Estado agregado de la guia del consolidador (guia_master).
+ * Estado agregado de la guía master.
  *
- * <p>La mayoria de las transiciones se derivan de los conteos de piezas
- * (ver {@code GuiaMasterService.calcularEstado}), salvo
- * {@link #SIN_PIEZAS_REGISTRADAS} cuando aun no hay piezas. Tres estados son
- * <em>terminales</em> y deben ser establecidos manualmente o por un job:
- * {@link #DESPACHO_COMPLETADO}, {@link #DESPACHO_INCOMPLETO} y
- * {@link #CANCELADA}. El estado {@link #EN_REVISION} es una pausa
- * administrativa: mientras este activo, el recalculo automatico no se
- * sobreescribe (la guia se "congela" hasta que el operario la libere).
+ * <p>Flujo principal: PENDIENTE_VERIFICACION → (admin aprueba) → VERIFICADA →
+ * SIN_PAQUETES_REGISTRADOS / CON_PAQUETES_REGISTRADOS → ENVIO_PARCIAL / ENVIO_COMPLETO
+ * → RECEPCION_PARCIAL / RECEPCION_COMPLETA → DESPACHO_PARCIAL → DESPACHO_COMPLETADO.
+ *
+ * <p>Las guías creadas por admin/operario inician directamente en SIN_PAQUETES_REGISTRADOS
+ * (sin pasar por PENDIENTE_VERIFICACION). Las creadas por el cliente inician en
+ * PENDIENTE_VERIFICACION hasta que un admin las apruebe.
+ *
+ * <p>PENDIENTE_VERIFICACION y EN_REVISION son estados congelados: el recálculo automático
+ * no los sobreescribe. VERIFICADA NO es congelado; la aprobación desencadena recálculo
+ * inmediato hacia SIN_PAQUETES_REGISTRADOS o CON_PAQUETES_REGISTRADOS.
  */
 public enum EstadoGuiaMaster {
-    /**
-     * La guia existe pero aun no tiene piezas (paquetes) asociadas en el sistema.
-     * Distinto de {@link #EN_ESPERA_RECEPCION}, donde ya hay piezas y ninguna
-     * entro a recepcion en bodega.
-     */
-    SIN_PIEZAS_REGISTRADAS,
-    /** Hay piezas registradas pero ninguna salio de origen, entro a recepcion bodega ni fue despachada. */
-    EN_ESPERA_RECEPCION,
-    /** Al menos una pieza salio de origen dentro de un consolidado y aun no fue recibida en bodega. */
-    EN_TRANSITO_USA_ECUADOR,
-    /** Al menos una pieza recibida en bodega; otras siguen en camino. */
-    RECEPCION_PARCIAL,
-    /** Todas las piezas esperadas estan recibidas en bodega; ninguna despachada todavia. */
-    RECEPCION_COMPLETA,
-    /** Al menos una pieza ha sido despachada hacia el destino; faltan piezas. */
-    DESPACHO_PARCIAL,
-    /** Todas las piezas esperadas fueron despachadas. Estado terminal exitoso. */
-    DESPACHO_COMPLETADO,
-    /** Cerrada manualmente o por timeout aceptando que faltaron piezas por llegar. Estado terminal. */
-    DESPACHO_INCOMPLETO,
-    /** Anulada por el operario antes de despachar (error de registro, cliente la cancelo, etc.). Estado terminal. */
-    CANCELADA,
-    /** Pausa administrativa: el operario marco la guia para revision; el recalculo automatico no la sobreescribe. */
-    EN_REVISION;
 
-    /** Estados que indican que la guia ya no avanzara mas en el flujo automatico. */
+    /** Registrada por cliente; pendiente de aprobación por admin/operario. Estado congelado. */
+    PENDIENTE_VERIFICACION,
+
+    /**
+     * Aprobada por admin/operario. Estado transitorio: el recálculo inmediato la lleva
+     * a SIN_PAQUETES_REGISTRADOS o CON_PAQUETES_REGISTRADOS según paquetes existentes.
+     */
+    VERIFICADA,
+
+    /** Pausa administrativa: el operario marcó la guía para revisión; recálculo congelado. */
+    EN_REVISION,
+
+    /** Verificada/aprobada pero sin paquetes registrados aún. */
+    SIN_PAQUETES_REGISTRADOS,
+
+    /** Tiene paquetes registrados, ninguno asignado a un envío consolidado. */
+    CON_PAQUETES_REGISTRADOS,
+
+    /** Algunos paquetes de la guía están en un envío consolidado. */
+    ENVIO_PARCIAL,
+
+    /** Todos los paquetes registrados de la guía están en un envío consolidado. */
+    ENVIO_COMPLETO,
+
+    /** Al menos un paquete recibido en bodega; otros siguen en camino. */
+    RECEPCION_PARCIAL,
+
+    /** Todos los paquetes esperados están recibidos en bodega. */
+    RECEPCION_COMPLETA,
+
+    /** Al menos un paquete despachado; faltan paquetes. */
+    DESPACHO_PARCIAL,
+
+    /** Todos los paquetes fueron despachados. Estado terminal exitoso. */
+    DESPACHO_COMPLETADO,
+
+    /** Anulada por el operario. Estado terminal. */
+    CANCELADA;
+
+    /** Estados que indican que la guía ya no avanzará más en el flujo automático. */
     public static Set<EstadoGuiaMaster> terminales() {
-        return EnumSet.of(DESPACHO_COMPLETADO, DESPACHO_INCOMPLETO, CANCELADA);
+        return EnumSet.of(DESPACHO_COMPLETADO, CANCELADA);
     }
 
-    /** Estados que requieren auditoria de cierre (cerrada_en, tipo_cierre, etc.). */
+    /** Estados que requieren auditoría de cierre (cerrada_en, tipo_cierre, etc.). */
     public static Set<EstadoGuiaMaster> requierenAuditoriaCierre() {
         return terminales();
     }
 
     /**
-     * Estados en los que el recalculo automatico no debe sobreescribir
-     * el estado actual: terminales (porque ya estan finalizados) y
-     * EN_REVISION (porque es una pausa explicita).
+     * Estados en los que el recálculo automático no debe sobreescribir el estado actual.
+     * Incluye terminales (ya finalizados), EN_REVISION (pausa explícita) y
+     * PENDIENTE_VERIFICACION (requiere acción manual de admin/operario).
      */
     public static Set<EstadoGuiaMaster> congeladosParaRecalculo() {
         EnumSet<EstadoGuiaMaster> s = EnumSet.copyOf(terminales());
         s.add(EN_REVISION);
+        s.add(PENDIENTE_VERIFICACION);
         return s;
     }
 

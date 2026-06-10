@@ -17,7 +17,7 @@ export const MAX_MIS_GUIAS_BULK = 50;
  */
 export const miGuiasBulkSchema = z
   .object({
-    consignatarioId: positiveId('un consignatario'),
+    consignatarioId: positiveId('un destinatario'),
     guias: z
       .array(
         z.object({

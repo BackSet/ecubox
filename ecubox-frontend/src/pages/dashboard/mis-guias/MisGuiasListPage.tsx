@@ -71,7 +71,7 @@ const STATUS_TO_CHIP_TONE: Record<StatusTone, ChipFiltroTone> = {
 
 /** Solo se permite editar/eliminar mientras la guía esté en uno de estos estados. */
 function isEstadoEditableCliente(estado: EstadoGuiaMaster): boolean {
-  return estado === 'SIN_PIEZAS_REGISTRADAS' || estado === 'EN_ESPERA_RECEPCION';
+  return estado === 'SIN_PAQUETES_REGISTRADOS' || estado === 'CON_PAQUETES_REGISTRADOS' || estado === 'PENDIENTE_VERIFICACION';
 }
 const TOOLTIP_NO_EDITABLE =
   'Ya no es posible editar esta guía porque sus piezas están en proceso. Si necesitas un cambio, contáctanos.';
@@ -96,14 +96,16 @@ export function MisGuiasListPage() {
 
   const conteosPorEstado = useMemo(() => {
     const conteos: Record<EstadoGuiaMaster, number> = {
-      SIN_PIEZAS_REGISTRADAS: 0,
-      EN_ESPERA_RECEPCION: 0,
-      EN_TRANSITO_USA_ECUADOR: 0,
+      SIN_PAQUETES_REGISTRADOS: 0,
+      CON_PAQUETES_REGISTRADOS: 0,
+      PENDIENTE_VERIFICACION: 0,
+      VERIFICADA: 0,
+      ENVIO_PARCIAL: 0,
+      ENVIO_COMPLETO: 0,
       RECEPCION_PARCIAL: 0,
       RECEPCION_COMPLETA: 0,
       DESPACHO_PARCIAL: 0,
       DESPACHO_COMPLETADO: 0,
-      DESPACHO_INCOMPLETO: 0,
       CANCELADA: 0,
       EN_REVISION: 0,
     };
@@ -117,17 +119,19 @@ export function MisGuiasListPage() {
   // que tienen sentido para quien envia paquetes desde EE.UU.
   const stats = useMemo(() => {
     const c = conteosPorEstado;
-    const enEspera = (c.SIN_PIEZAS_REGISTRADAS ?? 0) + (c.EN_ESPERA_RECEPCION ?? 0);
+    const enEspera =
+      (c.SIN_PAQUETES_REGISTRADOS ?? 0) +
+      (c.CON_PAQUETES_REGISTRADOS ?? 0) +
+      (c.PENDIENTE_VERIFICACION ?? 0);
     const enBodega = (c.RECEPCION_PARCIAL ?? 0) + (c.RECEPCION_COMPLETA ?? 0);
-    const enTransitoUsaEc = c.EN_TRANSITO_USA_ECUADOR ?? 0;
-    const enCamino = enTransitoUsaEc + (c.DESPACHO_PARCIAL ?? 0);
-    const entregadas =
-      (c.DESPACHO_COMPLETADO ?? 0) + (c.DESPACHO_INCOMPLETO ?? 0);
+    const enEnvio = (c.ENVIO_PARCIAL ?? 0) + (c.ENVIO_COMPLETO ?? 0);
+    const enCamino = enEnvio + (c.DESPACHO_PARCIAL ?? 0);
+    const entregadas = c.DESPACHO_COMPLETADO ?? 0;
     return {
       total: guias.length,
       enEspera,
       enBodega,
-      enTransitoUsaEc,
+      enEnvio,
       enCamino,
       entregadas,
     };
@@ -272,7 +276,7 @@ export function MisGuiasListPage() {
           }
           description={
             guias.length === 0
-              ? 'Registra el número de guía que envías desde tu casillero y asígnale un consignatario para hacer seguimiento.'
+              ? 'Registra el número de guía que envías desde tu casillero y asígnale un destinatario para conocer su avance.'
               : estadoFiltro !== 'TODAS'
                 ? 'Cambia el filtro para ver tus otras guías.'
                 : 'Prueba con otro término de búsqueda.'

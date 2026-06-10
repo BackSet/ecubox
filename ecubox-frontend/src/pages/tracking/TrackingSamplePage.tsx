@@ -49,7 +49,7 @@ export function TrackingSamplePage() {
             badge="Demostración"
             badgeIcon={FlaskConical}
             title="Ejemplos de rastreo"
-            description="Explora cómo se ve el seguimiento público con guías de muestra. Toda la información mostrada es ficticia."
+            description="Explora cómo se ve el rastreo público con guías de muestra. Toda la información mostrada es ficticia."
           />
 
           <PublicSupportStrip />

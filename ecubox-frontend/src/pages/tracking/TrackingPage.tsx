@@ -101,7 +101,7 @@ export function TrackingPage() {
         return;
       }
       const message =
-        err instanceof Error ? err.message : 'No pudimos cargar el seguimiento en este momento.';
+        err instanceof Error ? err.message : 'No pudimos cargar el rastreo en este momento.';
       const status = (err as Error & { status?: number })?.status;
       if (status === 429) {
         notify.warning(message, { duration: 6000 });

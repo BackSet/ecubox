@@ -73,7 +73,7 @@ class TrackingEtagTest {
     void of_distintoTipo_distintoEtag() {
         TrackingResponse pieza = TrackingResponse.builder().numeroGuia("X").estadoActualId(1L).build();
         TrackingMasterResponse master = TrackingMasterResponse.builder()
-                .trackingBase("X").estadoGlobal(EstadoGuiaMaster.EN_ESPERA_RECEPCION).build();
+                .trackingBase("X").estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
         assertNotEquals(
                 TrackingEtag.of(TrackingResolveResponse.ofPieza(pieza)),
                 TrackingEtag.of(TrackingResolveResponse.ofMaster(master)));

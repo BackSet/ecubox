@@ -61,6 +61,7 @@ interface Props {
   onSelectedOptionChange: (value: string) => void;
   optionLabel: string;
   optionHelp?: ReactNode;
+  headerExtra?: ReactNode;
   filters?: AplicarEstadoFilter[];
   hideModoSelector?: boolean;
   periodHelp: ReactNode;
@@ -96,6 +97,7 @@ export function AplicarEstadoMasivoDialog({
   onSelectedOptionChange,
   optionLabel,
   optionHelp,
+  headerExtra,
   filters = [],
   hideModoSelector = false,
   periodHelp,
@@ -180,6 +182,7 @@ export function AplicarEstadoMasivoDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {headerExtra}
           {!hideModoSelector && (
             <div className="inline-flex w-full rounded-lg border border-border bg-muted/30 p-1 text-sm">
               <button

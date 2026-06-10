@@ -67,3 +67,27 @@ export interface PaqueteUpdateRequest {
   guiaMasterId?: number;
   piezaNumero?: number;
 }
+
+/**
+ * Resumen liviano del listado de paquetes (KPIs del universo, conteos por chip
+ * respetando filtros estructurales y opciones de filtro). Sustituye la descarga
+ * del dataset completo en el cliente; la tabla se sirve por `/page`.
+ */
+export interface PaqueteResumen {
+  total: number;
+  conPeso: number;
+  sinPeso: number;
+  vencidos: number;
+  consignatariosDistintos: number;
+  chips: {
+    todos: number;
+    sinPeso: number;
+    conPeso: number;
+    sinGuiaMaster: number;
+    vencidos: number;
+  };
+  estados: { codigo: string; nombre: string }[];
+  consignatarios: { id: number; nombre: string }[];
+  codigosEnvio: string[];
+  guiasMaster: { id: number; trackingBase: string }[];
+}

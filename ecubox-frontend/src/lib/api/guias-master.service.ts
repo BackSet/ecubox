@@ -113,6 +113,11 @@ export async function obtenerDashboardGuiasMaster(
   return data;
 }
 
+export async function aprobarGuiaMaster(id: number): Promise<GuiaMaster> {
+  const { data } = await apiClient.post<GuiaMaster>(`${BASE}/${id}/aprobar`);
+  return data;
+}
+
 export async function cancelarGuiaMaster(
   id: number,
   body: GuiaMasterCancelarRequest

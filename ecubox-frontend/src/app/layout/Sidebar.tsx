@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
-import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronDown, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
   const { hasPermission } = useAuthStore();
   const isAcceso = useAuthStore((s) => s.isAcceso);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const visibleGroups = getVisibleNavGroups(hasPermission, { onlyWithPermission: isAcceso });
 
@@ -102,33 +103,107 @@ export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
               />
             )}
             <div className="space-y-0.5">
-              {group.items.map(({ to, label, icon: Icon, exact }) => {
+              {group.items.map(({ to, label, icon: Icon, exact, children }) => {
                 const active = isActive(to, exact);
+                const hasChildren = !!children && children.length > 0;
+                const childActiveDefault =
+                  hasChildren &&
+                  children.some((child) => pathname === child.to || pathname.startsWith(child.to + '/'));
+                const isOpen = expanded[to] ?? childActiveDefault;
                 return (
-                  <Link
-                    key={to}
-                    to={to}
-                    onClick={handleNavigate}
-                    activeOptions={{ exact: !!exact }}
-                    title={label}
-                    aria-current={active ? 'page' : undefined}
-                    className={cn(
-                      'group/item relative flex h-8 min-w-0 items-center gap-2 rounded-md px-2 text-[13px] transition-colors',
-                      active
-                        ? 'bg-[var(--color-sidebar-hover)] font-medium text-[var(--color-foreground)]'
-                        : 'font-normal text-[var(--color-sidebar-foreground)]/85 hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-foreground)]',
-                      effectiveCollapsed && 'justify-center px-0'
+                  <div key={to}>
+                    <div className="flex min-w-0 items-center gap-0.5">
+                      {hasChildren ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (effectiveCollapsed) {
+                              setCollapsed(false);
+                              setExpanded((prev) => ({ ...prev, [to]: true }));
+                            } else {
+                              setExpanded((prev) => ({ ...prev, [to]: !isOpen }));
+                            }
+                          }}
+                          title={label}
+                          className={cn(
+                            'group/item relative flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-[13px] transition-colors text-left',
+                            active && effectiveCollapsed
+                              ? 'bg-[var(--color-sidebar-hover)] font-medium text-[var(--color-foreground)]'
+                              : 'font-normal text-[var(--color-sidebar-foreground)]/85 hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-foreground)]',
+                            effectiveCollapsed && 'justify-center px-0'
+                          )}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {!effectiveCollapsed && (
+                            <>
+                              <span className="min-w-0 truncate flex-1 text-left">{label}</span>
+                              <ChevronDown
+                                className={cn(
+                                  'h-3.5 w-3.5 transition-transform text-[var(--color-sidebar-foreground)]/60 group-hover/item:text-[var(--color-foreground)]',
+                                  !isOpen && '-rotate-90'
+                                )}
+                              />
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <Link
+                          to={to}
+                          onClick={handleNavigate}
+                          activeOptions={{ exact: !!exact }}
+                          title={label}
+                          aria-current={active ? 'page' : undefined}
+                          className={cn(
+                            'group/item relative flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-[13px] transition-colors',
+                            active
+                              ? 'bg-[var(--color-sidebar-hover)] font-medium text-[var(--color-foreground)]'
+                              : 'font-normal text-[var(--color-sidebar-foreground)]/85 hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-foreground)]',
+                            effectiveCollapsed && 'justify-center px-0'
+                          )}
+                        >
+                          {active && !effectiveCollapsed && (
+                            <span
+                              className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r bg-[var(--color-primary)]"
+                              aria-hidden
+                            />
+                          )}
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {!effectiveCollapsed && <span className="min-w-0 truncate">{label}</span>}
+                        </Link>
+                      )}
+                    </div>
+                    {hasChildren && !effectiveCollapsed && isOpen && (
+                      <div className="mt-0.5 ml-3 space-y-0.5 border-l border-[var(--color-sidebar-border)] pl-2">
+                        {children.map((child) => {
+                          const childActive = pathname === child.to;
+                          const ChildIcon = child.icon;
+                          return (
+                            <Link
+                              key={child.to}
+                              to={child.to}
+                              onClick={handleNavigate}
+                              aria-current={childActive ? 'page' : undefined}
+                              className={cn(
+                                'group/item relative flex h-7 min-w-0 items-center gap-2 rounded-md px-2 text-[12.5px] transition-colors',
+                                childActive
+                                  ? 'bg-[var(--color-sidebar-hover)] font-medium text-[var(--color-foreground)]'
+                                  : 'font-normal text-[var(--color-sidebar-foreground)]/75 hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-foreground)]',
+                              )}
+                            >
+                              {childActive && (
+                                <span
+                                  className="absolute left-0 top-1/2 h-3.5 w-0.5 -translate-y-1/2 rounded-r bg-[var(--color-primary)]"
+                                  aria-hidden
+                                />
+                              )}
+                              <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                              <span className="min-w-0 truncate">{child.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     )}
-                  >
-                    {active && !effectiveCollapsed && (
-                      <span
-                        className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r bg-[var(--color-primary)]"
-                        aria-hidden
-                      />
-                    )}
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {!effectiveCollapsed && <span className="min-w-0 truncate">{label}</span>}
-                  </Link>
+                  </div>
                 );
               })}
             </div>

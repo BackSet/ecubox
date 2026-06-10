@@ -98,7 +98,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
   ];
 
   renderer.drawHero({
-    docType: 'Comprobante de seguimiento',
+    docType: 'Comprobante de rastreo',
     reference: pdfSafe(data.numeroGuia),
     statusLabel: pdfSafe(data.estadoRastreoNombre),
     statusVariant: 'accent',
@@ -295,6 +295,6 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     renderer.drawKeyValueGrid(entregaRows);
   }
 
-  renderer.drawFooters(`Guía ${pdfSafe(data.numeroGuia)} · Comprobante de seguimiento`);
+  renderer.drawFooters(`Guía ${pdfSafe(data.numeroGuia)} · Comprobante de rastreo`);
   return doc;
 }

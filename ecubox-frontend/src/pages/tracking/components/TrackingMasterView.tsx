@@ -28,14 +28,16 @@ interface TrackingMasterViewProps {
 }
 
 const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
-  SIN_PIEZAS_REGISTRADAS: 'Sin piezas registradas',
-  EN_ESPERA_RECEPCION: 'En espera de recepción',
-  EN_TRANSITO_USA_ECUADOR: 'En camino a Ecuador',
+  SIN_PAQUETES_REGISTRADOS: 'Sin paquetes registrados',
+  CON_PAQUETES_REGISTRADOS: 'En espera de envío',
+  PENDIENTE_VERIFICACION: 'Pendiente de verificación',
+  VERIFICADA: 'Verificada',
+  ENVIO_PARCIAL: 'En camino a Ecuador (parcial)',
+  ENVIO_COMPLETO: 'En camino a Ecuador',
   RECEPCION_PARCIAL: 'Recepción parcial',
   RECEPCION_COMPLETA: 'Recepción completa',
   DESPACHO_PARCIAL: 'En despacho parcial',
   DESPACHO_COMPLETADO: 'Despacho completado',
-  DESPACHO_INCOMPLETO: 'Despacho incompleto',
   CANCELADA: 'Cancelada',
   EN_REVISION: 'En revisión',
 };

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import {
   CalendarClock,
@@ -23,18 +23,26 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { SurfaceCard } from '@/components/ui/surface-card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { EmptyState } from '@/components/EmptyState';
-import { KpiCard } from '@/components/KpiCard';
-import { KpiCardsGrid } from '@/components/KpiCardsGrid';
-import { PageHeader } from '@/components/PageHeader';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import { obtenerMiDespacho } from '@/lib/api/mis-despachos.service';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useConfirmarEntrega, useMisDespachos } from '@/hooks/useMisDespachos';
 import type { MiDespacho } from '@/types/mis-despacho';
+import { TablePagination } from '@/components/ui/TablePagination';
+import { TableRowsSkeleton } from '@/components/TableRowsSkeleton';
+import {
+  ListToolbar,
+  ListTableShell,
+  FiltrosBar,
+  ChipFiltro,
+  KpiCard,
+  KpiCardsGrid,
+  EmptyState,
+  PageErrorState,
+  InlineErrorBanner,
+} from '@/components/page-components';
 
 const TIPO_LABELS: Record<string, string> = {
   DOMICILIO: 'Domicilio',
@@ -65,7 +73,7 @@ function formatFecha(fecha?: string | null): string {
 
 export function MisEntregasPage() {
   const navigate = useNavigate();
-  const { data: despachos = [], isLoading, error, refetch } = useMisDespachos();
+  const { data: despachos = [], isLoading, isFetching, error, refetch } = useMisDespachos();
   const confirmar = useConfirmarEntrega();
   const puedeConfirmar = useAuthStore((s) => s.hasPermission('MIS_ENTREGAS_CONFIRM'));
   const puedeExportar = useAuthStore(
@@ -75,6 +83,15 @@ export function MisEntregasPage() {
   );
   const [exportingId, setExportingId] = useState<{ id: number; mode: 'pdf' | 'print' | 'xlsx' } | null>(null);
 
+  const [search, setSearchRaw] = useState('');
+  const [estadoFiltro, setEstadoFiltroRaw] = useState<'TODAS' | 'PENDIENTES' | 'CONFIRMADOS'>('TODAS');
+  const [page, setPage] = useState(0);
+  const [size, setSizeRaw] = useState(25);
+
+  const setSearch = (v: string) => { setSearchRaw(v); setPage(0); };
+  const setEstadoFiltro = (v: 'TODAS' | 'PENDIENTES' | 'CONFIRMADOS') => { setEstadoFiltroRaw(v); setPage(0); };
+  const setSize = (v: number) => { setSizeRaw(v); setPage(0); };
+
   const stats = useMemo(() => {
     const totalPiezas = despachos.reduce((total, d) => total + d.totalPiezas, 0);
     const pendientes = despachos.filter((d) => !d.entregaConfirmada).length;
@@ -82,6 +99,9 @@ export function MisEntregasPage() {
     const confirmados = despachos.filter((d) => d.entregaConfirmada).length;
     return { totalPiezas, pendientes, confirmables, confirmados };
   }, [despachos]);
+
+  const countPendientes = useMemo(() => despachos.filter(d => !d.entregaConfirmada).length, [despachos]);
+  const countConfirmados = useMemo(() => despachos.filter(d => d.entregaConfirmada).length, [despachos]);
 
   const onConfirmar = async (id: number) => {
     try {
@@ -118,82 +138,153 @@ export function MisEntregasPage() {
     }
   };
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return despachos.filter((d) => {
+      if (estadoFiltro === 'PENDIENTES' && d.entregaConfirmada) return false;
+      if (estadoFiltro === 'CONFIRMADOS' && !d.entregaConfirmada) return false;
+
+      if (!q) return true;
+      const idStr = String(d.despachoId);
+      const tipoStr = tipoLabel(d.tipoEntrega).toLowerCase();
+      return idStr.includes(q) || tipoStr.includes(q);
+    });
+  }, [despachos, search, estadoFiltro]);
+
+  const pagedFiltered = useMemo(
+    () => filtered.slice(page * size, page * size + size),
+    [filtered, page, size],
+  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / Math.max(1, size)));
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(totalPages - 1);
+  }, [page, totalPages]);
+
+  if (error && !despachos.length) {
+    return (
+      <PageErrorState
+        message="No se pudieron cargar tus despachos"
+        hint="Verifica tu conexión o intenta de nuevo."
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
+    );
+  }
+
   return (
     <div className="page-stack">
-      <PageHeader
+      <ListToolbar
         title="Mis entregas"
         description="Consulta tus despachos y confirma la entrega cuando recibas tus paquetes."
-        icon={<Truck className="h-5 w-5" strokeWidth={1.75} />}
-        actions={
-          error ? (
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Reintentar
-            </Button>
-          ) : undefined
-        }
+        searchPlaceholder="Buscar por despacho o tipo..."
+        value={search}
+        onSearchChange={setSearch}
       />
 
-      {!isLoading && !error && despachos.length > 0 && <KpiCardsGrid>
-        <KpiCard
-          icon={<Truck className="h-5 w-5" />}
-          label="Despachos"
-          value={despachos.length}
-          tone="primary"
-          hint="Despachos asociados a tus piezas"
+      {error && (
+        <InlineErrorBanner
+          message="No se pudieron actualizar tus despachos"
+          hint="Mostrando los resultados anteriores. Reintentando en segundo plano."
+          onRetry={() => refetch()}
+          retrying={isFetching}
         />
-        <KpiCard
-          icon={<PackageIcon className="h-5 w-5" />}
-          label="Piezas"
-          value={stats.totalPiezas}
-          tone="neutral"
-          hint="Total de piezas visibles para tu cuenta"
-        />
-        <KpiCard
-          icon={<CheckCircle2 className="h-5 w-5" />}
-          label="Confirmables"
-          value={stats.confirmables}
-          tone={stats.confirmables > 0 ? 'info' : 'neutral'}
-          hint="Listas para confirmar al recibirlas"
-        />
-        <KpiCard
-          icon={<PackageCheck className="h-5 w-5" />}
-          label="Confirmados"
-          value={stats.confirmados}
-          tone={stats.confirmados > 0 ? 'success' : 'neutral'}
-          hint={`${stats.pendientes} pendiente${stats.pendientes === 1 ? '' : 's'}`}
-        />
-      </KpiCardsGrid>}
+      )}
 
-      <SurfaceCard className="overflow-hidden p-0">
-        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-4 py-3 sm:px-5">
-          <Truck className="h-4 w-4 text-[var(--color-primary)]" strokeWidth={1.75} />
-          <h2 className="text-sm font-semibold text-[var(--color-foreground)]">Despachos</h2>
-          <span className="rounded bg-[var(--color-muted)] px-1.5 py-0.5 text-xs font-medium text-[var(--color-muted-foreground)]">
-            {despachos.length}
-          </span>
-        </div>
+      {!isLoading && despachos.length > 0 && (
+        <KpiCardsGrid>
+          <KpiCard
+            icon={<Truck className="h-5 w-5" />}
+            label="Despachos"
+            value={despachos.length}
+            tone="primary"
+            hint="Despachos asociados a tus piezas"
+          />
+          <KpiCard
+            icon={<PackageIcon className="h-5 w-5" />}
+            label="Piezas"
+            value={stats.totalPiezas}
+            tone="neutral"
+            hint="Total de piezas visibles para tu cuenta"
+          />
+          <KpiCard
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            label="Confirmables"
+            value={stats.confirmables}
+            tone={stats.confirmables > 0 ? 'info' : 'neutral'}
+            hint="Listas para confirmar al recibirlas"
+          />
+          <KpiCard
+            icon={<PackageCheck className="h-5 w-5" />}
+            label="Confirmados"
+            value={stats.confirmados}
+            tone={stats.confirmados > 0 ? 'success' : 'neutral'}
+            hint={`${stats.pendientes} pendiente${stats.pendientes === 1 ? '' : 's'}`}
+          />
+        </KpiCardsGrid>
+      )}
 
-        {isLoading ? (
-          <div className="space-y-2 p-4" aria-busy="true" aria-live="polite">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-12 animate-pulse rounded-md bg-[var(--color-muted)]/60" />
-            ))}
-            <span className="sr-only">Cargando tus despachos...</span>
-          </div>
-        ) : error ? (
-          <div className="p-4">
-            <div className="ui-alert ui-alert-error">No se pudieron cargar tus despachos.</div>
-          </div>
-        ) : despachos.length === 0 ? (
-          <div className="p-4">
-            <EmptyState
-              icon={PackageCheck}
-              title="No tienes despachos en camino"
-              description="Cuando tengas un envío en despacho aparecerá aquí para que consultes, imprimas o confirmes su entrega."
-            />
-          </div>
-        ) : (
-          <div className="table-responsive">
+      {!isLoading && despachos.length > 0 && (
+        <FiltrosBar
+          hayFiltrosActivos={estadoFiltro !== 'TODAS'}
+          onLimpiar={() => setEstadoFiltro('TODAS')}
+          chips={
+            <>
+              <ChipFiltro
+                label="Todos"
+                active={estadoFiltro === 'TODAS'}
+                onClick={() => setEstadoFiltro('TODAS')}
+                count={despachos.length}
+              />
+              <ChipFiltro
+                label="Pendientes"
+                active={estadoFiltro === 'PENDIENTES'}
+                onClick={() => setEstadoFiltro('PENDIENTES')}
+                count={countPendientes}
+                tone="primary"
+              />
+              <ChipFiltro
+                label="Confirmados"
+                active={estadoFiltro === 'CONFIRMADOS'}
+                onClick={() => setEstadoFiltro('CONFIRMADOS')}
+                count={countConfirmados}
+                tone="success"
+              />
+            </>
+          }
+        />
+      )}
+
+      {isLoading ? (
+        <ListTableShell>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Despacho</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Piezas</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-[260px] text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRowsSkeleton columns={6} rows={5} />
+            </TableBody>
+          </Table>
+        </ListTableShell>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={PackageCheck}
+          title={search || estadoFiltro !== 'TODAS' ? "No se encontraron resultados" : "No tienes despachos en camino"}
+          description={
+            search || estadoFiltro !== 'TODAS'
+              ? "Prueba cambiando los filtros o el término de búsqueda."
+              : "Cuando tengas un envío en despacho aparecerá aquí para que consultes, imprimas o confirmes su entrega."
+          }
+        />
+      ) : (
+        <>
+          <ListTableShell>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -206,7 +297,7 @@ export function MisEntregasPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {despachos.map((d) => (
+                {pagedFiltered.map((d) => (
                   <TableRow key={d.despachoId}>
                     <TableCell>
                       <div className="flex min-w-0 items-center gap-2">
@@ -267,9 +358,20 @@ export function MisEntregasPage() {
                 ))}
               </TableBody>
             </Table>
-          </div>
-        )}
-      </SurfaceCard>
+          </ListTableShell>
+
+          {filtered.length > 0 && (
+            <TablePagination
+              page={page}
+              size={size}
+              totalElements={filtered.length}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onSizeChange={setSize}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }

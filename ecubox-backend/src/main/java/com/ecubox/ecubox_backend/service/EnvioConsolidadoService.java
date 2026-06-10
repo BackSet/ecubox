@@ -216,6 +216,9 @@ public class EnvioConsolidadoService {
             paqueteService.aplicarEstadoAsociarEnvioConsolidado(idsAsociados);
         }
         recalcularTotales(envio);
+        if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.VACIO) {
+            envio.setEstadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION);
+        }
         EnvioConsolidado guardado = envioConsolidadoRepository.save(envio);
         String codigoConsolidado = Strings.trimOrNull(guardado.getCodigo());
         if (codigoConsolidado != null
@@ -246,12 +249,37 @@ public class EnvioConsolidadoService {
         }
         paqueteRepository.saveAll(paquetes);
         recalcularTotales(envio);
+        if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.EN_PREPARACION
+                && (envio.getTotalPaquetes() == null || envio.getTotalPaquetes() == 0)) {
+            envio.setEstadoOperativo(EstadoEnvioConsolidadoOperativo.VACIO);
+        }
         return envioConsolidadoRepository.save(envio);
     }
 
     @Transactional(readOnly = true)
     public List<EstadoRastreoDTO> listarEstadosAplicables() {
         return paqueteService.listarEstadosPosterioresAAsociacionConsolidado();
+    }
+
+    /**
+     * Ids de los consolidados elegibles para aplicar el estado de rastreo
+     * {@code estadoRastreoId} a sus paquetes, aplicando la regla de "ir de 1
+     * en 1": solo se listan consolidados con paquetes en el estado de
+     * rastreo inmediatamente anterior (ver {@link PaqueteService#resolverEstadoOrigenParaEstadoRastreoConsolidado}).
+     */
+    @Transactional(readOnly = true)
+    public List<Long> listarElegiblesParaEstadoRastreo(Long estadoRastreoId) {
+        if (estadoRastreoId == null) {
+            throw new BadRequestException("Seleccione el estado a aplicar");
+        }
+        PaqueteService.EstadoOrigenConsolidado origen =
+                paqueteService.resolverEstadoOrigenParaEstadoRastreoConsolidado(estadoRastreoId);
+        if (origen.estadoOrigenId() == null && !origen.incluirArribadosEcuador()) {
+            return envioConsolidadoRepository.findAllIdsConPaquetes();
+        }
+        return envioConsolidadoRepository.findIdsElegiblesParaEstadoRastreo(
+                origen.estadoOrigenId(),
+                origen.incluirArribadosEcuador() ? EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR : null);
     }
 
     @Transactional
@@ -284,9 +312,11 @@ public class EnvioConsolidadoService {
 
     /**
      * Aplica una transición de estado OPERATIVO a consolidados (por ids o por periodo
-     * de creación). Solo admite los destinos con acción real: ENVIADO_DESDE_USA
-     * (enviar desde USA) y EN_PREPARACION (reabrir). Cada consolidado debe estar en
-     * el estado de origen correspondiente; los que no, se devuelven como rechazados.
+     * de creación). Solo admite los destinos con acción real: CERRADO (cerrar),
+     * ENVIADO_DESDE_USA (enviar desde USA), ARRIBADO_ECUADOR (arribar a Ecuador),
+     * EN_PREPARACION (reabrir) y CANCELADO (cancelar, desde cualquier estado salvo
+     * LIQUIDADO o CANCELADO). Cada consolidado debe estar en el estado de origen
+     * correspondiente; los que no, se devuelven como rechazados.
      */
     @Transactional
     public AplicarTransicionConsolidadosResponse aplicarTransicionOperativa(
@@ -301,14 +331,12 @@ public class EnvioConsolidadoService {
         } catch (IllegalArgumentException e) {
             throw new BadRequestException("Estado operativo destino no válido");
         }
-        EstadoEnvioConsolidadoOperativo fuente;
-        if (destino == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA) {
-            fuente = EstadoEnvioConsolidadoOperativo.EN_PREPARACION;
-        } else if (destino == EstadoEnvioConsolidadoOperativo.EN_PREPARACION) {
-            fuente = EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA;
-        } else {
-            throw new BadRequestException(
-                    "Solo se puede aplicar 'Enviado desde USA' o 'En preparación' como transición manual");
+        boolean destinoValido = switch (destino) {
+            case CERRADO, ENVIADO_DESDE_USA, ARRIBADO_ECUADOR, EN_PREPARACION, CANCELADO -> true;
+            default -> false;
+        };
+        if (!destinoValido) {
+            throw new BadRequestException("Transición manual no soportada para destino: " + destino.name());
         }
 
         boolean periodo = fechaInicio != null && fechaFin != null;
@@ -332,21 +360,14 @@ public class EnvioConsolidadoService {
         int procesados = 0;
         List<AplicarTransicionConsolidadosResponse.RechazoConsolidado> rechazados = new ArrayList<>();
         for (EnvioConsolidado envio : universo) {
-            long total = paqueteRepository.countByEnvioConsolidadoId(envio.getId());
-            EstadoEnvioConsolidadoOperativo actual = estadoConsolidadoOperativoResolver.resolve(envio, total);
-            if (actual != fuente) {
-                rechazados.add(AplicarTransicionConsolidadosResponse.RechazoConsolidado.builder()
-                        .consolidadoId(envio.getId())
-                        .codigo(envio.getCodigo())
-                        .motivo("No está en estado '" + fuente.name() + "'")
-                        .build());
-                continue;
-            }
             try {
-                if (destino == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA) {
-                    enviarDesdeUsa(envio.getId(), null);
-                } else {
-                    reabrir(envio.getId());
+                switch (destino) {
+                    case CERRADO -> cerrarConsolidado(envio.getId());
+                    case ENVIADO_DESDE_USA -> enviarDesdeUsa(envio.getId(), null);
+                    case ARRIBADO_ECUADOR -> marcarArribadoEcuador(envio.getId(), null);
+                    case EN_PREPARACION -> reabrir(envio.getId());
+                    case CANCELADO -> cancelarConsolidado(envio.getId());
+                    default -> throw new BadRequestException("Transición no soportada: " + destino);
                 }
                 procesados++;
             } catch (BadRequestException ex) {
@@ -363,14 +384,46 @@ public class EnvioConsolidadoService {
                 .build();
     }
 
-    /** Marca el envio como enviado desde USA y bloquea cambios de paquetes. */
+    /**
+     * Cierra el consolidado para registro (EN_PREPARACION → CERRADO). Aplica
+     * el estado configurable "Manifestado" a todos los paquetes del consolidado.
+     */
+    @Transactional
+    public EnvioConsolidado cerrarConsolidado(Long envioId) {
+        EnvioConsolidado envio = findById(envioId);
+        if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.CERRADO) {
+            return envio;
+        }
+        if (envio.getEstadoOperativo() != EstadoEnvioConsolidadoOperativo.EN_PREPARACION) {
+            throw new BadRequestException("Solo se puede cerrar un envío en preparación. Estado actual: "
+                    + envio.getEstadoOperativo());
+        }
+        LocalDateTime ahora = LocalDateTime.now();
+        envio.setEstadoOperativo(EstadoEnvioConsolidadoOperativo.CERRADO);
+        envio.setFechaCierre(ahora);
+        recalcularTotales(envio);
+        EnvioConsolidado guardado = envioConsolidadoRepository.save(envio);
+        List<Paquete> paquetes = paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(envio.getId());
+        if (!paquetes.isEmpty()) {
+            List<Long> ids = paquetes.stream().map(Paquete::getId).toList();
+            paqueteService.aplicarEstadoCierreConsolidado(ids, ahora);
+        }
+        return guardado;
+    }
+
+    /** Marca el envío como enviado desde USA (CERRADO → ENVIADO_DESDE_USA). */
     @Transactional
     public EnvioConsolidado enviarDesdeUsa(Long envioId, LocalDateTime fechaEvento) {
         EnvioConsolidado envio = findById(envioId);
-        if (envio.isCerrado()) {
+        if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA) {
             return envio;
         }
+        if (envio.getEstadoOperativo() != EstadoEnvioConsolidadoOperativo.CERRADO) {
+            throw new BadRequestException("Solo se puede marcar como enviado un envío cerrado. Estado actual: "
+                    + envio.getEstadoOperativo());
+        }
         LocalDateTime fechaSalidaUsa = fechaEvento != null ? fechaEvento : LocalDateTime.now();
+        envio.setEstadoOperativo(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA);
         envio.setFechaCerrado(fechaSalidaUsa);
         recalcularTotales(envio);
         EnvioConsolidado guardado = envioConsolidadoRepository.save(envio);
@@ -382,6 +435,44 @@ public class EnvioConsolidadoService {
         return guardado;
     }
 
+    /** Registra el arribo a Ecuador / aduana destino (ENVIADO_DESDE_USA → ARRIBADO_ECUADOR). */
+    @Transactional
+    public EnvioConsolidado marcarArribadoEcuador(Long envioId, LocalDateTime fechaEvento) {
+        EnvioConsolidado envio = findById(envioId);
+        if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR) {
+            return envio;
+        }
+        if (envio.getEstadoOperativo() != EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA) {
+            throw new BadRequestException(
+                    "Solo se puede registrar el arribo de un envío enviado desde USA. Estado actual: "
+                            + envio.getEstadoOperativo());
+        }
+        LocalDateTime fechaArribo = fechaEvento != null ? fechaEvento : LocalDateTime.now();
+        envio.setEstadoOperativo(EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR);
+        envio.setFechaArriboEcuador(fechaArribo);
+        EnvioConsolidado guardado = envioConsolidadoRepository.save(envio);
+        List<Paquete> paquetes = paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(envio.getId());
+        if (!paquetes.isEmpty()) {
+            List<Long> ids = paquetes.stream().map(Paquete::getId).toList();
+            paqueteService.aplicarEstadoArriboEcuador(ids, fechaArribo);
+        }
+        return guardado;
+    }
+
+    /** Cancela el consolidado desde cualquier estado, salvo LIQUIDADO o CANCELADO. */
+    @Transactional
+    public EnvioConsolidado cancelarConsolidado(Long envioId) {
+        EnvioConsolidado envio = findById(envioId);
+        EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
+        if (actual == EstadoEnvioConsolidadoOperativo.LIQUIDADO
+                || actual == EstadoEnvioConsolidadoOperativo.CANCELADO) {
+            throw new BadRequestException(
+                    "No se puede cancelar un envío liquidado o ya cancelado. Estado actual: " + actual);
+        }
+        envio.setEstadoOperativo(EstadoEnvioConsolidadoOperativo.CANCELADO);
+        return envioConsolidadoRepository.save(envio);
+    }
+
     /** @deprecated Usar {@link #enviarDesdeUsa(Long, LocalDateTime)}. */
     @Deprecated
     @Transactional
@@ -390,48 +481,57 @@ public class EnvioConsolidadoService {
     }
 
     /**
-     * Revierte la salida USA. Util para correcciones del operario; no hay validacion
-     * de "ya pasado mucho tiempo" porque no hay maquina de estados.
+     * Revierte el envío a EN_PREPARACION desde CERRADO o ENVIADO_DESDE_USA.
      *
-     * <p>Reglas de negocio asociadas:
+     * <p>Reglas:
      * <ul>
-     *   <li>Si el consolidado pertenece a una liquidacion <strong>pagada</strong>
-     *       no se permite reabrir: el operario debe primero desmarcar el pago
-     *       de esa liquidacion (que es el documento maestro). Esto evita
-     *       inconsistencias del tipo "consolidado en preparacion pero su liquidacion
-     *       sigue pagada".</li>
-     *   <li>Reabrir es la operacion simetrica de "marcar liquidacion como
-     *       pagada" (que marca salida USA y pagado). Por simetria, al reabrir
-     *       tambien se vuelve {@code estadoPago = NO_PAGADO} para dejar al
-     *       consolidado en su estado original.</li>
+     *   <li>Si pertenece a una liquidación pagada, no se puede reabrir desde
+     *       ENVIADO_DESDE_USA (el operario debe desmarcar el pago primero).</li>
+     *   <li>Al reabrir desde ENVIADO_DESDE_USA también se revierte estadoPago a
+     *       NO_PAGADO por simetría con la operación de marcar pagado.</li>
      * </ul>
      */
     @Transactional
     public EnvioConsolidado reabrir(Long envioId) {
         EnvioConsolidado envio = findById(envioId);
-        if (envio.isAbierto()) {
+        EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
+        if (actual == EstadoEnvioConsolidadoOperativo.EN_PREPARACION
+                || actual == EstadoEnvioConsolidadoOperativo.VACIO) {
             return envio;
         }
-        // Si esta dentro de una liquidacion pagada, bloquear la reapertura operativa.
-        liquidacionConsolidadoLineaRepository.findByEnvioConsolidadoId(envioId)
-                .map(LiquidacionConsolidadoLinea::getLiquidacion)
-                .filter(liq -> liq.getEstadoPago() == EstadoPagoConsolidado.PAGADO)
-                .ifPresent(liq -> {
-                    throw new BadRequestException(
-                            "No se puede reabrir el consolidado porque pertenece a la "
-                                    + "liquidacion " + liq.getCodigo()
-                                    + " que esta marcada como pagada. "
-                                    + "Desmarca el pago de esa liquidacion primero.");
-                });
-        envio.setFechaCerrado(null);
-        if (envio.getEstadoPago() != EstadoPagoConsolidado.NO_PAGADO) {
-            envio.setEstadoPago(EstadoPagoConsolidado.NO_PAGADO);
+        if (actual != EstadoEnvioConsolidadoOperativo.CERRADO
+                && actual != EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA) {
+            throw new BadRequestException(
+                    "Solo se puede reabrir un envío cerrado o enviado desde USA. Estado actual: " + actual);
         }
+        boolean veniaDeEnviado = actual == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA;
+        if (veniaDeEnviado) {
+            // Si esta dentro de una liquidacion pagada, bloquear la reapertura.
+            liquidacionConsolidadoLineaRepository.findByEnvioConsolidadoId(envioId)
+                    .map(LiquidacionConsolidadoLinea::getLiquidacion)
+                    .filter(liq -> liq.getEstadoPago() == EstadoPagoConsolidado.PAGADO)
+                    .ifPresent(liq -> {
+                        throw new BadRequestException(
+                                "No se puede reabrir el consolidado porque pertenece a la "
+                                        + "liquidacion " + liq.getCodigo()
+                                        + " que esta marcada como pagada. "
+                                        + "Desmarca el pago de esa liquidacion primero.");
+                    });
+            envio.setFechaCerrado(null);
+            if (envio.getEstadoPago() != EstadoPagoConsolidado.NO_PAGADO) {
+                envio.setEstadoPago(EstadoPagoConsolidado.NO_PAGADO);
+            }
+        }
+        envio.setEstadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION);
+        envio.setFechaCierre(null);
         EnvioConsolidado guardado = envioConsolidadoRepository.save(envio);
         List<Paquete> paquetes = paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(envio.getId());
         if (!paquetes.isEmpty()) {
             List<Long> ids = paquetes.stream().map(Paquete::getId).toList();
-            paqueteService.revertirEstadoSiUltimoEventoCoincide(ids, "ENVIADO_USA_AUTO");
+            if (veniaDeEnviado) {
+                paqueteService.revertirEstadoSiUltimoEventoCoincide(ids, "ENVIADO_USA_AUTO");
+            }
+            paqueteService.revertirEstadoSiUltimoEventoCoincide(ids, "CIERRE_CONSOLIDADO_AUTO");
         }
         return guardado;
     }
@@ -456,7 +556,7 @@ public class EnvioConsolidadoService {
         EnvioConsolidado envio = findById(envioId);
         if (envio.isCerrado()) {
             throw new ConflictException(
-                    "No se puede eliminar un envío consolidado enviado desde USA. Reábrelo primero si necesitas borrarlo.");
+                    "No se puede eliminar un envío consolidado cerrado o enviado. Reábrelo primero si necesitas borrarlo.");
         }
         long totalPaquetes = paqueteRepository.countByEnvioConsolidadoId(envio.getId());
         if (totalPaquetes > 0) {
@@ -505,7 +605,9 @@ public class EnvioConsolidadoService {
                 .codigo(envio.getCodigo())
                 .cerrado(envio.isCerrado())
                 .estadoOperativo(estadoConsolidadoOperativoResolver.resolve(envio, totalPaquetes))
+                .fechaCierre(envio.getFechaCierre())
                 .fechaCerrado(envio.getFechaCerrado())
+                .fechaArriboEcuador(envio.getFechaArriboEcuador())
                 .pesoTotalLbs(pesoTotal != null ? pesoTotal : BigDecimal.ZERO)
                 .totalPaquetes((int) totalPaquetes)
                 .estadoPago(envio.getEstadoPago())

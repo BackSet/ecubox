@@ -15,14 +15,16 @@ import {
 } from '@/lib/pdf/builders/trackingPdfDocument';
 
 const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
-  SIN_PIEZAS_REGISTRADAS: 'Sin piezas registradas',
-  EN_ESPERA_RECEPCION: 'En espera de recepción',
-  EN_TRANSITO_USA_ECUADOR: 'En camino a Ecuador',
+  SIN_PAQUETES_REGISTRADOS: 'Sin paquetes registrados',
+  CON_PAQUETES_REGISTRADOS: 'En espera de envío',
+  PENDIENTE_VERIFICACION: 'Pendiente de verificación',
+  VERIFICADA: 'Verificada',
+  ENVIO_PARCIAL: 'En camino a Ecuador (parcial)',
+  ENVIO_COMPLETO: 'En camino a Ecuador',
   RECEPCION_PARCIAL: 'Recepción parcial',
   RECEPCION_COMPLETA: 'Recepción completa',
   DESPACHO_PARCIAL: 'En despacho parcial',
   DESPACHO_COMPLETADO: 'Despacho completado',
-  DESPACHO_INCOMPLETO: 'Despacho incompleto',
   CANCELADA: 'Cancelada',
   EN_REVISION: 'En revisión',
 };
@@ -33,10 +35,11 @@ function variantFromEstado(estado?: EstadoGuiaMaster): DocumentBadgeVariant {
     case 'DESPACHO_COMPLETADO':
       return 'success';
     case 'RECEPCION_PARCIAL':
-    case 'EN_TRANSITO_USA_ECUADOR':
+    case 'ENVIO_PARCIAL':
+    case 'ENVIO_COMPLETO':
     case 'DESPACHO_PARCIAL':
       return 'info';
-    case 'DESPACHO_INCOMPLETO':
+    case 'PENDIENTE_VERIFICACION':
     case 'EN_REVISION':
       return 'warning';
     case 'CANCELADA':
@@ -189,6 +192,6 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
     });
   }
 
-  renderer.drawFooters(`Guía ${pdfSafe(data.trackingBase)} · Comprobante de seguimiento`);
+  renderer.drawFooters(`Guía ${pdfSafe(data.trackingBase)} · Comprobante de rastreo`);
   return doc;
 }

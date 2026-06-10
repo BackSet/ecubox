@@ -305,4 +305,44 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
 
     @Query("SELECT COALESCE(SUM(p.pesoLbs), 0) FROM Paquete p WHERE p.envioConsolidado.id = :envioId")
     java.math.BigDecimal sumPesoLbsByEnvioConsolidadoId(@Param("envioId") Long envioConsolidadoId);
+
+    // ---------------------------------------------------------------------
+    // Resumen liviano de paquetes (KPIs + opciones de filtro) y backfill de
+    // la fecha límite de retiro. Las queries de opciones aceptan un usuarioId
+    // opcional: si es null se consulta el universo (vista operario/admin), si
+    // no, se acota a los paquetes del usuario (vista cliente).
+    // ---------------------------------------------------------------------
+
+    /** IDs de paquetes sin fecha límite de retiro persistida (para backfill idempotente). */
+    @Query("SELECT p.id FROM Paquete p WHERE p.fechaLimiteRetiro IS NULL")
+    List<Long> findIdsByFechaLimiteRetiroIsNull();
+
+    /** Estados de rastreo distintos presentes en los paquetes: filas [codigo, nombre]. */
+    @Query("SELECT DISTINCT p.estadoRastreo.codigo, p.estadoRastreo.nombre FROM Paquete p " +
+           "WHERE p.estadoRastreo IS NOT NULL " +
+           "AND (:usuarioId IS NULL OR p.consignatario.usuario.id = :usuarioId)")
+    List<Object[]> findDistinctEstados(@Param("usuarioId") Long usuarioId);
+
+    /** Consignatarios distintos presentes en los paquetes: filas [id, nombre]. */
+    @Query("SELECT DISTINCT p.consignatario.id, p.consignatario.nombre FROM Paquete p " +
+           "WHERE p.consignatario IS NOT NULL " +
+           "AND (:usuarioId IS NULL OR p.consignatario.usuario.id = :usuarioId)")
+    List<Object[]> findDistinctConsignatarios(@Param("usuarioId") Long usuarioId);
+
+    /** Códigos de envío consolidado distintos presentes en los paquetes. */
+    @Query("SELECT DISTINCT p.envioConsolidado.codigo FROM Paquete p " +
+           "WHERE p.envioConsolidado IS NOT NULL " +
+           "AND (:usuarioId IS NULL OR p.consignatario.usuario.id = :usuarioId)")
+    List<String> findDistinctEnvioCodigos(@Param("usuarioId") Long usuarioId);
+
+    /** Guías master distintas presentes en los paquetes: filas [id, trackingBase]. */
+    @Query("SELECT DISTINCT p.guiaMaster.id, p.guiaMaster.trackingBase FROM Paquete p " +
+           "WHERE p.guiaMaster IS NOT NULL " +
+           "AND (:usuarioId IS NULL OR p.consignatario.usuario.id = :usuarioId)")
+    List<Object[]> findDistinctGuiasMaster(@Param("usuarioId") Long usuarioId);
+
+    /** Cantidad de consignatarios distintos (para el KPI del resumen). */
+    @Query("SELECT COUNT(DISTINCT p.consignatario.id) FROM Paquete p " +
+           "WHERE (:usuarioId IS NULL OR p.consignatario.usuario.id = :usuarioId)")
+    long countDistinctConsignatarios(@Param("usuarioId") Long usuarioId);
 }

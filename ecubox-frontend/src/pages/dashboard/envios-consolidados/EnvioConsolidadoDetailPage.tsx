@@ -3,6 +3,7 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import {
   AlertCircle,
   ArrowLeft,
+  Ban,
   Boxes,
   Calendar,
   Check,
@@ -15,6 +16,7 @@ import {
   Loader2,
   Lock,
   Package as PackageIcon,
+  PlaneLanding,
   Plus,
   Scale,
   Search,
@@ -63,6 +65,9 @@ import {
   useEnvioConsolidado,
   useReabrirEnvioConsolidado,
   useRemoverPaquetesEnvioConsolidado,
+  useCerrarConsolidadoEnvioConsolidado,
+  useArribarEcuadorEnvioConsolidado,
+  useCancelarEnvioConsolidado,
 } from '@/hooks/useEnviosConsolidados';
 import { buscarPaquetesPorGuias } from '@/lib/api/paquetes.service';
 import { validateGuiaList } from '@/lib/schemas';
@@ -86,12 +91,18 @@ export function EnvioConsolidadoDetailPage() {
   const id = Number(params.id);
   const { data: envio, isLoading, error } = useEnvioConsolidado(id);
   const [agregarOpen, setAgregarOpen] = useState(false);
+  const [confirmCerrar, setConfirmCerrar] = useState(false);
   const [confirmEnviarUsa, setConfirmEnviarUsa] = useState(false);
+  const [confirmArribarEcuador, setConfirmArribarEcuador] = useState(false);
   const [confirmReabrir, setConfirmReabrir] = useState(false);
+  const [confirmCancelar, setConfirmCancelar] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
+  const cerrar = useCerrarConsolidadoEnvioConsolidado();
   const enviarUsa = useEnviarDesdeUsaEnvioConsolidado();
+  const arribarEcuador = useArribarEcuadorEnvioConsolidado();
   const reabrir = useReabrirEnvioConsolidado();
+  const cancelar = useCancelarEnvioConsolidado();
   const remover = useRemoverPaquetesEnvioConsolidado();
   const manifiestos = useDescargarManifiesto();
   const hasLiquidacionRead = useAuthStore((s) =>
@@ -173,7 +184,19 @@ export function EnvioConsolidadoDetailPage() {
     );
   }
 
-  const puedeAdministrarPaquetes = !envio.cerrado;
+  const op = resolveEstadoOperativoConsolidado(envio);
+  const puedeAdministrarPaquetes = op === 'VACIO' || op === 'EN_PREPARACION';
+
+  async function handleCerrar() {
+    try {
+      await cerrar.mutateAsync(id);
+      toast.success('Envío consolidado cerrado para registro');
+      setConfirmCerrar(false);
+    } catch (err: unknown) {
+      const res = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(res?.data?.message ?? 'Error al cerrar el envío');
+    }
+  }
 
   async function handleEnviarUsa() {
     try {
@@ -186,6 +209,17 @@ export function EnvioConsolidadoDetailPage() {
     }
   }
 
+  async function handleArribarEcuador() {
+    try {
+      await arribarEcuador.mutateAsync(id);
+      toast.success('Envío consolidado arribado a Ecuador');
+      setConfirmArribarEcuador(false);
+    } catch (err: unknown) {
+      const res = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(res?.data?.message ?? 'Error al registrar el arribo');
+    }
+  }
+
   async function handleReabrir() {
     try {
       await reabrir.mutateAsync(id);
@@ -194,6 +228,17 @@ export function EnvioConsolidadoDetailPage() {
     } catch (err: unknown) {
       const res = (err as { response?: { data?: { message?: string } } })?.response;
       toast.error(res?.data?.message ?? 'Error al reabrir el envío');
+    }
+  }
+
+  async function handleCancelar() {
+    try {
+      await cancelar.mutateAsync(id);
+      toast.success('Envío consolidado cancelado');
+      setConfirmCancelar(false);
+    } catch (err: unknown) {
+      const res = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(res?.data?.message ?? 'Error al cancelar el envío');
     }
   }
 
@@ -300,24 +345,67 @@ export function EnvioConsolidadoDetailPage() {
               )}
               {manifiestos.xlsx.isPending ? 'Generando Excel...' : 'Excel'}
             </Button>
-            {envio.cerrado ? (
+            {op === 'EN_PREPARACION' && (
               <Button
                 size="sm"
-                variant="secondary"
-                disabled={reabrir.isPending}
-                onClick={() => setConfirmReabrir(true)}
+                disabled={cerrar.isPending}
+                onClick={() => setConfirmCerrar(true)}
               >
-                <Unlock className="mr-1.5 h-4 w-4" />
-                Reabrir
+                <Lock className="mr-1.5 h-4 w-4" />
+                Cerrar envío
               </Button>
-            ) : (
+            )}
+            {op === 'CERRADO' && (
+              <>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={reabrir.isPending}
+                  onClick={() => setConfirmReabrir(true)}
+                >
+                  <Unlock className="mr-1.5 h-4 w-4" />
+                  Reabrir
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={enviarUsa.isPending}
+                  onClick={() => setConfirmEnviarUsa(true)}
+                >
+                  <Truck className="mr-1.5 h-4 w-4" />
+                  Enviar desde USA
+                </Button>
+              </>
+            )}
+            {op === 'ENVIADO_DESDE_USA' && (
+              <>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={reabrir.isPending}
+                  onClick={() => setConfirmReabrir(true)}
+                >
+                  <Unlock className="mr-1.5 h-4 w-4" />
+                  Reabrir
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={arribarEcuador.isPending}
+                  onClick={() => setConfirmArribarEcuador(true)}
+                >
+                  <PlaneLanding className="mr-1.5 h-4 w-4" />
+                  Arribar a Ecuador
+                </Button>
+              </>
+            )}
+            {op !== 'LIQUIDADO' && op !== 'CANCELADO' && (
               <Button
                 size="sm"
-                disabled={enviarUsa.isPending}
-                onClick={() => setConfirmEnviarUsa(true)}
+                variant="destructive"
+                disabled={cancelar.isPending}
+                onClick={() => setConfirmCancelar(true)}
               >
-                <Truck className="mr-1.5 h-4 w-4" />
-                Enviar desde USA
+                <Ban className="mr-1.5 h-4 w-4" />
+                Cancelar consolidado
               </Button>
             )}
           </div>
@@ -353,27 +441,36 @@ export function EnvioConsolidadoDetailPage() {
           hint={relativeTime(envio.createdAt) ?? undefined}
         />
         {(() => {
-          const op =
-            envio.estadoOperativo ??
-            (envio.cerrado ? 'ENVIADO_DESDE_USA' : envio.totalPaquetes > 0 ? 'EN_PREPARACION' : 'VACIO');
           const ui = ENVIO_CONSOLIDADO_ESTADO_UI[op];
           const Icon = ui.icon;
-          const value =
-            op === 'ENVIADO_DESDE_USA'
-              ? shortDate(envio.fechaCerrado) ?? '—'
-              : op === 'EN_PREPARACION'
-                ? 'Editable'
-                : op === 'LIQUIDADO'
-                  ? 'Pagado'
-                  : String(envio.totalPaquetes ?? 0);
-          const hint =
-            op === 'ENVIADO_DESDE_USA'
-              ? relativeTime(envio.fechaCerrado) ?? undefined
-              : op === 'LIQUIDADO'
-                ? 'Liquidación registrada'
-                : op === 'RECIBIDO_EN_BODEGA'
-                  ? 'Incluido en lote de recepción'
-                  : undefined;
+          let value = '—';
+          let hint = undefined;
+
+          if (op === 'VACIO') {
+            value = 'Vacío';
+          } else if (op === 'EN_PREPARACION') {
+            value = 'En preparación';
+            hint = 'Se pueden agregar paquetes';
+          } else if (op === 'CERRADO') {
+            value = shortDate(envio.fechaCierre) ?? 'Cerrado';
+            hint = envio.fechaCierre ? `Cerrado: ${relativeTime(envio.fechaCierre)}` : 'Fecha de cierre no registrada';
+          } else if (op === 'ENVIADO_DESDE_USA') {
+            value = shortDate(envio.fechaCerrado) ?? 'Enviado USA';
+            hint = envio.fechaCerrado ? `Salida USA: ${relativeTime(envio.fechaCerrado)}` : 'Fecha de salida no registrada';
+          } else if (op === 'ARRIBADO_ECUADOR') {
+            value = shortDate(envio.fechaArriboEcuador) ?? 'Arribado EC';
+            hint = envio.fechaArriboEcuador ? `Arribado: ${relativeTime(envio.fechaArriboEcuador)}` : 'Fecha de arribo no registrada';
+          } else if (op === 'RECIBIDO_EN_BODEGA') {
+            value = 'Recibido';
+            hint = 'En Lote de recepción';
+          } else if (op === 'LIQUIDADO') {
+            value = 'Liquidado';
+            hint = 'Cierre administrativo completo';
+          } else if (op === 'CANCELADO') {
+            value = 'Cancelado';
+            hint = 'Envío consolidado anulado';
+          }
+
           const kpiTone =
             ui.tone === 'error' ? 'danger' : ui.tone === 'info' ? 'info' : ui.tone;
           return (
@@ -441,23 +538,50 @@ export function EnvioConsolidadoDetailPage() {
       {agregarOpen && (
         <AgregarPaquetesDialog envioId={id} onClose={() => setAgregarOpen(false)} />
       )}
+       <ConfirmDialog
+        open={confirmCerrar}
+        onOpenChange={setConfirmCerrar}
+        title="Cerrar envío consolidado"
+        description="Al cerrar el envío consolidado se detendrá el registro de nuevos paquetes y quedará bloqueado para modificaciones."
+        confirmLabel="Cerrar envío"
+        loading={cerrar.isPending}
+        onConfirm={handleCerrar}
+      />
       <ConfirmDialog
         open={confirmEnviarUsa}
         onOpenChange={setConfirmEnviarUsa}
         title="Enviar consolidado desde USA"
-        description="Al enviarlo desde USA se aplicará el estado de salida a sus piezas y no podrás agregar ni remover paquetes hasta reabrirlo."
+        description="Al marcar como enviado desde USA se registrará su salida desde origen."
         confirmLabel="Enviar desde USA"
         loading={enviarUsa.isPending}
         onConfirm={handleEnviarUsa}
       />
       <ConfirmDialog
+        open={confirmArribarEcuador}
+        onOpenChange={setConfirmArribarEcuador}
+        title="Registrar arribo a Ecuador"
+        description="Al registrar el arribo a Ecuador se marcará su llegada a aduana destino."
+        confirmLabel="Arribar a Ecuador"
+        loading={arribarEcuador.isPending}
+        onConfirm={handleArribarEcuador}
+      />
+      <ConfirmDialog
         open={confirmReabrir}
         onOpenChange={setConfirmReabrir}
         title="Reabrir envío consolidado"
-        description="El envío volverá a admitir agregar y remover paquetes."
+        description="El envío volverá al estado 'En preparación' y admitirá agregar y remover paquetes."
         confirmLabel="Reabrir"
         loading={reabrir.isPending}
         onConfirm={handleReabrir}
+      />
+      <ConfirmDialog
+        open={confirmCancelar}
+        onOpenChange={setConfirmCancelar}
+        title="Cancelar envío consolidado"
+        description="Al cancelar el envío consolidado quedará anulado permanentemente."
+        confirmLabel="Cancelar"
+        loading={cancelar.isPending}
+        onConfirm={handleCancelar}
       />
 
       {hasLiquidacionRead && (

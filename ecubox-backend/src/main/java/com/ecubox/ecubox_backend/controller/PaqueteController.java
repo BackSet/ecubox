@@ -4,6 +4,7 @@ import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.dto.PaqueteCreateRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
+import com.ecubox.ecubox_backend.dto.PaqueteResumenDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteUpdateRequest;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.PaqueteService;
@@ -76,6 +77,29 @@ public class PaqueteController {
                 ? paqueteService.findAllPaginated(q, filters, page, size)
                 : paqueteService.findAllByUsuarioIdPaginated(usuarioId, q, filters, page, size);
         return ResponseEntity.ok(PageResponse.of(pageResult));
+    }
+
+    /**
+     * Resumen liviano para el listado de paquetes: KPIs del universo, conteos por
+     * chip (respetando filtros estructurales) y opciones distintas de filtro.
+     * Evita que el cliente descargue el dataset completo solo para los KPIs,
+     * comboboxes y chips; la tabla se sirve por {@code /page}.
+     */
+    @GetMapping("/resumen")
+    @PreAuthorize("hasAuthority('PAQUETES_READ')")
+    @Operation(summary = "Resumen del listado de paquetes", description = "KPIs, conteos por chip y opciones de filtro")
+    @ApiResponse(responseCode = "200", description = "Resumen de paquetes")
+    public ResponseEntity<PaqueteResumenDTO> resumen(
+            @Parameter(description = "Texto de búsqueda libre") @RequestParam(required = false) String q,
+            @Parameter(description = "Filtro por estado") @RequestParam(required = false) String estado,
+            @Parameter(description = "ID de consignatario") @RequestParam(required = false) Long consignatarioId,
+            @Parameter(description = "Filtro por tipo de envío") @RequestParam(required = false) String envio,
+            @Parameter(description = "ID de guía master") @RequestParam(required = false) Long guiaMasterId) {
+        Long usuarioId = currentUserService.getCurrentUsuario().getId();
+        boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
+        var filters = new PaqueteService.PaqueteListFilters(estado, consignatarioId, envio, guiaMasterId, null);
+        var resumen = paqueteService.resumen(canManageAny ? null : usuarioId, q, filters);
+        return ResponseEntity.ok(resumen);
     }
 
     @GetMapping("/sugerir-ref")

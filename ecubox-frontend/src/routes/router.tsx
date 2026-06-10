@@ -333,7 +333,7 @@ const trackingRoute = createRoute({
     buildPublicPageHead({
       title: 'Rastreo de paquetes y guías | ECUBOX',
       description:
-        'Consulta el estado de tu envío con el número de guía o código del consolidador. ECUBOX muestra el seguimiento por pieza en tiempo real.',
+        'Consulta el estado de tu envío con el número de guía o código del consolidador. ECUBOX muestra el rastreo por pieza en tiempo real.',
       path: '/tracking',
     }) as RouteHeadResult,
 });
@@ -685,6 +685,13 @@ const parametrosSistemaRoute = createRoute({
   component: withDashboardLayout(ParametrosSistemaPage),
 });
 
+const parametrosSistemaSeccionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/parametros-sistema/$seccion',
+  beforeLoad: requirePermission('PARAMETROS_SISTEMA_READ'),
+  component: withDashboardLayout(ParametrosSistemaPage),
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
@@ -736,6 +743,7 @@ const routeTree = rootRoute.addChildren([
   manifiestosDetailRoute,
   tarifaCalculadoraRoute,
   parametrosSistemaRoute,
+  parametrosSistemaSeccionRoute,
 ]);
 const router = createRouter({
   routeTree,

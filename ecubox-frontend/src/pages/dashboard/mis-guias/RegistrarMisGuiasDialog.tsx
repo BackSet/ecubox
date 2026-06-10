@@ -226,7 +226,7 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
         <DialogHeader>
           <DialogTitle>Registrar guías</DialogTitle>
           <DialogDescription>
-            Elige el consignatario y registra una o varias guías de una sola vez.
+            Elige el destinatario y registra una o varias guías de una sola vez.
           </DialogDescription>
         </DialogHeader>
 
@@ -240,11 +240,11 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
             }
           }}
         >
-          {/* Consignatario */}
+          {/* Destinatario */}
           <div>
             <Label htmlFor="mi-guias-consignatario" className="mb-1 flex items-center gap-1 text-sm">
               <UserRound className="h-3.5 w-3.5" />
-              Consignatario *
+              Destinatario *
             </Label>
             <SearchableCombobox
               id="mi-guias-consignatario"
@@ -263,10 +263,10 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
               }
               placeholder={
                 loadingDest
-                  ? 'Cargando consignatarios...'
+                  ? 'Cargando destinatarios...'
                   : sinConsignatarios
-                    ? 'Sin consignatarios'
-                    : 'Selecciona un consignatario'
+                    ? 'Sin destinatarios'
+                    : 'Selecciona un destinatario'
               }
               searchPlaceholder="Buscar por nombre, código, cantón..."
               emptyMessage="Sin coincidencias"
@@ -291,7 +291,7 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
             )}
             {sinConsignatarios && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Aún no tienes consignatarios. Crea uno desde "Mis consignatarios".
+                Aún no tienes destinatarios. Crea uno desde "Mis destinatarios".
               </p>
             )}
           </div>

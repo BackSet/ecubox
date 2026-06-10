@@ -89,7 +89,7 @@ export function TrackingActionsBar({
           Compartir y exportar
         </h3>
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          Comparte el enlace del seguimiento o guárdalo en el portapapeles.
+          Comparte el enlace del rastreo o guárdalo en el portapapeles.
         </p>
       </div>
 
@@ -143,7 +143,7 @@ export function TrackingActionsBar({
                   <div>
                     <p className="text-sm font-medium">Como en pantalla</p>
                     <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                      Réplica visual del seguimiento web.
+                      Réplica visual del rastreo web.
                     </p>
                   </div>
                 </DropdownMenuItem>

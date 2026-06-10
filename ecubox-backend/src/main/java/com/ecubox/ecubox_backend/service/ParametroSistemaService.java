@@ -60,7 +60,9 @@ public class ParametroSistemaService {
     public static final String CLAVE_ESTADO_RASTREO_INICIO_CUENTA_REGRESIVA = "estado_rastreo_inicio_cuenta_regresiva";
     public static final String CLAVE_ESTADO_RASTREO_FIN_CUENTA_REGRESIVA = "estado_rastreo_fin_cuenta_regresiva";
 
+    public static final String CLAVE_ESTADO_RASTREO_CIERRE_CONSOLIDADO = "estado_rastreo_cierre_consolidado";
     public static final String CLAVE_ESTADO_RASTREO_ENVIADO_DESDE_USA = "estado_rastreo_enviado_desde_usa";
+    public static final String CLAVE_ESTADO_RASTREO_ARRIBO_ECUADOR = "estado_rastreo_arribo_ecuador";
     public static final String CLAVE_ESTADO_RASTREO_ARRIBADO_EC = "estado_rastreo_arribado_ec";
     public static final String CLAVE_GM_MIN_PIEZAS_DESPACHO_PARCIAL = "guia_master.min_piezas_para_despacho_parcial";
     public static final String CLAVE_GM_DIAS_AUTO_CIERRE = "guia_master.dias_para_auto_cierre_con_faltante";
@@ -396,7 +398,9 @@ public class ParametroSistemaService {
         Long entregaConfirmadaCliente = getParametroAsLong(CLAVE_ESTADO_RASTREO_ENTREGA_CONFIRMADA_CLIENTE);
         Long avisoConfirmacionEntrega = getParametroAsLong(CLAVE_ESTADO_RASTREO_AVISO_CONFIRMACION_ENTREGA);
         Long asociarGuiaMaster = getParametroAsLong(CLAVE_ESTADO_RASTREO_ASOCIAR_GUIA_MASTER);
+        Long cierreConsolidado = getParametroAsLong(CLAVE_ESTADO_RASTREO_CIERRE_CONSOLIDADO);
         Long enviadoDesdeUsa = getParametroAsLong(CLAVE_ESTADO_RASTREO_ENVIADO_DESDE_USA);
+        Long arriboEcuador = getParametroAsLong(CLAVE_ESTADO_RASTREO_ARRIBO_ECUADOR);
         Long arribadoEc = getParametroAsLong(CLAVE_ESTADO_RASTREO_ARRIBADO_EC);
         Long inicioCuentaRegresiva = getParametroAsLong(CLAVE_ESTADO_RASTREO_INICIO_CUENTA_REGRESIVA);
         Long finCuentaRegresiva = getParametroAsLong(CLAVE_ESTADO_RASTREO_FIN_CUENTA_REGRESIVA);
@@ -409,7 +413,9 @@ public class ParametroSistemaService {
                 .estadoRastreoEnTransitoId(enTransito)
                 .estadoRastreoEntregaConfirmadaClienteId(entregaConfirmadaCliente)
                 .estadoRastreoAvisoConfirmacionEntregaId(avisoConfirmacionEntrega)
+                .estadoRastreoCierreConsolidadoId(cierreConsolidado)
                 .estadoRastreoEnviadoDesdeUsaId(enviadoDesdeUsa)
+                .estadoRastreoArriboEcuadorId(arriboEcuador)
                 .estadoRastreoArribadoEcId(arribadoEc)
                 .estadoRastreoInicioCuentaRegresivaId(inicioCuentaRegresiva)
                 .estadoRastreoFinCuentaRegresivaId(finCuentaRegresiva)
@@ -443,7 +449,9 @@ public class ParametroSistemaService {
                                                                   Long asociarGuiaMasterId,
                                                                   Long enDespachoId,
                                                                   Long enTransitoId,
+                                                                  Long cierreConsolidadoId,
                                                                   Long enviadoDesdeUsaId,
+                                                                  Long arriboEcuadorId,
                                                                   Long arribadoEcId,
                                                                   Long inicioCuentaRegresivaId,
                                                                   Long finCuentaRegresivaId,
@@ -455,7 +463,9 @@ public class ParametroSistemaService {
         validarEstadoExiste(asociarGuiaMasterId, "asociar guía master");
         validarEstadoExiste(enDespachoId, "despacho");
         validarEstadoExiste(enTransitoId, "en tránsito");
+        validarEstadoExiste(cierreConsolidadoId, "cierre de consolidado");
         validarEstadoExiste(enviadoDesdeUsaId, "salida de origen");
+        validarEstadoExiste(arriboEcuadorId, "arribo a Ecuador");
         validarEstadoExiste(arribadoEcId, "llegada a destino");
         validarEstadoExiste(inicioCuentaRegresivaId, "inicio de cuenta regresiva");
         validarEstadoExiste(finCuentaRegresivaId, "fin de cuenta regresiva");
@@ -472,7 +482,11 @@ public class ParametroSistemaService {
                 : actuales.getEstadoRastreoAsociarGuiaMasterId();
         Long enDespacho = enDespachoId != null ? enDespachoId : actuales.getEstadoRastreoEnDespachoId();
         Long enTransito = enTransitoId != null ? enTransitoId : actuales.getEstadoRastreoEnTransitoId();
+        Long cierreConsolidado = cierreConsolidadoId != null
+                ? cierreConsolidadoId
+                : actuales.getEstadoRastreoCierreConsolidadoId();
         Long enviadoDesdeUsa = enviadoDesdeUsaId != null ? enviadoDesdeUsaId : actuales.getEstadoRastreoEnviadoDesdeUsaId();
+        Long arriboEcuador = arriboEcuadorId != null ? arriboEcuadorId : actuales.getEstadoRastreoArriboEcuadorId();
         Long arribadoEc = arribadoEcId != null ? arribadoEcId : actuales.getEstadoRastreoArribadoEcId();
         Long inicioCuentaRegresiva = inicioCuentaRegresivaId != null
                 ? inicioCuentaRegresivaId
@@ -508,7 +522,11 @@ public class ParametroSistemaService {
         saveParametro(CLAVE_ESTADO_RASTREO_ASOCIAR_GUIA_MASTER, asociarGuia != null ? String.valueOf(asociarGuia) : "");
         saveParametro(CLAVE_ESTADO_RASTREO_EN_DESPACHO, String.valueOf(enDespacho));
         saveParametro(CLAVE_ESTADO_RASTREO_EN_TRANSITO, String.valueOf(enTransito));
+        saveParametro(CLAVE_ESTADO_RASTREO_CIERRE_CONSOLIDADO,
+                cierreConsolidado != null ? String.valueOf(cierreConsolidado) : "");
         saveParametro(CLAVE_ESTADO_RASTREO_ENVIADO_DESDE_USA, String.valueOf(enviadoDesdeUsa));
+        saveParametro(CLAVE_ESTADO_RASTREO_ARRIBO_ECUADOR,
+                arriboEcuador != null ? String.valueOf(arriboEcuador) : "");
         saveParametro(CLAVE_ESTADO_RASTREO_ARRIBADO_EC, String.valueOf(arribadoEc));
         saveParametro(CLAVE_ESTADO_RASTREO_INICIO_CUENTA_REGRESIVA,
                 inicioCuentaRegresiva != null ? String.valueOf(inicioCuentaRegresiva) : "");
@@ -537,7 +555,9 @@ public class ParametroSistemaService {
         addIfNotNull(ids, cfg.getEstadoRastreoAsociarGuiaMasterId());
         addIfNotNull(ids, cfg.getEstadoRastreoEnDespachoId());
         addIfNotNull(ids, cfg.getEstadoRastreoEnTransitoId());
+        addIfNotNull(ids, cfg.getEstadoRastreoCierreConsolidadoId());
         addIfNotNull(ids, cfg.getEstadoRastreoEnviadoDesdeUsaId());
+        addIfNotNull(ids, cfg.getEstadoRastreoArriboEcuadorId());
         addIfNotNull(ids, cfg.getEstadoRastreoArribadoEcId());
         addIfNotNull(ids, cfg.getEstadoRastreoEntregaConfirmadaClienteId());
         return Set.copyOf(ids);

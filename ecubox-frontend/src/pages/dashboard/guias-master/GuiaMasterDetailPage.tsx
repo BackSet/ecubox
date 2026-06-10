@@ -58,6 +58,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  useAprobarGuiaMaster,
   useCancelarGuiaMaster,
   useCerrarGuiaMasterConFaltante,
   useConfirmarDespachoParcial,
@@ -68,6 +69,7 @@ import {
   useReabrirGuiaMaster,
   useSalirGuiaMasterDeRevision,
 } from '@/hooks/useGuiasMaster';
+import { useAuthStore } from '@/stores/authStore';
 import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
 import type {
   GuiaMaster,
@@ -106,6 +108,9 @@ export function GuiaMasterDetailPage() {
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [salirRevisionOpen, setSalirRevisionOpen] = useState(false);
   const [reabrirOpen, setReabrirOpen] = useState(false);
+  const [aprobarOpen, setAprobarOpen] = useState(false);
+
+  const hasUpdate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_UPDATE'));
 
   if (isLoading) {
     return (
@@ -149,14 +154,16 @@ export function GuiaMasterDetailPage() {
   const cancelada = guia.estadoGlobal === 'CANCELADA';
   const cerradaTerminal = GUIA_MASTER_ESTADOS_TERMINALES.has(guia.estadoGlobal);
   const cerrada = cerradaTerminal || enRevision;
+  const puedeAprobar = (guia.estadoGlobal === 'PENDIENTE_VERIFICACION' || guia.estadoGlobal === 'EN_REVISION') && hasUpdate;
   const puedeCancelar =
     !cerradaTerminal &&
     (guia.piezasDespachadas ?? 0) === 0 &&
-    !enRevision; // mientras no esté en revisión activa
-  const puedeMarcarRevision = !cerradaTerminal && !enRevision;
-  const puedeSalirRevision = enRevision;
-  const puedeReabrir = cerradaTerminal;
-  const puedeCerrarConFaltante = !cerradaTerminal && !enRevision;
+    !enRevision &&
+    hasUpdate; // mientras no esté en revisión activa
+  const puedeMarcarRevision = !cerradaTerminal && !enRevision && hasUpdate;
+  const puedeSalirRevision = enRevision && hasUpdate;
+  const puedeReabrir = cerradaTerminal && hasUpdate;
+  const puedeCerrarConFaltante = !cerradaTerminal && !enRevision && hasUpdate;
 
   return (
     <div className="page-stack">
@@ -188,6 +195,19 @@ export function GuiaMasterDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {puedeAprobar && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAprobarOpen(true)}
+                title="Aprobar la guía master y calcular su estado"
+                className="border-[var(--color-success)] text-[var(--color-success)] hover:bg-[var(--color-success)]/10 hover:text-[var(--color-success)]"
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Aprobar guía
+              </Button>
+            )}
             {puedeMarcarRevision && (
               <Button
                 type="button"
@@ -449,6 +469,9 @@ export function GuiaMasterDetailPage() {
       {reabrirOpen && (
         <ReabrirGuiaAlert guiaMasterId={id} onClose={() => setReabrirOpen(false)} />
       )}
+      {aprobarOpen && (
+        <AprobarGuiaAlert guiaMasterId={id} onClose={() => setAprobarOpen(false)} />
+      )}
     </div>
   );
 }
@@ -661,6 +684,58 @@ function PiezaEstadoBadges({
         </Badge>
       )}
     </div>
+  );
+}
+
+function AprobarGuiaAlert({
+  guiaMasterId,
+  onClose,
+}: {
+  guiaMasterId: number;
+  onClose: () => void;
+}) {
+  const aprobar = useAprobarGuiaMaster();
+
+  async function handleConfirm() {
+    try {
+      await notify.run(
+        aprobar.mutateAsync(guiaMasterId),
+        {
+          loading: 'Aprobando guía...',
+          success: 'Guía master aprobada',
+          error: 'No se pudo aprobar la guía master',
+        },
+      );
+      onClose();
+    } catch {
+      // notificado por notify.run
+    }
+  }
+
+  return (
+    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Aprobar guía master</AlertDialogTitle>
+          <AlertDialogDescription>
+            Confirma que la información de la guía master es correcta. Esto reanudará el flujo y calculará su estado.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button variant="secondary" disabled={aprobar.isPending}>
+              Cancelar
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button onClick={handleConfirm} disabled={aprobar.isPending}>
+              {aprobar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {aprobar.isPending ? 'Aprobando...' : 'Aprobar'}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -894,6 +969,8 @@ const TIPO_CAMBIO_LABELS: Record<TipoCambioEstadoGuiaMaster, string> = {
   MARCAR_REVISION: 'Marcada en revisión',
   SALIR_REVISION: 'Salida de revisión',
   REAPERTURA: 'Reapertura',
+  APROBACION: 'Aprobación',
+  MARCAR_PENDIENTE_VERIFICACION: 'Marcada pendiente de verificación',
 };
 
 function HistorialEstadosCard({ guiaMasterId }: { guiaMasterId: number }) {

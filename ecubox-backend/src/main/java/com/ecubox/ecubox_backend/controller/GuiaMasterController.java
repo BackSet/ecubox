@@ -177,6 +177,16 @@ public class GuiaMasterController {
         return ResponseEntity.ok(construirDTO(gm, true));
     }
 
+    @PostMapping("/{id}/aprobar")
+    @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    @Operation(summary = "Aprobar guía master", description = "Aprueba una guía en PENDIENTE_VERIFICACION o EN_REVISION y recalcula su estado derivado")
+    @ApiResponse(responseCode = "200", description = "Guía master aprobada")
+    public ResponseEntity<GuiaMasterDTO> aprobar(@PathVariable Long id) {
+        Long actorId = actorIdSafe();
+        GuiaMaster gm = guiaMasterService.aprobar(id, actorId);
+        return ResponseEntity.ok(construirDTO(gm, true));
+    }
+
     @PostMapping("/{id}/marcar-en-revision")
     @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
     @Operation(summary = "Marcar guía en revisión", description = "Cambia el estado de la guía master a revisión")

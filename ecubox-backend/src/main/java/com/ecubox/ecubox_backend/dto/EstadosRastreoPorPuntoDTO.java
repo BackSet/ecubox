@@ -24,7 +24,11 @@ public class EstadosRastreoPorPuntoDTO {
     private Long estadoRastreoEntregaConfirmadaClienteId;
     /** Estado que, al aplicarse a un paquete, dispara el aviso (push) para que el cliente confirme la entrega. */
     private Long estadoRastreoAvisoConfirmacionEntregaId;
+    /** Estado aplicado cuando el operario cierra el consolidado para registro (Manifestado). */
+    private Long estadoRastreoCierreConsolidadoId;
     private Long estadoRastreoEnviadoDesdeUsaId;
+    /** Estado aplicado cuando el consolidado arriba a Ecuador / aduana destino. */
+    private Long estadoRastreoArriboEcuadorId;
     private Long estadoRastreoArribadoEcId;
     /**
      * Estado que ANCLA el inicio de la cuenta regresiva de retiro: la cuenta empieza

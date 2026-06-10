@@ -16,9 +16,12 @@ export type EstadoFiltro =
   | 'TODOS'
   | 'VACIO'
   | 'EN_PREPARACION'
+  | 'CERRADO'
   | 'ENVIADO_DESDE_USA'
+  | 'ARRIBADO_ECUADOR'
   | 'RECIBIDO_EN_BODEGA'
-  | 'LIQUIDADO';
+  | 'LIQUIDADO'
+  | 'CANCELADO';
 export type EstadoPagoFiltro = 'TODOS' | 'PAGADO' | 'NO_PAGADO';
 
 export interface ListarEnviosParams {
@@ -75,9 +78,27 @@ export async function crearEnvioConsolidado(
   return data;
 }
 
+/** Cierra un envio consolidado para registro. */
+export async function cerrarConsolidadoEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
+  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/cerrar-consolidado`);
+  return data;
+}
+
 /** Marca un envio consolidado como enviado desde USA. */
 export async function enviarDesdeUsaEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
   const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/enviar-usa`);
+  return data;
+}
+
+/** Registra el arribo del envio consolidado a Ecuador. */
+export async function arribarEcuadorEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
+  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/arribar-ecuador`);
+  return data;
+}
+
+/** Cancela un envio consolidado. */
+export async function cancelarEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
+  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/cancelar`);
   return data;
 }
 
@@ -88,7 +109,7 @@ export async function reabrirEnvioConsolidado(id: number): Promise<EnvioConsolid
 }
 
 export interface AplicarTransicionConsolidadosPayload {
-  estadoOperativoDestino: 'ENVIADO_DESDE_USA' | 'EN_PREPARACION';
+  estadoOperativoDestino: 'CERRADO' | 'ENVIADO_DESDE_USA' | 'ARRIBADO_ECUADOR' | 'EN_PREPARACION' | 'CANCELADO';
   consolidadoIds?: number[];
   fechaInicio?: string;
   fechaFin?: string;
@@ -169,6 +190,18 @@ export async function aplicarEstadoEnConsolidados(
 
 export async function getEstadosAplicablesConsolidados(): Promise<EstadoRastreo[]> {
   const { data } = await apiClient.get<EstadoRastreo[]>(`${BASE}/estados-aplicables`);
+  return data;
+}
+
+/**
+ * Ids de consolidados elegibles para aplicar `estadoRastreoId` a sus paquetes:
+ * solo los que tienen paquetes en el estado de rastreo inmediatamente
+ * anterior (regla de "ir de 1 en 1").
+ */
+export async function getElegiblesParaEstadoRastreo(estadoRastreoId: number): Promise<number[]> {
+  const { data } = await apiClient.get<number[]>(`${BASE}/elegibles-para-estado-rastreo`, {
+    params: { estadoRastreoId },
+  });
   return data;
 }
 

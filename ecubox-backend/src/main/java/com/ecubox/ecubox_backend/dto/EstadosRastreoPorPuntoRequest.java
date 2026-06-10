@@ -36,8 +36,14 @@ public class EstadosRastreoPorPuntoRequest {
     /** Opcional: estado que dispara el aviso (push) para que el cliente confirme la entrega. */
     private Long estadoRastreoAvisoConfirmacionEntregaId;
 
+    /** Opcional: estado aplicado cuando el operario cierra el consolidado para registro (Manifestado). */
+    private Long estadoRastreoCierreConsolidadoId;
+
     @NotNull(message = "El estado de salida de origen es obligatorio")
     private Long estadoRastreoEnviadoDesdeUsaId;
+
+    /** Opcional: estado aplicado cuando el consolidado arriba a Ecuador / aduana destino. */
+    private Long estadoRastreoArriboEcuadorId;
 
     @NotNull(message = "El estado de llegada a destino es obligatorio")
     private Long estadoRastreoArribadoEcId;

@@ -2,8 +2,10 @@ package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.CambiarEstadoRastreoBulkResponse;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
+import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteCreateRequest;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
+import com.ecubox.ecubox_backend.dto.PaqueteResumenDTO;
 import com.ecubox.ecubox_backend.dto.PaquetePesoItem;
 import com.ecubox.ecubox_backend.dto.PaqueteUpdateRequest;
 import com.ecubox.ecubox_backend.dto.TrackingDespachoDTO;
@@ -195,6 +197,89 @@ public class PaqueteService {
         return paqueteRepository.findAll(ownership.and(textAndFilters), pageable).map(this::toDTO);
     }
 
+    /**
+     * Resumen liviano del listado de paquetes: KPIs del universo visible,
+     * conteos por chip (respetando los filtros estructurales activos) y opciones
+     * distintas de los comboboxes de filtro. Sustituye la descarga del dataset
+     * completo en el cliente.
+     *
+     * @param usuarioIdOrNull {@code null} para la vista operario/admin (universo);
+     *                        el id del usuario para acotar a la vista cliente.
+     */
+    @Transactional(readOnly = true)
+    public PaqueteResumenDTO resumen(Long usuarioIdOrNull, String q, PaqueteListFilters filters) {
+        LocalDateTime ahora = LocalDateTime.now(ZONA_ECUADOR);
+        Specification<Paquete> ownership = usuarioIdOrNull == null ? null
+                : (root, query, cb) -> cb.equal(root.get("consignatario").get("usuario").get("id"), usuarioIdOrNull);
+        Specification<Paquete> pesoNotNull = (root, query, cb) -> cb.isNotNull(root.get("pesoLbs"));
+        Specification<Paquete> pesoNull = (root, query, cb) -> cb.isNull(root.get("pesoLbs"));
+        Specification<Paquete> sinGuia = (root, query, cb) -> cb.isNull(root.get("guiaMaster"));
+        Specification<Paquete> vencido = (root, query, cb) -> cb.and(
+                cb.isNotNull(root.get("fechaLimiteRetiro")),
+                cb.lessThanOrEqualTo(root.get("fechaLimiteRetiro"), ahora));
+
+        // KPIs del universo visible (solo ownership, sin filtros activos).
+        Specification<Paquete> universe = Specification.where(ownership);
+        long total = paqueteRepository.count(universe);
+        long conPeso = paqueteRepository.count(universe.and(pesoNotNull));
+        long vencidos = paqueteRepository.count(universe.and(vencido));
+        long consignatariosDistintos = paqueteRepository.countDistinctConsignatarios(usuarioIdOrNull);
+
+        // Conteos por chip respetando los filtros estructurales (sin chip).
+        PaqueteListFilters f = filters == null ? PaqueteListFilters.empty() : filters;
+        PaqueteListFilters estructurales = new PaqueteListFilters(
+                f.estadoCodigo(), f.consignatarioId(), f.envioCodigo(), f.guiaMasterId(), null);
+        Specification<Paquete> base = universe.and(buildSpec(q, estructurales));
+        long chipTodos = paqueteRepository.count(base);
+        long chipSinPeso = paqueteRepository.count(base.and(pesoNull));
+        long chipConPeso = paqueteRepository.count(base.and(pesoNotNull));
+        long chipSinGuia = paqueteRepository.count(base.and(sinGuia));
+        long chipVencidos = paqueteRepository.count(base.and(vencido));
+
+        // Opciones distintas para los comboboxes (universo visible).
+        List<PaqueteResumenDTO.EstadoOption> estados = paqueteRepository.findDistinctEstados(usuarioIdOrNull).stream()
+                .map(r -> PaqueteResumenDTO.EstadoOption.builder()
+                        .codigo((String) r[0]).nombre((String) r[1]).build())
+                .sorted(Comparator.comparing(PaqueteResumenDTO.EstadoOption::getNombre,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
+        List<PaqueteResumenDTO.ConsignatarioOption> consignatarios = paqueteRepository.findDistinctConsignatarios(usuarioIdOrNull).stream()
+                .map(r -> PaqueteResumenDTO.ConsignatarioOption.builder()
+                        .id((Long) r[0]).nombre((String) r[1]).build())
+                .sorted(Comparator.comparing(PaqueteResumenDTO.ConsignatarioOption::getNombre,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
+        List<String> codigosEnvio = paqueteRepository.findDistinctEnvioCodigos(usuarioIdOrNull).stream()
+                .filter(Objects::nonNull)
+                .sorted()
+                .toList();
+        List<PaqueteResumenDTO.GuiaMasterOption> guiasMaster = paqueteRepository.findDistinctGuiasMaster(usuarioIdOrNull).stream()
+                .map(r -> PaqueteResumenDTO.GuiaMasterOption.builder()
+                        .id((Long) r[0]).trackingBase((String) r[1]).build())
+                .sorted(Comparator.comparing(PaqueteResumenDTO.GuiaMasterOption::getTrackingBase,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
+
+        return PaqueteResumenDTO.builder()
+                .total(total)
+                .conPeso(conPeso)
+                .sinPeso(total - conPeso)
+                .vencidos(vencidos)
+                .consignatariosDistintos(consignatariosDistintos)
+                .chips(PaqueteResumenDTO.ChipCounts.builder()
+                        .todos(chipTodos)
+                        .sinPeso(chipSinPeso)
+                        .conPeso(chipConPeso)
+                        .sinGuiaMaster(chipSinGuia)
+                        .vencidos(chipVencidos)
+                        .build())
+                .estados(estados)
+                .consignatarios(consignatarios)
+                .codigosEnvio(codigosEnvio)
+                .guiasMaster(guiasMaster)
+                .build();
+    }
+
     /** Construye la {@link Specification} compuesta para el listado paginado. */
     private Specification<Paquete> buildSpec(String q, PaqueteListFilters filters) {
         PaqueteListFilters f = filters == null ? PaqueteListFilters.empty() : filters;
@@ -224,10 +309,12 @@ public class PaqueteService {
                 case "sin_peso" -> spec.and((root, query, cb) -> cb.isNull(root.get("pesoLbs")));
                 case "con_peso" -> spec.and((root, query, cb) -> cb.isNotNull(root.get("pesoLbs")));
                 case "sin_guia_master" -> spec.and((root, query, cb) -> cb.isNull(root.get("guiaMaster")));
-                // El chip "vencidos" no se aplica server-side: la lógica de
-                // vencimiento es compleja (depende de tipo de entidad y estados
-                // de inicio de cuenta regresiva). El frontend filtra ese chip
-                // sobre el dataset completo cuando aplica.
+                // "vencidos" se resuelve server-side mediante la fecha límite de
+                // retiro persistida (ver computeFechaLimiteRetiro): un paquete está
+                // vencido cuando su fechaLimiteRetiro no es nula y ya pasó.
+                case "vencidos" -> spec.and((root, query, cb) -> cb.and(
+                        cb.isNotNull(root.get("fechaLimiteRetiro")),
+                        cb.lessThanOrEqualTo(root.get("fechaLimiteRetiro"), LocalDateTime.now(ZONA_ECUADOR))));
                 default -> spec;
             };
         }
@@ -408,6 +495,8 @@ public class PaqueteService {
         } else {
             p.setSaca(null);
         }
+        // La saca (vía su despacho) determina los días máximos de retiro.
+        recomputarFechaLimiteRetiro(p);
         p = paqueteRepository.save(p);
         if (p.getGuiaMaster() != null) {
             guiaMasterService.recomputarEstado(p.getGuiaMaster().getId());
@@ -432,6 +521,8 @@ public class PaqueteService {
         Set<Long> guiasAfectadas = new HashSet<>();
         for (Paquete p : paquetes) {
             p.setSaca(saca);
+            // La saca (vía su despacho) determina los días máximos de retiro.
+            recomputarFechaLimiteRetiro(p);
             if (p.getGuiaMaster() != null) {
                 guiasAfectadas.add(p.getGuiaMaster().getId());
             }
@@ -534,6 +625,48 @@ public class PaqueteService {
         }
     }
 
+    /**
+     * Resuelve, para un estado de rastreo {@code destinoId} seleccionado en el
+     * bulk "Aplicar estado a consolidados", cuál es el estado de rastreo
+     * "anterior" que deben tener los paquetes de un consolidado para que este
+     * sea elegible (regla de "ir de 1 en 1").
+     *
+     * <p>Para estados NORMAL, el anterior es el estado NORMAL activo
+     * inmediatamente previo según {@code orden}. Para estados ALTERNO (p.ej.
+     * "Retenido en aduana"), el anterior es {@code afterEstado}.
+     *
+     * <p>Si el estado anterior coincide con el configurado para "Llega a aduana
+     * destino" ({@link EstadosRastreoPorPuntoDTO#getEstadoRastreoArribadoEcId()}),
+     * también se consideran elegibles los consolidados cuyo
+     * {@code estadoOperativo} sea {@code ARRIBADO_ECUADOR}, ya que el estado de
+     * los paquetes puede no haberse propagado aún.
+     */
+    @Transactional(readOnly = true)
+    public EstadoOrigenConsolidado resolverEstadoOrigenParaEstadoRastreoConsolidado(Long destinoId) {
+        EstadoRastreo destino = estadoRastreoService.findEntityById(destinoId);
+        EstadoRastreo origen;
+        if (destino.getTipoFlujo() == TipoFlujoEstado.ALTERNO) {
+            origen = destino.getAfterEstado();
+        } else {
+            Integer ordenDestino = destino.getOrden() != null ? destino.getOrden() : destino.getOrdenTracking();
+            origen = ordenDestino == null ? null : estadoRastreoService.findActivosEntities().stream()
+                    .filter(e -> e.getTipoFlujo() == TipoFlujoEstado.NORMAL)
+                    .filter(e -> {
+                        Integer orden = e.getOrden() != null ? e.getOrden() : e.getOrdenTracking();
+                        return orden != null && orden < ordenDestino;
+                    })
+                    .max(Comparator.comparingInt(e -> e.getOrden() != null ? e.getOrden() : e.getOrdenTracking()))
+                    .orElse(null);
+        }
+        Long llegaAduanaDestinoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoArribadoEcId();
+        boolean incluirArribadosEcuador = origen != null && origen.getId().equals(llegaAduanaDestinoId);
+        return new EstadoOrigenConsolidado(origen != null ? origen.getId() : null, incluirArribadosEcuador);
+    }
+
+    /** @param estadoOrigenId puede ser {@code null} si el destino no tiene un estado anterior identificable. */
+    public record EstadoOrigenConsolidado(Long estadoOrigenId, boolean incluirArribadosEcuador) {
+    }
+
     private Integer ordenEstadoAsociarEnvioConsolidado() {
         Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto()
                 .getEstadoRastreoAsociarEnvioConsolidadoId();
@@ -593,6 +726,28 @@ public class PaqueteService {
         if (estadoId == null) return;
         aplicarEstadoEnConjunto(paqueteIds, estadoId,
                 TrackingEventType.ESTADO_APLICADO_ARRIBADO_EC, "ARRIBADO_EC_AUTO", "arribado-ec",
+                fechaEvento);
+    }
+
+    /** Aplica el estado configurable "Manifestado" al cerrar el consolidado para registro. */
+    @Transactional
+    public void aplicarEstadoCierreConsolidado(List<Long> paqueteIds, LocalDateTime fechaEvento) {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoCierreConsolidadoId();
+        if (estadoId == null) return;
+        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+                TrackingEventType.ESTADO_APLICADO_CIERRE_CONSOLIDADO,
+                "CIERRE_CONSOLIDADO_AUTO", "cierre-consolidado",
+                fechaEvento);
+    }
+
+    /** Aplica el estado configurable "Llega a aduana destino" al marcar arribo a Ecuador. */
+    @Transactional
+    public void aplicarEstadoArriboEcuador(List<Long> paqueteIds, LocalDateTime fechaEvento) {
+        Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoArriboEcuadorId();
+        if (estadoId == null) return;
+        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+                TrackingEventType.ESTADO_APLICADO_ARRIBO_ECUADOR,
+                "ARRIBO_ECUADOR_AUTO", "arribo-ecuador",
                 fechaEvento);
     }
 
@@ -1141,6 +1296,70 @@ public class PaqueteService {
     }
 
     /**
+     * Calcula la fecha límite de retiro absoluta que se persiste en el paquete
+     * ({@code fecha_limite_retiro}). Devuelve el instante —en hora local de
+     * Ecuador— a partir del cual el paquete queda vencido, de modo que "vencido"
+     * sea el predicado SQL {@code fecha_limite_retiro <= now()}.
+     * <p>Es {@code null} en los mismos casos en que {@link #calcularPlazoRetiro}
+     * marca {@code paqueteVencido=false} de forma permanente: estado de fin de
+     * cuenta regresiva (entregado) o sin días máximos / fecha ancla resueltos.</p>
+     * <p>Equivalencia con {@code calcularPlazoRetiro}: allí
+     * {@code paqueteVencido = diasTranscurridos > diasMaxRetiro}, es decir el
+     * paquete vence al iniciar el día {@code (diasMaxRetiro + 1)} contado desde la
+     * fecha ancla. Ese inicio de día es el instante que persistimos.</p>
+     */
+    private LocalDateTime computeFechaLimiteRetiro(Paquete p) {
+        var estadosPorPunto = parametroSistemaService.getEstadosRastreoPorPunto();
+        Long estadoFinalCuentaRegresivaId =
+                estadosPorPunto != null ? estadosPorPunto.getEstadoRastreoFinCuentaRegresivaId() : null;
+        Long estadoInicioCuentaRegresivaId =
+                estadosPorPunto != null ? estadosPorPunto.getEstadoRastreoInicioCuentaRegresivaId() : null;
+        Long estadoActualId = p.getEstadoRastreo() != null ? p.getEstadoRastreo().getId() : null;
+        if (estadoFinalCuentaRegresivaId != null && Objects.equals(estadoFinalCuentaRegresivaId, estadoActualId)) {
+            return null;
+        }
+        Integer diasMaxRetiro = chooseDiasMaxRetiroPorEntidad(p);
+        LocalDateTime fechaAncla = resolverFechaAnclaCuentaRegresiva(p, estadoInicioCuentaRegresivaId, estadoActualId);
+        if (diasMaxRetiro == null || fechaAncla == null) {
+            return null;
+        }
+        LocalDate desde = fechaAncla.atZone(ZONA_ECUADOR).toLocalDate();
+        return desde.plusDays(diasMaxRetiro + 1L).atStartOfDay();
+    }
+
+    /** Recalcula y asigna {@code fechaLimiteRetiro} en el paquete (sin persistir). */
+    private void recomputarFechaLimiteRetiro(Paquete p) {
+        p.setFechaLimiteRetiro(computeFechaLimiteRetiro(p));
+    }
+
+    /**
+     * Recalcula la fecha límite de retiro de un conjunto de paquetes y la
+     * persiste. Pensado para backfill inicial y para los flujos que cambian los
+     * insumos del plazo sin pasar por una transición de estado (p. ej. edición de
+     * un despacho que altera el courier/agencia y por tanto los días máximos).
+     *
+     * @return cantidad de paquetes cuyo plazo cambió.
+     */
+    @Transactional
+    public int recomputarFechaLimiteRetiroBatch(java.util.Collection<Long> paqueteIds) {
+        if (paqueteIds == null || paqueteIds.isEmpty()) return 0;
+        List<Paquete> paquetes = paqueteRepository.findAllById(paqueteIds);
+        int cambiados = 0;
+        for (Paquete p : paquetes) {
+            LocalDateTime previo = p.getFechaLimiteRetiro();
+            LocalDateTime nuevo = computeFechaLimiteRetiro(p);
+            if (!Objects.equals(previo, nuevo)) {
+                p.setFechaLimiteRetiro(nuevo);
+                cambiados++;
+            }
+        }
+        if (cambiados > 0) {
+            paqueteRepository.saveAll(paquetes);
+        }
+        return cambiados;
+    }
+
+    /**
      * Devuelve el instante desde el cual debe contarse la cuenta regresiva.
      *
      * <ul>
@@ -1601,6 +1820,10 @@ public class PaqueteService {
         }
         paquete.setBloqueado(false);
         paquete.setFechaBloqueoDesde(null);
+        // El cambio de estado altera los insumos del plazo de retiro (estado
+        // actual, fecha del estado y, al llegar al fin de cuenta regresiva,
+        // anula el vencimiento). Recalculamos la fecha límite persistida.
+        recomputarFechaLimiteRetiro(paquete);
     }
 
     private void validarTransicion(EstadoRastreo origen, EstadoRastreo destino) {

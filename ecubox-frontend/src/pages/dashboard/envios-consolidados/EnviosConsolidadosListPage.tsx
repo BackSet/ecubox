@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import {
   AlertCircle,
+  Ban,
   Boxes,
   CalendarClock,
   Check,
@@ -10,7 +11,9 @@ import {
   CircleDollarSign,
   Eye,
   ListChecks,
+  Lock,
   Package as PackageIcon,
+  PlaneLanding,
   Plus,
   Scale,
   Search,
@@ -69,6 +72,12 @@ import { TablePagination } from '@/components/ui/TablePagination';
 import { cn } from '@/lib/utils';
 import {
   useEnviarDesdeUsaEnvioConsolidado,
+  useCerrarConsolidadoEnvioConsolidado,
+  useArribarEcuadorEnvioConsolidado,
+  useCancelarEnvioConsolidado,
+  useAplicarEstadoEnConsolidados,
+  useElegiblesParaEstadoRastreoConsolidados,
+  useEstadosAplicablesConsolidados,
   useAplicarTransicionConsolidados,
   useCrearEnvioConsolidado,
   useEliminarEnvioConsolidado,
@@ -100,26 +109,41 @@ export function EnviosConsolidadosListPage() {
   const [estadoPagoFilter, setEstadoPagoFilter] = useState<EstadoPagoFiltro>('TODOS');
   const [createOpen, setCreateOpen] = useState(false);
   const [aplicarEstadoOpen, setAplicarEstadoOpen] = useState(false);
+  
+  const [tipoAccionMasiva, setTipoAccionMasiva] = useState<'operativa' | 'rastreo'>('operativa');
   const [estadoOperativoSeleccionado, setEstadoOperativoSeleccionado] =
     useState<TransicionOperativa | null>(null);
+  const [estadoRastreoSeleccionado, setEstadoRastreoSeleccionado] = useState<number | null>(null);
+
   const [consolidadosSeleccionados, setConsolidadosSeleccionados] = useState<number[]>([]);
+  const [confirmCerrar, setConfirmCerrar] = useState<{ id: number; codigo: string } | null>(null);
   const [confirmEnviarUsa, setConfirmEnviarUsa] = useState<{ id: number; codigo: string } | null>(null);
+  const [confirmArribarEcuador, setConfirmArribarEcuador] = useState<{ id: number; codigo: string } | null>(null);
   const [confirmReabrir, setConfirmReabrir] = useState<{ id: number; codigo: string } | null>(null);
+  const [confirmCancelar, setConfirmCancelar] = useState<{ id: number; codigo: string } | null>(null);
   const [confirmEliminar, setConfirmEliminar] = useState<{
     id: number;
     codigo: string;
     totalPaquetes: number;
   } | null>(null);
 
+  const cerrarMutation = useCerrarConsolidadoEnvioConsolidado();
   const enviarUsaMutation = useEnviarDesdeUsaEnvioConsolidado();
+  const arribarEcuadorMutation = useArribarEcuadorEnvioConsolidado();
   const reabrirMutation = useReabrirEnvioConsolidado();
+  const cancelarMutation = useCancelarEnvioConsolidado();
   const eliminarMutation = useEliminarEnvioConsolidado();
   const aplicarTransicionMutation = useAplicarTransicionConsolidados();
+  const aplicarEstadoMutation = useAplicarEstadoEnConsolidados();
+
   const hasEnviosUpdate = useAuthStore((s) =>
     s.hasPermission('ENVIOS_CONSOLIDADOS_UPDATE'),
   );
   const hasEnviosDelete = useAuthStore((s) =>
     s.hasPermission('ENVIOS_CONSOLIDADOS_DELETE'),
+  );
+  const hasEnviosCreate = useAuthStore((s) =>
+    s.hasPermission('ENVIOS_CONSOLIDADOS_CREATE'),
   );
 
   const { data, isLoading, isFetching, error, refetch } = useEnviosConsolidados({
@@ -129,6 +153,18 @@ export function EnviosConsolidadosListPage() {
     page,
     size,
   });
+
+  async function handleCerrar() {
+    if (!confirmCerrar) return;
+    try {
+      await cerrarMutation.mutateAsync(confirmCerrar.id);
+      toast.success(`Envío ${confirmCerrar.codigo} cerrado para registro`);
+      setConfirmCerrar(null);
+    } catch (err: unknown) {
+      const r = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(r?.data?.message ?? 'No se pudo cerrar el envío');
+    }
+  }
 
   async function handleEnviarUsa() {
     if (!confirmEnviarUsa) return;
@@ -142,6 +178,18 @@ export function EnviosConsolidadosListPage() {
     }
   }
 
+  async function handleArribarEcuador() {
+    if (!confirmArribarEcuador) return;
+    try {
+      await arribarEcuadorMutation.mutateAsync(confirmArribarEcuador.id);
+      toast.success(`Envío ${confirmArribarEcuador.codigo} registrado como arribado a Ecuador`);
+      setConfirmArribarEcuador(null);
+    } catch (err: unknown) {
+      const r = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(r?.data?.message ?? 'No se pudo registrar el arribo');
+    }
+  }
+
   async function handleReabrir() {
     if (!confirmReabrir) return;
     try {
@@ -151,6 +199,18 @@ export function EnviosConsolidadosListPage() {
     } catch (err: unknown) {
       const r = (err as { response?: { data?: { message?: string } } })?.response;
       toast.error(r?.data?.message ?? 'No se pudo reabrir el envío');
+    }
+  }
+
+  async function handleCancelar() {
+    if (!confirmCancelar) return;
+    try {
+      await cancelarMutation.mutateAsync(confirmCancelar.id);
+      toast.success(`Envío ${confirmCancelar.codigo} cancelado`);
+      setConfirmCancelar(null);
+    } catch (err: unknown) {
+      const r = (err as { response?: { data?: { message?: string } } })?.response;
+      toast.error(r?.data?.message ?? 'No se pudo cancelar el envío');
     }
   }
 
@@ -192,9 +252,12 @@ export function EnviosConsolidadosListPage() {
     const porOperativo: Record<EstadoEnvioConsolidadoOperativo, number> = {
       VACIO: 0,
       EN_PREPARACION: 0,
+      CERRADO: 0,
       ENVIADO_DESDE_USA: 0,
+      ARRIBADO_ECUADOR: 0,
       RECIBIDO_EN_BODEGA: 0,
       LIQUIDADO: 0,
+      CANCELADO: 0,
     };
     let pagados = 0;
     let noPagados = 0;
@@ -233,9 +296,12 @@ export function EnviosConsolidadosListPage() {
   }[] = [
     { key: 'VACIO', estado: 'VACIO' },
     { key: 'EN_PREPARACION', estado: 'EN_PREPARACION' },
+    { key: 'CERRADO', estado: 'CERRADO' },
     { key: 'ENVIADO_DESDE_USA', estado: 'ENVIADO_DESDE_USA' },
+    { key: 'ARRIBADO_ECUADOR', estado: 'ARRIBADO_ECUADOR' },
     { key: 'RECIBIDO_EN_BODEGA', estado: 'RECIBIDO_EN_BODEGA' },
     { key: 'LIQUIDADO', estado: 'LIQUIDADO' },
+    { key: 'CANCELADO', estado: 'CANCELADO' },
   ];
 
   const items = data?.content ?? [];
@@ -246,6 +312,221 @@ export function EnviosConsolidadosListPage() {
   function abrirAplicarEstado(id?: number) {
     setConsolidadosSeleccionados(id != null ? [id] : []);
     setAplicarEstadoOpen(true);
+  }
+
+  // Estados aplicables para el combo de rastreo
+  const { data: estadosAplicables } = useEstadosAplicablesConsolidados(
+    aplicarEstadoOpen && tipoAccionMasiva === 'rastreo'
+  );
+
+  // Consolidados elegibles (regla "ir de 1 en 1") para el estado de rastreo seleccionado
+  const { data: elegiblesEstadoRastreo } = useElegiblesParaEstadoRastreoConsolidados(
+    estadoRastreoSeleccionado,
+    aplicarEstadoOpen && tipoAccionMasiva === 'rastreo'
+  );
+
+  const bulkOptions = useMemo(() => {
+    if (tipoAccionMasiva === 'operativa') {
+      return [
+        { value: 'CERRADO', label: 'Cerrar envío' },
+        { value: 'ENVIADO_DESDE_USA', label: 'Enviar desde USA' },
+        { value: 'ARRIBADO_ECUADOR', label: 'Arribar a Ecuador' },
+        { value: 'EN_PREPARACION', label: 'Reabrir (En preparación)' },
+        { value: 'CANCELADO', label: 'Cancelar envío' },
+      ];
+    } else {
+      return (estadosAplicables ?? []).map((est) => ({
+        value: String(est.id),
+        label: est.nombre,
+        meta: est.tipoFlujo,
+      }));
+    }
+  }, [tipoAccionMasiva, estadosAplicables]);
+
+  const bulkSelectedOption = useMemo(() => {
+    if (tipoAccionMasiva === 'operativa') {
+      return estadoOperativoSeleccionado ?? '';
+    } else {
+      return estadoRastreoSeleccionado ? String(estadoRastreoSeleccionado) : '';
+    }
+  }, [tipoAccionMasiva, estadoOperativoSeleccionado, estadoRastreoSeleccionado]);
+
+  function handleBulkSelectedOptionChange(value: string) {
+    if (tipoAccionMasiva === 'operativa') {
+      setEstadoOperativoSeleccionado((value || null) as TransicionOperativa | null);
+    } else {
+      setEstadoRastreoSeleccionado(value ? Number(value) : null);
+    }
+    setConsolidadosSeleccionados([]);
+  }
+
+  const bulkItems = useMemo(() => {
+    const all = dataTodos?.content ?? [];
+    if (tipoAccionMasiva === 'operativa') {
+      if (!estadoOperativoSeleccionado) return [];
+      const origenesRequeridos = OPERATIVO_FUENTE[estadoOperativoSeleccionado];
+      return all
+        .filter((envio) => {
+          const operativo = resolveEstadoOperativoConsolidado(envio);
+          return origenesRequeridos ? origenesRequeridos.includes(operativo) : true;
+        })
+        .map((envio) => {
+          const operativo = resolveEstadoOperativoConsolidado(envio);
+          return {
+            id: envio.id,
+            date: envio.createdAt,
+            searchText: `${envio.codigo} estado:${operativo}`,
+            content: (
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <MonoTrunc value={envio.codigo} copy={false} className="font-medium" />
+                  <div className="text-xs text-muted-foreground">
+                    {envio.totalPaquetes ?? 0} paquete(s)
+                    {envio.estadoPago === 'PAGADO' ? ' · Pagado' : ''}
+                  </div>
+                </div>
+                <EnvioConsolidadoBadge
+                  cerrado={envio.cerrado}
+                  estadoOperativo={operativo}
+                />
+              </div>
+            ),
+          };
+        });
+    } else {
+      if (!estadoRastreoSeleccionado) return [];
+      const elegiblesIds = new Set(elegiblesEstadoRastreo ?? []);
+      return all
+        .filter((envio) => envio.totalPaquetes > 0 && resolveEstadoOperativoConsolidado(envio) !== 'CANCELADO')
+        .filter((envio) => elegiblesIds.has(envio.id))
+        .map((envio) => {
+          const operativo = resolveEstadoOperativoConsolidado(envio);
+          return {
+            id: envio.id,
+            date: envio.createdAt,
+            searchText: `${envio.codigo} estado:${operativo}`,
+            content: (
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <MonoTrunc value={envio.codigo} copy={false} className="font-medium" />
+                  <div className="text-xs text-muted-foreground">
+                    {envio.totalPaquetes ?? 0} paquete(s)
+                    {envio.estadoPago === 'PAGADO' ? ' · Pagado' : ''}
+                  </div>
+                </div>
+                <EnvioConsolidadoBadge
+                  cerrado={envio.cerrado}
+                  estadoOperativo={operativo}
+                />
+              </div>
+            ),
+          };
+        });
+    }
+  }, [tipoAccionMasiva, estadoOperativoSeleccionado, estadoRastreoSeleccionado, dataTodos, elegiblesEstadoRastreo]);
+
+  const bulkOptionHelp = useMemo(() => {
+    if (tipoAccionMasiva === 'operativa') {
+      if (!estadoOperativoSeleccionado) {
+        return 'Vacío, Recibido en bodega y Liquidado son estados no transicionables manualmente o derivados.';
+      }
+      if (estadoOperativoSeleccionado === 'CANCELADO') {
+        return 'Cancela el envío sin importar su estado actual, salvo que ya esté «Liquidado» o «Cancelado».';
+      }
+      return `Solo se listan consolidados en estado ${
+        OPERATIVO_FUENTE[estadoOperativoSeleccionado]
+          .map((src) => `«${ENVIO_CONSOLIDADO_ESTADO_UI[src].label}»`)
+          .join(' o ')
+      }; los demás no son elegibles.`;
+    } else {
+      if (!estadoRastreoSeleccionado) {
+        return 'Seleccione un estado de rastreo para ver los consolidados elegibles.';
+      }
+      return 'Solo se listan consolidados con paquetes en el estado de rastreo inmediatamente anterior. '
+        + 'Aplica el estado seleccionado a todos los paquetes de los consolidados elegidos; '
+        + 'no cambia el estado operativo de los consolidados.';
+    }
+  }, [tipoAccionMasiva, estadoOperativoSeleccionado, estadoRastreoSeleccionado]);
+
+  const bulkHeaderExtra = (
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/20 p-3">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Tipo de acción masiva
+      </span>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={tipoAccionMasiva === 'operativa' ? 'default' : 'outline'}
+          className="flex-1"
+          onClick={() => {
+            setTipoAccionMasiva('operativa');
+            setEstadoOperativoSeleccionado(null);
+            setEstadoRastreoSeleccionado(null);
+            setConsolidadosSeleccionados([]);
+          }}
+        >
+          Estado operativo del consolidado
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={tipoAccionMasiva === 'rastreo' ? 'default' : 'outline'}
+          className="flex-1"
+          onClick={() => {
+            setTipoAccionMasiva('rastreo');
+            setEstadoOperativoSeleccionado(null);
+            setEstadoRastreoSeleccionado(null);
+            setConsolidadosSeleccionados([]);
+          }}
+        >
+          Estado de rastreo de paquetes
+        </Button>
+      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        {tipoAccionMasiva === 'operativa'
+          ? 'Cambia el estado administrativo/operativo del Envío consolidado (ej. Cerrar, Enviar desde USA, Arribar a Ecuador).'
+          : 'Aplica un Estado de rastreo a todos los Paquetes dentro de los Envíos consolidados seleccionados.'}
+      </p>
+    </div>
+  );
+
+  async function handleBulkConfirm() {
+    if (tipoAccionMasiva === 'operativa') {
+      if (!estadoOperativoSeleccionado) return;
+      try {
+        const resultado = await aplicarTransicionMutation.mutateAsync({
+          estadoOperativoDestino: estadoOperativoSeleccionado,
+          consolidadoIds: consolidadosSeleccionados,
+        });
+        const rechazados = resultado.rechazados?.length ?? 0;
+        const msg = `${resultado.consolidadosProcesados} consolidado(s) actualizado(s)` +
+          (rechazados > 0 ? ` · ${rechazados} omitido(s)` : '');
+        if (rechazados > 0) toast.warning(msg);
+        else toast.success(msg);
+        setAplicarEstadoOpen(false);
+        setConsolidadosSeleccionados([]);
+      } catch (err: unknown) {
+        const r = (err as { response?: { data?: { message?: string } } })?.response;
+        toast.error(r?.data?.message ?? 'No se pudo aplicar el estado operativo');
+      }
+    } else {
+      if (!estadoRastreoSeleccionado) return;
+      try {
+        const resultado = await aplicarEstadoMutation.mutateAsync({
+          consolidadoIds: consolidadosSeleccionados,
+          estadoRastreoId: estadoRastreoSeleccionado,
+        });
+        toast.success(
+          `${resultado.consolidadosProcesados} consolidado(s) y ${resultado.paquetesActualizados} paquete(s) actualizados con el nuevo estado de rastreo`
+        );
+        setAplicarEstadoOpen(false);
+        setConsolidadosSeleccionados([]);
+      } catch (err: unknown) {
+        const r = (err as { response?: { data?: { message?: string } } })?.response;
+        toast.error(r?.data?.message ?? 'No se pudo aplicar el estado de rastreo');
+      }
+    }
   }
 
   return (
@@ -263,10 +544,12 @@ export function EnviosConsolidadosListPage() {
                 Aplicar estado
               </Button>
             )}
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo envío
-            </Button>
+            {hasEnviosCreate && (
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo envío
+              </Button>
+            )}
           </div>
         }
       />
@@ -419,6 +702,7 @@ export function EnviosConsolidadosListPage() {
                   <TableHead className="text-center">Paquetes</TableHead>
                   <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                   <TableHead>Creado</TableHead>
+                  <TableHead className="hidden md:table-cell">Cerrado</TableHead>
                   <TableHead className="hidden md:table-cell">Salida USA</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
@@ -426,111 +710,141 @@ export function EnviosConsolidadosListPage() {
               <TableBody>
                 {isLoading && (
                   <TableRowsSkeleton
-                    columns={8}
-                    columnClasses={{ 6: 'hidden md:table-cell' }}
+                    columns={9}
+                    columnClasses={{ 6: 'hidden md:table-cell', 7: 'hidden md:table-cell' }}
                   />
                 )}
-                {items.map((e) => (
-                  <TableRow
-                    key={e.id}
-                    className="cursor-pointer"
-                    onClick={() =>
-                      navigate({
-                        to: '/envios-consolidados/$id',
-                        params: { id: String(e.id) },
-                      })
-                    }
-                  >
-                    <TableCell>
-                      <MonoTrunc
-                        value={e.codigo}
-                        className="font-medium text-foreground"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <EnvioConsolidadoBadge
-                        cerrado={e.cerrado}
-                        estadoOperativo={resolveEstadoOperativoConsolidado(e)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <PagoBadge estado={e.estadoPago} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <PaquetesBadge total={e.totalPaquetes ?? 0} />
-                    </TableCell>
-                    <TableCell className={PESO_TABLE_CELL_CLASS}>
-                      <PesoCell
-                        pesoLbs={
-                          e.pesoTotalLbs != null && e.pesoTotalLbs > 0
-                            ? e.pesoTotalLbs
-                            : null
-                        }
-                      />
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      <FechaCell value={e.createdAt} />
-                    </TableCell>
-                    <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
-                      <FechaCell value={e.fechaCerrado} mutedIfEmpty />
-                    </TableCell>
-                    <TableCell
-                      className="text-right"
-                      onClick={(ev) => ev.stopPropagation()}
+                {items.map((e) => {
+                  const op = resolveEstadoOperativoConsolidado(e);
+                  return (
+                    <TableRow
+                      key={e.id}
+                      className="cursor-pointer"
+                      onClick={() =>
+                        navigate({
+                          to: '/envios-consolidados/$id',
+                          params: { id: String(e.id) },
+                        })
+                      }
                     >
-                      <RowActionsMenu
-                        items={[
-                          {
-                            label: 'Ver detalle',
-                            icon: Eye,
-                            onSelect: () =>
-                              navigate({
-                                to: '/envios-consolidados/$id',
-                                params: { id: String(e.id) },
-                              }),
-                          },
-                          { type: 'separator' },
-                          {
-                            label: 'Aplicar estado',
-                            icon: Tag,
-                            hidden: !hasEnviosUpdate,
-                            onSelect: () => abrirAplicarEstado(e.id),
-                          },
-                          {
-                            label: 'Reabrir envío',
-                            icon: Unlock,
-                            hidden: !e.cerrado,
-                            disabled: reabrirMutation.isPending,
-                            onSelect: () =>
-                              setConfirmReabrir({ id: e.id, codigo: e.codigo }),
-                          },
-                          {
-                            label: 'Enviar desde USA',
-                            icon: Truck,
-                            hidden: e.cerrado,
-                            disabled: enviarUsaMutation.isPending,
-                            onSelect: () =>
-                              setConfirmEnviarUsa({ id: e.id, codigo: e.codigo }),
-                          },
-                          { type: 'separator', hidden: !hasEnviosDelete },
-                          {
-                            label: 'Eliminar envío',
-                            icon: Trash2,
-                            destructive: true,
-                            hidden: !hasEnviosDelete,
-                            disabled: e.cerrado || eliminarMutation.isPending,
-                            onSelect: () =>
-                              setConfirmEliminar({
-                                id: e.id,
-                                codigo: e.codigo,
-                                totalPaquetes: e.totalPaquetes ?? 0,
-                              }),
-                          },
-                        ]}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      <TableCell>
+                        <MonoTrunc
+                          value={e.codigo}
+                          className="font-medium text-foreground"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <EnvioConsolidadoBadge
+                          cerrado={e.cerrado}
+                          estadoOperativo={op}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <PagoBadge estado={e.estadoPago} />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <PaquetesBadge total={e.totalPaquetes ?? 0} />
+                      </TableCell>
+                      <TableCell className={PESO_TABLE_CELL_CLASS}>
+                        <PesoCell
+                          pesoLbs={
+                            e.pesoTotalLbs != null && e.pesoTotalLbs > 0
+                              ? e.pesoTotalLbs
+                              : null
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        <FechaCell value={e.createdAt} />
+                      </TableCell>
+                      <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
+                        <FechaCell value={e.fechaCierre} mutedIfEmpty />
+                      </TableCell>
+                      <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
+                        <FechaCell value={e.fechaCerrado} mutedIfEmpty />
+                      </TableCell>
+                      <TableCell
+                        className="text-right"
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
+                        <RowActionsMenu
+                          items={[
+                            {
+                              label: 'Ver detalle',
+                              icon: Eye,
+                              onSelect: () =>
+                                navigate({
+                                  to: '/envios-consolidados/$id',
+                                  params: { id: String(e.id) },
+                                }),
+                            },
+                            { type: 'separator' },
+                            {
+                              label: 'Aplicar estado',
+                              icon: Tag,
+                              hidden: !hasEnviosUpdate || op === 'CANCELADO' || op === 'LIQUIDADO',
+                              onSelect: () => abrirAplicarEstado(e.id),
+                            },
+                            {
+                              label: 'Cerrar envío',
+                              icon: Lock,
+                              hidden: !hasEnviosUpdate || op !== 'EN_PREPARACION',
+                              disabled: cerrarMutation.isPending,
+                              onSelect: () =>
+                                setConfirmCerrar({ id: e.id, codigo: e.codigo }),
+                            },
+                            {
+                              label: 'Enviar desde USA',
+                              icon: Truck,
+                              hidden: !hasEnviosUpdate || op !== 'CERRADO',
+                              disabled: enviarUsaMutation.isPending,
+                              onSelect: () =>
+                                setConfirmEnviarUsa({ id: e.id, codigo: e.codigo }),
+                            },
+                            {
+                              label: 'Arribar a Ecuador',
+                              icon: PlaneLanding,
+                              hidden: !hasEnviosUpdate || op !== 'ENVIADO_DESDE_USA',
+                              disabled: arribarEcuadorMutation.isPending,
+                              onSelect: () =>
+                                setConfirmArribarEcuador({ id: e.id, codigo: e.codigo }),
+                            },
+                            {
+                              label: 'Reabrir envío',
+                              icon: Unlock,
+                              hidden: !hasEnviosUpdate || (op !== 'CERRADO' && op !== 'ENVIADO_DESDE_USA'),
+                              disabled: reabrirMutation.isPending,
+                              onSelect: () =>
+                                setConfirmReabrir({ id: e.id, codigo: e.codigo }),
+                            },
+                            {
+                              label: 'Cancelar consolidado',
+                              icon: Ban,
+                              hidden: !hasEnviosUpdate || (op !== 'VACIO' && op !== 'EN_PREPARACION'),
+                              disabled: cancelarMutation.isPending,
+                              onSelect: () =>
+                                setConfirmCancelar({ id: e.id, codigo: e.codigo }),
+                            },
+                            { type: 'separator', hidden: !hasEnviosDelete },
+                            {
+                              label: 'Eliminar envío',
+                              icon: Trash2,
+                              destructive: true,
+                              hidden: !hasEnviosDelete,
+                              disabled: (op !== 'VACIO' && op !== 'EN_PREPARACION') || eliminarMutation.isPending,
+                              onSelect: () =>
+                                setConfirmEliminar({
+                                  id: e.id,
+                                  codigo: e.codigo,
+                                  totalPaquetes: e.totalPaquetes ?? 0,
+                                }),
+                            },
+                          ]}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </ListTableShell>
@@ -552,7 +866,11 @@ export function EnviosConsolidadosListPage() {
       <AplicarEstadoMasivoDialog
         open={aplicarEstadoOpen}
         title="Aplicar estado a consolidados"
-        description="Selecciona una transición operativa y marca los consolidados que la recibirán."
+        description={
+          tipoAccionMasiva === 'operativa'
+            ? 'Selecciona una transición operativa para cambiar el estado de los consolidados seleccionados.'
+            : 'Selecciona un estado de rastreo para aplicarlo a todos los paquetes de los consolidados seleccionados.'
+        }
         selectionLabel="consolidados"
         searchPlaceholder="Buscar consolidado..."
         hideModoSelector={true}
@@ -562,83 +880,40 @@ export function EnviosConsolidadosListPage() {
         dateTo=""
         onDateFromChange={() => {}}
         onDateToChange={() => {}}
-        items={(estadoOperativoSeleccionado ? dataTodos?.content ?? [] : [])
-          .filter((envio) => {
-            const origenRequerido = estadoOperativoSeleccionado
-              ? OPERATIVO_FUENTE[estadoOperativoSeleccionado]
-              : undefined;
-            if (!origenRequerido) return true;
-            return resolveEstadoOperativoConsolidado(envio) === origenRequerido;
-          })
-          .map((envio) => {
-            const operativo = resolveEstadoOperativoConsolidado(envio);
-            return {
-              id: envio.id,
-              date: envio.createdAt,
-              searchText: `${envio.codigo} estado:${operativo}`,
-              content: (
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <MonoTrunc value={envio.codigo} copy={false} className="font-medium" />
-                    <div className="text-xs text-muted-foreground">
-                      {envio.totalPaquetes ?? 0} paquete(s)
-                      {envio.estadoPago === 'PAGADO' ? ' · Pagado' : ''}
-                    </div>
-                  </div>
-                  <EnvioConsolidadoBadge
-                    cerrado={envio.cerrado}
-                    estadoOperativo={operativo}
-                  />
-                </div>
-              ),
-            };
-          })}
+        items={bulkItems}
         selectedIds={consolidadosSeleccionados}
         onSelectedIdsChange={setConsolidadosSeleccionados}
-        options={OPERATIVOS_APLICABLES.map((estado) => ({
-          value: estado,
-          label: ENVIO_CONSOLIDADO_ESTADO_UI[estado].label,
-        }))}
-        selectedOption={estadoOperativoSeleccionado ?? ''}
-        onSelectedOptionChange={(value) =>
-          setEstadoOperativoSeleccionado((value || null) as TransicionOperativa | null)
-        }
-        optionLabel="Estado operativo a aplicar"
-        optionHelp={
-          estadoOperativoSeleccionado
-            ? `Solo se listan consolidados en estado «${
-                ENVIO_CONSOLIDADO_ESTADO_UI[OPERATIVO_FUENTE[estadoOperativoSeleccionado]].label
-              }»; los demás no son elegibles.`
-            : 'Vacío, Recibido en bodega y Liquidado son estados derivados y no se pueden seleccionar.'
-        }
+        options={bulkOptions}
+        selectedOption={bulkSelectedOption}
+        onSelectedOptionChange={handleBulkSelectedOptionChange}
+        optionLabel={tipoAccionMasiva === 'operativa' ? 'Estado operativo a aplicar' : 'Estado de rastreo de paquetes'}
+        optionHelp={bulkOptionHelp}
+        headerExtra={bulkHeaderExtra}
         periodHelp={null}
-        loading={aplicarTransicionMutation.isPending}
+        loading={aplicarTransicionMutation.isPending || aplicarEstadoMutation.isPending}
         onOpenChange={(open) => {
           setAplicarEstadoOpen(open);
           if (!open) {
             setConsolidadosSeleccionados([]);
             setEstadoOperativoSeleccionado(null);
+            setEstadoRastreoSeleccionado(null);
           }
         }}
-        onConfirm={async () => {
-          if (!estadoOperativoSeleccionado) return;
-          try {
-            const resultado = await aplicarTransicionMutation.mutateAsync({
-              estadoOperativoDestino: estadoOperativoSeleccionado,
-              consolidadoIds: consolidadosSeleccionados,
-            });
-            const rechazados = resultado.rechazados?.length ?? 0;
-            const msg = `${resultado.consolidadosProcesados} consolidado(s) actualizado(s)` +
-              (rechazados > 0 ? ` · ${rechazados} omitido(s)` : '');
-            if (rechazados > 0) toast.warning(msg);
-            else toast.success(msg);
-            setAplicarEstadoOpen(false);
-            setConsolidadosSeleccionados([]);
-          } catch (err: unknown) {
-            const r = (err as { response?: { data?: { message?: string } } })?.response;
-            toast.error(r?.data?.message ?? 'No se pudo aplicar el estado');
-          }
-        }}
+        onConfirm={handleBulkConfirm}
+      />
+
+      <ConfirmDialog
+        open={confirmCerrar !== null}
+        onOpenChange={(o) => !o && setConfirmCerrar(null)}
+        title="Cerrar envío consolidado"
+        description={
+          confirmCerrar
+            ? `Al cerrar el envío "${confirmCerrar.codigo}" se detendrá el registro de nuevos paquetes y se aplicará el estado de "Cerrado" al consolidado.`
+            : ''
+        }
+        confirmLabel="Cerrar envío"
+        loading={cerrarMutation.isPending}
+        onConfirm={handleCerrar}
       />
 
       <ConfirmDialog
@@ -647,7 +922,7 @@ export function EnviosConsolidadosListPage() {
         title="Enviar consolidado desde USA"
         description={
           confirmEnviarUsa
-            ? `Al enviar "${confirmEnviarUsa.codigo}" desde USA se aplicará el estado de salida a sus piezas y ya no podrás agregar ni remover paquetes hasta reabrirlo.`
+            ? `Al marcar "${confirmEnviarUsa.codigo}" como enviado desde USA se aplicará el estado de salida a sus piezas y el consolidado quedará registrado como enviado desde origen.`
             : ''
         }
         confirmLabel="Enviar desde USA"
@@ -656,17 +931,45 @@ export function EnviosConsolidadosListPage() {
       />
 
       <ConfirmDialog
+        open={confirmArribarEcuador !== null}
+        onOpenChange={(o) => !o && setConfirmArribarEcuador(null)}
+        title="Registrar arribo a Ecuador"
+        description={
+          confirmArribarEcuador
+            ? `Al marcar "${confirmArribarEcuador.codigo}" como arribado a Ecuador se registrará su llegada a aduana destino.`
+            : ''
+        }
+        confirmLabel="Arribar a Ecuador"
+        loading={arribarEcuadorMutation.isPending}
+        onConfirm={handleArribarEcuador}
+      />
+
+      <ConfirmDialog
         open={confirmReabrir !== null}
         onOpenChange={(o) => !o && setConfirmReabrir(null)}
         title="Reabrir envío consolidado"
         description={
           confirmReabrir
-            ? `El envío "${confirmReabrir.codigo}" volverá a admitir agregar y remover paquetes.`
+            ? `El envío "${confirmReabrir.codigo}" volverá al estado "En preparación" y admitirá agregar y remover paquetes.`
             : ''
         }
         confirmLabel="Reabrir"
         loading={reabrirMutation.isPending}
         onConfirm={handleReabrir}
+      />
+
+      <ConfirmDialog
+        open={confirmCancelar !== null}
+        onOpenChange={(o) => !o && setConfirmCancelar(null)}
+        title="Cancelar envío consolidado"
+        description={
+          confirmCancelar
+            ? `Al cancelar el envío "${confirmCancelar.codigo}" quedará anulado permanentemente.`
+            : ''
+        }
+        confirmLabel="Cancelar"
+        loading={cancelarMutation.isPending}
+        onConfirm={handleCancelar}
       />
 
       <EliminarEnvioDialog
@@ -679,7 +982,7 @@ export function EnviosConsolidadosListPage() {
   );
 }
 
-type TransicionOperativa = 'ENVIADO_DESDE_USA' | 'EN_PREPARACION';
+type TransicionOperativa = 'CERRADO' | 'ENVIADO_DESDE_USA' | 'ARRIBADO_ECUADOR' | 'EN_PREPARACION' | 'CANCELADO';
 
 interface AplicarTransicionPayload {
   estadoOperativoDestino: TransicionOperativa;
@@ -699,12 +1002,20 @@ interface AplicarEstadoConsolidadosDialogProps {
 }
 
 /** Estados operativos que tienen una transición manual real. */
-const OPERATIVOS_APLICABLES: TransicionOperativa[] = ['ENVIADO_DESDE_USA', 'EN_PREPARACION'];
+const OPERATIVOS_APLICABLES: TransicionOperativa[] = ['CERRADO', 'ENVIADO_DESDE_USA', 'ARRIBADO_ECUADOR', 'EN_PREPARACION', 'CANCELADO'];
 
-/** Estado de origen requerido para cada transición. */
-const OPERATIVO_FUENTE: Record<string, EstadoEnvioConsolidadoOperativo> = {
-  ENVIADO_DESDE_USA: 'EN_PREPARACION',
-  EN_PREPARACION: 'ENVIADO_DESDE_USA',
+/**
+ * Estado(s) de origen requerido para cada transición. Todas avanzan/retroceden
+ * 1 paso en el flujo VACIO → EN_PREPARACION → CERRADO → ENVIADO_DESDE_USA →
+ * ARRIBADO_ECUADOR → RECIBIDO_EN_BODEGA → LIQUIDADO, salvo CANCELADO que se
+ * admite desde cualquier estado no terminal (no LIQUIDADO ni CANCELADO).
+ */
+const OPERATIVO_FUENTE: Record<TransicionOperativa, EstadoEnvioConsolidadoOperativo[]> = {
+  CERRADO: ['EN_PREPARACION'],
+  ENVIADO_DESDE_USA: ['CERRADO'],
+  ARRIBADO_ECUADOR: ['ENVIADO_DESDE_USA'],
+  EN_PREPARACION: ['CERRADO', 'ENVIADO_DESDE_USA'],
+  CANCELADO: ['VACIO', 'EN_PREPARACION', 'CERRADO', 'ENVIADO_DESDE_USA', 'ARRIBADO_ECUADOR', 'RECIBIDO_EN_BODEGA'],
 };
 
 function isoDateLocal(d: Date): string {
@@ -759,9 +1070,12 @@ export function AplicarEstadoConsolidadosDialog({
     const counts: Record<EstadoEnvioConsolidadoOperativo, number> = {
       VACIO: 0,
       EN_PREPARACION: 0,
+      CERRADO: 0,
       ENVIADO_DESDE_USA: 0,
+      ARRIBADO_ECUADOR: 0,
       RECIBIDO_EN_BODEGA: 0,
       LIQUIDADO: 0,
+      CANCELADO: 0,
     };
     for (const envio of consolidados) {
       counts[resolveEstadoOperativoConsolidado(envio)] += 1;
@@ -885,7 +1199,9 @@ export function AplicarEstadoConsolidadosDialog({
             {estadoOperativo && (
               <p className="text-xs text-muted-foreground">
                 Solo se aplicará a consolidados en estado «
-                {ENVIO_CONSOLIDADO_ESTADO_UI[OPERATIVO_FUENTE[estadoOperativo]].label}»; el resto se
+                {OPERATIVO_FUENTE[estadoOperativo]
+                  ?.map((src) => ENVIO_CONSOLIDADO_ESTADO_UI[src].label)
+                  .join(' o ')}»; el resto se
                 omitirá.
               </p>
             )}
