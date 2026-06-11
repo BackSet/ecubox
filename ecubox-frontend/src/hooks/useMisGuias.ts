@@ -8,11 +8,25 @@ import {
   listarPiezasDeMiGuia,
   registrarMiGuia,
   obtenerMiInicioDashboard,
+  listarEstadosRastreoMisGuias,
   type MiGuiaUpdateBody,
 } from '@/lib/api/mis-guias.service';
 import type { MiGuiaCreateRequest } from '@/types/guia-master';
 
 export const MIS_GUIAS_QUERY_KEY = ['mis-guias'] as const;
+
+/**
+ * Catálogo de estados de rastreo visibles para el cliente (leyenda de
+ * "qué significa cada estado"). Cambia poco: se cachea 5 minutos.
+ */
+export function useEstadosRastreoMisGuias(enabled = true) {
+  return useQuery({
+    queryKey: [...MIS_GUIAS_QUERY_KEY, 'estados-rastreo'],
+    queryFn: () => listarEstadosRastreoMisGuias(),
+    staleTime: 5 * 60_000,
+    enabled,
+  });
+}
 
 export function useMisGuias() {
   return useQuery({

@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.service;
 
+import com.ecubox.ecubox_backend.dto.EstadoRastreoClienteDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoAlternoAfterItemRequest;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoRequest;
@@ -71,6 +72,27 @@ public class EstadoRastreoService {
     @Transactional(readOnly = true)
     public List<EstadoRastreo> findActivosEntities() {
         return estadoRastreoRepository.findByActivoTrueOrderByOrdenTrackingAscIdAsc();
+    }
+
+    /**
+     * Catálogo de estados visibles para el cliente final (leyenda de
+     * "qué significa cada estado" en mis-guias): solo estados activos y
+     * marcados como públicos, ordenados por el flujo de rastreo. La
+     * leyenda se devuelve cruda; si contiene el placeholder {dias},
+     * el frontend decide cómo presentarlo en un contexto sin conteo.
+     */
+    @Transactional(readOnly = true)
+    public List<EstadoRastreoClienteDTO> findCatalogoPublicoCliente() {
+        return estadoRastreoRepository
+                .findByActivoTrueAndPublicoTrackingTrueOrderByOrdenTrackingAscIdAsc().stream()
+                .map(e -> EstadoRastreoClienteDTO.builder()
+                        .id(e.getId())
+                        .nombre(e.getNombre())
+                        .leyenda(e.getLeyenda())
+                        .ordenTracking(e.getOrdenTracking())
+                        .tipoFlujo(e.getTipoFlujo())
+                        .build())
+                .toList();
     }
 
     /** Estados activos ordenados por tracking, excluyendo el origen (para cambio de estado masivo). */

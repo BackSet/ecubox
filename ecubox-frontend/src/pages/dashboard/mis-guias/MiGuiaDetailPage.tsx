@@ -31,14 +31,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useEliminarMiGuia, useMiGuia, useMiGuiaPiezas } from '@/hooks/useMisGuias';
+import {
+  useEliminarMiGuia,
+  useEstadosRastreoMisGuias,
+  useMiGuia,
+  useMiGuiaPiezas,
+} from '@/hooks/useMisGuias';
 import { useAuthStore } from '@/stores/authStore';
 import { useEstadosRastreoPorPunto } from '@/hooks/useEstadosRastreo';
 import type { EstadoGuiaMaster } from '@/types/guia-master';
 import type { Paquete } from '@/types/paquete';
 import { ConsignatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
+import { EstadosLeyendaDialog } from '@/components/estados/EstadosLeyendaDialog';
 import { EditarMiGuiaDialog } from './EditarMiGuiaDialog';
-import { MI_GUIA_ESTADO_DESCRIPCIONES, MiGuiaEstadoBadge } from './_estado-cliente';
+import {
+  MI_GUIA_ESTADO_DESCRIPCIONES,
+  MiGuiaEstadoBadge,
+  getEstadosRastreoLeyendaItems,
+  getMisGuiasLeyendaItems,
+} from './_estado-cliente';
 
 const TOOLTIP_NO_EDITABLE =
   'Ya no es posible editar esta guía porque sus piezas están en proceso. Si necesitas un cambio, contáctanos.';
@@ -62,6 +73,7 @@ export function MiGuiaDetailPage() {
   const { data: guia, isLoading, error } = useMiGuia(id);
   const { data: piezas, isLoading: loadingPiezas } = useMiGuiaPiezas(id);
   const { data: estadosPunto } = useEstadosRastreoPorPunto();
+  const { data: estadosRastreo, isLoading: loadingEstadosRastreo } = useEstadosRastreoMisGuias();
   // Solo lectura para sesiones por enlace de acceso (sin permiso de escritura).
   const canEditar = useAuthStore((s) => s.hasPermission('MIS_GUIAS_CREATE'));
   const eliminar = useEliminarMiGuia();
@@ -133,6 +145,13 @@ export function MiGuiaDetailPage() {
                 Mi guía
               </span>
               <MiGuiaEstadoBadge estado={guia.estadoGlobal} />
+              <EstadosLeyendaDialog
+                title="¿Qué significa cada estado?"
+                description="Estados por los que pasa una guía desde que la registras hasta la entrega."
+                items={getMisGuiasLeyendaItems()}
+                triggerLabel="Ver qué significa cada estado de tu guía"
+                className="h-6 w-6"
+              />
             </div>
             <div className="flex items-start gap-2">
               <h1 className="break-all font-mono text-xl font-semibold leading-tight">
@@ -241,7 +260,17 @@ export function MiGuiaDetailPage() {
 
       <SurfaceCard className="space-y-3 p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold">Detalle de piezas</h2>
+          <div className="flex items-center gap-1">
+            <h2 className="text-lg font-semibold">Detalle de piezas</h2>
+            <EstadosLeyendaDialog
+              title="Estados de rastreo de tus piezas"
+              description="Cada pieza avanza por estos estados desde la bodega de EE.UU. hasta la entrega."
+              items={getEstadosRastreoLeyendaItems(estadosRastreo)}
+              triggerLabel="Ver qué significa cada estado de rastreo de tus piezas"
+              isLoading={loadingEstadosRastreo}
+              className="h-6 w-6"
+            />
+          </div>
           {piezas && piezas.length > 0 && (
             <span className="text-xs text-muted-foreground">
               {piezas.length} pieza{piezas.length === 1 ? '' : 's'} registrada

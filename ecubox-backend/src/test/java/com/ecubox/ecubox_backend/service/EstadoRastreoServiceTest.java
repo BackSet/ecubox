@@ -82,4 +82,32 @@ class EstadoRastreoServiceTest {
                 () -> estadoRastreoService.reorderTracking(List.of(1L), List.of()));
         assertTrue(exAlt.getMessage().contains("alternos"));
     }
+
+    @Test
+    void findCatalogoPublicoCliente_mapeaCamposYDevuelveLeyendaCruda() {
+        EstadoRastreo registrado = EstadoRastreo.builder()
+                .id(1L).codigo("REGISTRADO").nombre("Registrado")
+                .leyenda("Recibimos tu paquete en nuestra bodega de USA.")
+                .activo(true).publicoTracking(true).ordenTracking(1)
+                .tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        EstadoRastreo retenido = EstadoRastreo.builder()
+                .id(2L).codigo("RETENIDO").nombre("Retenido en aduana")
+                .leyenda("Tu paquete lleva {dias} días en revisión de aduana.")
+                .activo(true).publicoTracking(true).ordenTracking(2)
+                .tipoFlujo(TipoFlujoEstado.ALTERNO).build();
+
+        when(estadoRastreoRepository.findByActivoTrueAndPublicoTrackingTrueOrderByOrdenTrackingAscIdAsc())
+                .thenReturn(List.of(registrado, retenido));
+
+        var catalogo = estadoRastreoService.findCatalogoPublicoCliente();
+
+        assertEquals(2, catalogo.size());
+        assertEquals("Registrado", catalogo.get(0).getNombre());
+        assertEquals("Recibimos tu paquete en nuestra bodega de USA.", catalogo.get(0).getLeyenda());
+        assertEquals(1, catalogo.get(0).getOrdenTracking());
+        assertEquals(TipoFlujoEstado.NORMAL, catalogo.get(0).getTipoFlujo());
+        // La leyenda se devuelve cruda: el placeholder {dias} lo resuelve el frontend.
+        assertEquals("Tu paquete lleva {dias} días en revisión de aduana.", catalogo.get(1).getLeyenda());
+        assertEquals(TipoFlujoEstado.ALTERNO, catalogo.get(1).getTipoFlujo());
+    }
 }
