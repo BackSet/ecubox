@@ -24,7 +24,8 @@ import { localDateTimeInputToApi } from '@/lib/datetime-local';
 import { loteRecepcionCreateSchema } from '@/lib/schemas';
 import { formatDatetimeLocalNow } from '@/lib/constants/operational-presets';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { EnvioConsolidado } from '@/types/envio-consolidado';
 
 function defaultFechaRecepcion(): string {
@@ -98,7 +99,7 @@ export function LoteRecepcionNuevoPage() {
       .map((t) => t.trim())
       .filter(Boolean);
     if (tokens.length === 0) {
-      toast.error('Pega o escribe al menos un código.');
+      notify.error('Pega o escribe al menos un código', 'Acepta códigos de envío consolidado separados por comas, espacios o saltos de línea.');
       return;
     }
     const dedup = Array.from(new Set(tokens.map((t) => t.toUpperCase())));
@@ -135,25 +136,25 @@ export function LoteRecepcionNuevoPage() {
     if (nuevos.length > 0) {
       setSeleccionados((prev) => [...prev, ...nuevos]);
       setEnviosError(undefined);
-      toast.success(
-        `${nuevos.length} envío${nuevos.length === 1 ? '' : 's'} agregado${nuevos.length === 1 ? '' : 's'}.`,
+      notify.success(
+        `${nuevos.length} envío${nuevos.length === 1 ? '' : 's'} consolidado${nuevos.length === 1 ? '' : 's'} agregado${nuevos.length === 1 ? '' : 's'} al lote`,
+        nuevos.slice(0, 5).map((e) => e.codigo).join(', ') + (nuevos.length > 5 ? '...' : ''),
       );
     }
     if (duplicados.length > 0) {
-      toast.message(
-        `${duplicados.length} ya estaba${duplicados.length === 1 ? '' : 'n'} en la lista`,
-        { description: duplicados.slice(0, 5).join(', ') + (duplicados.length > 5 ? '...' : '') },
+      notify.info(
+        `Código${duplicados.length === 1 ? '' : 's'} duplicado${duplicados.length === 1 ? '' : 's'} omitido${duplicados.length === 1 ? '' : 's'}`,
+        duplicados.slice(0, 5).join(', ') +
+          (duplicados.length > 5 ? '...' : '') +
+          ` · Ya estaba${duplicados.length === 1 ? '' : 'n'} en la lista.`,
       );
     }
     if (desconocidos.length > 0) {
-      toast.error(
+      notify.error(
         `${desconocidos.length} código${desconocidos.length === 1 ? '' : 's'} no disponible${desconocidos.length === 1 ? '' : 's'}`,
-        {
-          description:
-            desconocidos.slice(0, 5).join(', ') +
-            (desconocidos.length > 5 ? '...' : '') +
-            ' · No existen, no tienen paquetes o ya fueron recibidos en otro lote.',
-        },
+        desconocidos.slice(0, 5).join(', ') +
+          (desconocidos.length > 5 ? '...' : '') +
+          ' · No existen, no tienen paquetes o ya fueron recibidos en otro lote.',
       );
     }
 
@@ -175,7 +176,7 @@ export function LoteRecepcionNuevoPage() {
       setFechaError(fechaIssue?.message);
       setObservacionesError(obsIssue?.message);
       setEnviosError(enviosIssue?.message);
-      toast.error(parsed.error.issues[0]?.message ?? 'Revisa los datos del lote');
+      notify.error('Revisa los datos del lote', parsed.error.issues[0]?.message);
       return;
     }
     setFechaError(undefined);
@@ -191,13 +192,16 @@ export function LoteRecepcionNuevoPage() {
       {
         onSuccess: (data) => {
           const codigosRegistrados = data.numeroGuiasEnvio?.length ?? 0;
-          toast.success(
-            `Lote registrado con ${codigosRegistrados} envío${codigosRegistrados === 1 ? '' : 's'} (${data.totalPaquetes ?? 0} paquete${(data.totalPaquetes ?? 0) === 1 ? '' : 's'}).`,
+          const totalPaquetes = data.totalPaquetes ?? 0;
+          notify.success(
+            'Lote de recepción registrado',
+            `${codigosRegistrados} envío${codigosRegistrados === 1 ? '' : 's'} consolidado${codigosRegistrados === 1 ? '' : 's'} · ` +
+              `${totalPaquetes} paquete${totalPaquetes === 1 ? '' : 's'} marcado${totalPaquetes === 1 ? '' : 's'} como recibido${totalPaquetes === 1 ? '' : 's'} en bodega.`,
           );
           navigate({ to: '/lotes-recepcion/$id', params: { id: String(data.id) } });
         },
-        onError: () => {
-          toast.error('No se pudo registrar el lote.');
+        onError: (err) => {
+          notify.error('No se pudo registrar el lote de recepción', getApiErrorMessage(err));
         },
       },
     );

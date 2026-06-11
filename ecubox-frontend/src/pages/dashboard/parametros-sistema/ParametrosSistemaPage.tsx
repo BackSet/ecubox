@@ -1325,7 +1325,7 @@ function EstadosRastreoView() {
     if (!validateEstadoForm(payload)) return;
     try {
       await createMutation.mutateAsync(payload);
-      toast.success('Estado creado');
+      toast.success('Estado de rastreo creado', { description: `${payload.nombre} (${payload.codigo})` });
       setCreating(false);
       setForm({
         codigo: '',
@@ -1351,7 +1351,7 @@ function EstadosRastreoView() {
     if (!validateEstadoForm(payload)) return;
     try {
       await updateMutation.mutateAsync({ id: editing.id, body: payload });
-      toast.success('Estado actualizado');
+      toast.success('Estado de rastreo actualizado', { description: `${payload.nombre} (${payload.codigo})` });
       setEditing(null);
     } catch (e: unknown) {
       toast.error(getApiErrorMessage(e) ?? 'Error al actualizar');
@@ -1361,7 +1361,9 @@ function EstadosRastreoView() {
   const handleDesactivar = async (id: number) => {
     try {
       await desactivarMutation.mutateAsync(id);
-      toast.success('Estado desactivado');
+      toast.success('Estado de rastreo desactivado', {
+        description: 'Dejará de ofrecerse para nuevos cambios de estado; los paquetes que ya lo tienen no cambian.',
+      });
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err) ?? 'Error al desactivar');
       throw err;
@@ -1381,7 +1383,7 @@ function EstadosRastreoView() {
         publicoTracking: estado.publicoTracking ?? true,
       };
       await updateMutation.mutateAsync({ id: estado.id, body: payload });
-      toast.success('Estado activado');
+      toast.success('Estado de rastreo activado', { description: `${estado.nombre} (${estado.codigo})` });
     } catch (e: unknown) {
       toast.error(getApiErrorMessage(e) ?? 'Error al activar');
     }
@@ -1390,7 +1392,7 @@ function EstadosRastreoView() {
   const handleDelete = async (id: number) => {
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success('Estado eliminado');
+      toast.success('Estado de rastreo eliminado');
       setDeleteId(null);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err) ?? 'No se puede eliminar');
@@ -1469,9 +1471,9 @@ function EstadosRastreoView() {
         estadoIds: baseOrderIds,
         alternosAfter: alternosPayload,
       });
-      toast.success('Orden de tracking guardado');
+      toast.success('Orden del flujo de rastreo guardado', { description: 'El nuevo orden aplica a los próximos avances de estado.' });
     } catch (e: unknown) {
-      toast.error(getApiErrorMessage(e) ?? 'No se pudo guardar el orden de tracking');
+      toast.error(getApiErrorMessage(e) ?? 'No se pudo guardar el orden del flujo de rastreo');
     }
   };
 
@@ -2864,7 +2866,7 @@ function EstadosRastreoPorPuntoView() {
         estadoRastreoCierreConsolidadoId: estadoId('consolidado-cierre'),
         estadoRastreoArriboEcuadorId: estadoId('consolidado-arribado-aduana'),
       });
-      toast.success('Configuración guardada');
+      toast.success('Estados por punto guardados', { description: 'Los puntos del flujo aplicarán los nuevos estados de rastreo.' });
     } catch (err) {
       toast.error(getApiErrorMessage(err) ?? 'Error al guardar');
     }

@@ -25,8 +25,8 @@ import {
   Unlock,
   Wallet,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { notify } from '@/lib/notify';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 import { downloadBlob } from '@/lib/download';
 import { Button } from '@/components/ui/button';
 import { StatusBadge, getRastreoStatusTone } from '@/components/ui/StatusBadge';
@@ -192,65 +192,59 @@ export function EnvioConsolidadoDetailPage() {
   async function handleCerrar() {
     try {
       await cerrar.mutateAsync(id);
-      toast.success('Envío consolidado cerrado para registro');
+      notify.success('Envío consolidado cerrado', `${envio?.codigo ?? ''} · Ya no admite cambios de paquetes; listo para enviar desde USA.`);
       setConfirmCerrar(false);
     } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'Error al cerrar el envío');
+      notify.error('No se pudo cerrar el envío consolidado', getApiErrorMessage(err));
     }
   }
 
   async function handleEnviarUsa() {
     try {
       await enviarUsa.mutateAsync(id);
-      toast.success('Envío enviado desde USA');
+      notify.success('Envío consolidado enviado desde USA', `${envio?.codigo ?? ''} · Sus paquetes avanzaron al estado de salida de origen.`);
       setConfirmEnviarUsa(false);
     } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'Error al enviar desde USA');
+      notify.error('No se pudo marcar el envío como enviado desde USA', getApiErrorMessage(err));
     }
   }
 
   async function handleArribarEcuador() {
     try {
       await arribarEcuador.mutateAsync(id);
-      toast.success('Envío consolidado arribado a Ecuador');
+      notify.success('Arribo a Ecuador registrado', `${envio?.codigo ?? ''} · Sus paquetes avanzaron al estado de llegada a destino.`);
       setConfirmArribarEcuador(false);
     } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'Error al registrar el arribo');
+      notify.error('No se pudo registrar el arribo a Ecuador', getApiErrorMessage(err));
     }
   }
 
   async function handleReabrir() {
     try {
       await reabrir.mutateAsync(id);
-      toast.success('Envío reabierto');
+      notify.success('Envío consolidado reabierto', `${envio?.codigo ?? ''} · Vuelve a "En preparación" y admite cambios de paquetes.`);
       setConfirmReabrir(false);
     } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'Error al reabrir el envío');
+      notify.error('No se pudo reabrir el envío consolidado', getApiErrorMessage(err));
     }
   }
 
   async function handleCancelar() {
     try {
       await cancelar.mutateAsync(id);
-      toast.success('Envío consolidado cancelado');
+      notify.success('Envío consolidado cancelado', `${envio?.codigo ?? ''} · Quedó en estado terminal.`);
       setConfirmCancelar(false);
     } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'Error al cancelar el envío');
+      notify.error('No se pudo cancelar el envío consolidado', getApiErrorMessage(err));
     }
   }
 
   async function handleQuitarPaquete(paqueteId: number) {
     try {
       await remover.mutateAsync({ id, body: { paqueteIds: [paqueteId] } });
-      toast.success('Paquete removido del envío');
+      notify.success('Paquete quitado del envío consolidado', envio?.codigo);
     } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'No se pudo remover el paquete');
+      notify.error('No se pudo quitar el paquete', getApiErrorMessage(err));
     }
   }
 
@@ -628,7 +622,7 @@ function CopyButton({ value, title }: { value: string; title?: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      toast.error('No se pudo copiar');
+      notify.error('No se pudo copiar');
     }
   }
   return (
@@ -862,7 +856,7 @@ function AgregarPaquetesDialog({
     }
     setGuiaListError(undefined);
     if (listCheck.guias.length === 0) {
-      toast.error('Pega al menos un número de guía');
+      notify.error('Pega al menos un número de guía', 'Acepta números separados por comas, espacios o saltos de línea.');
       return;
     }
     setBuscando(true);
@@ -871,8 +865,8 @@ function AgregarPaquetesDialog({
       setPaquetes(encontrados);
       const set = new Set(encontrados.map((p) => p.numeroGuia.toLowerCase()));
       setNoEncontradas(listCheck.guias.filter((g) => !set.has(g.toLowerCase())));
-    } catch {
-      toast.error('Error al buscar paquetes');
+    } catch (err: unknown) {
+      notify.error('No se pudieron buscar los paquetes', getApiErrorMessage(err));
     } finally {
       setBuscando(false);
     }
@@ -902,8 +896,8 @@ function AgregarPaquetesDialog({
       } else {
         setNoEncontradas((prev) => (prev.includes(g) ? prev : [...prev, g]));
       }
-    } catch {
-      toast.error('Error al buscar paquete');
+    } catch (err: unknown) {
+      notify.error('No se pudo buscar el paquete', getApiErrorMessage(err));
     } finally {
       setBuscando(false);
     }
@@ -919,7 +913,7 @@ function AgregarPaquetesDialog({
 
   async function handleAgregar() {
     if (paquetes.length === 0) {
-      toast.error('No hay paquetes para agregar');
+      notify.error('No hay paquetes para agregar', 'Busca primero los números de guía y verifica que existan.');
       return;
     }
     try {
@@ -927,11 +921,15 @@ function AgregarPaquetesDialog({
         id: envioId,
         body: { paqueteIds: paquetes.map((p) => p.id) },
       });
-      toast.success(`${paquetes.length} paquete(s) agregados`);
+      notify.success(
+        `${paquetes.length} paquete${paquetes.length === 1 ? '' : 's'} agregado${paquetes.length === 1 ? '' : 's'} al envío consolidado`,
+        noEncontradas.length > 0
+          ? `${noEncontradas.length} número${noEncontradas.length === 1 ? '' : 's'} de guía no encontrado${noEncontradas.length === 1 ? '' : 's'} quedó${noEncontradas.length === 1 ? '' : 'aron'} fuera.`
+          : undefined,
+      );
       onClose();
     } catch (err: unknown) {
-      const res = (err as { response?: { data?: { message?: string } } })?.response;
-      toast.error(res?.data?.message ?? 'No se pudo agregar los paquetes');
+      notify.error('No se pudieron agregar los paquetes', getApiErrorMessage(err));
     }
   }
 

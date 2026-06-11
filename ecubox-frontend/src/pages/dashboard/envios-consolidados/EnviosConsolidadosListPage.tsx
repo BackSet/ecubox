@@ -24,6 +24,8 @@ import {
   Unlock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -491,16 +493,25 @@ export function EnviosConsolidadosListPage() {
           estadoOperativoDestino: estadoOperativoSeleccionado,
           consolidadoIds: consolidadosSeleccionados,
         });
-        const rechazados = resultado.rechazados?.length ?? 0;
-        const msg = `${resultado.consolidadosProcesados} consolidado(s) actualizado(s)` +
-          (rechazados > 0 ? ` · ${rechazados} omitido(s)` : '');
-        if (rechazados > 0) toast.warning(msg);
-        else toast.success(msg);
+        const rechazados = resultado.rechazados ?? [];
+        const ok = resultado.consolidadosProcesados;
+        const conteo = `${ok} envío${ok === 1 ? '' : 's'} consolidado${ok === 1 ? '' : 's'} actualizado${ok === 1 ? '' : 's'}` +
+          (rechazados.length > 0 ? ` · ${rechazados.length} omitido${rechazados.length === 1 ? '' : 's'}` : '');
+        if (rechazados.length > 0) {
+          // El backend explica por qué rechazó cada consolidado; mostramos el
+          // primero (código + motivo) como causa general.
+          const primero = rechazados[0];
+          notify.warning(
+            ok === 0 ? 'No se aplicó la transición a ningún envío' : 'Transición aplicada parcialmente',
+            `${conteo}. ${primero.codigo}: ${primero.motivo}`,
+          );
+        } else {
+          notify.success('Transición aplicada', `${conteo}.`);
+        }
         setAplicarEstadoOpen(false);
         setConsolidadosSeleccionados([]);
       } catch (err: unknown) {
-        const r = (err as { response?: { data?: { message?: string } } })?.response;
-        toast.error(r?.data?.message ?? 'No se pudo aplicar el estado operativo');
+        notify.error('No se pudo aplicar el estado operativo', getApiErrorMessage(err));
       }
     } else {
       if (!estadoRastreoSeleccionado) return;
@@ -509,14 +520,17 @@ export function EnviosConsolidadosListPage() {
           consolidadoIds: consolidadosSeleccionados,
           estadoRastreoId: estadoRastreoSeleccionado,
         });
-        toast.success(
-          `${resultado.consolidadosProcesados} consolidado(s) y ${resultado.paquetesActualizados} paquete(s) actualizados con el nuevo estado de rastreo`
+        const estadoNombre = (estadosAplicables ?? []).find(
+          (e) => e.id === estadoRastreoSeleccionado,
+        )?.nombre;
+        notify.success(
+          estadoNombre ? `Estado de rastreo aplicado: ${estadoNombre}` : 'Estado de rastreo aplicado',
+          `${resultado.consolidadosProcesados} envío${resultado.consolidadosProcesados === 1 ? '' : 's'} consolidado${resultado.consolidadosProcesados === 1 ? '' : 's'} · ${resultado.paquetesActualizados} paquete${resultado.paquetesActualizados === 1 ? '' : 's'} actualizado${resultado.paquetesActualizados === 1 ? '' : 's'}.`,
         );
         setAplicarEstadoOpen(false);
         setConsolidadosSeleccionados([]);
       } catch (err: unknown) {
-        const r = (err as { response?: { data?: { message?: string } } })?.response;
-        toast.error(r?.data?.message ?? 'No se pudo aplicar el estado de rastreo');
+        notify.error('No se pudo aplicar el estado de rastreo', getApiErrorMessage(err));
       }
     }
   }

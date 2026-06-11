@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   detectInstallBrowser,
   detectInstallPlatform,
@@ -74,7 +74,10 @@ export function usePwaInstall() {
       setInstallPrompt(null);
       if (result.outcome === 'accepted') {
         setIsInstalled(true);
-        toast.success('ECUBOX agregado a tu dispositivo');
+        notify.success(
+          'ECUBOX agregado a tu dispositivo',
+          'Busca el ícono de ECUBOX en tu pantalla de inicio para abrir la app.',
+        );
       } else {
         setNativeDismissed(true);
         setGuideOpen(true);

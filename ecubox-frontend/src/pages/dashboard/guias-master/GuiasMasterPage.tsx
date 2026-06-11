@@ -60,7 +60,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   Boxes,
   Building2,
@@ -268,11 +268,11 @@ export function GuiasMasterPage() {
 
   const handleAplicarAccionGuias = async () => {
     if (!accionSeleccionada) {
-      toast.warning('Selecciona una acción a aplicar');
+      notify.warning('Selecciona una acción a aplicar', 'Elige la acción de ciclo de vida que quieres ejecutar sobre las guías.');
       return;
     }
     if (guiasSeleccionadas.length === 0) {
-      toast.warning('Selecciona al menos una guía');
+      notify.warning('Selecciona al menos una guía', 'Marca las guías master a las que se aplicará la acción.');
       return;
     }
     if (ACCIONES_CON_MOTIVO.has(accionSeleccionada)) {
@@ -297,12 +297,27 @@ export function GuiasMasterPage() {
         return Promise.reject(new Error('Acción desconocida'));
       }),
     );
+    const accionLabel =
+      ACCIONES_GUIA.find((a) => a.value === accion)?.label.toLowerCase() ?? 'acción';
     const ok = results.filter((r) => r.status === 'fulfilled').length;
-    const fail = results.filter((r) => r.status === 'rejected').length;
+    const fallidos = results.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+    const fail = fallidos.length;
     if (fail === 0) {
-      toast.success(`Acción aplicada a ${ok} guía(s)`);
+      notify.success(
+        `Acción aplicada: ${accionLabel}`,
+        `${ok} guía${ok === 1 ? '' : 's'} master actualizada${ok === 1 ? '' : 's'}.`,
+      );
     } else {
-      toast.warning(`${ok} aplicada(s) · ${fail} omitida(s) (ver condiciones)`);
+      // El backend explica por qué rechazó cada guía; mostramos el primer
+      // motivo como causa general en lugar de un "ver condiciones" opaco.
+      const primerMotivo = getApiErrorMessage(fallidos[0]?.reason);
+      notify.warning(
+        ok === 0 ? 'No se aplicó la acción a ninguna guía' : 'Acción aplicada parcialmente',
+        `${ok} aplicada${ok === 1 ? '' : 's'} · ${fail} omitida${fail === 1 ? '' : 's'} (${accionLabel}).` +
+          (primerMotivo ? ` Motivo: ${primerMotivo}` : ''),
+      );
     }
   };
 
@@ -604,9 +619,9 @@ export function GuiasMasterPage() {
                             onSelect: async () => {
                               try {
                                 await aprobarBulk.mutateAsync(g.id);
-                                toast.success('Guía master aprobada');
+                                notify.success('Guía master aprobada', `${g.trackingBase} · El estado se recalculará según sus piezas.`);
                               } catch (err: unknown) {
-                                toast.error(getApiErrorMessage(err) ?? 'No se pudo aprobar la guía');
+                                notify.error('No se pudo aprobar la guía master', getApiErrorMessage(err) ?? g.trackingBase);
                               }
                             },
                             hidden:
@@ -619,9 +634,9 @@ export function GuiasMasterPage() {
                             onSelect: async () => {
                               try {
                                 await marcarRevision.mutateAsync({ id: g.id, body: {} });
-                                toast.success('Guía marcada en revisión');
+                                notify.success('Guía master en revisión', `${g.trackingBase} · El recálculo automático queda pausado hasta salir de revisión.`);
                               } catch (err: unknown) {
-                                toast.error(getApiErrorMessage(err) ?? 'No se pudo marcar en revisión');
+                                notify.error('No se pudo marcar en revisión', getApiErrorMessage(err) ?? g.trackingBase);
                               }
                             },
                             hidden:
@@ -637,9 +652,9 @@ export function GuiasMasterPage() {
                             onSelect: async () => {
                               try {
                                 await salirRevision.mutateAsync({ id: g.id, body: {} });
-                                toast.success('Revisión finalizada');
+                                notify.success('Revisión finalizada', `${g.trackingBase} · La guía vuelve al estado derivado de sus piezas.`);
                               } catch (err: unknown) {
-                                toast.error(getApiErrorMessage(err) ?? 'No se pudo salir de revisión');
+                                notify.error('No se pudo salir de revisión', getApiErrorMessage(err) ?? g.trackingBase);
                               }
                             },
                             hidden: !hasUpdate || g.estadoGlobal !== 'EN_REVISION',
@@ -725,11 +740,16 @@ export function GuiasMasterPage() {
         onConfirm={async () => {
           if (!deletingGuia) return;
           try {
+            const piezas = deletingGuia.piezasRegistradas ?? 0;
             await eliminar.mutateAsync(deletingGuia.id);
-            toast.success('Guía eliminada');
+            notify.success(
+              'Guía master eliminada',
+              `${deletingGuia.trackingBase}` +
+                (piezas > 0 ? ` · Se eliminaron también sus ${piezas} pieza${piezas === 1 ? '' : 's'}.` : ''),
+            );
             setDeletingGuia(null);
           } catch (err: unknown) {
-            toast.error(getApiErrorMessage(err) ?? 'No se pudo eliminar la guía');
+            notify.error('No se pudo eliminar la guía master', getApiErrorMessage(err) ?? deletingGuia.trackingBase);
             throw err;
           }
         }}
@@ -935,7 +955,7 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
       }
       if (Object.keys(errs).length > 0) {
         setFieldErrors(errs);
-        toast.error(Object.values(errs)[0]);
+        notify.error('Revisa los datos de la guía', Object.values(errs)[0]);
         return;
       }
       setFieldErrors({});
@@ -952,7 +972,7 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
       }
       if (Object.keys(errs).length > 0) {
         setFieldErrors(errs);
-        toast.error(Object.values(errs)[0]);
+        notify.error('Revisa los datos de la guía', Object.values(errs)[0]);
         return;
       }
       setFieldErrors({});
@@ -966,25 +986,19 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
           consignatarioId: consignatarioId!,
         };
         await actualizar.mutateAsync({ id: editing.id, body });
-        toast.success('Guía actualizada');
+        notify.success('Guía master actualizada', `${tb} · Cambios guardados.`);
       } else {
         await crear.mutateAsync({
           trackingBase: trackingBase.trim(),
           consignatarioId: consignatarioId!,
         });
-        toast.success('Guía registrada');
+        notify.success('Guía master registrada', `${trackingBase.trim()} · Lista para recibir piezas.`);
       }
       onClose();
     } catch (err: unknown) {
       const res = (err as { response?: { status?: number; data?: { message?: string } } })?.response;
-      if (res?.status === 409) {
-        toast.error(res?.data?.message ?? 'Ya existe otra guía con ese número');
-      } else {
-        toast.error(
-          res?.data?.message ??
-            (isEdit ? 'Error al actualizar la guía' : 'Error al registrar la guía'),
-        );
-      }
+      const titulo = isEdit ? 'No se pudo actualizar la guía master' : 'No se pudo registrar la guía master';
+      notify.error(titulo, res?.data?.message ?? (res?.status === 409 ? 'Ya existe otra guía con ese número.' : undefined));
     }
   }
 
@@ -1133,16 +1147,16 @@ function CancelarGuiaDialog({ guia, onClose }: CancelarGuiaDialogProps) {
     if (!parsed.success) {
       const msg = parsed.error.issues[0]?.message ?? 'Debes indicar un motivo';
       setMotivoError(msg);
-      toast.warning(msg);
+      notify.warning(msg);
       return;
     }
     setMotivoError(undefined);
     try {
       await cancelar.mutateAsync({ id: guia.id, body: { motivo: parsed.data.motivo } });
-      toast.success('Guía cancelada');
+      notify.success('Guía master cancelada', `${guia.trackingBase} · Quedó en estado terminal; puedes reabrirla si fue un error.`);
       onClose();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) ?? 'No se pudo cancelar la guía');
+      notify.error('No se pudo cancelar la guía master', getApiErrorMessage(err) ?? guia.trackingBase);
     }
   }
 
@@ -1236,7 +1250,7 @@ function MotivoBulkDialog({ accion, count, motivo, loading, onMotivoChange, onCl
     if (!parsed.success) {
       const msg = parsed.error.issues[0]?.message ?? 'Debes indicar un motivo';
       setMotivoError(msg);
-      toast.warning(msg);
+      notify.warning(msg);
       return;
     }
     setMotivoError(undefined);
