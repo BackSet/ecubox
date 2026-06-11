@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { FiltroManifiesto, Manifiesto } from '@/types/manifiesto';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 const FILTRO_LABELS: Record<FiltroManifiesto, string> = {
   POR_PERIODO: 'Por período',
@@ -533,7 +534,7 @@ export function ManifiestoListPage() {
           await notify.run(deleteManifiesto.mutateAsync(deleteConfirmId), {
             loading: 'Eliminando manifiesto...',
             success: 'Manifiesto eliminado',
-            error: 'No se pudo eliminar el manifiesto',
+            error: (err) => getApiErrorMessage(err) ?? 'No se pudo eliminar el manifiesto',
           });
         }}
       />

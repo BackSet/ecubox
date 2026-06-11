@@ -83,6 +83,7 @@ import type {
   DespachoEnManifiesto,
   FiltroManifiesto,
 } from '@/types/manifiesto';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 const FILTRO_LABELS: Record<FiltroManifiesto, string> = {
   POR_PERIODO: 'Por período',
@@ -888,7 +889,7 @@ export function ManifiestoDetailPage() {
           await notify.run(deleteMutation.mutateAsync(m.id), {
             loading: 'Eliminando manifiesto...',
             success: 'Manifiesto eliminado',
-            error: 'No se pudo eliminar el manifiesto',
+            error: (err) => getApiErrorMessage(err) ?? 'No se pudo eliminar el manifiesto',
           });
           navigate({ to: '/manifiestos' });
         }}
@@ -964,7 +965,7 @@ function AsignarDespachosDialog({
         {
           loading: `Asignando ${cantidad} despacho${cantidad === 1 ? '' : 's'}...`,
           success: `${cantidad} despacho${cantidad === 1 ? '' : 's'} asignado${cantidad === 1 ? '' : 's'}`,
-          error: 'No se pudieron asignar los despachos',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudieron asignar los despachos',
         },
       );
       setSelectedIds([]);

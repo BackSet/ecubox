@@ -112,7 +112,9 @@ public class ManifiestoService {
             for (Long despachoId : despachoIds) {
                 if (!idsCandidatos.contains(despachoId) && !idsYaAsignados.contains(despachoId)) {
                     throw new BadRequestException(
-                            "El despacho " + despachoId + " no cumple los filtros del manifiesto.");
+                            "No se puede asignar el despacho " + despachoId
+                                    + " porque no cumple los filtros del manifiesto (periodo, courier de entrega o agencia). "
+                                    + "Ajusta los filtros del manifiesto o elige un despacho de la lista de candidatos.");
                 }
                 Despacho d = despachoRepository.findById(despachoId)
                         .orElseThrow(() -> new ResourceNotFoundException("Despacho", despachoId));

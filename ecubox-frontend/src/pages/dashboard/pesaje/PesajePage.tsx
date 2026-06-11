@@ -54,6 +54,7 @@ import type { Paquete } from '@/types/paquete';
 import { ConsignatarioCell, GuiaMasterPiezaCell } from '../paquetes/PaqueteCells';
 import { PesoInputPair } from '@/components/PesoInput';
 import { validateBulkPeso, distribuirTotalSchema } from '@/lib/schemas/pesaje';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 type WeightInputs = Record<number, { lbs: string; kg: string }>;
 
@@ -383,7 +384,7 @@ export function PesajePage() {
       await notify.run(bulkUpdate.mutateAsync(items), {
         loading: `Guardando ${items.length} peso${items.length === 1 ? '' : 's'}...`,
         success: `Pesos actualizados (${items.length} paquete${items.length === 1 ? '' : 's'})`,
-        error: 'No se pudieron guardar los pesos',
+        error: (err) => getApiErrorMessage(err) ?? 'No se pudieron guardar los pesos',
       });
       setWeights((prev) => {
         const next = { ...prev };

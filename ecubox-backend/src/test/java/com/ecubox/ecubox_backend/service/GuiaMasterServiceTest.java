@@ -164,7 +164,9 @@ class GuiaMasterServiceTest {
     void validarYAsignarPieza_fallaSiNumeroExcedeTotal() {
         GuiaMaster gm = GuiaMaster.builder().id(10L).totalPiezasEsperadas(2).build();
         var ex = assertThrows(BadRequestException.class, () -> service.validarYAsignarPieza(gm, 5));
-        assertNotNull(ex);
+        // Mensaje-contrato: incluye la pieza pedida y el rango permitido.
+        assertTrue(ex.getMessage().contains("pieza 5"));
+        assertTrue(ex.getMessage().contains("entre 1 y 2"));
     }
 
     @Test
@@ -172,7 +174,64 @@ class GuiaMasterServiceTest {
         GuiaMaster gm = GuiaMaster.builder().id(10L).totalPiezasEsperadas(3).build();
         when(paqueteRepository.existsByGuiaMasterIdAndPiezaNumero(10L, 2)).thenReturn(true);
         var ex = assertThrows(ConflictException.class, () -> service.validarYAsignarPieza(gm, 2));
-        assertNotNull(ex);
+        assertTrue(ex.getMessage().contains("pieza 2/3"));
+        assertTrue(ex.getMessage().contains("ya está registrada"));
+    }
+
+    @Test
+    void update_totalMenorQuePiezasRegistradas_mensajeIndicaReglaYDatos() {
+        GuiaMaster gm = GuiaMaster.builder().id(10L).trackingBase("TB-1")
+                .totalPiezasEsperadas(5).build();
+        when(guiaMasterRepository.findById(10L)).thenReturn(Optional.of(gm));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(10L))
+                .thenReturn(List.of(
+                        Paquete.builder().id(1L).piezaNumero(1).build(),
+                        Paquete.builder().id(2L).piezaNumero(2).build(),
+                        Paquete.builder().id(3L).piezaNumero(3).build()));
+
+        GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder()
+                .totalPiezasEsperadas(2).build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.update(10L, req));
+        assertTrue(ex.getMessage().contains("No se puede reducir el total de piezas a 2"));
+        assertTrue(ex.getMessage().contains("3 piezas registradas"));
+        verify(guiaMasterRepository, never()).save(any());
+    }
+
+    @Test
+    void update_consignatarioCongeladoPorDespacho_mensajeExplicaRegla() {
+        Consignatario actual = Consignatario.builder().id(1L).codigo("ECU-A").build();
+        GuiaMaster gm = GuiaMaster.builder().id(10L).trackingBase("TB-1")
+                .consignatario(actual)
+                .consignatarioVersion(com.ecubox.ecubox_backend.entity.ConsignatarioVersion.builder()
+                        .id(77L).build())
+                .build();
+        when(guiaMasterRepository.findById(10L)).thenReturn(Optional.of(gm));
+
+        GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder()
+                .consignatarioId(2L).build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.update(10L, req));
+        assertTrue(ex.getMessage().contains("No se puede cambiar el consignatario"));
+        assertTrue(ex.getMessage().contains("piezas despachadas"));
+        verify(guiaMasterRepository, never()).save(any());
+    }
+
+    @Test
+    void updateDestinatarioForCliente_guiaEnProceso_mensajeIndicaEstadoActual() {
+        Usuario cliente = Usuario.builder().id(5L).build();
+        GuiaMaster gm = GuiaMaster.builder().id(10L).trackingBase("TB-1")
+                .clienteUsuario(cliente)
+                .estadoGlobal(EstadoGuiaMaster.RECEPCION_PARCIAL).build();
+        when(guiaMasterRepository.findById(10L)).thenReturn(Optional.of(gm));
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> service.updateDestinatarioForCliente(10L, 2L, 5L));
+        assertTrue(ex.getMessage().contains("estado inicial de registro"));
+        assertTrue(ex.getMessage().contains("RECEPCION_PARCIAL"));
+        verify(guiaMasterRepository, never()).save(any());
     }
 
     @Test
