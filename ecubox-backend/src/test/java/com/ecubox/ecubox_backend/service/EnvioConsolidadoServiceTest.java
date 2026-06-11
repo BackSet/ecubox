@@ -5,6 +5,8 @@ import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
+import com.ecubox.ecubox_backend.entity.Liquidacion;
+import com.ecubox.ecubox_backend.entity.LiquidacionConsolidadoLinea;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ConflictException;
@@ -171,7 +173,10 @@ class EnvioConsolidadoServiceTest {
 
         ConflictException ex = assertThrows(ConflictException.class,
                 () -> service.agregarPaquetes(1L, List.of(10L)));
-        assertNotNull(ex);
+        // Mensaje-contrato: indica acción bloqueada, regla y estado actual.
+        assertTrue(ex.getMessage().contains("No se pueden agregar paquetes"));
+        assertTrue(ex.getMessage().contains("ENVIADO_DESDE_USA"));
+        assertTrue(ex.getMessage().contains("solo los envíos en preparación"));
     }
 
     @Test
@@ -209,8 +214,73 @@ class EnvioConsolidadoServiceTest {
                 .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build();
         when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
 
-        assertThrows(BadRequestException.class, () -> service.enviarDesdeUsa(1L, null));
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.enviarDesdeUsa(1L, null));
+        assertTrue(ex.getMessage().contains("no está cerrado"));
+        assertTrue(ex.getMessage().contains("EN_PREPARACION"));
         verify(envioRepository, never()).save(any());
+    }
+
+    @Test
+    void cerrarConsolidado_estadoIncorrecto_mensajeIndicaReglaYEstadoActual() {
+        EnvioConsolidado envio = EnvioConsolidado.builder()
+                .id(1L).codigo("X")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA).build();
+        when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.cerrarConsolidado(1L));
+        assertTrue(ex.getMessage().contains("No se puede cerrar"));
+        assertTrue(ex.getMessage().contains("ENVIADO_DESDE_USA"));
+    }
+
+    @Test
+    void cancelarConsolidado_liquidado_mensajeIndicaReglaYEstadoActual() {
+        EnvioConsolidado envio = EnvioConsolidado.builder()
+                .id(1L).codigo("X")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.LIQUIDADO).build();
+        when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.cancelarConsolidado(1L));
+        assertTrue(ex.getMessage().contains("No se puede cancelar"));
+        assertTrue(ex.getMessage().contains("LIQUIDADO"));
+        verify(envioRepository, never()).save(any());
+    }
+
+    @Test
+    void reabrir_consolidadoEnLiquidacionPagada_bloqueaConMensajeAccionable() {
+        EnvioConsolidado envio = EnvioConsolidado.builder()
+                .id(1L).codigo("X")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA)
+                .fechaCerrado(LocalDateTime.now()).build();
+        Liquidacion liq = Liquidacion.builder()
+                .id(50L).codigo("LIQ-2026-0001")
+                .estadoPago(EstadoPagoConsolidado.PAGADO).build();
+        LiquidacionConsolidadoLinea linea = LiquidacionConsolidadoLinea.builder()
+                .id(60L).liquidacion(liq).envioConsolidado(envio).build();
+        when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
+        when(liquidacionConsolidadoLineaRepository.findByEnvioConsolidadoId(1L))
+                .thenReturn(Optional.of(linea));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.reabrir(1L));
+        assertTrue(ex.getMessage().contains("No se puede reabrir"));
+        assertTrue(ex.getMessage().contains("LIQ-2026-0001"));
+        assertTrue(ex.getMessage().contains("Desmarca el pago"));
+        verify(envioRepository, never()).save(any());
+    }
+
+    @Test
+    void agregarPaquetes_sinSeleccion_mensajeAccionable() {
+        EnvioConsolidado envio = EnvioConsolidado.builder()
+                .id(1L).codigo("X")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build();
+        when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.agregarPaquetes(1L, List.of()));
+        assertTrue(ex.getMessage().contains("no se seleccionó ninguno"));
+        assertTrue(ex.getMessage().contains("Selecciona al menos un paquete"));
     }
 
     @Test

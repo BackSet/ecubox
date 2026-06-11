@@ -202,6 +202,42 @@ class PaqueteServiceTransicionTest {
         assertEquals(101L, resp.getRechazados().get(0).getPaqueteId());
     }
 
+    // ── 6b. Cambio masivo: paquete en saca/despacho → rechazado con motivo claro ─
+
+    @Test
+    void cambioMasivo_paqueteEnSacaODespacho_rechazadoConMotivoClaro() {
+        PaqueteService svc = createService();
+        EstadoRastreo e1 = estado(1L, 1, true);
+        EstadoRastreo e2 = estado(2L, 2, true);
+        Paquete enSaca = Paquete.builder().id(100L).estadoRastreo(e1)
+                .saca(com.ecubox.ecubox_backend.entity.Saca.builder().id(7L).build())
+                .build();
+
+        when(estadoRastreoService.findEntityById(2L)).thenReturn(e2);
+        when(paqueteRepository.findAllById(List.of(100L))).thenReturn(List.of(enSaca));
+
+        CambiarEstadoRastreoBulkResponse resp = svc.cambiarEstadoRastreoBulk(List.of(100L), 2L);
+
+        assertEquals(0, resp.getActualizados());
+        assertEquals(1, resp.getRechazados().size());
+        assertTrue(resp.getRechazados().get(0).getMotivo().contains("saca o despacho"));
+    }
+
+    // ── 6c. Cambio masivo: estado destino desactivado → error con regla ────────
+
+    @Test
+    void cambioMasivo_estadoDestinoDesactivado_lanzaBadRequestConRegla() {
+        PaqueteService svc = createService();
+        EstadoRastreo inactivo = estado(2L, 2, false);
+        when(estadoRastreoService.findEntityById(2L)).thenReturn(inactivo);
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> svc.cambiarEstadoRastreoBulk(List.of(1L), 2L));
+        assertTrue(ex.getMessage().contains("Estado-2"));
+        assertTrue(ex.getMessage().contains("no está activo"));
+        assertTrue(ex.getMessage().contains("estados de rastreo activos"));
+    }
+
     // ── 7. estadosDestinoPermitidos devuelve solo el siguiente inmediato ───────
 
     @Test

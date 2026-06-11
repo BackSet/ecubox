@@ -128,7 +128,9 @@ public class DespachoService {
                     1L);
             return String.format("RET-AG-%05d", n);
         }
-        throw new BadRequestException("El número de guía es obligatorio");
+        throw new BadRequestException(
+                "No se puede guardar el despacho porque falta el número de guía. "
+                        + "Ingresa el número de guía para continuar (solo se autogenera en retiros en agencia sin courier de entrega).");
     }
 
     /**
@@ -589,7 +591,9 @@ public class DespachoService {
     public AplicarEstadoPorPeriodoResponse aplicarEstadoRastreoEnDespachos(List<Long> despachoIds,
                                                                            Long estadoRastreoIdOpcional) {
         if (despachoIds == null || despachoIds.isEmpty()) {
-            throw new BadRequestException("Debe indicar al menos un despacho");
+            throw new BadRequestException(
+                    "No se puede aplicar el estado porque no se seleccionó ningún despacho. "
+                            + "Selecciona al menos un despacho para continuar.");
         }
         Long estadoId = resolverEstadoIdPosteriorADespacho(estadoRastreoIdOpcional);
         List<Long> idsUnicos = despachoIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
@@ -654,7 +658,9 @@ public class DespachoService {
     private Long resolverEstadoIdPosteriorADespacho(Long estadoRastreoIdOpcional) {
         Long estadoId = estadoRastreoIdOpcional;
         if (estadoId == null) {
-            throw new BadRequestException("Seleccione el estado manual que desea aplicar.");
+            throw new BadRequestException(
+                    "No se puede continuar porque no se seleccionó el estado de rastreo a aplicar. "
+                            + "Selecciona un estado para continuar.");
         }
         // "en tránsito" y "entrega confirmada" son reservados pero se permiten en despachos.
         Long enTransitoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnTransitoId();
@@ -669,11 +675,15 @@ public class DespachoService {
             ordenObjetivo = entidad.getOrden() != null ? entidad.getOrden() : entidad.getOrdenTracking();
         }
         if (ordenObjetivo == null) {
-            throw new BadRequestException("El estado seleccionado no tiene un orden de tracking definido");
+            throw new BadRequestException(
+                    "No se puede aplicar el estado seleccionado porque no tiene un orden de rastreo definido. "
+                            + "Asigna un orden a ese estado en el catálogo de estados de rastreo.");
         }
         if (ordenObjetivo <= ordenDespacho) {
             throw new BadRequestException(
-                    "Solo se pueden aplicar estados posteriores al 'estado del punto de despacho'.");
+                    "No se puede aplicar el estado seleccionado porque su orden no es posterior al "
+                            + "'estado del punto de despacho'. Regla: los paquetes de un despacho ya están en despacho, "
+                            + "así que solo se pueden avanzar a estados posteriores.");
         }
         return estadoId;
     }
@@ -682,7 +692,8 @@ public class DespachoService {
         Long enDespachoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnDespachoId();
         if (enDespachoId == null) {
             throw new BadRequestException(
-                    "No hay un 'estado del punto de despacho' configurado en parámetros del sistema.");
+                    "No se puede continuar porque no hay un 'estado del punto de despacho' configurado. "
+                            + "Configura este punto en los parámetros del sistema.");
         }
         Integer orden = estadoRastreoService.getOrdenById(enDespachoId);
         if (orden == null) {
@@ -690,7 +701,9 @@ public class DespachoService {
             orden = entidad.getOrden() != null ? entidad.getOrden() : entidad.getOrdenTracking();
         }
         if (orden == null) {
-            throw new BadRequestException("El 'estado del punto de despacho' no tiene un orden de tracking definido");
+            throw new BadRequestException(
+                    "No se puede continuar porque el 'estado del punto de despacho' no tiene un orden de rastreo definido. "
+                            + "Asigna un orden a ese estado en el catálogo de estados de rastreo.");
         }
         return orden;
     }
@@ -702,7 +715,9 @@ public class DespachoService {
             orden = entidad.getOrden() != null ? entidad.getOrden() : entidad.getOrdenTracking();
         }
         if (orden == null) {
-            throw new BadRequestException("El estado seleccionado no tiene un orden de tracking definido");
+            throw new BadRequestException(
+                    "No se puede aplicar el estado seleccionado porque no tiene un orden de rastreo definido. "
+                            + "Asigna un orden a ese estado en el catálogo de estados de rastreo.");
         }
         return orden;
     }
@@ -858,23 +873,26 @@ public class DespachoService {
     private void validarDestinoNoCambia(Despacho d, DespachoCreateRequest request) {
         if (request.getTipoEntrega() != null && d.getTipoEntrega() != request.getTipoEntrega()) {
             throw new BadRequestException(
-                    "El tipo de entrega de un despacho ya creado no se puede cambiar (esta congelado para trazabilidad).");
+                    "No se puede cambiar el tipo de entrega de un despacho ya creado porque está congelado para trazabilidad. "
+                            + "Anula este despacho y crea uno nuevo si necesitas otro tipo de entrega.");
         }
         Long destActual = d.getConsignatario() != null ? d.getConsignatario().getId() : null;
         if (!java.util.Objects.equals(destActual, request.getConsignatarioId())) {
             throw new BadRequestException(
-                    "El destinatario del despacho esta congelado y no se puede cambiar. "
-                            + "Anula este despacho y crea uno nuevo si necesitas reenrutar el envio.");
+                    "No se puede cambiar el consignatario del despacho porque está congelado para trazabilidad. "
+                            + "Anula este despacho y crea uno nuevo si necesitas reenrutar el envío.");
         }
         Long agActual = d.getAgencia() != null ? d.getAgencia().getId() : null;
         if (!java.util.Objects.equals(agActual, request.getAgenciaId())) {
             throw new BadRequestException(
-                    "La agencia destino del despacho esta congelada y no se puede cambiar.");
+                    "No se puede cambiar la agencia destino del despacho porque está congelada para trazabilidad. "
+                            + "Anula este despacho y crea uno nuevo si necesitas reenrutar el envío.");
         }
         Long adActual = d.getAgenciaCourierEntrega() != null ? d.getAgenciaCourierEntrega().getId() : null;
         if (!java.util.Objects.equals(adActual, request.getAgenciaCourierEntregaId())) {
             throw new BadRequestException(
-                    "La agencia de courierEntrega destino del despacho esta congelada y no se puede cambiar.");
+                    "No se puede cambiar el punto de entrega del despacho porque está congelado para trazabilidad. "
+                            + "Anula este despacho y crea uno nuevo si necesitas reenrutar el envío.");
         }
     }
 
@@ -895,21 +913,27 @@ public class DespachoService {
         switch (request.getTipoEntrega()) {
             case DOMICILIO -> {
                 if (request.getConsignatarioId() == null) {
-                    throw new BadRequestException("Domicilio requiere destinatario final");
+                    throw new BadRequestException(
+                            "No se puede guardar el despacho a domicilio porque falta el consignatario final. "
+                                    + "Selecciona el consignatario para continuar.");
                 }
                 consignatario = consignatarioRepository.findById(request.getConsignatarioId())
                         .orElseThrow(() -> new ResourceNotFoundException("Destinatario", request.getConsignatarioId()));
             }
             case AGENCIA -> {
                 if (request.getAgenciaId() == null) {
-                    throw new BadRequestException("Agencia requiere agencia seleccionada");
+                    throw new BadRequestException(
+                            "No se puede guardar el despacho a agencia porque no se seleccionó la agencia. "
+                                    + "Selecciona una agencia para continuar.");
                 }
                 agencia = agenciaRepository.findById(request.getAgenciaId())
                         .orElseThrow(() -> new ResourceNotFoundException("Agencia", request.getAgenciaId()));
             }
             case AGENCIA_COURIER_ENTREGA -> {
                 if (request.getAgenciaCourierEntregaId() == null) {
-                    throw new BadRequestException("Agencia de courierEntrega requiere agencia del courierEntrega seleccionada");
+                    throw new BadRequestException(
+                            "No se puede guardar el despacho porque no se seleccionó el punto de entrega "
+                                    + "del courier de entrega. Selecciona un punto de entrega para continuar.");
                 }
                 agenciaCourierEntrega = agenciaCourierEntregaService.findEntityById(request.getAgenciaCourierEntregaId());
             }
@@ -933,7 +957,10 @@ public class DespachoService {
                 if (refDestinatarioId == null) {
                     refDestinatarioId = destId;
                 } else if (!java.util.Objects.equals(refDestinatarioId, destId)) {
-                    throw new BadRequestException("En despacho a agencia de courierEntrega todos los paquetes deben tener el mismo destinatario. Revise los paquetes seleccionados.");
+                    throw new BadRequestException(
+                            "No se puede crear el despacho porque las sacas mezclan paquetes de distintos consignatarios. "
+                                    + "Regla: en un despacho a punto de entrega todos los paquetes deben tener el mismo "
+                                    + "consignatario. Revisa los paquetes seleccionados.");
                 }
             }
         }

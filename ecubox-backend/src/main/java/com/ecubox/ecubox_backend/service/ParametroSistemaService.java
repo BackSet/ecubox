@@ -540,7 +540,9 @@ public class ParametroSistemaService {
 
     private void validarEstadoExiste(Long estadoId, String punto) {
         if (estadoId != null && estadoRastreoRepository.findById(estadoId).isEmpty()) {
-            throw new BadRequestException("Estado de rastreo para " + punto + " no encontrado");
+            throw new BadRequestException(
+                    "No se puede guardar la configuración porque el estado de rastreo seleccionado para '"
+                            + punto + "' no existe en el catálogo. Selecciona un estado válido.");
         }
     }
 
@@ -566,7 +568,9 @@ public class ParametroSistemaService {
     public void validarEstadoRastreoAplicableManualmente(Long estadoId) {
         if (estadoId != null && getIdsEstadosRastreoGestionadosAutomaticamente().contains(estadoId)) {
             throw new BadRequestException(
-                    "Ese estado está reservado para un detonante automático del sistema.");
+                    "No se puede aplicar ese estado manualmente porque está asignado a un punto automático del flujo. "
+                            + "Regla: los estados configurados como 'estados por punto' solo los aplica el sistema. "
+                            + "Elige otro estado o ajusta la configuración de estados por punto.");
         }
     }
 

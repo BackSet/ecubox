@@ -182,8 +182,10 @@ public class LiquidacionService {
 
         if (consolidadoLineaRepository.existsByEnvioConsolidadoId(envio.getId())) {
             throw new BadRequestException(
-                    "El envio consolidado " + envio.getCodigo()
-                            + " ya esta incluido en otra liquidacion");
+                    "No se puede agregar el envío consolidado " + envio.getCodigo()
+                            + " porque ya está incluido en otra liquidación. "
+                            + "Regla: un envío consolidado solo puede pertenecer a una liquidación. "
+                            + "Quítalo de la otra liquidación primero si necesitas moverlo.");
         }
 
         LiquidacionConsolidadoLinea linea = LiquidacionConsolidadoLinea.builder()
@@ -222,7 +224,8 @@ public class LiquidacionService {
                 ? req.getEnvioConsolidadoCodigo().trim() : "";
         if (codigo.isBlank()) {
             throw new BadRequestException(
-                    "Debes indicar el consolidado por id o por codigo");
+                    "No se puede agregar la línea porque no se indicó el envío consolidado. "
+                            + "Selecciona un consolidado existente o escribe su código para continuar.");
         }
         return envioConsolidadoRepository.findByCodigoIgnoreCase(codigo)
                 .orElseGet(() -> crearEnvioConsolidadoVacio(codigo, liq));
@@ -255,7 +258,9 @@ public class LiquidacionService {
         LiquidacionConsolidadoLinea linea = consolidadoLineaRepository.findById(lineaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Linea (consolidado)", lineaId));
         if (!linea.getLiquidacion().getId().equals(liquidacionId)) {
-            throw new BadRequestException("La linea no pertenece a esta liquidacion");
+            throw new BadRequestException(
+                    "No se puede modificar la línea porque pertenece a otra liquidación. "
+                            + "Verifica la liquidación abierta e intenta de nuevo.");
         }
 
         linea.setCostoProveedor(redondear(req.getCostoProveedor()));
@@ -276,7 +281,9 @@ public class LiquidacionService {
         LiquidacionConsolidadoLinea linea = consolidadoLineaRepository.findById(lineaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Linea (consolidado)", lineaId));
         if (!linea.getLiquidacion().getId().equals(liquidacionId)) {
-            throw new BadRequestException("La linea no pertenece a esta liquidacion");
+            throw new BadRequestException(
+                    "No se puede modificar la línea porque pertenece a otra liquidación. "
+                            + "Verifica la liquidación abierta e intenta de nuevo.");
         }
         liq.getConsolidados().removeIf(l -> l.getId().equals(lineaId));
         consolidadoLineaRepository.delete(linea);
@@ -297,7 +304,9 @@ public class LiquidacionService {
 
         if (despachoLineaRepository.existsByDespachoId(req.getDespachoId())) {
             throw new BadRequestException(
-                    "El despacho ya esta incluido en otra liquidacion");
+                    "No se puede agregar el despacho porque ya está incluido en otra liquidación. "
+                            + "Regla: un despacho solo puede pertenecer a una liquidación. "
+                            + "Quítalo de la otra liquidación primero si necesitas moverlo.");
         }
         Despacho despacho = despachoRepository.findById(req.getDespachoId())
                 .orElseThrow(() -> new ResourceNotFoundException("Despacho", req.getDespachoId()));
@@ -340,7 +349,9 @@ public class LiquidacionService {
         LiquidacionDespachoLinea linea = despachoLineaRepository.findById(lineaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Linea (despacho)", lineaId));
         if (!linea.getLiquidacion().getId().equals(liquidacionId)) {
-            throw new BadRequestException("La linea no pertenece a esta liquidacion");
+            throw new BadRequestException(
+                    "No se puede modificar la línea porque pertenece a otra liquidación. "
+                            + "Verifica la liquidación abierta e intenta de nuevo.");
         }
 
         BigDecimal pesoKg = redondear(req.getPesoKg());
@@ -373,7 +384,9 @@ public class LiquidacionService {
         LiquidacionDespachoLinea linea = despachoLineaRepository.findById(lineaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Linea (despacho)", lineaId));
         if (!linea.getLiquidacion().getId().equals(liquidacionId)) {
-            throw new BadRequestException("La linea no pertenece a esta liquidacion");
+            throw new BadRequestException(
+                    "No se puede modificar la línea porque pertenece a otra liquidación. "
+                            + "Verifica la liquidación abierta e intenta de nuevo.");
         }
         liq.getDespachos().removeIf(l -> l.getId().equals(lineaId));
         despachoLineaRepository.delete(linea);
@@ -434,8 +447,8 @@ public class LiquidacionService {
     private void validarNoPagada(Liquidacion liq, String accion) {
         if (liq.getEstadoPago() == EstadoPagoConsolidado.PAGADO) {
             throw new BadRequestException(
-                    "No se puede " + accion + " porque la liquidacion ya esta marcada como pagada. "
-                            + "Desmarca el pago primero.");
+                    "No se puede " + accion + " porque la liquidación ya está marcada como pagada. "
+                            + "Regla: una liquidación pagada no admite cambios. Desmarca el pago primero.");
         }
     }
 

@@ -23,7 +23,10 @@ public class SacaEnDespachoValidator {
             return;
         }
         String numero = saca.getNumeroOrden();
-        String prefijo = numero != null && !numero.isBlank() ? "La saca " + numero : "La saca";
-        throw new BadRequestException(prefijo + " ya está asignada a un despacho");
+        String prefijo = numero != null && !numero.isBlank() ? "la saca " + numero : "la saca";
+        throw new BadRequestException(
+                "No se puede usar " + prefijo + " porque ya está asignada a otro despacho. "
+                        + "Regla: una saca solo puede pertenecer a un despacho a la vez. "
+                        + "Quítala del otro despacho primero si necesitas reasignarla.");
     }
 }

@@ -92,6 +92,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { Despacho, TipoEntrega } from '@/types/despacho';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 const TIPO_LABELS: Record<TipoEntrega, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
@@ -304,7 +305,7 @@ export function DespachoListPage() {
           loading: `Aplicando estado a ${despachosSeleccionados.length} despacho${despachosSeleccionados.length === 1 ? '' : 's'}...`,
           success: (res) =>
             `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s)`,
-          error: 'No se pudo aplicar el estado',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudo aplicar el estado',
         },
       );
       cerrarAplicarEstado();
@@ -716,7 +717,7 @@ export function DespachoListPage() {
           await notify.run(deleteMutation.mutateAsync(deleteConfirmId), {
             loading: 'Eliminando despacho...',
             success: 'Despacho eliminado',
-            error: 'No se pudo eliminar el despacho',
+            error: (err) => getApiErrorMessage(err) ?? 'No se pudo eliminar el despacho',
           });
         }}
       />
