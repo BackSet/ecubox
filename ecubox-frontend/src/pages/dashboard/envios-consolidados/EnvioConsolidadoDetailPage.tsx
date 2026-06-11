@@ -79,8 +79,10 @@ import {
 import {
   EnvioConsolidadoBadge,
   ENVIO_CONSOLIDADO_ESTADO_UI,
+  getEnvioConsolidadoLeyendaItems,
   resolveEstadoOperativoConsolidado,
 } from './EnvioConsolidadoBadge';
+import { EstadosLeyendaDialog } from '@/components/estados/EstadosLeyendaDialog';
 import { useAuthStore } from '@/stores/authStore';
 
 import { formatWeightFromValues, formatWeightInline, LBS_TO_KG } from '@/lib/utils/weight';
@@ -281,6 +283,13 @@ export function EnvioConsolidadoDetailPage() {
                 <EnvioConsolidadoBadge
                   cerrado={envio.cerrado}
                   estadoOperativo={resolveEstadoOperativoConsolidado(envio)}
+                />
+                <EstadosLeyendaDialog
+                  title="¿Qué significa cada estado?"
+                  description="Estados operativos por los que pasa un envío consolidado, en orden del flujo."
+                  items={getEnvioConsolidadoLeyendaItems()}
+                  triggerLabel="Ver qué significa cada estado del envío consolidado"
+                  className="h-6 w-6"
                 />
               </div>
             </div>

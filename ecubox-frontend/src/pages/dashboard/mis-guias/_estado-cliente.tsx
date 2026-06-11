@@ -12,7 +12,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { EstadoGuiaMaster } from '@/types/guia-master';
-import { StatusBadge, type StatusTone } from '@/components/ui/StatusBadge';
+import type { EstadoRastreoCliente } from '@/types/estado-rastreo';
+import {
+  StatusBadge,
+  getRastreoStatusTone,
+  type StatusTone,
+} from '@/components/ui/StatusBadge';
+import type { EstadoLeyendaItem } from '@/components/estados/EstadosLeyendaDialog';
 
 /**
  * Etiquetas de estado pensadas para el CLIENTE final.
@@ -125,6 +131,45 @@ export const MI_GUIA_ESTADO_ORDEN: EstadoGuiaMaster[] = [
   'DESPACHO_COMPLETADO',
   'CANCELADA',
 ];
+
+/**
+ * Items para la leyenda "¿Qué significa cada estado?" de las guías del
+ * cliente, en el orden natural del flujo.
+ */
+export function getMisGuiasLeyendaItems(): EstadoLeyendaItem[] {
+  return MI_GUIA_ESTADO_ORDEN.map((estado) => ({
+    key: estado,
+    label: MI_GUIA_ESTADO_LABELS[estado],
+    descripcion: MI_GUIA_ESTADO_DESCRIPCIONES[estado],
+    tone: MI_GUIA_ESTADO_TONES[estado],
+    icon: MI_GUIA_ESTADO_ICONS[estado],
+  }));
+}
+
+/**
+ * La leyenda configurable puede traer el placeholder {dias} (días
+ * transcurridos en el estado). En el catálogo genérico no hay un paquete
+ * concreto, así que se muestra como "X" (p. ej. "lleva X días en aduana").
+ */
+export function renderLeyendaGenerica(leyenda?: string | null): string | null {
+  if (!leyenda) return null;
+  return leyenda.replaceAll('{dias}', 'X');
+}
+
+/**
+ * Items para la leyenda de estados de rastreo de las piezas del cliente,
+ * a partir del catálogo configurable (GET /api/mis-guias/estados-rastreo).
+ */
+export function getEstadosRastreoLeyendaItems(
+  estados: EstadoRastreoCliente[] | undefined,
+): EstadoLeyendaItem[] {
+  return (estados ?? []).map((e) => ({
+    key: String(e.id),
+    label: e.nombre,
+    descripcion: renderLeyendaGenerica(e.leyenda),
+    tone: getRastreoStatusTone(e.tipoFlujo ?? null),
+  }));
+}
 
 interface MiGuiaEstadoBadgeProps {
   estado: EstadoGuiaMaster;

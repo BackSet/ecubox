@@ -13,6 +13,19 @@ export interface EstadoRastreo {
   publicoTracking?: boolean;
 }
 
+/**
+ * Vista del catálogo de estados de rastreo para el cliente
+ * (GET /api/mis-guias/estados-rastreo): subconjunto sin campos
+ * de administración.
+ */
+export interface EstadoRastreoCliente {
+  id: number;
+  nombre: string;
+  leyenda?: string | null;
+  ordenTracking: number;
+  tipoFlujo?: TipoFlujoEstado;
+}
+
 export interface EstadoRastreoRequest {
   codigo: string;
   nombre: string;

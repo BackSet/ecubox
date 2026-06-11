@@ -95,8 +95,10 @@ import {
   EnvioConsolidadoBadge,
   ENVIO_CONSOLIDADO_ESTADO_ORDEN,
   ENVIO_CONSOLIDADO_ESTADO_UI,
+  getEnvioConsolidadoLeyendaItems,
   resolveEstadoOperativoConsolidado,
 } from './EnvioConsolidadoBadge';
+import { EstadosLeyendaDialog } from '@/components/estados/EstadosLeyendaDialog';
 import type { EstadoEnvioConsolidadoOperativo } from '@/types/envio-consolidado';
 
 import { formatWeightFromValues, formatWeightInline, LBS_TO_KG } from '@/lib/utils/weight';
@@ -527,7 +529,13 @@ export function EnviosConsolidadosListPage() {
         value={q}
         onSearchChange={setQ}
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <EstadosLeyendaDialog
+              title="¿Qué significa cada estado?"
+              description="Estados operativos por los que pasa un envío consolidado, en orden del flujo."
+              items={getEnvioConsolidadoLeyendaItems()}
+              triggerLabel="Ver qué significa cada estado del envío consolidado"
+            />
             {hasEnviosUpdate && (
               <Button variant="outline" onClick={() => abrirAplicarEstado()}>
                 <Tag className="mr-2 h-4 w-4" />
