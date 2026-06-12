@@ -1,11 +1,11 @@
 import { useCallback, useMemo } from 'react';
 import type { RefObject } from 'react';
 import type { TrackingResolveResponse } from '@/lib/api/tracking.service';
-import { copyText } from '@/lib/clipboard';
 import { notify } from '@/lib/notify';
 import type { SnapshotFormat } from '@/lib/exporters/domSnapshot';
 import { TRACKING_SNAPSHOT_OPTIONS } from '@/lib/exporters/trackingSnapshotOptions';
 import { codigoFromResolved } from '@/lib/tracking/trackingDisplayUtils';
+import { shareWithFallback, type ShareResult } from '@/lib/share';
 
 export type TrackingPdfMode = 'estructurado' | 'snapshot';
 
@@ -52,30 +52,19 @@ export function useTrackingExport(
     [exportRef, resolved]
   );
 
-  const handleShare = useCallback(async (): Promise<'shared' | 'copied' | 'cancelled' | 'failed'> => {
+  const handleShare = useCallback(async (): Promise<ShareResult> => {
     if (!shareUrl || !resolved) return 'failed';
     const cod = codigoFromResolved(resolved, codigo);
     const title = 'Rastreo de envío ECUBOX';
     const text = `Revisa el estado de tu envío con el código ${cod}.`;
-
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ title, text, url: shareUrl });
-        return 'shared';
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return 'cancelled';
-        }
-      }
-    }
-
-    try {
-      await copyText(shareUrl);
-      return 'copied';
-    } catch {
+    const result = await shareWithFallback({
+      data: { title, text, url: shareUrl },
+      fallbackText: shareUrl,
+    });
+    if (result === 'failed') {
       notify.error('No se pudo copiar el enlace.');
-      return 'failed';
     }
+    return result;
   }, [shareUrl, resolved, codigo]);
 
   const buildStructuredDoc = useCallback(async () => {

@@ -42,6 +42,7 @@
 - “Pieza” describe pertenencia a una guía master; “Paquete” describe gestión individual.
 - Diferenciar “Agencia” ECUBOX de “Punto de entrega” perteneciente a un courier.
 - Mostrar los nombres de estados de rastreo recibidos desde configuración/API; no convertir nombres visibles actuales en constantes de negocio.
+- Usar “Avanzar estados” o “Avance automático de estados” para la operación que aplica una secuencia completa; reservar “Aplicar estado” para una única transición heredada.
 - Mostrar pesos con `lbs`.
 - Ejecutar `npm run lint:nomenclatura` al modificar copy del frontend.
 
@@ -52,6 +53,7 @@
 - Permisos son `UPPER_SNAKE_CASE`.
 - Mantener nombres técnicos consolidados (`GuiaMaster`, `TrackingResolverService`) aunque el copy use tildes/español.
 - No exponer entidades JPA directamente cuando el módulo ya usa DTO.
+- En operaciones con vista previa mutable, llamar `previewToken` al token que vincula el cálculo mostrado con la aplicación atómica posterior.
 
 ### Base de datos
 
@@ -77,7 +79,7 @@
 | Courier de entrega | `CourierEntrega` | `courier_entrega` | `/api/couriers-entrega` | `/couriers-entrega` |
 | Punto de entrega | `AgenciaCourierEntrega` | `agencia_courier_entrega` | `/api/puntos-entrega` | `/puntos-entrega` |
 | Agencia ECUBOX | `Agencia` | `agencia` | `/api/agencias` | `/agencias` |
-| Envío consolidado | `EnvioConsolidado` | `envio_consolidado` | `/api/envios-consolidados` | `/envios-consolidados` |
+| Envío consolidado | `EnvioConsolidado`, DTOs `AvanceEstadosConsolidados*` | `envio_consolidado` | `/api/envios-consolidados`; secuencia en `/preview-secuencia-estados` y `/aplicar-secuencia-estados` | `/envios-consolidados` |
 | Lote de recepción | `LoteRecepcion` | `lote_recepcion` | `/api/operario/lotes-recepcion` | `/lotes-recepcion` |
 | Despacho | `Despacho` | `despacho` | `/api/operario/despachos` | `/despachos` |
 | Entrega del cliente | `Despacho` + DTOs `MiDespacho*` | `despacho` | `/api/mis-despachos` | `/mis-entregas` |

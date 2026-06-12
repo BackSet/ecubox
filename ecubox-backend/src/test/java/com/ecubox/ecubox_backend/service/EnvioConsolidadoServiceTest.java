@@ -1,10 +1,16 @@
 package com.ecubox.ecubox_backend.service;
 
+import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosPreviewDTO;
+import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosRequest;
+import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
+import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
+import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
+import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.entity.Liquidacion;
 import com.ecubox.ecubox_backend.entity.LiquidacionConsolidadoLinea;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -56,6 +62,8 @@ class EnvioConsolidadoServiceTest {
     @Mock private LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository;
     @Mock private LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
     @Mock private EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver;
+    @Mock private EstadoRastreoService estadoRastreoService;
+    @Mock private ParametroSistemaService parametroSistemaService;
 
     private EnvioConsolidadoService service;
 
@@ -71,7 +79,9 @@ class EnvioConsolidadoServiceTest {
                 paqueteService,
                 liquidacionConsolidadoLineaRepository,
                 loteRecepcionGuiaRepository,
-                estadoConsolidadoOperativoResolver);
+                estadoConsolidadoOperativoResolver,
+                estadoRastreoService,
+                parametroSistemaService);
         lenient().when(envioRepository.save(any(EnvioConsolidado.class)))
                 .thenAnswer(inv -> {
                     EnvioConsolidado e = inv.getArgument(0);
@@ -374,5 +384,137 @@ class EnvioConsolidadoServiceTest {
         verify(paqueteService).aplicarEstadoEnLoteRecepcion(
                 argThat(ids -> ids.size() == 1 && ids.contains(10L)),
                 eq(fechaLote));
+    }
+
+    @Test
+    void previewAvanceEstados_incluyeTodosLosPasosActivosYEfectosConfigurados() {
+        EstadoRastreo inicial = estado(10L, "Asociado", 10);
+        EstadoRastreo cierre = estado(20L, "Cierre", 20);
+        EstadoRastreo intermedio = estado(30L, "Control", 30);
+        EstadoRastreo salida = estado(40L, "Salida", 40);
+        EstadoRastreo limite = estado(50L, "Recepción", 50);
+        EnvioConsolidado envio = EnvioConsolidado.builder()
+                .id(1L).codigo("CONS-1").version(3L)
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build();
+        Paquete paquete = Paquete.builder()
+                .id(11L).numeroGuia("PK-1").version(4L)
+                .envioConsolidado(envio).estadoRastreo(inicial).build();
+        configurarSecuencia(inicial, cierre, intermedio, salida, limite);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(envio));
+        when(paqueteRepository.findByEnvioConsolidadoIdInWithEstado(List.of(1L)))
+                .thenReturn(List.of(paquete));
+
+        AvanceEstadosConsolidadosPreviewDTO preview = service.previewAvanceEstados(
+                AvanceEstadosConsolidadosRequest.builder()
+                        .consolidadoIds(List.of(1L))
+                        .estadoFinalId(salida.getId())
+                        .fechaPrincipal(LocalDateTime.now().minusHours(1))
+                        .build());
+
+        assertEquals(List.of(20L, 30L, 40L),
+                preview.getPasos().stream().map(AvanceEstadosConsolidadosPreviewDTO.Paso::getEstadoId).toList());
+        assertEquals(EstadoEnvioConsolidadoOperativo.CERRADO,
+                preview.getPasos().get(0).getEfectoOperativo());
+        assertNull(preview.getPasos().get(1).getEfectoOperativo());
+        assertEquals(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA,
+                preview.getPasos().get(2).getEfectoOperativo());
+        assertEquals(3, preview.getResumen().getTotalEventosPrevistos());
+        assertEquals(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA,
+                preview.getConsolidados().getFirst().getEstadoOperativoFinal());
+        assertNotNull(preview.getPreviewToken());
+    }
+
+    @Test
+    void aplicarAvanceEstados_conPreviewVigente_aplicaSecuenciaCompletaYEstadoOperativo() {
+        EstadoRastreo inicial = estado(10L, "Asociado", 10);
+        EstadoRastreo cierre = estado(20L, "Cierre", 20);
+        EstadoRastreo intermedio = estado(30L, "Control", 30);
+        EstadoRastreo salida = estado(40L, "Salida", 40);
+        EstadoRastreo limite = estado(50L, "Recepción", 50);
+        EnvioConsolidado envio = EnvioConsolidado.builder()
+                .id(1L).codigo("CONS-1").version(3L)
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build();
+        Paquete paquete = Paquete.builder()
+                .id(11L).numeroGuia("PK-1").version(4L)
+                .envioConsolidado(envio).estadoRastreo(inicial).build();
+        configurarSecuencia(inicial, cierre, intermedio, salida, limite);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(envio));
+        when(paqueteRepository.findByEnvioConsolidadoIdInWithEstado(List.of(1L)))
+                .thenReturn(List.of(paquete));
+        when(envioRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(envio));
+        when(paqueteRepository.findByEnvioConsolidadoIdInWithEstadoForUpdate(List.of(1L)))
+                .thenReturn(List.of(paquete));
+        LocalDateTime fecha = LocalDateTime.now().minusHours(1);
+        AvanceEstadosConsolidadosRequest request = AvanceEstadosConsolidadosRequest.builder()
+                .consolidadoIds(List.of(1L)).estadoFinalId(salida.getId()).fechaPrincipal(fecha).build();
+        String token = service.previewAvanceEstados(request).getPreviewToken();
+        request.setPreviewToken(token);
+
+        AvanceEstadosConsolidadosResponse response = service.aplicarAvanceEstados(request);
+
+        assertEquals(3, response.getPasosAplicados());
+        assertEquals(3, response.getEventosCreados());
+        assertEquals(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA, envio.getEstadoOperativo());
+        assertEquals(fecha, envio.getFechaCierre());
+        assertEquals(fecha, envio.getFechaCerrado());
+        verify(paqueteService).aplicarEstadoSecuenciaConsolidados(anyList(), eq(cierre), eq(fecha), any());
+        verify(paqueteService).aplicarEstadoSecuenciaConsolidados(anyList(), eq(intermedio), eq(fecha), any());
+        verify(paqueteService).aplicarEstadoSecuenciaConsolidados(anyList(), eq(salida), eq(fecha), any());
+    }
+
+    @Test
+    void previewAvanceEstados_rechazaConsolidadosConEstadoInicialDistinto() {
+        EstadoRastreo inicialA = estado(10L, "Inicial A", 10);
+        EstadoRastreo inicialB = estado(20L, "Inicial B", 20);
+        EnvioConsolidado envioA = EnvioConsolidado.builder().id(1L).codigo("A").version(1L).build();
+        EnvioConsolidado envioB = EnvioConsolidado.builder().id(2L).codigo("B").version(1L).build();
+        Paquete paqueteA = Paquete.builder().id(11L).version(1L)
+                .envioConsolidado(envioA).estadoRastreo(inicialA).build();
+        Paquete paqueteB = Paquete.builder().id(22L).version(1L)
+                .envioConsolidado(envioB).estadoRastreo(inicialB).build();
+        when(envioRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(envioA, envioB));
+        when(paqueteRepository.findByEnvioConsolidadoIdInWithEstado(List.of(1L, 2L)))
+                .thenReturn(List.of(paqueteA, paqueteB));
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.previewAvanceEstados(
+                AvanceEstadosConsolidadosRequest.builder()
+                        .consolidadoIds(List.of(1L, 2L))
+                        .estadoFinalId(30L)
+                        .fechaPrincipal(LocalDateTime.now().minusHours(1))
+                        .build()));
+
+        assertTrue(ex.getMessage().contains("mismo estado inicial"));
+        verify(estadoRastreoService, never()).findEntityById(anyLong());
+    }
+
+    private void configurarSecuencia(
+            EstadoRastreo inicial,
+            EstadoRastreo cierre,
+            EstadoRastreo intermedio,
+            EstadoRastreo salida,
+            EstadoRastreo limite) {
+        EstadosRastreoPorPuntoDTO config = EstadosRastreoPorPuntoDTO.builder()
+                .estadoRastreoAsociarEnvioConsolidadoId(inicial.getId())
+                .estadoRastreoEnLoteRecepcionId(limite.getId())
+                .estadoRastreoCierreConsolidadoId(cierre.getId())
+                .estadoRastreoEnviadoDesdeUsaId(salida.getId())
+                .build();
+        when(parametroSistemaService.getEstadosRastreoPorPunto()).thenReturn(config);
+        when(estadoRastreoService.findEntityById(anyLong())).thenAnswer(invocation -> {
+            Long id = invocation.getArgument(0);
+            return List.of(inicial, cierre, intermedio, salida, limite).stream()
+                    .filter(estado -> estado.getId().equals(id))
+                    .findFirst()
+                    .orElseThrow();
+        });
+        when(estadoRastreoService.findActivosEntities())
+                .thenReturn(List.of(salida, inicial, intermedio, cierre, limite));
+    }
+
+    private EstadoRastreo estado(Long id, String nombre, int orden) {
+        return EstadoRastreo.builder()
+                .id(id).codigo("EST-" + id).nombre(nombre)
+                .orden(orden).ordenTracking(orden).activo(true)
+                .tipoFlujo(TipoFlujoEstado.NORMAL).build();
     }
 }

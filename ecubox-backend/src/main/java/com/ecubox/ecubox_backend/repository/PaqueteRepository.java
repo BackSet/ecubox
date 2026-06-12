@@ -80,6 +80,25 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     @Query("SELECT p.id FROM Paquete p WHERE p.envioConsolidado.id IN :envioIds")
     List<Long> findIdsByEnvioConsolidadoIdIn(@Param("envioIds") Collection<Long> envioIds);
 
+    @Query("""
+            SELECT p FROM Paquete p
+            JOIN FETCH p.envioConsolidado
+            LEFT JOIN FETCH p.estadoRastreo
+            WHERE p.envioConsolidado.id IN :envioIds
+            ORDER BY p.envioConsolidado.id, p.id
+            """)
+    List<Paquete> findByEnvioConsolidadoIdInWithEstado(@Param("envioIds") Collection<Long> envioIds);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT p FROM Paquete p
+            JOIN FETCH p.envioConsolidado
+            LEFT JOIN FETCH p.estadoRastreo
+            WHERE p.envioConsolidado.id IN :envioIds
+            ORDER BY p.envioConsolidado.id, p.id
+            """)
+    List<Paquete> findByEnvioConsolidadoIdInWithEstadoForUpdate(@Param("envioIds") Collection<Long> envioIds);
+
     @Query("SELECT p.id FROM Paquete p WHERE CAST(p.createdAt AS LocalDate) BETWEEN :inicio AND :fin")
     List<Long> findIdsByCreatedAtBetween(@Param("inicio") LocalDate inicio, @Param("fin") LocalDate fin);
 

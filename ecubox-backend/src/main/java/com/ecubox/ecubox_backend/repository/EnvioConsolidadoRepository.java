@@ -7,7 +7,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 
 import java.util.List;
 import java.util.Optional;
@@ -107,4 +109,8 @@ public interface EnvioConsolidadoRepository
     /** Conteo agrupado por estado de pago: filas [estadoPago, total] (para el resumen liviano). */
     @Query("SELECT e.estadoPago, COUNT(e) FROM EnvioConsolidado e GROUP BY e.estadoPago")
     List<Object[]> countAgrupadoPorEstadoPago();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM EnvioConsolidado e WHERE e.id IN :ids ORDER BY e.id")
+    List<EnvioConsolidado> findAllByIdForUpdate(@Param("ids") List<Long> ids);
 }
