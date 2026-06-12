@@ -1227,4 +1227,3 @@ function CancelarGuiaDialog({ guia, onClose }: CancelarGuiaDialogProps) {
     </Dialog>
   );
 }
-
