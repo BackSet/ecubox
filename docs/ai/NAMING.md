@@ -22,6 +22,7 @@
 | Lote de recepción | Llegada, ingreso de mercancía | Registro agrupado de recepción en bodega | **Verificado en Git** |
 | Despacho | Envío, cuando se refiere a la salida final registrada | Salida hacia destinatario | **Verificado en Git** |
 | Retiro en oficina | "Pickup"; tratar "retiro presencial en agencia" como concepto distinto (es sinónimo en código) | Despacho `tipo_entrega = AGENCIA` con `agencia_id` informado y `courier_entrega_id` NULL; el número `RET-AG-*` se autogenera solo para despachos nuevos | **Verificado en Git**: `Despacho`, `DespachoService.resolverNumeroGuia`, migración V110 |
+| Cotización | "Presupuesto", "estimado" como sustantivo en copy | Resultado de la calculadora pública (`/calculadora`): copia, compartir y exportación PDF; no se persiste | **Verificado en Git**: `CalculadoraPage`, `lib/calculadora/cotizacion.ts` |
 | Saca | Bolsa, contenedor genérico | Agrupación física usada en despacho | **Verificado en Git** |
 | Manifiesto | Manifiesto de carga/aéreo sin necesidad | Documento operativo/aduanero | **Verificado en Git** |
 | Liquidación | Pago, como nombre de la entidad | Cierre financiero de consolidados/despachos | **Verificado en Git** |
@@ -42,6 +43,7 @@
 - “Pieza” describe pertenencia a una guía master; “Paquete” describe gestión individual.
 - Diferenciar “Agencia” ECUBOX de “Punto de entrega” perteneciente a un courier.
 - Mostrar los nombres de estados de rastreo recibidos desde configuración/API; no convertir nombres visibles actuales en constantes de negocio.
+- Usar “Avanzar estados” o “Avance automático de estados” para la operación que aplica una secuencia completa; reservar “Aplicar estado” para una única transición heredada.
 - Mostrar pesos con `lbs`.
 - Ejecutar `npm run lint:nomenclatura` al modificar copy del frontend.
 
@@ -52,6 +54,7 @@
 - Permisos son `UPPER_SNAKE_CASE`.
 - Mantener nombres técnicos consolidados (`GuiaMaster`, `TrackingResolverService`) aunque el copy use tildes/español.
 - No exponer entidades JPA directamente cuando el módulo ya usa DTO.
+- En operaciones con vista previa mutable, llamar `previewToken` al token que vincula el cálculo mostrado con la aplicación atómica posterior.
 
 ### Base de datos
 
@@ -77,7 +80,7 @@
 | Courier de entrega | `CourierEntrega` | `courier_entrega` | `/api/couriers-entrega` | `/couriers-entrega` |
 | Punto de entrega | `AgenciaCourierEntrega` | `agencia_courier_entrega` | `/api/puntos-entrega` | `/puntos-entrega` |
 | Agencia ECUBOX | `Agencia` | `agencia` | `/api/agencias` | `/agencias` |
-| Envío consolidado | `EnvioConsolidado` | `envio_consolidado` | `/api/envios-consolidados` | `/envios-consolidados` |
+| Envío consolidado | `EnvioConsolidado`, DTOs `AvanceEstadosConsolidados*` | `envio_consolidado` | `/api/envios-consolidados`; secuencia en `/preview-secuencia-estados` y `/aplicar-secuencia-estados` | `/envios-consolidados` |
 | Lote de recepción | `LoteRecepcion` | `lote_recepcion` | `/api/operario/lotes-recepcion` | `/lotes-recepcion` |
 | Despacho | `Despacho` | `despacho` | `/api/operario/despachos` | `/despachos` |
 | Entrega del cliente | `Despacho` + DTOs `MiDespacho*` | `despacho` | `/api/mis-despachos` | `/mis-entregas` |

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Check,
   Clipboard,
+  Copy,
   FileDown,
   FileImage,
   FileText,
@@ -18,38 +19,50 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { ExportTile } from '@/components/export/ExportTile';
-import type { TrackingPdfMode } from '@/pages/tracking/hooks/useTrackingExport';
+import type { CotizacionPdfMode } from '@/pages/calculadora/useCotizacionExport';
+import type { CompartirResultado } from '@/lib/calculadora/compartirCotizacion';
+import type { SnapshotFormat } from '@/lib/exporters/domSnapshot';
 
-export interface TrackingActionsBarProps {
-  onShare: () => Promise<'shared' | 'copied' | 'cancelled' | 'failed'>;
-  onPrintPdf: (mode: TrackingPdfMode) => void | Promise<void>;
-  onDownloadPdf: (mode: TrackingPdfMode) => void | Promise<void>;
-  onDownloadImage: (format: 'png' | 'jpeg') => void | Promise<void>;
+export interface CalculadoraActionsBarProps {
+  onShare: () => Promise<CompartirResultado>;
+  onCopyTexto: () => void | Promise<void>;
+  onDownloadPdf: (mode: CotizacionPdfMode) => void | Promise<void>;
+  onPrintPdf: (mode: CotizacionPdfMode) => void | Promise<void>;
+  onDownloadImage: (format: SnapshotFormat) => void | Promise<void>;
   onCopyImage: () => void | Promise<void>;
-  exportsDisabled?: boolean;
+  disabled?: boolean;
 }
 
 type Pending =
   | 'share'
-  | 'print-estructurado'
+  | 'copy-texto'
+  | 'print-documento'
   | 'print-snapshot'
-  | 'pdf-estructurado'
+  | 'pdf-documento'
   | 'pdf-snapshot'
   | 'image-png'
   | 'image-jpeg'
   | 'copy-image'
   | null;
 
-export function TrackingActionsBar({
+/**
+ * Panel "Compartir y exportar" de la calculadora, con la misma UX que el de
+ * Rastreo (`TrackingActionsBar`): un botón de compartir + tarjetas de PDF,
+ * Imagen e Imprimir con sus variantes. Toda la lógica vive en
+ * {@link useCotizacionExport}; este componente es presentacional.
+ */
+export function CalculadoraActionsBar({
   onShare,
-  onPrintPdf,
+  onCopyTexto,
   onDownloadPdf,
+  onPrintPdf,
   onDownloadImage,
   onCopyImage,
-  exportsDisabled = false,
-}: TrackingActionsBarProps) {
+  disabled = false,
+}: CalculadoraActionsBarProps) {
   const [pending, setPending] = useState<Pending>(null);
   const [shareFeedback, setShareFeedback] = useState<'copied' | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   const run = async (id: Pending, fn: () => void | Promise<void>) => {
     if (pending && pending !== id) return;
@@ -76,16 +89,28 @@ export function TrackingActionsBar({
     }
   };
 
+  const runCopyTexto = async () => {
+    if (pending) return;
+    setPending('copy-texto');
+    try {
+      await onCopyTexto();
+      setCopiado(true);
+      window.setTimeout(() => setCopiado(false), 1800);
+    } finally {
+      setPending(null);
+    }
+  };
+
   const isPending = (id: Pending) => pending === id;
 
   return (
-    <section className="surface-card space-y-5 p-5 sm:p-6" data-export-exclude>
+    <section className="surface-card space-y-5 p-5 sm:p-6">
       <div className="space-y-1">
         <h3 className="text-base font-semibold text-[var(--color-foreground)]">
           Compartir y exportar
         </h3>
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          Comparte el enlace del rastreo o guárdalo en el portapapeles.
+          Comparte la cotización o guárdala como documento. Los valores son los que ves arriba.
         </p>
       </div>
 
@@ -93,59 +118,59 @@ export function TrackingActionsBar({
         <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">
           Compartir
         </p>
-        <Button
-          type="button"
-          className="h-10 w-full justify-center gap-2 sm:w-auto sm:min-w-[11rem]"
-          disabled={isPending('share')}
-          onClick={() => void runShare()}
-        >
-          {isPending('share') ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : shareFeedback === 'copied' ? (
-            <Check className="h-4 w-4 text-[var(--color-success)]" />
-          ) : (
-            <Share2 className="h-4 w-4" />
-          )}
-          {shareFeedback === 'copied' ? 'Enlace copiado' : 'Compartir enlace'}
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="button"
+            className="h-10 justify-center gap-2 sm:min-w-[11rem]"
+            disabled={disabled || isPending('share')}
+            onClick={() => void runShare()}
+          >
+            {isPending('share') ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : shareFeedback === 'copied' ? (
+              <Check className="h-4 w-4 text-[var(--color-success)]" />
+            ) : (
+              <Share2 className="h-4 w-4" />
+            )}
+            {shareFeedback === 'copied' ? 'Copiada al portapapeles' : 'Compartir cotización'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 justify-center gap-2"
+            disabled={disabled || isPending('copy-texto')}
+            onClick={() => void runCopyTexto()}
+          >
+            {isPending('copy-texto') ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : copiado ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            {copiado ? 'Copiado' : 'Copiar'}
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">
           Exportar documento
         </p>
-        {exportsDisabled ? (
-          <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/25 px-3 py-2.5 text-xs text-[var(--color-muted-foreground)]">
-            La exportación a PDF o imagen está disponible al consultar un envío real.
-          </p>
-        ) : null}
         <div className="grid grid-cols-1 gap-2.5">
           <ExportTile
             icon={<FileText className="h-4 w-4" />}
             title="PDF"
             subtitle="Documento o vista de pantalla"
-            disabled={exportsDisabled}
-            pending={isPending('pdf-estructurado') || isPending('pdf-snapshot')}
+            disabled={disabled}
+            pending={isPending('pdf-documento') || isPending('pdf-snapshot')}
             menu={
               <>
                 <DropdownMenuLabel className="text-xs">Formato del PDF</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  disabled={exportsDisabled || Boolean(pending)}
-                  onClick={() => void run('pdf-snapshot', () => onDownloadPdf('snapshot'))}
-                  className="gap-2.5"
-                >
-                  <Monitor className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
-                  <div>
-                    <p className="text-sm font-medium">Como en pantalla</p>
-                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                      Réplica visual del rastreo web.
-                    </p>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={exportsDisabled || Boolean(pending)}
-                  onClick={() => void run('pdf-estructurado', () => onDownloadPdf('estructurado'))}
+                  disabled={disabled || Boolean(pending)}
+                  onClick={() => void run('pdf-documento', () => onDownloadPdf('documento'))}
                   className="gap-2.5"
                 >
                   <FileText className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
@@ -156,16 +181,29 @@ export function TrackingActionsBar({
                     </p>
                   </div>
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={disabled || Boolean(pending)}
+                  onClick={() => void run('pdf-snapshot', () => onDownloadPdf('snapshot'))}
+                  className="gap-2.5"
+                >
+                  <Monitor className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                  <div>
+                    <p className="text-sm font-medium">Como en pantalla</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                      Réplica visual de la cotización.
+                    </p>
+                  </div>
+                </DropdownMenuItem>
               </>
             }
-            onPrimary={() => void run('pdf-snapshot', () => onDownloadPdf('snapshot'))}
+            onPrimary={() => void run('pdf-documento', () => onDownloadPdf('documento'))}
           />
 
           <ExportTile
             icon={<ImageIcon className="h-4 w-4" />}
             title="Imagen"
             subtitle="PNG, JPEG o portapapeles"
-            disabled={exportsDisabled}
+            disabled={disabled}
             pending={
               isPending('image-png') || isPending('image-jpeg') || isPending('copy-image')
             }
@@ -174,7 +212,7 @@ export function TrackingActionsBar({
                 <DropdownMenuLabel className="text-xs">Formato de imagen</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  disabled={exportsDisabled || Boolean(pending)}
+                  disabled={disabled || Boolean(pending)}
                   onClick={() => void run('image-png', () => onDownloadImage('png'))}
                   className="gap-2.5"
                 >
@@ -187,7 +225,7 @@ export function TrackingActionsBar({
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  disabled={exportsDisabled || Boolean(pending)}
+                  disabled={disabled || Boolean(pending)}
                   onClick={() => void run('image-jpeg', () => onDownloadImage('jpeg'))}
                   className="gap-2.5"
                 >
@@ -201,7 +239,7 @@ export function TrackingActionsBar({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  disabled={exportsDisabled || Boolean(pending)}
+                  disabled={disabled || Boolean(pending)}
                   onClick={() => void run('copy-image', onCopyImage)}
                   className="gap-2.5"
                 >
@@ -222,28 +260,15 @@ export function TrackingActionsBar({
             icon={<Printer className="h-4 w-4" />}
             title="Imprimir"
             subtitle="Documento o vista de pantalla"
-            disabled={exportsDisabled}
-            pending={isPending('print-estructurado') || isPending('print-snapshot')}
+            disabled={disabled}
+            pending={isPending('print-documento') || isPending('print-snapshot')}
             menu={
               <>
                 <DropdownMenuLabel className="text-xs">Modo de impresión</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  disabled={exportsDisabled || Boolean(pending)}
-                  onClick={() => void run('print-snapshot', () => onPrintPdf('snapshot'))}
-                  className="gap-2.5"
-                >
-                  <Monitor className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
-                  <div>
-                    <p className="text-sm font-medium">Como en pantalla</p>
-                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                      Imprime lo que ves en la web.
-                    </p>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={exportsDisabled || Boolean(pending)}
-                  onClick={() => void run('print-estructurado', () => onPrintPdf('estructurado'))}
+                  disabled={disabled || Boolean(pending)}
+                  onClick={() => void run('print-documento', () => onPrintPdf('documento'))}
                   className="gap-2.5"
                 >
                   <FileText className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
@@ -254,9 +279,22 @@ export function TrackingActionsBar({
                     </p>
                   </div>
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={disabled || Boolean(pending)}
+                  onClick={() => void run('print-snapshot', () => onPrintPdf('snapshot'))}
+                  className="gap-2.5"
+                >
+                  <Monitor className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                  <div>
+                    <p className="text-sm font-medium">Como en pantalla</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                      Imprime la cotización tal como se ve.
+                    </p>
+                  </div>
+                </DropdownMenuItem>
               </>
             }
-            onPrimary={() => void run('print-snapshot', () => onPrintPdf('snapshot'))}
+            onPrimary={() => void run('print-documento', () => onPrintPdf('documento'))}
           />
         </div>
       </div>

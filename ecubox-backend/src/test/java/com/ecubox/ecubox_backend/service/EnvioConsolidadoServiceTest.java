@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
+import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
@@ -510,6 +511,63 @@ class EnvioConsolidadoServiceTest {
     }
 
     @Test
+    void previewAvanceEstados_conEstadoFinalEnLoteRecepcion_seRechaza() {
+        // "Recepción" (limite) es el estado de llegada a bodega: lo aplica el
+        // flujo de lote de recepción, no el avance automático. No debe poder
+        // seleccionarse como estado final.
+        EstadoRastreo inicial = estado(10L, "Asociado", 10);
+        EstadoRastreo limite = estado(50L, "Recepción", 50);
+        EnvioConsolidado envio = EnvioConsolidado.builder()
+                .id(1L).codigo("CONS-1").version(3L)
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build();
+        Paquete paquete = Paquete.builder()
+                .id(11L).numeroGuia("PK-1").version(4L)
+                .envioConsolidado(envio).estadoRastreo(inicial).build();
+        EstadosRastreoPorPuntoDTO config = EstadosRastreoPorPuntoDTO.builder()
+                .estadoRastreoAsociarEnvioConsolidadoId(inicial.getId())
+                .estadoRastreoEnLoteRecepcionId(limite.getId())
+                .build();
+        when(parametroSistemaService.getEstadosRastreoPorPunto()).thenReturn(config);
+        when(estadoRastreoService.findEntityById(inicial.getId())).thenReturn(inicial);
+        when(estadoRastreoService.findEntityById(limite.getId())).thenReturn(limite);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(envio));
+        when(paqueteRepository.findByEnvioConsolidadoIdInWithEstado(List.of(1L)))
+                .thenReturn(List.of(paquete));
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.previewAvanceEstados(
+                AvanceEstadosConsolidadosRequest.builder()
+                        .consolidadoIds(List.of(1L))
+                        .estadoFinalId(limite.getId())
+                        .fechaPrincipal(LocalDateTime.now().minusHours(1))
+                        .build()));
+        assertTrue(ex.getMessage().contains("lote de recepción"));
+    }
+
+    @Test
+    void listarDestinosAvanceEstados_excluyeEstadoDeLlegadaABodega() {
+        EstadoRastreo inicial = estado(10L, "Asociado", 10);
+        EstadoRastreo cierre = estado(20L, "Cierre", 20);
+        EstadoRastreo salida = estado(40L, "Salida", 40);
+        EstadoRastreo limite = estado(50L, "Recepción", 50);
+        EstadosRastreoPorPuntoDTO config = EstadosRastreoPorPuntoDTO.builder()
+                .estadoRastreoAsociarEnvioConsolidadoId(inicial.getId())
+                .estadoRastreoEnLoteRecepcionId(limite.getId())
+                .build();
+        when(parametroSistemaService.getEstadosRastreoPorPunto()).thenReturn(config);
+        when(estadoRastreoService.findEntityById(inicial.getId())).thenReturn(inicial);
+        when(estadoRastreoService.findEntityById(limite.getId())).thenReturn(limite);
+        when(estadoRastreoService.findActivos()).thenReturn(List.of(
+                dtoDe(inicial), dtoDe(cierre), dtoDe(salida), dtoDe(limite)));
+
+        List<EstadoRastreoDTO> destinos = service.listarDestinosAvanceEstados();
+
+        List<Long> ids = destinos.stream().map(EstadoRastreoDTO::getId).toList();
+        assertTrue(ids.contains(20L) && ids.contains(40L), "incluye estados intermedios");
+        assertFalse(ids.contains(50L), "excluye el estado de llegada a bodega (lote de recepción)");
+        assertFalse(ids.contains(10L), "excluye el estado base de asociación");
+    }
+
+    @Test
     void aplicarAvanceEstados_conPreviewVigente_aplicaSecuenciaCompletaYEstadoOperativo() {
         EstadoRastreo inicial = estado(10L, "Asociado", 10);
         EstadoRastreo cierre = estado(20L, "Cierre", 20);
@@ -659,5 +717,12 @@ class EnvioConsolidadoServiceTest {
                 .id(id).codigo("EST-" + id).nombre(nombre)
                 .orden(orden).ordenTracking(orden).activo(true)
                 .tipoFlujo(TipoFlujoEstado.NORMAL).build();
+    }
+
+    private EstadoRastreoDTO dtoDe(EstadoRastreo e) {
+        return EstadoRastreoDTO.builder()
+                .id(e.getId()).codigo(e.getCodigo()).nombre(e.getNombre())
+                .orden(e.getOrden()).ordenTracking(e.getOrdenTracking())
+                .activo(e.getActivo()).tipoFlujo(e.getTipoFlujo()).build();
     }
 }
