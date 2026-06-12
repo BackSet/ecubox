@@ -24,6 +24,13 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long>, JpaSpec
             SELECT DISTINCT u FROM Usuario u
             JOIN FETCH u.roles r
             WHERE r.nombre = 'CLIENTE'
+              AND NOT EXISTS (
+                SELECT 1
+                FROM Usuario interno
+                JOIN interno.roles rolInterno
+                WHERE interno = u
+                  AND rolInterno.nombre IN ('ADMIN', 'OPERARIO')
+              )
             ORDER BY u.username
             """)
     java.util.List<Usuario> findAllClientesWithRoles();

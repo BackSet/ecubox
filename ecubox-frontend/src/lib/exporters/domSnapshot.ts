@@ -56,7 +56,19 @@ function buildOptions(node: HTMLElement, opts: SnapshotOptions = {}) {
     height: heightCss,
     canvasWidth: Math.round(widthCss * ratio),
     canvasHeight: Math.round(heightCss * ratio),
-    cacheBust: true,
+    // No embeber las @font-face: la familia 'Inter' se sirve cross-origin
+    // desde Google Fonts y ya está cargada en el documento al momento de la
+    // captura. Intentar embeberla hace que html-to-image lea `cssRules` de una
+    // hoja cross-origin y referencie un recurso de fuente "tainted" en el
+    // <foreignObject> del SVG: el navegador rasteriza un lienzo en blanco y
+    // resuelve sin lanzar error (descarga un archivo vacío). Al omitir el
+    // embebido, el texto se rasteriza con la fuente ya disponible / fallback
+    // del stack `--font-sans` (system-ui), evitando el blanco.
+    skipFonts: true,
+    // `cacheBust` añade un query string a cada recurso (incluidas las fuentes),
+    // lo que convierte peticiones cacheadas en refetch cross-origin y agrava el
+    // problema anterior. No aporta nada en este flujo de captura puntual.
+    cacheBust: false,
     style: {
       transformOrigin: 'top left',
       backgroundColor: opts.background ?? DEFAULT_BG,

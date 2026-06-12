@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { getTarifaCalculadoraPublic } from '@/lib/api/tarifa-calculadora.service';
 import { PesoInputPair } from '@/components/PesoInput';
@@ -7,8 +7,6 @@ import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import {
   AlertTriangle,
   Calculator,
-  Check,
-  Copy,
   Info,
   Package as PackageIcon,
   RefreshCw,
@@ -17,7 +15,6 @@ import {
   Search,
   Truck,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -26,7 +23,11 @@ import { KeyValueGridSkeleton } from '@/components/skeletons/KeyValueGridSkeleto
 import { PublicPageHero } from '@/components/public/PublicPageHero';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 import { PublicSupportStrip } from '@/components/public/PublicSupportStrip';
-import { copyText } from '@/lib/clipboard';
+// Formato de moneda/unidades centralizado en el modelo de cotización para
+// que pantalla, copiar, compartir y exportar muestren exactamente lo mismo.
+import { crearCotizacion, fmtLbs, fmtMoneda } from '@/lib/calculadora/cotizacion';
+import { useCotizacionExport } from '@/pages/calculadora/useCotizacionExport';
+import { CalculadoraActionsBar } from '@/pages/calculadora/CalculadoraActionsBar';
 
 const MIN_PESO_LBS_RECARGO = 4;
 const RECARGO_ENVIO_MENOR_PESO = 3.5;
@@ -39,18 +40,7 @@ const PRESETS_LBS: Array<{ label: string; valor: number }> = [
   { label: '20 lbs', valor: 20 },
 ];
 
-function fmtLbs(n: number): string {
-  return n.toLocaleString('es-EC', { maximumFractionDigits: 2 });
-}
 
-function fmtMoneda(n: number): string {
-  return n.toLocaleString('es-EC', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 export function CalculadoraPage() {
   const [tarifaPorLibra, setTarifaPorLibra] = useState<number | null>(null);
@@ -58,7 +48,7 @@ export function CalculadoraPage() {
   const [tarifaLoading, setTarifaLoading] = useState(true);
   const [pesoLbs, setPesoLbs] = useState<string>('');
   const [pesoKg, setPesoKg] = useState<string>('');
-  const [copiado, setCopiado] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const cargarTarifa = useMemo(
     () => async (signal?: AbortSignal) => {
@@ -111,7 +101,6 @@ export function CalculadoraPage() {
   const limpiar = () => {
     setPesoLbs('');
     setPesoKg('');
-    setCopiado(false);
   };
 
   const pesoLbsNum = pesoLbs === '' ? NaN : Number(pesoLbs);
@@ -128,27 +117,23 @@ export function CalculadoraPage() {
     ? Math.max(0, MIN_PESO_LBS_RECARGO - pesoLbsNum)
     : 0;
 
-  const handleCopiarResultado = async () => {
-    if (costoEstimado == null) return;
-    const lineas = [
-      `Cotización ECUBOX`,
-      `Peso: ${fmtLbs(pesoLbsNum)} lbs (${fmtLbs(lbsToKg(pesoLbsNum))} kg)`,
-      `Tarifa: ${fmtMoneda(tarifa)} / lbs`,
-      `Subtotal: ${fmtMoneda(costoBase ?? 0)}`,
-      aplicaRecargo
-        ? `Recargo (< ${MIN_PESO_LBS_RECARGO} lbs): ${fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}`
-        : null,
-      `Total: ${fmtMoneda(costoEstimado)}`,
-    ].filter(Boolean);
-    try {
-      await copyText(lineas.join('\n'));
-      setCopiado(true);
-      toast.success('Cotización copiada');
-      window.setTimeout(() => setCopiado(false), 1800);
-    } catch {
-      toast.error('No se pudo copiar');
-    }
-  };
+  // Modelo exportable único: alimenta copiar, compartir y exportar con los
+  // valores YA calculados arriba (sin recalcular tarifas ni totales).
+  const cotizacion =
+    costoEstimado != null && costoBase != null && tarifaConfigurada
+      ? crearCotizacion({
+          pesoLbs: pesoLbsNum,
+          tarifaPorLibra: tarifa,
+          subtotal: costoBase,
+          recargoMenorPeso: aplicaRecargo ? RECARGO_ENVIO_MENOR_PESO : null,
+          umbralRecargoLbs: MIN_PESO_LBS_RECARGO,
+          total: costoEstimado,
+        })
+      : null;
+
+  // Todas las salidas (compartir, copiar, PDF documento/captura, imagen,
+  // imprimir) se orquestan en el hook a partir del mismo modelo.
+  const exportar = useCotizacionExport(exportRef, cotizacion);
 
   return (
     <PublicPageLayout headerVariant="tool" mainClassName="mobile-safe-inline py-6 sm:py-10">
@@ -335,14 +320,15 @@ export function CalculadoraPage() {
               </section>
 
               {costoEstimado !== null && tarifaConfigurada ? (
-                <section className="landing-card-elevated overflow-hidden">
-                  {/* Total protagonista sobre fondo de marca */}
-                  <div className="brand-gradient-bg px-5 py-5 sm:px-6 sm:py-6">
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                      <div>
+                <>
+                  {/* Contenido capturable: lo que ven copiar/compartir/exportar. */}
+                  <div ref={exportRef} className="bg-[var(--color-background)]">
+                    <section className="landing-card-elevated overflow-hidden">
+                      {/* Total protagonista sobre fondo de marca */}
+                      <div className="brand-gradient-bg px-5 py-5 sm:px-6 sm:py-6">
                         <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-primary-foreground)]/80">
                           <span className="inline-flex items-center rounded-full bg-[var(--color-primary-foreground)]/20 px-2 py-0.5">
-                            Paso 2
+                            Cotización
                           </span>
                           Costo estimado total
                         </p>
@@ -357,55 +343,55 @@ export function CalculadoraPage() {
                           ({fmtLbs(lbsToKg(pesoLbsNum))} kg)
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCopiarResultado}
-                        className="gap-2 border-[var(--color-primary-foreground)]/30 bg-[var(--color-primary-foreground)]/10 text-[var(--color-primary-foreground)] hover:bg-[var(--color-primary-foreground)]/20 hover:text-[var(--color-primary-foreground)]"
-                      >
-                        {copiado ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                        {copiado ? 'Copiado' : 'Copiar'}
-                      </Button>
-                    </div>
+
+                      <div className="space-y-4 p-5 sm:p-6">
+                        <dl className="space-y-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/60 p-3.5 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <dt className="text-[var(--color-muted-foreground)]">
+                              {fmtLbs(pesoLbsNum)} lbs × {fmtMoneda(tarifa)}/lbs
+                            </dt>
+                            <dd className="font-medium text-[var(--color-foreground)]">
+                              {fmtMoneda(costoBase ?? 0)}
+                            </dd>
+                          </div>
+                          {aplicaRecargo && (
+                            <div className="flex items-center justify-between gap-2">
+                              <dt className="text-[var(--color-warning)]">
+                                Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lbs)
+                              </dt>
+                              <dd className="font-medium text-[var(--color-warning)]">
+                                +{fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}
+                              </dd>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] pt-2 text-base">
+                            <dt className="font-semibold text-[var(--color-foreground)]">
+                              Total estimado
+                            </dt>
+                            <dd className="font-bold text-[var(--color-primary)]">
+                              {fmtMoneda(costoEstimado)}
+                            </dd>
+                          </div>
+                        </dl>
+
+                        <p className="text-[11px] leading-relaxed text-[var(--color-muted-foreground)]">
+                          * Este valor es referencial. El costo final puede variar según
+                          embalaje, dimensiones y revisión aduanal.
+                        </p>
+                      </div>
+                    </section>
                   </div>
 
-                  <div className="space-y-4 p-5 sm:p-6">
-                    <dl className="space-y-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/60 p-3.5 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <dt className="text-[var(--color-muted-foreground)]">
-                          {fmtLbs(pesoLbsNum)} lbs × {fmtMoneda(tarifa)}/lbs
-                        </dt>
-                        <dd className="font-medium text-[var(--color-foreground)]">
-                          {fmtMoneda(costoBase ?? 0)}
-                        </dd>
-                      </div>
-                      {aplicaRecargo && (
-                        <div className="flex items-center justify-between gap-2">
-                          <dt className="text-[var(--color-warning)]">
-                            Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lbs)
-                          </dt>
-                          <dd className="font-medium text-[var(--color-warning)]">
-                            +{fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}
-                          </dd>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] pt-2 text-base">
-                        <dt className="font-semibold text-[var(--color-foreground)]">
-                          Total estimado
-                        </dt>
-                        <dd className="font-bold text-[var(--color-primary)]">
-                          {fmtMoneda(costoEstimado)}
-                        </dd>
-                      </div>
-                    </dl>
-
-                    <p className="text-[11px] leading-relaxed text-[var(--color-muted-foreground)]">
-                      * Este valor es referencial. El costo final puede variar según
-                      embalaje, dimensiones y revisión aduanal.
-                    </p>
-                  </div>
-                </section>
+                  {/* Panel de acciones (no se incluye en la captura). */}
+                  <CalculadoraActionsBar
+                    onShare={exportar.handleShare}
+                    onCopyTexto={exportar.handleCopyTexto}
+                    onDownloadPdf={exportar.handleDownloadPdf}
+                    onPrintPdf={exportar.handlePrintPdf}
+                    onDownloadImage={exportar.handleDownloadImage}
+                    onCopyImage={exportar.handleCopyImage}
+                  />
+                </>
               ) : (
                 <section className="landing-card-muted rounded-2xl p-6 text-center">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-landing-card-muted)] landing-text-muted">

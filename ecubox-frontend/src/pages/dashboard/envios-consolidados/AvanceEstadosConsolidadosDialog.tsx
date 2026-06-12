@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AlertCircle, CheckSquare, Clock3, ListChecks, Search, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -52,6 +52,8 @@ interface AvanceEstadosConsolidadosDialogProps {
   consolidadosError: boolean;
   estadosLoading: boolean;
   estadosError: boolean;
+  /** Selector de modo opcional, para presentar el avance como parte del mismo flujo. */
+  headerExtra?: ReactNode;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -63,6 +65,32 @@ function ahoraLocalInput(): string {
 
 function fechaInput(value: string): string {
   return value.slice(0, 16);
+}
+
+/**
+ * Traduce los errores de agrupación del backend a un mensaje accionable.
+ * La causa más común es confundir el estado OPERATIVO (el badge) con el
+ * estado de RASTREO de los paquetes, que es por el que agrupa el avance.
+ */
+function mensajeAvanceLegible(err: unknown, fallback: string): string {
+  const apiMsg = getApiErrorMessage(err);
+  if (!apiMsg) return fallback;
+  const lower = apiMsg.toLowerCase();
+  if (lower.includes('mismo estado inicial')) {
+    return (
+      'Los consolidados seleccionados tienen sus paquetes en estados de rastreo distintos. ' +
+      'El avance aplica una sola secuencia, así que todos deben partir del mismo estado de rastreo ' +
+      '(ojo: no es el estado operativo del badge). Avánzalos en grupos que compartan ese estado, ' +
+      'o usa «Estado de rastreo» para igualarlos primero.'
+    );
+  }
+  if (lower.includes('estados mixtos')) {
+    return `${apiMsg} Sus paquetes deben estar todos en el mismo estado de rastreo antes de avanzar.`;
+  }
+  if (lower.includes('sin estado de rastreo')) {
+    return `${apiMsg} Asigna un estado de rastreo a esos paquetes antes de avanzar.`;
+  }
+  return apiMsg;
 }
 
 const ESTADOS_VALIDOS_AVANCE = new Set([
@@ -90,6 +118,7 @@ export function AvanceEstadosConsolidadosDialog({
   consolidadosError,
   estadosLoading,
   estadosError,
+  headerExtra,
   onOpenChange,
 }: AvanceEstadosConsolidadosDialogProps) {
   const [seleccionados, setSeleccionados] = useState<number[]>([]);
@@ -192,7 +221,7 @@ export function AvanceEstadosConsolidadosDialog({
     } catch (err: unknown) {
       setPreview(null);
       setPreviewVigente(false);
-      setError(getApiErrorMessage(err) ?? 'No se pudo generar la vista previa.');
+      setError(mensajeAvanceLegible(err, 'No se pudo generar la vista previa.'));
     }
   }
 
@@ -208,12 +237,17 @@ export function AvanceEstadosConsolidadosDialog({
       );
       onOpenChange(false);
     } catch (err: unknown) {
+      const apiMsg = getApiErrorMessage(err) ?? '';
+      const esAgrupacion = /estado inicial|estados mixtos|sin estado de rastreo/i.test(apiMsg);
       if (getApiStatus(err) === 409) {
         setPreviewVigente(false);
-        setError('Los datos cambiaron. Genera nuevamente la vista previa antes de aplicar.');
-      } else {
-        setError(getApiErrorMessage(err) ?? 'No se pudo aplicar la secuencia de estados.');
+        // Un 409 sin pista de agrupación es el caso de preview desactualizada.
+        if (!esAgrupacion) {
+          setError('Los datos cambiaron. Genera nuevamente la vista previa antes de aplicar.');
+          return;
+        }
       }
+      setError(mensajeAvanceLegible(err, 'No se pudo aplicar la secuencia de estados.'));
     }
   }
 
@@ -242,12 +276,16 @@ export function AvanceEstadosConsolidadosDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {headerExtra}
+
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Operación atómica</AlertTitle>
+          <AlertTitle>Cómo funciona el avance</AlertTitle>
           <AlertDescription>
-            Todos los consolidados deben compartir el mismo estado inicial. Si falla un paso,
-            no se guarda ningún cambio.
+            Todos los consolidados seleccionados deben tener sus paquetes en el mismo{' '}
+            <strong>estado de rastreo</strong> (no es el estado operativo del badge): el avance
+            aplica una única secuencia a partir de ese punto. Es atómico: si falla un paso, no se
+            guarda ningún cambio.
           </AlertDescription>
         </Alert>
 

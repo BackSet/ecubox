@@ -356,7 +356,12 @@ public class EnvioConsolidadoService {
                 .filter(e -> e.getTipoFlujo() == base.getTipoFlujo())
                 .filter(e -> {
                     Integer orden = e.getOrden() != null ? e.getOrden() : e.getOrdenTracking();
-                    return orden != null && orden > ordenBase && orden <= ordenLimite;
+                    // Cota superior EXCLUSIVA: el estado de "llega a bodega"
+                    // (en lote de recepción) no es un destino del avance
+                    // automático; ese estado solo se alcanza cuando el operario
+                    // ingresa el consolidado a un lote de recepción. El avance
+                    // llega como máximo al estado inmediatamente anterior.
+                    return orden != null && orden > ordenBase && orden < ordenLimite;
                 })
                 .sorted(Comparator.comparingInt(e -> e.getOrden() != null ? e.getOrden() : e.getOrdenTracking()))
                 .toList();
@@ -599,8 +604,13 @@ public class EnvioConsolidadoService {
         EstadoRastreo base = estadoRastreoService.findEntityById(cfg.getEstadoRastreoAsociarEnvioConsolidadoId());
         EstadoRastreo limite = estadoRastreoService.findEntityById(cfg.getEstadoRastreoEnLoteRecepcionId());
         int orden = ordenOrThrow(destino);
-        if (orden <= ordenOrThrow(base) || orden > ordenOrThrow(limite)) {
-            throw new ConflictException("El estado final no es compatible con el flujo de envíos consolidados.");
+        // El destino debe ser posterior a la asociación a consolidado y
+        // ANTERIOR a "llega a bodega" (en lote de recepción): ese estado lo
+        // produce el flujo de lote de recepción, no el avance automático.
+        if (orden <= ordenOrThrow(base) || orden >= ordenOrThrow(limite)) {
+            throw new ConflictException(
+                    "El estado final no es compatible con el flujo de envíos consolidados. "
+                            + "El estado de llegada a bodega se aplica al ingresar el consolidado a un lote de recepción.");
         }
     }
 
