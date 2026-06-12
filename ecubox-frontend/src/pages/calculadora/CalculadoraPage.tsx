@@ -7,52 +7,30 @@ import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import {
   AlertTriangle,
   Calculator,
-  Check,
-  ChevronDown,
-  Clipboard,
-  Copy,
-  FileDown,
-  Image as ImageIcon,
   Info,
-  Loader2,
   Package as PackageIcon,
   RefreshCw,
   RotateCcw,
   Scale,
   Search,
-  Share2,
   Truck,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { KeyValueGridSkeleton } from '@/components/skeletons/KeyValueGridSkeleton';
 import { PublicPageHero } from '@/components/public/PublicPageHero';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 import { PublicSupportStrip } from '@/components/public/PublicSupportStrip';
-import { copyText } from '@/lib/clipboard';
-import { notify } from '@/lib/notify';
-import { TRACKING_SNAPSHOT_OPTIONS } from '@/lib/exporters/trackingSnapshotOptions';
-import {
-  COTIZACION_AVISO,
-  buildCotizacionText,
-  formatLbs,
-  formatUsd,
-  type CotizacionCalculadora,
-} from '@/lib/calculadora/cotizacion';
+// Formato de moneda/unidades centralizado en el modelo de cotización para
+// que pantalla, copiar, compartir y exportar muestren exactamente lo mismo.
+import { crearCotizacion, fmtLbs, fmtMoneda } from '@/lib/calculadora/cotizacion';
+import { useCotizacionExport } from '@/pages/calculadora/useCotizacionExport';
+import { CalculadoraActionsBar } from '@/pages/calculadora/CalculadoraActionsBar';
 
 const MIN_PESO_LBS_RECARGO = 4;
 const RECARGO_ENVIO_MENOR_PESO = 3.5;
-type PendingAction = 'share' | 'download-image' | 'copy-image' | 'export-pdf' | null;
 
 const PRESETS_LBS: Array<{ label: string; valor: number }> = [
   { label: '1 lbs', valor: 1 },
@@ -62,15 +40,15 @@ const PRESETS_LBS: Array<{ label: string; valor: number }> = [
   { label: '20 lbs', valor: 20 },
 ];
 
+
+
 export function CalculadoraPage() {
-  const cotizacionRef = useRef<HTMLElement>(null);
   const [tarifaPorLibra, setTarifaPorLibra] = useState<number | null>(null);
   const [tarifaError, setTarifaError] = useState<string | null>(null);
   const [tarifaLoading, setTarifaLoading] = useState(true);
   const [pesoLbs, setPesoLbs] = useState<string>('');
   const [pesoKg, setPesoKg] = useState<string>('');
-  const [copiado, setCopiado] = useState(false);
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const cargarTarifa = useMemo(
     () => async (signal?: AbortSignal) => {
@@ -123,7 +101,6 @@ export function CalculadoraPage() {
   const limpiar = () => {
     setPesoLbs('');
     setPesoKg('');
-    setCopiado(false);
   };
 
   const pesoLbsNum = pesoLbs === '' ? NaN : Number(pesoLbs);
@@ -139,202 +116,24 @@ export function CalculadoraPage() {
   const lbsParaEvitarRecargo = aplicaRecargo
     ? Math.max(0, MIN_PESO_LBS_RECARGO - pesoLbsNum)
     : 0;
-  const cotizacion: CotizacionCalculadora | null =
-    costoEstimado != null && costoBase != null
-      ? {
+
+  // Modelo exportable único: alimenta copiar, compartir y exportar con los
+  // valores YA calculados arriba (sin recalcular tarifas ni totales).
+  const cotizacion =
+    costoEstimado != null && costoBase != null && tarifaConfigurada
+      ? crearCotizacion({
           pesoLbs: pesoLbsNum,
-          pesoKg: lbsToKg(pesoLbsNum),
           tarifaPorLibra: tarifa,
           subtotal: costoBase,
-          recargo: recargoEnvio,
+          recargoMenorPeso: aplicaRecargo ? RECARGO_ENVIO_MENOR_PESO : null,
           umbralRecargoLbs: MIN_PESO_LBS_RECARGO,
           total: costoEstimado,
-          moneda: 'USD',
-          aviso: COTIZACION_AVISO,
-        }
+        })
       : null;
-  const cotizacionText = cotizacion ? buildCotizacionText(cotizacion) : '';
-  const exportFilenameDate = () => new Date().toISOString().slice(0, 10).replaceAll('-', '');
 
-  const withCotizacionSnapshot = async <T,>(
-    action: (exportNode: HTMLElement) => Promise<T>,
-  ): Promise<T> => {
-    const node = cotizacionRef.current;
-    if (!node) throw new Error('No hay una cotización disponible.');
-    const exportNode = node.cloneNode(true) as HTMLElement;
-    exportNode.classList.add('tracking-export-capture');
-    exportNode.setAttribute('aria-hidden', 'true');
-    Object.assign(exportNode.style, {
-      position: 'fixed',
-      top: '0',
-      left: '-10000px',
-      zIndex: '-1',
-    });
-    document.body.appendChild(exportNode);
-    try {
-      return await action(exportNode);
-    } finally {
-      exportNode.remove();
-    }
-  };
-
-  const handleCopiarResultado = async () => {
-    if (!cotizacion) return;
-    try {
-      await copyText(cotizacionText);
-      setCopiado(true);
-      toast.success('Cotización copiada');
-      window.setTimeout(() => setCopiado(false), 1800);
-    } catch {
-      toast.error('No se pudo copiar');
-    }
-  };
-
-  const handleCompartirResultado = async () => {
-    if (!cotizacion || pendingAction) return;
-    setPendingAction('share');
-    try {
-      const { downloadBlob, snapshotToBlob } = await import('@/lib/exporters/domSnapshot');
-      const filename = `cotizacion-ecubox-${exportFilenameDate()}.png`;
-      const blob = await withCotizacionSnapshot((node) =>
-        snapshotToBlob(node, 'png', TRACKING_SNAPSHOT_OPTIONS),
-      );
-      const file = new File([blob], filename, { type: 'image/png' });
-      const shareData: ShareData = {
-        title: 'Cotización de envío ECUBOX',
-        text: cotizacionText,
-        files: [file],
-      };
-      const canShareImage =
-        typeof navigator.share === 'function' &&
-        typeof navigator.canShare === 'function' &&
-        navigator.canShare(shareData);
-
-      if (canShareImage) {
-        try {
-          await navigator.share(shareData);
-          toast.success('Cotización compartida como imagen');
-        } catch (error) {
-          if (
-            typeof error === 'object' &&
-            error !== null &&
-            'name' in error &&
-            error.name === 'AbortError'
-          ) {
-            return;
-          }
-          downloadBlob(blob, filename);
-          toast.success('Imagen descargada para compartir');
-        }
-      } else {
-        downloadBlob(blob, filename);
-        toast.success('Imagen descargada para compartir');
-      }
-    } catch (error) {
-      toast.error(
-        `No se pudo compartir la imagen. ${error instanceof Error ? error.message : ''}`.trim(),
-      );
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const handleDescargarImagen = async () => {
-    if (!cotizacion || pendingAction) return;
-    setPendingAction('download-image');
-    try {
-      await notify.run(
-        (async () => {
-          const { downloadBlob, snapshotToBlob } = await import('@/lib/exporters/domSnapshot');
-          const blob = await withCotizacionSnapshot((node) =>
-            snapshotToBlob(node, 'png', TRACKING_SNAPSHOT_OPTIONS),
-          );
-          downloadBlob(blob, `cotizacion-ecubox-${exportFilenameDate()}.png`);
-        })(),
-        {
-          loading: 'Generando imagen PNG...',
-          success: 'Imagen descargada',
-          error: (error) =>
-            `No se pudo descargar la imagen. ${
-              error instanceof Error ? error.message : ''
-            }`.trim(),
-        },
-      );
-    } catch {
-      // notify.run muestra el error.
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const handleCopiarImagen = async () => {
-    if (!cotizacion || pendingAction) return;
-    setPendingAction('copy-image');
-    try {
-      await notify.run(
-        (async () => {
-          const { copyImageBlobToClipboard, snapshotToBlob } = await import(
-            '@/lib/exporters/domSnapshot'
-          );
-          const blob = await withCotizacionSnapshot((node) =>
-            snapshotToBlob(node, 'png', TRACKING_SNAPSHOT_OPTIONS),
-          );
-          await copyImageBlobToClipboard(blob);
-        })(),
-        {
-          loading: 'Copiando imagen al portapapeles...',
-          success: 'Imagen copiada',
-          error: (error) =>
-            `No se pudo copiar la imagen. ${
-              error instanceof Error ? error.message : ''
-            }`.trim(),
-        },
-      );
-    } catch {
-      // notify.run muestra el error.
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const handleExportarResultado = async () => {
-    if (!cotizacion || pendingAction) return;
-    setPendingAction('export-pdf');
-    const date = exportFilenameDate();
-    try {
-      await notify.run(
-        (async () => {
-          const { snapshotNodeToPdf } = await import('@/lib/exporters/domSnapshot');
-          await withCotizacionSnapshot(async (exportNode) => {
-            const result = await snapshotNodeToPdf(
-              exportNode,
-              `cotizacion-ecubox-${date}.pdf`,
-              {
-                ...TRACKING_SNAPSHOT_OPTIONS,
-                orientation: 'portrait',
-                margin: 8,
-                jpegQuality: 0.92,
-                footerLeft: 'ECUBOX · Cotización de envío',
-              },
-            );
-            result.download();
-          });
-        })(),
-        {
-          loading: 'Generando cotización completa...',
-          success: 'Cotización descargada',
-          error: (error) =>
-            `No se pudo exportar la cotización. ${
-              error instanceof Error ? error.message : ''
-            }`.trim(),
-        },
-      );
-    } catch {
-      // notify.run muestra el error.
-    } finally {
-      setPendingAction(null);
-    }
-  };
+  // Todas las salidas (compartir, copiar, PDF documento/captura, imagen,
+  // imprimir) se orquestan en el hook a partir del mismo modelo.
+  const exportar = useCotizacionExport(exportRef, cotizacion);
 
   return (
     <PublicPageLayout headerVariant="tool" mainClassName="mobile-safe-inline py-6 sm:py-10">
@@ -413,7 +212,7 @@ export function CalculadoraPage() {
                       Tarifa actual
                     </p>
                     <p className="text-base font-semibold landing-text">
-                      {tarifaConfigurada ? `${formatUsd(tarifa)} / libra` : 'No configurada'}
+                      {tarifaConfigurada ? `${fmtMoneda(tarifa)} / libra` : 'No configurada'}
                     </p>
                   </div>
                 </div>
@@ -421,7 +220,7 @@ export function CalculadoraPage() {
                   <StatusBadge tone="success">Servientrega incluido</StatusBadge>
                   {tarifaConfigurada && (
                     <StatusBadge tone="warning">
-                      Recargo {formatUsd(RECARGO_ENVIO_MENOR_PESO)} si &lt; {MIN_PESO_LBS_RECARGO} lbs
+                      Recargo {fmtMoneda(RECARGO_ENVIO_MENOR_PESO)} si &lt; {MIN_PESO_LBS_RECARGO} lbs
                     </StatusBadge>
                   )}
                 </div>
@@ -513,7 +312,7 @@ export function CalculadoraPage() {
                       Tu paquete pesa menos de{' '}
                       <span className="font-semibold">{MIN_PESO_LBS_RECARGO} lbs</span>,
                       por lo que se aplicará el recargo. Agrega{' '}
-                      <span className="font-semibold">{formatLbs(lbsParaEvitarRecargo)} lbs</span>{' '}
+                      <span className="font-semibold">{fmtLbs(lbsParaEvitarRecargo)} lbs</span>{' '}
                       más para evitarlo.
                     </span>
                   </div>
@@ -521,160 +320,78 @@ export function CalculadoraPage() {
               </section>
 
               {costoEstimado !== null && tarifaConfigurada ? (
-                <section
-                  ref={cotizacionRef}
-                  className="landing-card-elevated overflow-hidden"
-                  data-calculadora-export-root
-                >
-                  {/* Total protagonista sobre fondo de marca */}
-                  <div className="brand-gradient-bg px-5 py-5 sm:px-6 sm:py-6">
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                      <div>
+                <>
+                  {/* Contenido capturable: lo que ven copiar/compartir/exportar. */}
+                  <div ref={exportRef} className="bg-[var(--color-background)]">
+                    <section className="landing-card-elevated overflow-hidden">
+                      {/* Total protagonista sobre fondo de marca */}
+                      <div className="brand-gradient-bg px-5 py-5 sm:px-6 sm:py-6">
                         <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-primary-foreground)]/80">
                           <span className="inline-flex items-center rounded-full bg-[var(--color-primary-foreground)]/20 px-2 py-0.5">
-                            Paso 2
+                            Cotización
                           </span>
                           Costo estimado total
                         </p>
                         <p className="mt-2 text-4xl font-bold tracking-tight text-[var(--color-primary-foreground)] sm:text-5xl">
-                          {formatUsd(costoEstimado)}
+                          {fmtMoneda(costoEstimado)}
                         </p>
                         <p className="mt-1.5 text-sm text-[var(--color-primary-foreground)]/85">
                           Paquete de{' '}
                           <span className="font-semibold text-[var(--color-primary-foreground)]">
-                            {formatLbs(pesoLbsNum)} lbs
+                            {fmtLbs(pesoLbsNum)} lbs
                           </span>{' '}
-                          ({formatLbs(lbsToKg(pesoLbsNum))} kg)
+                          ({fmtLbs(lbsToKg(pesoLbsNum))} kg)
                         </p>
                       </div>
-                    </div>
+
+                      <div className="space-y-4 p-5 sm:p-6">
+                        <dl className="space-y-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/60 p-3.5 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <dt className="text-[var(--color-muted-foreground)]">
+                              {fmtLbs(pesoLbsNum)} lbs × {fmtMoneda(tarifa)}/lbs
+                            </dt>
+                            <dd className="font-medium text-[var(--color-foreground)]">
+                              {fmtMoneda(costoBase ?? 0)}
+                            </dd>
+                          </div>
+                          {aplicaRecargo && (
+                            <div className="flex items-center justify-between gap-2">
+                              <dt className="text-[var(--color-warning)]">
+                                Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lbs)
+                              </dt>
+                              <dd className="font-medium text-[var(--color-warning)]">
+                                +{fmtMoneda(RECARGO_ENVIO_MENOR_PESO)}
+                              </dd>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] pt-2 text-base">
+                            <dt className="font-semibold text-[var(--color-foreground)]">
+                              Total estimado
+                            </dt>
+                            <dd className="font-bold text-[var(--color-primary)]">
+                              {fmtMoneda(costoEstimado)}
+                            </dd>
+                          </div>
+                        </dl>
+
+                        <p className="text-[11px] leading-relaxed text-[var(--color-muted-foreground)]">
+                          * Este valor es referencial. El costo final puede variar según
+                          embalaje, dimensiones y revisión aduanal.
+                        </p>
+                      </div>
+                    </section>
                   </div>
 
-                  <div className="space-y-4 p-5 sm:p-6">
-                    <dl className="space-y-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/60 p-3.5 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <dt className="text-[var(--color-muted-foreground)]">
-                          {formatLbs(pesoLbsNum)} lbs × {formatUsd(tarifa)}/lbs
-                        </dt>
-                        <dd className="font-medium text-[var(--color-foreground)]">
-                          {formatUsd(costoBase ?? 0)}
-                        </dd>
-                      </div>
-                      {aplicaRecargo && (
-                        <div className="flex items-center justify-between gap-2">
-                          <dt className="text-[var(--color-warning)]">
-                            Recargo envío (&lt; {MIN_PESO_LBS_RECARGO} lbs)
-                          </dt>
-                          <dd className="font-medium text-[var(--color-warning)]">
-                            +{formatUsd(RECARGO_ENVIO_MENOR_PESO)}
-                          </dd>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] pt-2 text-base">
-                        <dt className="font-semibold text-[var(--color-foreground)]">
-                          Total estimado
-                        </dt>
-                        <dd className="font-bold text-[var(--color-primary)]">
-                          {formatUsd(costoEstimado)}
-                        </dd>
-                      </div>
-                    </dl>
-
-                    <div className="flex flex-col gap-1 text-[11px] leading-relaxed text-[var(--color-muted-foreground)]">
-                      <p>Moneda: USD</p>
-                      <p>* {COTIZACION_AVISO}</p>
-                    </div>
-
-                    <div
-                      className="grid grid-cols-1 gap-2 sm:grid-cols-2"
-                      data-export-exclude
-                      aria-label="Acciones de la cotización"
-                    >
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="min-h-10"
-                        onClick={() => void handleCopiarResultado()}
-                      >
-                        {copiado ? (
-                          <Check data-icon="inline-start" />
-                        ) : (
-                          <Copy data-icon="inline-start" />
-                        )}
-                        {copiado ? 'Texto copiado' : 'Copiar texto'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="min-h-10"
-                        disabled={pendingAction !== null}
-                        onClick={() => void handleCompartirResultado()}
-                      >
-                        {pendingAction === 'share' ? (
-                          <Loader2 data-icon="inline-start" className="animate-spin" />
-                        ) : (
-                          <Share2 data-icon="inline-start" />
-                        )}
-                        Compartir imagen
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="min-h-10"
-                            disabled={pendingAction !== null}
-                          >
-                            {pendingAction === 'download-image' ||
-                            pendingAction === 'copy-image' ? (
-                              <Loader2 data-icon="inline-start" className="animate-spin" />
-                            ) : (
-                              <ImageIcon data-icon="inline-start" />
-                            )}
-                            Opciones de imagen
-                            <ChevronDown data-icon="inline-end" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-64">
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem onClick={() => void handleDescargarImagen()}>
-                              <FileDown />
-                              <div>
-                                <p className="font-medium">Descargar PNG</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Guarda la cotización como imagen.
-                                </p>
-                              </div>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => void handleCopiarImagen()}>
-                              <Clipboard />
-                              <div>
-                                <p className="font-medium">Copiar imagen</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Pégala en chats o documentos.
-                                </p>
-                              </div>
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        className="min-h-10"
-                        disabled={pendingAction !== null}
-                        onClick={() => void handleExportarResultado()}
-                      >
-                        {pendingAction === 'export-pdf' ? (
-                          <Loader2 data-icon="inline-start" className="animate-spin" />
-                        ) : (
-                          <FileDown data-icon="inline-start" />
-                        )}
-                        Exportar completo
-                      </Button>
-                    </div>
-                  </div>
-                </section>
+                  {/* Panel de acciones (no se incluye en la captura). */}
+                  <CalculadoraActionsBar
+                    onShare={exportar.handleShare}
+                    onCopyTexto={exportar.handleCopyTexto}
+                    onDownloadPdf={exportar.handleDownloadPdf}
+                    onPrintPdf={exportar.handlePrintPdf}
+                    onDownloadImage={exportar.handleDownloadImage}
+                    onCopyImage={exportar.handleCopyImage}
+                  />
+                </>
               ) : (
                 <section className="landing-card-muted rounded-2xl p-6 text-center">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-landing-card-muted)] landing-text-muted">

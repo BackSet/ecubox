@@ -1,48 +1,64 @@
 import { describe, expect, it } from 'vitest';
 import {
-  COTIZACION_AVISO,
-  buildCotizacionText,
-  type CotizacionCalculadora,
+  buildCotizacionFilename,
+  cotizacionATexto,
+  crearCotizacion,
+  fmtMoneda,
 } from './cotizacion';
 
-function buildCotizacion(overrides: Partial<CotizacionCalculadora> = {}): CotizacionCalculadora {
-  return {
-    pesoLbs: 3,
-    pesoKg: 1.36,
-    tarifaPorLibra: 5,
-    subtotal: 15,
-    recargo: 3.5,
-    umbralRecargoLbs: 4,
-    total: 18.5,
-    moneda: 'USD',
-    aviso: COTIZACION_AVISO,
-    ...overrides,
-  };
-}
+const base = {
+  pesoLbs: 2.5,
+  tarifaPorLibra: 4.25,
+  subtotal: 10.63,
+  recargoMenorPeso: 3.5,
+  umbralRecargoLbs: 4,
+  total: 14.13,
+  generadaEn: new Date(2026, 5, 12, 10, 30),
+};
 
-describe('buildCotizacionText', () => {
-  it('incluye toda la cotización y su aviso', () => {
-    const text = buildCotizacionText(buildCotizacion());
-
-    expect(text).toContain('Peso ingresado: 3 lbs');
-    expect(text).toContain('Equivalencia: 1,36 kg');
-    expect(text).toContain('Tarifa:');
-    expect(text).toContain('Cálculo base:');
-    expect(text).toContain('Subtotal:');
-    expect(text).toContain('Recargo por envío menor a 4 lbs:');
-    expect(text).toContain('Total estimado:');
-    expect(text).toContain('Moneda: USD');
-    expect(text).toContain(`Aviso: ${COTIZACION_AVISO}`);
+describe('crearCotizacion', () => {
+  it('estructura los valores ya calculados sin recalcular', () => {
+    const c = crearCotizacion(base);
+    expect(c.subtotal).toBe(10.63);
+    expect(c.total).toBe(14.13);
+    expect(c.tarifaPorLibra).toBe(4.25);
+    expect(c.recargoMenorPeso).toBe(3.5);
+    expect(c.moneda).toBe('USD');
+    expect(c.pesoKg).toBeCloseTo(1.13, 1);
+    expect(c.notas).toHaveLength(1);
+    expect(c.notas[0]).toContain('referencial');
   });
 
-  it('omite el recargo cuando no aplica sin perder el resto del desglose', () => {
-    const text = buildCotizacionText(
-      buildCotizacion({ pesoLbs: 5, pesoKg: 2.27, subtotal: 25, recargo: 0, total: 25 }),
-    );
+  it('normaliza el recargo a null cuando no aplica', () => {
+    expect(crearCotizacion({ ...base, recargoMenorPeso: null }).recargoMenorPeso).toBeNull();
+    expect(crearCotizacion({ ...base, recargoMenorPeso: 0 }).recargoMenorPeso).toBeNull();
+  });
+});
 
-    expect(text).not.toContain('Recargo por envío');
-    expect(text).toContain('Subtotal:');
-    expect(text).toContain('Total estimado:');
-    expect(text).toContain('Moneda: USD');
+describe('cotizacionATexto', () => {
+  it('incluye peso, tarifa, subtotal, recargo y total con la misma moneda', () => {
+    const texto = cotizacionATexto(crearCotizacion(base));
+    expect(texto).toContain('Cotización ECUBOX');
+    expect(texto).toContain('2,5 lbs');
+    expect(texto).toContain(`Tarifa: ${fmtMoneda(4.25)} / lbs`);
+    expect(texto).toContain(`Subtotal: ${fmtMoneda(10.63)}`);
+    expect(texto).toContain(`Recargo (< 4 lbs): ${fmtMoneda(3.5)}`);
+    expect(texto).toContain(`Total: ${fmtMoneda(14.13)}`);
+    expect(texto).not.toContain('undefined');
+    expect(texto).not.toContain('null');
+  });
+
+  it('omite la línea de recargo cuando no aplica', () => {
+    const texto = cotizacionATexto(crearCotizacion({ ...base, recargoMenorPeso: null }));
+    expect(texto).not.toContain('Recargo');
+    expect(texto).toContain(`Total: ${fmtMoneda(14.13)}`);
+  });
+});
+
+describe('buildCotizacionFilename', () => {
+  it('genera un nombre seguro con la fecha (patrón de exportación de rastreo)', () => {
+    expect(buildCotizacionFilename('pdf', new Date(2026, 5, 12))).toBe(
+      'cotizacion-ecubox-20260612.pdf',
+    );
   });
 });

@@ -13,6 +13,7 @@ import {
   getEstadosAplicablesConsolidados,
   getEstadosDestinoSecuenciaConsolidados,
   listarEnviosConsolidados,
+  listarCandidatosAvanceEstados,
   listarTodosEnviosConsolidados,
   listarEnviosDisponiblesParaRecepcion,
   obtenerResumenEnviosConsolidados,
@@ -49,6 +50,14 @@ export function useTodosEnviosConsolidados(enabled = true) {
   return useQuery({
     queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'list-all'],
     queryFn: listarTodosEnviosConsolidados,
+    enabled,
+  });
+}
+
+export function useCandidatosAvanceEstados(enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'candidatos-avance-estados'],
+    queryFn: listarCandidatosAvanceEstados,
     enabled,
   });
 }

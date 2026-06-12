@@ -78,6 +78,14 @@ public class EnvioConsolidadoService {
     private final EstadoRastreoService estadoRastreoService;
     private final ParametroSistemaService parametroSistemaService;
     private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
+    private static final String MENSAJE_REQUIERE_PAQUETE =
+            "El consolidado debe contener al menos un paquete para cambiar de estado.";
+    private static final List<EstadoEnvioConsolidadoOperativo> ESTADOS_CANDIDATOS_AVANCE = List.of(
+            EstadoEnvioConsolidadoOperativo.EN_PREPARACION,
+            EstadoEnvioConsolidadoOperativo.CERRADO,
+            EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA,
+            EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR,
+            EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA);
 
     public EnvioConsolidadoService(EnvioConsolidadoRepository envioConsolidadoRepository,
                                    PaqueteRepository paqueteRepository,
@@ -348,10 +356,20 @@ public class EnvioConsolidadoService {
                 .filter(e -> e.getTipoFlujo() == base.getTipoFlujo())
                 .filter(e -> {
                     Integer orden = e.getOrden() != null ? e.getOrden() : e.getOrdenTracking();
-                    return orden != null && orden > ordenBase && orden <= ordenLimite;
+                    // Cota superior EXCLUSIVA: el estado de "llega a bodega"
+                    // (en lote de recepción) no es un destino del avance
+                    // automático; ese estado solo se alcanza cuando el operario
+                    // ingresa el consolidado a un lote de recepción. El avance
+                    // llega como máximo al estado inmediatamente anterior.
+                    return orden != null && orden > ordenBase && orden < ordenLimite;
                 })
                 .sorted(Comparator.comparingInt(e -> e.getOrden() != null ? e.getOrden() : e.getOrdenTracking()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnvioConsolidado> listarCandidatosAvanceEstados() {
+        return envioConsolidadoRepository.findCandidatosAvanceEstados(ESTADOS_CANDIDATOS_AVANCE);
     }
 
     /**
@@ -398,8 +416,18 @@ public class EnvioConsolidadoService {
             Long faltante = ids.stream().filter(id -> !encontrados.contains(id)).findFirst().orElse(null);
             throw new ResourceNotFoundException("Envío consolidado", faltante);
         }
+        List<Paquete> paquetes = paqueteRepository.findByEnvioConsolidadoIdInWithEstado(ids);
+        Map<Long, Long> totales = paquetes.stream()
+                .collect(Collectors.groupingBy(
+                        paquete -> paquete.getEnvioConsolidado().getId(),
+                        Collectors.counting()));
+        for (EnvioConsolidado consolidado : consolidados) {
+            validarPuedeCambiarEstado(
+                    consolidado,
+                    totales.getOrDefault(consolidado.getId(), 0L));
+        }
         paqueteService.validarEstadoPosteriorAAsociacionConsolidado(estadoRastreoId);
-        List<Long> paqueteIds = paqueteRepository.findIdsByEnvioConsolidadoIdIn(ids);
+        List<Long> paqueteIds = paquetes.stream().map(Paquete::getId).toList();
         paqueteService.aplicarEstadoRastreoMasivo(paqueteIds, estadoRastreoId);
         return AplicarEstadoEnConsolidadosResponse.builder()
                 .consolidadosProcesados(consolidados.size())
@@ -473,9 +501,7 @@ public class EnvioConsolidadoService {
         EstadoRastreo inicial = null;
         for (EnvioConsolidado consolidado : consolidados) {
             List<Paquete> propios = porConsolidado.getOrDefault(consolidado.getId(), List.of());
-            if (propios.isEmpty()) {
-                throw new ConflictException("El consolidado " + consolidado.getCodigo() + " no tiene paquetes.");
-            }
+            validarPuedeCambiarEstado(consolidado, propios.size());
             if (propios.stream().anyMatch(p -> p.getEstadoRastreo() == null)) {
                 throw new ConflictException(
                         "El consolidado " + consolidado.getCodigo() + " contiene un paquete sin estado de rastreo.");
@@ -578,8 +604,13 @@ public class EnvioConsolidadoService {
         EstadoRastreo base = estadoRastreoService.findEntityById(cfg.getEstadoRastreoAsociarEnvioConsolidadoId());
         EstadoRastreo limite = estadoRastreoService.findEntityById(cfg.getEstadoRastreoEnLoteRecepcionId());
         int orden = ordenOrThrow(destino);
-        if (orden <= ordenOrThrow(base) || orden > ordenOrThrow(limite)) {
-            throw new ConflictException("El estado final no es compatible con el flujo de envíos consolidados.");
+        // El destino debe ser posterior a la asociación a consolidado y
+        // ANTERIOR a "llega a bodega" (en lote de recepción): ese estado lo
+        // produce el flujo de lote de recepción, no el avance automático.
+        if (orden <= ordenOrThrow(base) || orden >= ordenOrThrow(limite)) {
+            throw new ConflictException(
+                    "El estado final no es compatible con el flujo de envíos consolidados. "
+                            + "El estado de llegada a bodega se aplica al ingresar el consolidado a un lote de recepción.");
         }
     }
 
@@ -691,7 +722,7 @@ public class EnvioConsolidadoService {
      * ENVIADO_DESDE_USA (enviar desde USA), ARRIBADO_ECUADOR (arribar a Ecuador),
      * EN_PREPARACION (reabrir) y CANCELADO (cancelar, desde cualquier estado salvo
      * LIQUIDADO o CANCELADO). Cada consolidado debe estar en el estado de origen
-     * correspondiente; los que no, se devuelven como rechazados.
+     * correspondiente. El lote completo se valida antes de aplicar cambios.
      */
     @Transactional
     public AplicarTransicionConsolidadosResponse aplicarTransicionOperativa(
@@ -738,32 +769,43 @@ public class EnvioConsolidadoService {
                     .distinct()
                     .toList();
             universo = envioConsolidadoRepository.findAllById(ids);
+            if (universo.size() != ids.size()) {
+                Set<Long> encontrados = universo.stream()
+                        .map(EnvioConsolidado::getId)
+                        .collect(Collectors.toSet());
+                Long faltante = ids.stream()
+                        .filter(id -> !encontrados.contains(id))
+                        .findFirst()
+                        .orElse(null);
+                throw new ResourceNotFoundException("Envío consolidado", faltante);
+            }
         }
 
-        int procesados = 0;
-        List<AplicarTransicionConsolidadosResponse.RechazoConsolidado> rechazados = new ArrayList<>();
+        List<Long> idsUniverso = universo.stream().map(EnvioConsolidado::getId).toList();
+        List<Paquete> paquetes = idsUniverso.isEmpty()
+                ? List.of()
+                : paqueteRepository.findByEnvioConsolidadoIdInWithEstado(idsUniverso);
+        Map<Long, Long> totales = paquetes.stream()
+                .collect(Collectors.groupingBy(
+                        paquete -> paquete.getEnvioConsolidado().getId(),
+                        Collectors.counting()));
         for (EnvioConsolidado envio : universo) {
-            try {
-                switch (destino) {
-                    case CERRADO -> cerrarConsolidado(envio.getId());
-                    case ENVIADO_DESDE_USA -> enviarDesdeUsa(envio.getId(), null);
-                    case ARRIBADO_ECUADOR -> marcarArribadoEcuador(envio.getId(), null);
-                    case EN_PREPARACION -> reabrir(envio.getId());
-                    case CANCELADO -> cancelarConsolidado(envio.getId());
-                    default -> throw new BadRequestException("Transición no soportada: " + destino);
-                }
-                procesados++;
-            } catch (BadRequestException ex) {
-                rechazados.add(AplicarTransicionConsolidadosResponse.RechazoConsolidado.builder()
-                        .consolidadoId(envio.getId())
-                        .codigo(envio.getCodigo())
-                        .motivo(ex.getMessage())
-                        .build());
+            validarPuedeCambiarEstado(envio, totales.getOrDefault(envio.getId(), 0L));
+            validarTransicionOperativa(envio, destino);
+        }
+        for (EnvioConsolidado envio : universo) {
+            switch (destino) {
+                case CERRADO -> cerrarConsolidado(envio.getId());
+                case ENVIADO_DESDE_USA -> enviarDesdeUsa(envio.getId(), null);
+                case ARRIBADO_ECUADOR -> marcarArribadoEcuador(envio.getId(), null);
+                case EN_PREPARACION -> reabrir(envio.getId());
+                case CANCELADO -> cancelarConsolidado(envio.getId());
+                default -> throw new BadRequestException("Transición no soportada: " + destino);
             }
         }
         return AplicarTransicionConsolidadosResponse.builder()
-                .consolidadosProcesados(procesados)
-                .rechazados(rechazados)
+                .consolidadosProcesados(universo.size())
+                .rechazados(List.of())
                 .build();
     }
 
@@ -774,6 +816,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado cerrarConsolidado(Long envioId) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.CERRADO) {
             return envio;
         }
@@ -800,6 +843,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado enviarDesdeUsa(Long envioId, LocalDateTime fechaEvento) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA) {
             return envio;
         }
@@ -826,6 +870,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado marcarArribadoEcuador(Long envioId, LocalDateTime fechaEvento) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR) {
             return envio;
         }
@@ -852,6 +897,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado cancelarConsolidado(Long envioId) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
         if (actual == EstadoEnvioConsolidadoOperativo.LIQUIDADO
                 || actual == EstadoEnvioConsolidadoOperativo.CANCELADO) {
@@ -885,6 +931,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado reabrir(Long envioId) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
         if (actual == EstadoEnvioConsolidadoOperativo.EN_PREPARACION
                 || actual == EstadoEnvioConsolidadoOperativo.VACIO) {
@@ -927,6 +974,48 @@ public class EnvioConsolidadoService {
             paqueteService.revertirEstadoSiUltimoEventoCoincide(ids, "CIERRE_CONSOLIDADO_AUTO");
         }
         return guardado;
+    }
+
+    private void validarPuedeCambiarEstado(EnvioConsolidado envio) {
+        validarPuedeCambiarEstado(
+                envio,
+                paqueteRepository.countByEnvioConsolidadoId(envio.getId()));
+    }
+
+    private void validarPuedeCambiarEstado(EnvioConsolidado envio, long totalPaquetes) {
+        if (totalPaquetes <= 0) {
+            throw new ConflictException(MENSAJE_REQUIERE_PAQUETE);
+        }
+        if (envio.getEstadoOperativo() == null
+                || envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.VACIO) {
+            throw new ConflictException(
+                    "El consolidado no tiene un estado operativo válido para cambiar de estado.");
+        }
+    }
+
+    private void validarTransicionOperativa(
+            EnvioConsolidado envio,
+            EstadoEnvioConsolidadoOperativo destino) {
+        EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
+        boolean permitida = switch (destino) {
+            case CERRADO -> actual == EstadoEnvioConsolidadoOperativo.EN_PREPARACION
+                    || actual == EstadoEnvioConsolidadoOperativo.CERRADO;
+            case ENVIADO_DESDE_USA -> actual == EstadoEnvioConsolidadoOperativo.CERRADO
+                    || actual == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA;
+            case ARRIBADO_ECUADOR -> actual == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA
+                    || actual == EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR;
+            case EN_PREPARACION -> actual == EstadoEnvioConsolidadoOperativo.CERRADO
+                    || actual == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA
+                    || actual == EstadoEnvioConsolidadoOperativo.EN_PREPARACION;
+            case CANCELADO -> actual != EstadoEnvioConsolidadoOperativo.LIQUIDADO
+                    && actual != EstadoEnvioConsolidadoOperativo.CANCELADO;
+            default -> false;
+        };
+        if (!permitida) {
+            throw new BadRequestException(
+                    "El consolidado " + envio.getCodigo() + " no puede pasar de "
+                            + actual + " a " + destino + ".");
+        }
     }
 
     /**

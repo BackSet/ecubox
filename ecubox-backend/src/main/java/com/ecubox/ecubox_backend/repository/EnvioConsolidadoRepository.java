@@ -85,6 +85,21 @@ public interface EnvioConsolidadoRepository
     List<Long> findAllIdsConPaquetes();
 
     /**
+     * Consolidados elegibles para el avance automático. EXISTS evita duplicar
+     * filas cuando un consolidado contiene varios paquetes.
+     */
+    @Query("""
+            SELECT e FROM EnvioConsolidado e
+            WHERE e.estadoOperativo IN :estados
+              AND EXISTS (
+                SELECT 1 FROM Paquete p WHERE p.envioConsolidado = e
+              )
+            ORDER BY e.createdAt DESC, e.id DESC
+            """)
+    List<EnvioConsolidado> findCandidatosAvanceEstados(
+            @Param("estados") List<EstadoEnvioConsolidadoOperativo> estados);
+
+    /**
      * Ids de consolidados elegibles para aplicar un estado de rastreo masivo:
      * los que tienen al menos un paquete en {@code estadoOrigenId}, o
      * (si {@code estadoOperativoAlterno} no es nulo) cuyo estado operativo

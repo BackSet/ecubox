@@ -58,6 +58,13 @@ export async function listarTodosEnviosConsolidados(): Promise<EnvioConsolidado[
   return consolidados;
 }
 
+export async function listarCandidatosAvanceEstados(): Promise<EnvioConsolidado[]> {
+  const { data } = await apiClient.get<EnvioConsolidado[]>(
+    `${BASE}/candidatos-avance-estados`,
+  );
+  return data;
+}
+
 /**
  * Resumen liviano del listado: conteo por estado operativo (KPIs/chips) y por
  * estado de pago. Reemplaza la descarga del dataset completo solo para la

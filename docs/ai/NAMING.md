@@ -22,6 +22,7 @@
 | Lote de recepción | Llegada, ingreso de mercancía | Registro agrupado de recepción en bodega | **Verificado en Git** |
 | Despacho | Envío, cuando se refiere a la salida final registrada | Salida hacia destinatario | **Verificado en Git** |
 | Retiro en oficina | "Pickup"; tratar "retiro presencial en agencia" como concepto distinto (es sinónimo en código) | Despacho `tipo_entrega = AGENCIA` con `agencia_id` informado y `courier_entrega_id` NULL; el número `RET-AG-*` se autogenera solo para despachos nuevos | **Verificado en Git**: `Despacho`, `DespachoService.resolverNumeroGuia`, migración V110 |
+| Cotización | "Presupuesto", "estimado" como sustantivo en copy | Resultado de la calculadora pública (`/calculadora`): copia, compartir y exportación PDF; no se persiste | **Verificado en Git**: `CalculadoraPage`, `lib/calculadora/cotizacion.ts` |
 | Saca | Bolsa, contenedor genérico | Agrupación física usada en despacho | **Verificado en Git** |
 | Manifiesto | Manifiesto de carga/aéreo sin necesidad | Documento operativo/aduanero | **Verificado en Git** |
 | Liquidación | Pago, como nombre de la entidad | Cierre financiero de consolidados/despachos | **Verificado en Git** |

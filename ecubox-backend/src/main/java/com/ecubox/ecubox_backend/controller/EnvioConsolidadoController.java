@@ -224,6 +224,16 @@ public class EnvioConsolidadoController {
         return ResponseEntity.ok(envioConsolidadoService.listarDestinosAvanceEstados());
     }
 
+    @GetMapping("/candidatos-avance-estados")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Listar candidatos del avance automático",
+            description = "Excluye consolidados vacíos, sin estado operativo o fuera del flujo iniciado en preparación")
+    public ResponseEntity<List<EnvioConsolidadoDTO>> candidatosAvanceEstados() {
+        return ResponseEntity.ok(envioConsolidadoService.listarCandidatosAvanceEstados().stream()
+                .map(envio -> envioConsolidadoService.toDTO(envio, false))
+                .toList());
+    }
+
     @GetMapping("/elegibles-para-estado-rastreo")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
     @Operation(summary = "Listar consolidados elegibles para un estado de rastreo",

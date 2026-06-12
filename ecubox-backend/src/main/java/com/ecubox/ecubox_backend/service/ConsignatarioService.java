@@ -17,9 +17,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 public class ConsignatarioService {
+
+    private static final Set<String> ROLES_INTERNOS = Set.of("ADMIN", "OPERARIO");
 
     private final ConsignatarioRepository consignatarioRepository;
     private final UsuarioRepository usuarioRepository;
@@ -111,8 +115,9 @@ public class ConsignatarioService {
 
     @Transactional
     public ConsignatarioDTO create(Long usuarioId, ConsignatarioRequest request) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
+        Usuario usuarioSolicitante = usuarioRepository.findByIdWithRoles(usuarioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", usuarioId));
+        Usuario usuario = esUsuarioInterno(usuarioSolicitante) ? null : usuarioSolicitante;
         String codigo = resolveCodigo(usuarioId, request.getCodigo(), request.getNombre(), request.getCanton(), null);
         Consignatario d = Consignatario.builder()
                 .usuario(usuario)
@@ -133,8 +138,7 @@ public class ConsignatarioService {
     public ConsignatarioDTO createByOperario(ConsignatarioRequest request) {
         Long clienteUsuarioId = request.getClienteUsuarioId();
         Usuario usuario = clienteUsuarioId != null
-                ? usuarioRepository.findById(clienteUsuarioId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Usuario", clienteUsuarioId))
+                ? findClienteAsignable(clienteUsuarioId)
                 : null;
         Long codigoScopeUsuarioId = usuario != null ? usuario.getId() : null;
         String codigo = resolveCodigo(codigoScopeUsuarioId, request.getCodigo(), request.getNombre(), request.getCanton(), null);
@@ -188,8 +192,7 @@ public class ConsignatarioService {
         Usuario usuario = d.getUsuario();
         if (request.getClienteUsuarioId() != null
                 && (usuario == null || !request.getClienteUsuarioId().equals(usuario.getId()))) {
-            usuario = usuarioRepository.findById(request.getClienteUsuarioId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Usuario", request.getClienteUsuarioId()));
+            usuario = findClienteAsignable(request.getClienteUsuarioId());
             d.setUsuario(usuario);
             sincronizarClienteGuiasDelConsignatario(d.getId(), usuario);
         }
@@ -214,8 +217,7 @@ public class ConsignatarioService {
         if (consignatarioIds == null || consignatarioIds.isEmpty()) {
             throw new BadRequestException("Debe indicar al menos un consignatario");
         }
-        Usuario usuario = usuarioRepository.findById(clienteUsuarioId)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario", clienteUsuarioId));
+        Usuario usuario = findClienteAsignable(clienteUsuarioId);
         List<Long> ids = consignatarioIds.stream()
                 .filter(id -> id != null)
                 .distinct()
@@ -245,6 +247,29 @@ public class ConsignatarioService {
             guia.setClienteUsuario(usuario);
         }
         guiaMasterRepository.saveAll(guias);
+    }
+
+    private Usuario findClienteAsignable(Long usuarioId) {
+        Usuario usuario = usuarioRepository.findByIdWithRoles(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", usuarioId));
+        boolean tieneRolCliente = usuario.getRoles() != null
+                && usuario.getRoles().stream()
+                        .anyMatch(rol -> "CLIENTE".equalsIgnoreCase(rol.getNombre()));
+        if (!tieneRolCliente || esUsuarioInterno(usuario)) {
+            throw new BadRequestException(
+                    "El usuario seleccionado no es un cliente asignable.");
+        }
+        return usuario;
+    }
+
+    private boolean esUsuarioInterno(Usuario usuario) {
+        return usuario != null
+                && usuario.getRoles() != null
+                && usuario.getRoles().stream()
+                        .map(Rol::getNombre)
+                        .filter(nombre -> nombre != null)
+                        .map(nombre -> nombre.toUpperCase(Locale.ROOT))
+                        .anyMatch(ROLES_INTERNOS::contains);
     }
 
     @Transactional
