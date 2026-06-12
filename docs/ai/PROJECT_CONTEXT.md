@@ -1,6 +1,6 @@
 # Contexto técnico canónico de ECUBOX
 
-> Corte auditado: rama `dev`, commit `552c030c2567a5290642834a1c5bf4183bcae31c`.
+> Corte funcional auditado: rama `dev`, merge `05a5cf73f770f8e230e0cdba34f7c77afdfb8cf7`.
 >
 > Etiquetas de evidencia:
 > - **Verificado en Git**: código, configuración, migraciones, tests o historial de la rama.

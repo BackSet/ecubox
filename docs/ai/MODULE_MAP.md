@@ -1,6 +1,6 @@
 # Mapa canónico de módulos ECUBOX
 
-> Fuente: rama `dev`, commit `552c030c2567a5290642834a1c5bf4183bcae31c`.
+> Fuente funcional: rama `dev`, merge `05a5cf73f770f8e230e0cdba34f7c77afdfb8cf7`.
 > Salvo indicación contraria, las rutas y clases de este documento están **verificadas en Git**.
 
 ## 1. Inventario funcional
@@ -12,7 +12,7 @@
 | Usuarios, roles y permisos | `/usuarios`, `/roles`, `/permisos` | `UsuarioController`, `RolController`, `PermisoController` | Services/repositories homónimos; `usuario`, `rol`, `permiso`, uniones de seguridad | `USUARIOS_*`, `ROLES_*`, `PERMISOS_READ` | Sin test directo localizado |
 | Enlaces de acceso | `/enlaces-acceso`, `/acceso`; `useAccesoEnlaces` | `/api/acceso-enlaces`, `/api/auth/acceso-enlace`; `AccesoEnlaceController`, `AuthController` | `AccesoEnlaceService/Repository`, `AccesoSessionResolver`; `acceso_enlace`, relación con consignatarios | `ACCESO_ENLACES_MANAGE` y permisos `ACCESO_ENLACE_*` | Sin test directo localizado |
 | Consignatarios/destinatarios | `/consignatarios`; `useConsignatarios` | `/api/mis-consignatarios`, `/api/operario/consignatarios` | `ConsignatarioService`, versionado SCD2 y repositorios; `consignatario`, `consignatario_version` | `CONSIGNATARIOS_*`, `CONSIGNATARIOS_OPERARIO`, acceso por enlace | Cubierto indirectamente en servicios de guías/paquetes |
-| Guías master y Mis guías | `/guias-master`, `/guias-master/$id`, `/mis-guias`, `/mis-guias/$id`; hooks `useGuiasMaster`, `useMisGuias` | `/api/guias-master`, `/api/mis-guias`; `GuiaMasterController`, `MisGuiasController` | `GuiaMasterService`, historial/repositories; `guia_master`, `guia_master_estado_historial` | `GUIAS_MASTER_*`, `MIS_GUIAS_*`, `ACCESO_ENLACE_GUIAS_READ` | `GuiaMasterServiceTest` |
+| Guías master y Mis guías | `/guias-master`, `/guias-master/$id`, `/mis-guias`, `/mis-guias/$id`; hooks `useGuiasMaster`, `useMisGuias`; diálogos masivos de selección, motivo y resultado | `/api/guias-master`, `POST /api/guias-master/aplicar-accion`, `/api/mis-guias`; `GuiaMasterController`, `MisGuiasController` | `GuiaMasterService`, DTOs `AplicarAccionGuiasMaster*`, historial/repositories; `guia_master`, `guia_master_estado_historial` | `GUIAS_MASTER_*`, `MIS_GUIAS_*`, `ACCESO_ENLACE_GUIAS_READ`; el bulk usa `GUIAS_MASTER_UPDATE` | `GuiaMasterServiceTest`, `AplicarEstadoMasivoDialog.test.tsx`, `ResultadoBulkDialog.test.tsx` |
 | Paquetes, piezas, pesaje y vencidos | `/paquetes`, `/pesaje`, `/paquetes-vencidos`; hooks `usePaquetes`, `usePaquetesOperario` | `/api/paquetes`, `/api/operario/paquetes`; `PaqueteController`, `OperarioPaqueteController` | `PaqueteService`, repositories/eventos; `paquete`, `paquete_estado_evento`, vista de rastreo | `PAQUETES_*`, `PAQUETES_OPERARIO`, `PAQUETES_PESO_WRITE` | `PaqueteTest`, suites `PaqueteService*`, `paquetes.service.test.ts`, utilidades de peso |
 | Estados de rastreo | sección `/parametros-sistema/estados` y `/por-punto`; `useEstadosRastreo` | `/api/operario/estados-rastreo`, `/api/operario/config/estados-rastreo-por-punto` | `EstadoRastreoService`, resolver y repository; `estado_rastreo`, `estado_rastreo_transicion`, parámetros | `ESTADOS_RASTREO_*` | `EstadoRastreoServiceTest`, `ParametroSistemaServiceEstadosManualesTest`, diálogo de leyenda |
 | Envíos consolidados | `/envios-consolidados`, detalle; `useEnviosConsolidados` | `/api/envios-consolidados`; `EnvioConsolidadoController` | `EnvioConsolidadoService`, resolver operativo, manifiesto de consolidado; `envio_consolidado` y relación con paquetes | `ENVIOS_CONSOLIDADOS_*` | `EnvioConsolidadoServiceTest`, `EstadoConsolidadoOperativoResolverTest` |
@@ -70,6 +70,8 @@
 3. Asignación a consolidado, recepción y despacho actualizan estados parciales/completos.
 4. Estados congelados o terminales no son sobrescritos por recálculo.
 5. Cada cambio relevante se audita en `guia_master_estado_historial`.
+6. Las acciones `APROBAR`, `RECALCULAR`, `MARCAR_REVISION`, `SALIR_REVISION`, `CANCELAR` y `REABRIR` también pueden enviarse en lote a `POST /api/guias-master/aplicar-accion`.
+7. El bulk reutiliza las reglas individuales y devuelve conteo de procesadas y rechazos por guía con motivo, sin introducir permisos nuevos.
 
 ### Consolidación y recepción
 
