@@ -41,6 +41,7 @@
 - En back-office usar “Consignatario”; en vista cliente usar “Destinatario”.
 - “Pieza” describe pertenencia a una guía master; “Paquete” describe gestión individual.
 - Diferenciar “Agencia” ECUBOX de “Punto de entrega” perteneciente a un courier.
+- Mostrar los nombres de estados de rastreo recibidos desde configuración/API; no convertir nombres visibles actuales en constantes de negocio.
 - Mostrar pesos con `lbs`.
 - Ejecutar `npm run lint:nomenclatura` al modificar copy del frontend.
 

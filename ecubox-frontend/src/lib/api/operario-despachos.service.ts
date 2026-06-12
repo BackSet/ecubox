@@ -7,6 +7,7 @@ import type {
   DespachoCreateRequest,
   CourierEntrega,
   Saca,
+  SacasElegiblesDespacho,
   SacaCreateRequest,
   TamanioSaca,
   TipoEntrega,
@@ -117,6 +118,11 @@ export async function getSacasOperario(params?: {
   const { data } = await apiClient.get<Saca[]>(SACAS, {
     params: { sinDespacho },
   });
+  return data;
+}
+
+export async function getSacasElegiblesDespacho(): Promise<SacasElegiblesDespacho> {
+  const { data } = await apiClient.get<SacasElegiblesDespacho>(`${DESPACHOS}/sacas-elegibles`);
   return data;
 }
 

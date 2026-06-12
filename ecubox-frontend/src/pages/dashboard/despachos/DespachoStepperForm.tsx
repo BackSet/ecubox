@@ -19,6 +19,7 @@ import {
   useCreateAgenciaCourierEntregaOperario,
   useConsignatariosOperario,
   useSacasOperario,
+  useSacasElegiblesDespacho,
   useCreateDespacho,
   useUpdateDespacho,
   useCreateSaca,
@@ -165,7 +166,12 @@ export function DespachoStepperForm({
   const { data: couriersEntrega = [] } = useCouriersEntrega();
   const { data: agencias = [] } = useAgenciasOperario();
   const { data: consignatarios = [] } = useConsignatariosOperario();
-  const { data: sacasSinDespacho = [] } = useSacasOperario(true);
+  const {
+    data: elegibilidadSacas,
+    isLoading: loadingElegibilidadSacas,
+    isError: errorElegibilidadSacas,
+  } = useSacasElegiblesDespacho();
+  const sacasSinDespacho = elegibilidadSacas?.sacas ?? [];
   const { data: sacasOperario = [] } = useSacasOperario(false);
   const { data: paquetesSinSaca = [] } = usePaquetesSinSaca();
   const paquetesConPeso = paquetesSinSaca.filter(hasPeso);
@@ -715,20 +721,6 @@ export function DespachoStepperForm({
         : undefined;
     const sacasNuevasValidas = (values.sacasNuevas ?? []).filter((s) => s.numeroOrden?.trim());
     const idsExistentes = values.sacaIds ?? [];
-    const totalSacas = idsExistentes.length + sacasNuevasValidas.length;
-
-    if (isEdit) {
-      if (totalSacas < 1) {
-        toast.error(UX_MESSAGES.minSacas);
-        return;
-      }
-    } else {
-      if (sacasNuevasValidas.length === 0) {
-        toast.error(UX_MESSAGES.minSacas);
-        return;
-      }
-    }
-
     const paquetesNuevos = sacasNuevasValidas
       .flatMap((s) => s.paqueteIds ?? [])
       .map((id) => paquetesSinSaca.find((x) => x.id === id))
@@ -825,7 +817,7 @@ export function DespachoStepperForm({
               if (!v) return undefined;
               return v.length === 16 ? `${v}:00` : v;
             })(),
-            sacaIds: finalSacaIds.length > 0 ? finalSacaIds : undefined,
+            sacaIds: finalSacaIds,
           },
         });
         toast.success('Despacho actualizado');
@@ -847,7 +839,7 @@ export function DespachoStepperForm({
             if (!v) return undefined;
             return v.length === 16 ? `${v}:00` : v;
           })(),
-          sacaIds: finalSacaIds.length > 0 ? finalSacaIds : undefined,
+          sacaIds: finalSacaIds,
         });
         toast.success('Despacho creado');
       }
@@ -976,10 +968,6 @@ export function DespachoStepperForm({
   }
 
   function avanzarAPaso3() {
-    if (totalSacasDisplay < 1) {
-      form.setError('sacasNuevas', { type: 'manual', message: UX_MESSAGES.minSacas });
-      return;
-    }
     form.clearErrors('sacasNuevas');
     setPasoActual(3);
   }
@@ -1463,7 +1451,37 @@ export function DespachoStepperForm({
                 </div>
               )}
 
-              {disponiblesParaAgregar.length > 0 && (
+              <div
+                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-3 text-sm"
+                role="status"
+              >
+                <p className="font-medium text-[var(--color-foreground)]">
+                  Las sacas nuevas deben tener todos sus paquetes en{' '}
+                  {elegibilidadSacas?.estadoRequeridoNombre
+                    ? `“${elegibilidadSacas.estadoRequeridoNombre}”`
+                    : 'el estado requerido por la configuración'}.
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                  Puedes guardar el despacho vacío y agregar las sacas después.
+                </p>
+              </div>
+
+              {loadingElegibilidadSacas && (
+                <div className="rounded-md border border-dashed border-[var(--color-border)] px-3 py-3 text-sm text-[var(--color-muted-foreground)]">
+                  Cargando sacas elegibles…
+                </div>
+              )}
+
+              {errorElegibilidadSacas && (
+                <div
+                  className="rounded-md border border-[var(--color-destructive)]/40 bg-[var(--color-destructive)]/10 px-3 py-3 text-sm text-[var(--color-destructive)]"
+                  role="alert"
+                >
+                  No se pudo consultar la elegibilidad de las sacas. Intenta nuevamente antes de agregar una.
+                </div>
+              )}
+
+              {!loadingElegibilidadSacas && !errorElegibilidadSacas && disponiblesParaAgregar.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-sm font-medium text-[var(--color-foreground)]">Sacas disponibles para agregar</h3>
                   <ul className="space-y-2">
@@ -1488,6 +1506,14 @@ export function DespachoStepperForm({
                   </ul>
                 </div>
               )}
+
+              {!loadingElegibilidadSacas &&
+                !errorElegibilidadSacas &&
+                disponiblesParaAgregar.length === 0 && (
+                  <div className="rounded-md border border-dashed border-[var(--color-border)] px-3 py-3 text-sm text-[var(--color-muted-foreground)]">
+                    No hay sacas elegibles disponibles en este momento.
+                  </div>
+                )}
 
               {fields.length === 0 && sacasEnDespacho.length === 0 ? (
                 <div className="space-y-5">

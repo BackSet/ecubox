@@ -36,7 +36,6 @@ export const UX_MESSAGES = {
   seleccionarAgenciaCourierEntrega: 'Selecciona un punto de entrega para continuar.',
   validarPaquetes: 'No pudimos validar algunos paquetes seleccionados. Revisa la lista e inténtalo de nuevo.',
   detectarConsignatario: 'No se pudo identificar el consignatario desde los paquetes agregados.',
-  minSacas: 'Debes tener al menos una saca para continuar.',
 } as const;
 
 export const sacaTamanioEnum = z.enum(['INDIVIDUAL', 'PEQUENO', 'MEDIANO', 'GRANDE']);

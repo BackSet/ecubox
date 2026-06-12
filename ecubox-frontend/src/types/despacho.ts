@@ -83,6 +83,12 @@ export interface Saca {
   pesoTotalKg?: number;
 }
 
+export interface SacasElegiblesDespacho {
+  estadoRequeridoId: number;
+  estadoRequeridoNombre: string;
+  sacas: Saca[];
+}
+
 export interface Despacho {
   id: number;
   numeroGuia: string;

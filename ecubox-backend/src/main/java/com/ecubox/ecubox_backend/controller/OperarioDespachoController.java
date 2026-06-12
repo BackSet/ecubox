@@ -10,6 +10,7 @@ import com.ecubox.ecubox_backend.dto.DespachoResumenDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoGeneradoDTO;
 import com.ecubox.ecubox_backend.dto.PageResponse;
+import com.ecubox.ecubox_backend.dto.SacasElegiblesDespachoDTO;
 import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.service.DespachoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -79,6 +80,14 @@ public class OperarioDespachoController {
         LocalDateTime desdeDt = desde != null ? desde.atStartOfDay() : null;
         LocalDateTime hastaDt = hasta != null ? hasta.plusDays(1).atStartOfDay() : null;
         return ResponseEntity.ok(despachoService.resumen(courier, desdeDt, hastaDt));
+    }
+
+    @GetMapping("/sacas-elegibles")
+    @PreAuthorize("hasAuthority('DESPACHOS_WRITE')")
+    @Operation(summary = "Listar sacas elegibles", description = "Filtra sacas aptas para ingresar a un despacho")
+    @ApiResponse(responseCode = "200", description = "Sacas elegibles y estado requerido")
+    public ResponseEntity<SacasElegiblesDespachoDTO> sacasElegibles() {
+        return ResponseEntity.ok(despachoService.listarSacasElegibles());
     }
 
     @PostMapping
