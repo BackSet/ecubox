@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   agregarPaquetesEnvioConsolidado,
+  aplicarAvanceEstadosConsolidados,
   aplicarEstadoEnConsolidados,
   aplicarTransicionConsolidados,
   crearEnvioConsolidado,
@@ -10,10 +11,14 @@ import {
   enviarDesdeUsaEnvioConsolidado,
   getElegiblesParaEstadoRastreo,
   getEstadosAplicablesConsolidados,
+  getEstadosDestinoSecuenciaConsolidados,
   listarEnviosConsolidados,
+  listarCandidatosAvanceEstados,
+  listarTodosEnviosConsolidados,
   listarEnviosDisponiblesParaRecepcion,
   obtenerResumenEnviosConsolidados,
   obtenerEnvioConsolidado,
+  previewAvanceEstadosConsolidados,
   reabrirEnvioConsolidado,
   removerPaquetesEnvioConsolidado,
   cerrarConsolidadoEnvioConsolidado,
@@ -38,6 +43,22 @@ export function useEnviosConsolidados(
     queryFn: () => listarEnviosConsolidados(params),
     enabled,
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useTodosEnviosConsolidados(enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'list-all'],
+    queryFn: listarTodosEnviosConsolidados,
+    enabled,
+  });
+}
+
+export function useCandidatosAvanceEstados(enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'candidatos-avance-estados'],
+    queryFn: listarCandidatosAvanceEstados,
+    enabled,
   });
 }
 
@@ -157,6 +178,33 @@ export function useEstadosAplicablesConsolidados(enabled = true) {
     enabled,
     staleTime: 0,
     refetchOnMount: 'always',
+  });
+}
+
+export function useEstadosDestinoSecuenciaConsolidados(enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'estados-destino-secuencia'],
+    queryFn: getEstadosDestinoSecuenciaConsolidados,
+    enabled,
+  });
+}
+
+export function usePreviewAvanceEstadosConsolidados() {
+  return useMutation({
+    mutationFn: previewAvanceEstadosConsolidados,
+  });
+}
+
+export function useAplicarAvanceEstadosConsolidados() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: aplicarAvanceEstadosConsolidados,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ENVIOS_CONSOLIDADOS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['paquetes'] });
+      qc.invalidateQueries({ queryKey: ['operario', 'paquetes'] });
+      qc.invalidateQueries({ queryKey: ['tracking-events'] });
+    },
   });
 }
 

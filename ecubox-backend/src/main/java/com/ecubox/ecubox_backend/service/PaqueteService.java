@@ -1668,6 +1668,47 @@ public class PaqueteService {
                 TrackingEventType.ESTADO_APLICADO_PERIODO, "PERIODO_AUTO", "periodo");
     }
 
+    /**
+     * Aplica un paso del avance automático de consolidados con fecha e
+     * idempotencia deterministas. La transacción exterior controla la
+     * atomicidad de toda la secuencia.
+     */
+    @Transactional
+    public void aplicarEstadoSecuenciaConsolidados(List<Paquete> paquetes,
+                                                   EstadoRastreo estadoDestino,
+                                                   LocalDateTime fechaEvento,
+                                                   String operacionId) {
+        if (paquetes == null || paquetes.isEmpty()) return;
+        Set<Long> guiasAfectadas = new HashSet<>();
+        List<TrackingEventService.PendingTransicion> pendientes = new ArrayList<>(paquetes.size());
+        for (Paquete paquete : paquetes) {
+            EstadoRastreo origen = paquete.getEstadoRastreo();
+            aplicarEstadoConReglas(paquete, estadoDestino, null, fechaEvento);
+            pendientes.add(new TrackingEventService.PendingTransicion(paquete, origen));
+            if (paquete.getGuiaMaster() != null) {
+                guiasAfectadas.add(paquete.getGuiaMaster().getId());
+            }
+        }
+        paqueteRepository.saveAll(paquetes);
+        for (TrackingEventService.PendingTransicion pendiente : pendientes) {
+            Paquete paquete = pendiente.paquete();
+            EstadoRastreo origen = pendiente.origen();
+            trackingEventService.registrarTransicion(
+                    paquete,
+                    origen,
+                    estadoDestino,
+                    TrackingEventType.ESTADO_CAMBIO_BULK,
+                    "CONSOLIDADO_SECUENCIA_AUTO",
+                    paquete.getMotivoAlterno(),
+                    null,
+                    operacionId + ":" + estadoDestino.getId() + ":" + paquete.getId(),
+                    fechaEvento);
+        }
+        for (Long guiaId : guiasAfectadas) {
+            guiaMasterService.recomputarEstado(guiaId);
+        }
+    }
+
     /** Aplica el estado de "entrega confirmada" a las piezas que el cliente confirmó como recibidas. */
     @Transactional
     public void aplicarEstadoEntregaConfirmadaCliente(List<Long> paqueteIds, Long estadoRastreoId) {

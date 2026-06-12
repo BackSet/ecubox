@@ -8,6 +8,9 @@ import com.ecubox.ecubox_backend.dto.EnvioConsolidadoPaquetesRequest;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosPreviewDTO;
+import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosRequest;
+import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
@@ -213,6 +216,24 @@ public class EnvioConsolidadoController {
         return ResponseEntity.ok(envioConsolidadoService.listarEstadosAplicables());
     }
 
+    @GetMapping("/estados-destino-secuencia")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Listar destinos del avance automático",
+            description = "Obtiene estados activos compatibles con el flujo de consolidados")
+    public ResponseEntity<List<EstadoRastreoDTO>> estadosDestinoSecuencia() {
+        return ResponseEntity.ok(envioConsolidadoService.listarDestinosAvanceEstados());
+    }
+
+    @GetMapping("/candidatos-avance-estados")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Listar candidatos del avance automático",
+            description = "Excluye consolidados vacíos, sin estado operativo o fuera del flujo iniciado en preparación")
+    public ResponseEntity<List<EnvioConsolidadoDTO>> candidatosAvanceEstados() {
+        return ResponseEntity.ok(envioConsolidadoService.listarCandidatosAvanceEstados().stream()
+                .map(envio -> envioConsolidadoService.toDTO(envio, false))
+                .toList());
+    }
+
     @GetMapping("/elegibles-para-estado-rastreo")
     @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
     @Operation(summary = "Listar consolidados elegibles para un estado de rastreo",
@@ -230,6 +251,24 @@ public class EnvioConsolidadoController {
         return ResponseEntity.ok(envioConsolidadoService.aplicarEstadoRastreo(
                 request.getConsolidadoIds(),
                 request.getEstadoRastreoId()));
+    }
+
+    @PostMapping("/preview-secuencia-estados")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Previsualizar avance automático de estados",
+            description = "Valida la selección y calcula todos los pasos intermedios sin modificar datos")
+    public ResponseEntity<AvanceEstadosConsolidadosPreviewDTO> previewSecuenciaEstados(
+            @Valid @RequestBody AvanceEstadosConsolidadosRequest request) {
+        return ResponseEntity.ok(envioConsolidadoService.previewAvanceEstados(request));
+    }
+
+    @PostMapping("/aplicar-secuencia-estados")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Aplicar avance automático de estados",
+            description = "Aplica atómicamente todos los estados intermedios a los consolidados seleccionados")
+    public ResponseEntity<AvanceEstadosConsolidadosResponse> aplicarSecuenciaEstados(
+            @Valid @RequestBody AvanceEstadosConsolidadosRequest request) {
+        return ResponseEntity.ok(envioConsolidadoService.aplicarAvanceEstados(request));
     }
 
     @PostMapping("/aplicar-transicion-operativa")

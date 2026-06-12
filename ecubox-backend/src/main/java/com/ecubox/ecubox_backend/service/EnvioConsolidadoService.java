@@ -7,7 +7,12 @@ import com.ecubox.ecubox_backend.dto.PaqueteDTO;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
+import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
+import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosRequest;
+import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosPreviewDTO;
+import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosResponse;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
+import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.LiquidacionConsolidadoLinea;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
@@ -34,10 +39,18 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -62,19 +75,34 @@ public class EnvioConsolidadoService {
     private final LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository;
     private final LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
     private final EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver;
+    private final EstadoRastreoService estadoRastreoService;
+    private final ParametroSistemaService parametroSistemaService;
+    private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
+    private static final String MENSAJE_REQUIERE_PAQUETE =
+            "El consolidado debe contener al menos un paquete para cambiar de estado.";
+    private static final List<EstadoEnvioConsolidadoOperativo> ESTADOS_CANDIDATOS_AVANCE = List.of(
+            EstadoEnvioConsolidadoOperativo.EN_PREPARACION,
+            EstadoEnvioConsolidadoOperativo.CERRADO,
+            EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA,
+            EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR,
+            EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA);
 
     public EnvioConsolidadoService(EnvioConsolidadoRepository envioConsolidadoRepository,
                                    PaqueteRepository paqueteRepository,
                                    @Lazy PaqueteService paqueteService,
                                    LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository,
                                    LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
-                                   EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver) {
+                                   EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver,
+                                   EstadoRastreoService estadoRastreoService,
+                                   ParametroSistemaService parametroSistemaService) {
         this.envioConsolidadoRepository = envioConsolidadoRepository;
         this.paqueteRepository = paqueteRepository;
         this.paqueteService = paqueteService;
         this.liquidacionConsolidadoLineaRepository = liquidacionConsolidadoLineaRepository;
         this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
         this.estadoConsolidadoOperativoResolver = estadoConsolidadoOperativoResolver;
+        this.estadoRastreoService = estadoRastreoService;
+        this.parametroSistemaService = parametroSistemaService;
     }
 
     @Transactional(readOnly = true)
@@ -316,6 +344,29 @@ public class EnvioConsolidadoService {
         return paqueteService.listarEstadosPosterioresAAsociacionConsolidado();
     }
 
+    @Transactional(readOnly = true)
+    public List<EstadoRastreoDTO> listarDestinosAvanceEstados() {
+        EstadosRastreoPorPuntoDTO cfg = parametroSistemaService.getEstadosRastreoPorPunto();
+        validarConfiguracionRangoConsolidados(cfg);
+        EstadoRastreo base = estadoRastreoService.findEntityById(cfg.getEstadoRastreoAsociarEnvioConsolidadoId());
+        EstadoRastreo limite = estadoRastreoService.findEntityById(cfg.getEstadoRastreoEnLoteRecepcionId());
+        int ordenBase = ordenOrThrow(base);
+        int ordenLimite = ordenOrThrow(limite);
+        return estadoRastreoService.findActivos().stream()
+                .filter(e -> e.getTipoFlujo() == base.getTipoFlujo())
+                .filter(e -> {
+                    Integer orden = e.getOrden() != null ? e.getOrden() : e.getOrdenTracking();
+                    return orden != null && orden > ordenBase && orden <= ordenLimite;
+                })
+                .sorted(Comparator.comparingInt(e -> e.getOrden() != null ? e.getOrden() : e.getOrdenTracking()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnvioConsolidado> listarCandidatosAvanceEstados() {
+        return envioConsolidadoRepository.findCandidatosAvanceEstados(ESTADOS_CANDIDATOS_AVANCE);
+    }
+
     /**
      * Ids de los consolidados elegibles para aplicar el estado de rastreo
      * {@code estadoRastreoId} a sus paquetes, aplicando la regla de "ir de 1
@@ -360,8 +411,18 @@ public class EnvioConsolidadoService {
             Long faltante = ids.stream().filter(id -> !encontrados.contains(id)).findFirst().orElse(null);
             throw new ResourceNotFoundException("Envío consolidado", faltante);
         }
+        List<Paquete> paquetes = paqueteRepository.findByEnvioConsolidadoIdInWithEstado(ids);
+        Map<Long, Long> totales = paquetes.stream()
+                .collect(Collectors.groupingBy(
+                        paquete -> paquete.getEnvioConsolidado().getId(),
+                        Collectors.counting()));
+        for (EnvioConsolidado consolidado : consolidados) {
+            validarPuedeCambiarEstado(
+                    consolidado,
+                    totales.getOrDefault(consolidado.getId(), 0L));
+        }
         paqueteService.validarEstadoPosteriorAAsociacionConsolidado(estadoRastreoId);
-        List<Long> paqueteIds = paqueteRepository.findIdsByEnvioConsolidadoIdIn(ids);
+        List<Long> paqueteIds = paquetes.stream().map(Paquete::getId).toList();
         paqueteService.aplicarEstadoRastreoMasivo(paqueteIds, estadoRastreoId);
         return AplicarEstadoEnConsolidadosResponse.builder()
                 .consolidadosProcesados(consolidados.size())
@@ -369,13 +430,289 @@ public class EnvioConsolidadoService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public AvanceEstadosConsolidadosPreviewDTO previewAvanceEstados(
+            AvanceEstadosConsolidadosRequest request) {
+        return calcularAvance(request, false).preview();
+    }
+
+    @Transactional
+    public AvanceEstadosConsolidadosResponse aplicarAvanceEstados(
+            AvanceEstadosConsolidadosRequest request) {
+        if (request.getPreviewToken() == null || request.getPreviewToken().isBlank()) {
+            throw new BadRequestException("Actualiza la vista previa antes de aplicar la secuencia.");
+        }
+        CalculoAvance calculo = calcularAvance(request, true);
+        if (!request.getPreviewToken().equals(calculo.preview().getPreviewToken())) {
+            throw new ConflictException(
+                    "Los consolidados o sus paquetes cambiaron después de la vista previa. "
+                            + "Actualiza la vista previa antes de reintentar.");
+        }
+        String operacionId = "avance-consolidados:" + calculo.preview().getPreviewToken();
+        for (PasoCalculado paso : calculo.pasos()) {
+            aplicarEfectoOperativo(calculo.consolidados(), paso);
+            paqueteService.aplicarEstadoSecuenciaConsolidados(
+                    calculo.paquetes(), paso.estado(), paso.fecha(), operacionId);
+        }
+        return AvanceEstadosConsolidadosResponse.builder()
+                .consolidadosProcesados(calculo.consolidados().size())
+                .paquetesProcesados(calculo.paquetes().size())
+                .pasosAplicados(calculo.pasos().size())
+                .eventosCreados(calculo.paquetes().size() * calculo.pasos().size())
+                .estadoFinalId(calculo.destino().getId())
+                .estadoFinalNombre(calculo.destino().getNombre())
+                .build();
+    }
+
+    private CalculoAvance calcularAvance(AvanceEstadosConsolidadosRequest request, boolean bloquear) {
+        if (request == null || request.getConsolidadoIds() == null || request.getConsolidadoIds().isEmpty()) {
+            throw new BadRequestException("Selecciona al menos un envío consolidado.");
+        }
+        if (request.getEstadoFinalId() == null) {
+            throw new BadRequestException("Selecciona el estado final de la secuencia.");
+        }
+        if (request.getFechaPrincipal() == null) {
+            throw new BadRequestException("Selecciona la fecha principal de la secuencia.");
+        }
+        List<Long> ids = request.getConsolidadoIds().stream()
+                .filter(Objects::nonNull).distinct().sorted().toList();
+        if (ids.size() != request.getConsolidadoIds().size()) {
+            throw new BadRequestException("La selección contiene IDs nulos o repetidos.");
+        }
+        validarFechas(request);
+        List<EnvioConsolidado> consolidados = bloquear
+                ? envioConsolidadoRepository.findAllByIdForUpdate(ids)
+                : envioConsolidadoRepository.findAllById(ids);
+        if (consolidados.size() != ids.size()) {
+            Set<Long> encontrados = consolidados.stream().map(EnvioConsolidado::getId).collect(Collectors.toSet());
+            Long faltante = ids.stream().filter(id -> !encontrados.contains(id)).findFirst().orElse(null);
+            throw new ResourceNotFoundException("Envío consolidado", faltante);
+        }
+        List<Paquete> paquetes = bloquear
+                ? paqueteRepository.findByEnvioConsolidadoIdInWithEstadoForUpdate(ids)
+                : paqueteRepository.findByEnvioConsolidadoIdInWithEstado(ids);
+        Map<Long, List<Paquete>> porConsolidado = paquetes.stream()
+                .collect(Collectors.groupingBy(p -> p.getEnvioConsolidado().getId()));
+        EstadoRastreo inicial = null;
+        for (EnvioConsolidado consolidado : consolidados) {
+            List<Paquete> propios = porConsolidado.getOrDefault(consolidado.getId(), List.of());
+            validarPuedeCambiarEstado(consolidado, propios.size());
+            if (propios.stream().anyMatch(p -> p.getEstadoRastreo() == null)) {
+                throw new ConflictException(
+                        "El consolidado " + consolidado.getCodigo() + " contiene un paquete sin estado de rastreo.");
+            }
+            Set<Long> estados = propios.stream().map(p -> p.getEstadoRastreo().getId()).collect(Collectors.toSet());
+            if (estados.size() != 1) {
+                throw new ConflictException(
+                        "El consolidado " + consolidado.getCodigo() + " tiene paquetes en estados mixtos.");
+            }
+            EstadoRastreo estado = propios.getFirst().getEstadoRastreo();
+            if (inicial == null) inicial = estado;
+            else if (!inicial.getId().equals(estado.getId())) {
+                throw new ConflictException("Los consolidados seleccionados no comparten el mismo estado inicial.");
+            }
+        }
+        EstadoRastreo destino = estadoRastreoService.findEntityById(request.getEstadoFinalId());
+        if (!Boolean.TRUE.equals(destino.getActivo())) {
+            throw new ConflictException("El estado final seleccionado no está activo.");
+        }
+        if (inicial.getTipoFlujo() != destino.getTipoFlujo()) {
+            throw new ConflictException("El estado final pertenece a un flujo distinto al estado inicial.");
+        }
+        EstadoRastreo estadoInicial = inicial;
+        int ordenInicial = ordenOrThrow(inicial);
+        int ordenFinal = ordenOrThrow(destino);
+        if (ordenFinal <= ordenInicial) {
+            throw new ConflictException("El estado final debe ser posterior al estado inicial común.");
+        }
+        validarDestinoCompatibleConConsolidados(destino);
+        List<EstadoRastreo> secuencia = estadoRastreoService.findActivosEntities().stream()
+                .filter(e -> e.getTipoFlujo() == estadoInicial.getTipoFlujo())
+                .filter(e -> {
+                    int orden = ordenOrThrow(e);
+                    return orden > ordenInicial && orden <= ordenFinal;
+                })
+                .sorted(Comparator.comparingInt(this::ordenOrThrow).thenComparing(EstadoRastreo::getId))
+                .toList();
+        if (secuencia.isEmpty() || !secuencia.getLast().getId().equals(destino.getId())) {
+            throw new ConflictException("No existe una secuencia activa completa hasta el estado final.");
+        }
+        EstadosRastreoPorPuntoDTO config = parametroSistemaService.getEstadosRastreoPorPunto();
+        List<PasoCalculado> pasos = secuencia.stream()
+                .map(estado -> new PasoCalculado(
+                        estado,
+                        request.getFechasPorEstado() != null
+                                ? request.getFechasPorEstado().getOrDefault(estado.getId(), request.getFechaPrincipal())
+                                : request.getFechaPrincipal(),
+                        efectoOperativo(estado.getId(), config)))
+                .toList();
+        validarCronologia(pasos);
+        Map<Long, EstadoEnvioConsolidadoOperativo> finales = simularEfectos(consolidados, pasos);
+        String token = construirToken(consolidados, paquetes, inicial, destino, pasos);
+        List<AvanceEstadosConsolidadosPreviewDTO.Consolidado> detalles = consolidados.stream()
+                .sorted(Comparator.comparing(EnvioConsolidado::getId))
+                .map(e -> AvanceEstadosConsolidadosPreviewDTO.Consolidado.builder()
+                        .id(e.getId()).codigo(e.getCodigo())
+                        .totalPaquetes(porConsolidado.get(e.getId()).size())
+                        .estadoOperativoActual(e.getEstadoOperativo())
+                        .estadoOperativoFinal(finales.get(e.getId()))
+                        .version(e.getVersion()).build())
+                .toList();
+        AvanceEstadosConsolidadosPreviewDTO preview = AvanceEstadosConsolidadosPreviewDTO.builder()
+                .previewToken(token)
+                .estadoInicial(estadoPaso(inicial))
+                .estadoFinal(estadoPaso(destino))
+                .pasos(pasos.stream().map(this::pasoDto).toList())
+                .resumen(AvanceEstadosConsolidadosPreviewDTO.Resumen.builder()
+                        .totalConsolidados(consolidados.size()).totalPaquetes(paquetes.size())
+                        .totalPasos(pasos.size()).totalEventosPrevistos(paquetes.size() * pasos.size()).build())
+                .consolidados(detalles).bloqueos(List.of())
+                .advertencias(List.of("La operación es atómica: si falla un paso, no se aplicará ningún cambio."))
+                .build();
+        return new CalculoAvance(preview, consolidados, paquetes, pasos, destino);
+    }
+
+    private void validarFechas(AvanceEstadosConsolidadosRequest request) {
+        LocalDateTime ahora = LocalDateTime.now(ZONA_ECUADOR);
+        if (request.getFechaPrincipal().isAfter(ahora)) {
+            throw new BadRequestException("La fecha principal no puede ser futura.");
+        }
+        if (request.getFechasPorEstado() != null
+                && request.getFechasPorEstado().values().stream().anyMatch(f -> f == null || f.isAfter(ahora))) {
+            throw new BadRequestException("Las fechas por estado no pueden estar vacías ni ser futuras.");
+        }
+    }
+
+    private void validarCronologia(List<PasoCalculado> pasos) {
+        LocalDateTime anterior = null;
+        for (PasoCalculado paso : pasos) {
+            if (anterior != null && paso.fecha().isBefore(anterior)) {
+                throw new BadRequestException("Las fechas de la secuencia deben ser cronológicamente no decrecientes.");
+            }
+            anterior = paso.fecha();
+        }
+    }
+
+    private void validarDestinoCompatibleConConsolidados(EstadoRastreo destino) {
+        EstadosRastreoPorPuntoDTO cfg = parametroSistemaService.getEstadosRastreoPorPunto();
+        validarConfiguracionRangoConsolidados(cfg);
+        EstadoRastreo base = estadoRastreoService.findEntityById(cfg.getEstadoRastreoAsociarEnvioConsolidadoId());
+        EstadoRastreo limite = estadoRastreoService.findEntityById(cfg.getEstadoRastreoEnLoteRecepcionId());
+        int orden = ordenOrThrow(destino);
+        if (orden <= ordenOrThrow(base) || orden > ordenOrThrow(limite)) {
+            throw new ConflictException("El estado final no es compatible con el flujo de envíos consolidados.");
+        }
+    }
+
+    private void validarConfiguracionRangoConsolidados(EstadosRastreoPorPuntoDTO cfg) {
+        if (cfg == null
+                || cfg.getEstadoRastreoAsociarEnvioConsolidadoId() == null
+                || cfg.getEstadoRastreoEnLoteRecepcionId() == null) {
+            throw new ConflictException(
+                    "La configuración de estados para envíos consolidados está incompleta.");
+        }
+    }
+
+    private Map<Long, EstadoEnvioConsolidadoOperativo> simularEfectos(
+            List<EnvioConsolidado> consolidados, List<PasoCalculado> pasos) {
+        Map<Long, EstadoEnvioConsolidadoOperativo> estados = new HashMap<>();
+        for (EnvioConsolidado envio : consolidados) estados.put(envio.getId(), envio.getEstadoOperativo());
+        for (PasoCalculado paso : pasos) {
+            if (paso.efectoOperativo() == null) continue;
+            for (EnvioConsolidado envio : consolidados) {
+                EstadoEnvioConsolidadoOperativo actual = estados.get(envio.getId());
+                EstadoEnvioConsolidadoOperativo requerido = origenOperativo(paso.efectoOperativo());
+                if (actual != requerido) {
+                    throw new ConflictException(
+                            "El consolidado " + envio.getCodigo() + " está en " + actual
+                                    + " y el paso '" + paso.estado().getNombre() + "' requiere " + requerido + ".");
+                }
+                estados.put(envio.getId(), paso.efectoOperativo());
+            }
+        }
+        return estados;
+    }
+
+    private void aplicarEfectoOperativo(List<EnvioConsolidado> consolidados, PasoCalculado paso) {
+        if (paso.efectoOperativo() == null) return;
+        for (EnvioConsolidado envio : consolidados) {
+            EstadoEnvioConsolidadoOperativo requerido = origenOperativo(paso.efectoOperativo());
+            if (envio.getEstadoOperativo() != requerido) {
+                throw new ConflictException("El estado operativo del consolidado cambió durante la operación.");
+            }
+            envio.setEstadoOperativo(paso.efectoOperativo());
+            if (paso.efectoOperativo() == EstadoEnvioConsolidadoOperativo.CERRADO) envio.setFechaCierre(paso.fecha());
+            if (paso.efectoOperativo() == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA) envio.setFechaCerrado(paso.fecha());
+            if (paso.efectoOperativo() == EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR) envio.setFechaArriboEcuador(paso.fecha());
+        }
+        envioConsolidadoRepository.saveAll(consolidados);
+    }
+
+    private EstadoEnvioConsolidadoOperativo efectoOperativo(Long estadoId, EstadosRastreoPorPuntoDTO cfg) {
+        if (Objects.equals(estadoId, cfg.getEstadoRastreoCierreConsolidadoId())) return EstadoEnvioConsolidadoOperativo.CERRADO;
+        if (Objects.equals(estadoId, cfg.getEstadoRastreoEnviadoDesdeUsaId())) return EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA;
+        if (Objects.equals(estadoId, cfg.getEstadoRastreoArriboEcuadorId())) return EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR;
+        return null;
+    }
+
+    private EstadoEnvioConsolidadoOperativo origenOperativo(EstadoEnvioConsolidadoOperativo destino) {
+        return switch (destino) {
+            case CERRADO -> EstadoEnvioConsolidadoOperativo.EN_PREPARACION;
+            case ENVIADO_DESDE_USA -> EstadoEnvioConsolidadoOperativo.CERRADO;
+            case ARRIBADO_ECUADOR -> EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA;
+            default -> throw new IllegalArgumentException("Efecto operativo no soportado: " + destino);
+        };
+    }
+
+    private int ordenOrThrow(EstadoRastreo estado) {
+        Integer orden = PaqueteService.ordenEfectivo(estado);
+        if (orden == null) throw new BadRequestException("Un estado de la secuencia no tiene orden configurado.");
+        return orden;
+    }
+
+    private AvanceEstadosConsolidadosPreviewDTO.EstadoPaso estadoPaso(EstadoRastreo estado) {
+        return AvanceEstadosConsolidadosPreviewDTO.EstadoPaso.builder()
+                .id(estado.getId()).nombre(estado.getNombre()).orden(ordenOrThrow(estado)).build();
+    }
+
+    private AvanceEstadosConsolidadosPreviewDTO.Paso pasoDto(PasoCalculado paso) {
+        return AvanceEstadosConsolidadosPreviewDTO.Paso.builder()
+                .estadoId(paso.estado().getId()).estadoNombre(paso.estado().getNombre())
+                .orden(ordenOrThrow(paso.estado())).fecha(paso.fecha())
+                .efectoOperativo(paso.efectoOperativo()).build();
+    }
+
+    private String construirToken(List<EnvioConsolidado> consolidados, List<Paquete> paquetes,
+                                  EstadoRastreo inicial, EstadoRastreo destino, List<PasoCalculado> pasos) {
+        String canonical = consolidados.stream().sorted(Comparator.comparing(EnvioConsolidado::getId))
+                .map(e -> e.getId() + ":" + e.getVersion() + ":" + e.getEstadoOperativo())
+                .collect(Collectors.joining("|"))
+                + "#" + paquetes.stream().sorted(Comparator.comparing(Paquete::getId))
+                .map(p -> p.getId() + ":" + p.getVersion() + ":" + p.getEstadoRastreo().getId())
+                .collect(Collectors.joining("|"))
+                + "#" + inicial.getId() + ">" + destino.getId()
+                + "#" + pasos.stream().map(p -> p.estado().getId() + "@" + p.fecha()).collect(Collectors.joining("|"));
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 no disponible", e);
+        }
+    }
+
+    private record PasoCalculado(EstadoRastreo estado, LocalDateTime fecha,
+                                 EstadoEnvioConsolidadoOperativo efectoOperativo) {}
+    private record CalculoAvance(AvanceEstadosConsolidadosPreviewDTO preview,
+                                 List<EnvioConsolidado> consolidados, List<Paquete> paquetes,
+                                 List<PasoCalculado> pasos, EstadoRastreo destino) {}
+
     /**
      * Aplica una transición de estado OPERATIVO a consolidados (por ids o por periodo
      * de creación). Solo admite los destinos con acción real: CERRADO (cerrar),
      * ENVIADO_DESDE_USA (enviar desde USA), ARRIBADO_ECUADOR (arribar a Ecuador),
      * EN_PREPARACION (reabrir) y CANCELADO (cancelar, desde cualquier estado salvo
      * LIQUIDADO o CANCELADO). Cada consolidado debe estar en el estado de origen
-     * correspondiente; los que no, se devuelven como rechazados.
+     * correspondiente. El lote completo se valida antes de aplicar cambios.
      */
     @Transactional
     public AplicarTransicionConsolidadosResponse aplicarTransicionOperativa(
@@ -422,32 +759,43 @@ public class EnvioConsolidadoService {
                     .distinct()
                     .toList();
             universo = envioConsolidadoRepository.findAllById(ids);
+            if (universo.size() != ids.size()) {
+                Set<Long> encontrados = universo.stream()
+                        .map(EnvioConsolidado::getId)
+                        .collect(Collectors.toSet());
+                Long faltante = ids.stream()
+                        .filter(id -> !encontrados.contains(id))
+                        .findFirst()
+                        .orElse(null);
+                throw new ResourceNotFoundException("Envío consolidado", faltante);
+            }
         }
 
-        int procesados = 0;
-        List<AplicarTransicionConsolidadosResponse.RechazoConsolidado> rechazados = new ArrayList<>();
+        List<Long> idsUniverso = universo.stream().map(EnvioConsolidado::getId).toList();
+        List<Paquete> paquetes = idsUniverso.isEmpty()
+                ? List.of()
+                : paqueteRepository.findByEnvioConsolidadoIdInWithEstado(idsUniverso);
+        Map<Long, Long> totales = paquetes.stream()
+                .collect(Collectors.groupingBy(
+                        paquete -> paquete.getEnvioConsolidado().getId(),
+                        Collectors.counting()));
         for (EnvioConsolidado envio : universo) {
-            try {
-                switch (destino) {
-                    case CERRADO -> cerrarConsolidado(envio.getId());
-                    case ENVIADO_DESDE_USA -> enviarDesdeUsa(envio.getId(), null);
-                    case ARRIBADO_ECUADOR -> marcarArribadoEcuador(envio.getId(), null);
-                    case EN_PREPARACION -> reabrir(envio.getId());
-                    case CANCELADO -> cancelarConsolidado(envio.getId());
-                    default -> throw new BadRequestException("Transición no soportada: " + destino);
-                }
-                procesados++;
-            } catch (BadRequestException ex) {
-                rechazados.add(AplicarTransicionConsolidadosResponse.RechazoConsolidado.builder()
-                        .consolidadoId(envio.getId())
-                        .codigo(envio.getCodigo())
-                        .motivo(ex.getMessage())
-                        .build());
+            validarPuedeCambiarEstado(envio, totales.getOrDefault(envio.getId(), 0L));
+            validarTransicionOperativa(envio, destino);
+        }
+        for (EnvioConsolidado envio : universo) {
+            switch (destino) {
+                case CERRADO -> cerrarConsolidado(envio.getId());
+                case ENVIADO_DESDE_USA -> enviarDesdeUsa(envio.getId(), null);
+                case ARRIBADO_ECUADOR -> marcarArribadoEcuador(envio.getId(), null);
+                case EN_PREPARACION -> reabrir(envio.getId());
+                case CANCELADO -> cancelarConsolidado(envio.getId());
+                default -> throw new BadRequestException("Transición no soportada: " + destino);
             }
         }
         return AplicarTransicionConsolidadosResponse.builder()
-                .consolidadosProcesados(procesados)
-                .rechazados(rechazados)
+                .consolidadosProcesados(universo.size())
+                .rechazados(List.of())
                 .build();
     }
 
@@ -458,6 +806,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado cerrarConsolidado(Long envioId) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.CERRADO) {
             return envio;
         }
@@ -484,6 +833,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado enviarDesdeUsa(Long envioId, LocalDateTime fechaEvento) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA) {
             return envio;
         }
@@ -510,6 +860,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado marcarArribadoEcuador(Long envioId, LocalDateTime fechaEvento) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         if (envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR) {
             return envio;
         }
@@ -536,6 +887,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado cancelarConsolidado(Long envioId) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
         if (actual == EstadoEnvioConsolidadoOperativo.LIQUIDADO
                 || actual == EstadoEnvioConsolidadoOperativo.CANCELADO) {
@@ -569,6 +921,7 @@ public class EnvioConsolidadoService {
     @Transactional
     public EnvioConsolidado reabrir(Long envioId) {
         EnvioConsolidado envio = findById(envioId);
+        validarPuedeCambiarEstado(envio);
         EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
         if (actual == EstadoEnvioConsolidadoOperativo.EN_PREPARACION
                 || actual == EstadoEnvioConsolidadoOperativo.VACIO) {
@@ -611,6 +964,48 @@ public class EnvioConsolidadoService {
             paqueteService.revertirEstadoSiUltimoEventoCoincide(ids, "CIERRE_CONSOLIDADO_AUTO");
         }
         return guardado;
+    }
+
+    private void validarPuedeCambiarEstado(EnvioConsolidado envio) {
+        validarPuedeCambiarEstado(
+                envio,
+                paqueteRepository.countByEnvioConsolidadoId(envio.getId()));
+    }
+
+    private void validarPuedeCambiarEstado(EnvioConsolidado envio, long totalPaquetes) {
+        if (totalPaquetes <= 0) {
+            throw new ConflictException(MENSAJE_REQUIERE_PAQUETE);
+        }
+        if (envio.getEstadoOperativo() == null
+                || envio.getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.VACIO) {
+            throw new ConflictException(
+                    "El consolidado no tiene un estado operativo válido para cambiar de estado.");
+        }
+    }
+
+    private void validarTransicionOperativa(
+            EnvioConsolidado envio,
+            EstadoEnvioConsolidadoOperativo destino) {
+        EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
+        boolean permitida = switch (destino) {
+            case CERRADO -> actual == EstadoEnvioConsolidadoOperativo.EN_PREPARACION
+                    || actual == EstadoEnvioConsolidadoOperativo.CERRADO;
+            case ENVIADO_DESDE_USA -> actual == EstadoEnvioConsolidadoOperativo.CERRADO
+                    || actual == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA;
+            case ARRIBADO_ECUADOR -> actual == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA
+                    || actual == EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR;
+            case EN_PREPARACION -> actual == EstadoEnvioConsolidadoOperativo.CERRADO
+                    || actual == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA
+                    || actual == EstadoEnvioConsolidadoOperativo.EN_PREPARACION;
+            case CANCELADO -> actual != EstadoEnvioConsolidadoOperativo.LIQUIDADO
+                    && actual != EstadoEnvioConsolidadoOperativo.CANCELADO;
+            default -> false;
+        };
+        if (!permitida) {
+            throw new BadRequestException(
+                    "El consolidado " + envio.getCodigo() + " no puede pasar de "
+                            + actual + " a " + destino + ".");
+        }
     }
 
     /**
