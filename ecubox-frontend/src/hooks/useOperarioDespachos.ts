@@ -23,6 +23,7 @@ import {
   updateConsignatarioOperario,
   deleteConsignatarioOperario,
   getSacasOperario,
+  getSacasElegiblesDespacho,
   createSaca,
   actualizarTamanioSaca,
   asignarPaquetesASaca,
@@ -46,6 +47,7 @@ export const AGENCIAS_COURIER_ENTREGA_QUERY_KEY = ['operario', 'agencias-courier
 export const CONSIGNATARIOS_OP_QUERY_KEY = ['operario', 'consignatarios'] as const;
 export const CLIENTES_OP_QUERY_KEY = ['operario', 'clientes'] as const;
 export const SACAS_QUERY_KEY = ['operario', 'sacas'] as const;
+export const SACAS_ELEGIBLES_DESPACHO_QUERY_KEY = [...DESPACHOS_QUERY_KEY, 'sacas-elegibles'] as const;
 export const PAQUETES_SIN_SACA_QUERY_KEY = ['operario', 'paquetes', 'sinSaca'] as const;
 
 export function useDespachos(enabled = true) {
@@ -286,12 +288,21 @@ export function useSacasOperario(sinDespacho = true, enabled = true) {
   });
 }
 
+export function useSacasElegiblesDespacho(enabled = true) {
+  return useQuery({
+    queryKey: SACAS_ELEGIBLES_DESPACHO_QUERY_KEY,
+    queryFn: getSacasElegiblesDespacho,
+    enabled,
+  });
+}
+
 export function useCreateSaca() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: SacaCreateRequest) => createSaca(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SACAS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: SACAS_ELEGIBLES_DESPACHO_QUERY_KEY });
     },
   });
 }
@@ -334,6 +345,7 @@ export function useAsignarPaqueteSaca() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: DESPACHOS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: SACAS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: SACAS_ELEGIBLES_DESPACHO_QUERY_KEY });
       qc.invalidateQueries({ queryKey: PAQUETES_SIN_SACA_QUERY_KEY });
     },
   });
@@ -352,6 +364,7 @@ export function useAsignarPaquetesASaca() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: DESPACHOS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: SACAS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: SACAS_ELEGIBLES_DESPACHO_QUERY_KEY });
       qc.invalidateQueries({ queryKey: PAQUETES_SIN_SACA_QUERY_KEY });
     },
   });

@@ -14,6 +14,7 @@ import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.Comparator;
 import java.util.HashSet;
@@ -128,6 +129,42 @@ public class EstadoRastreoService {
     public EstadoRastreo findEntityById(Long id) {
         return estadoRastreoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Estado de rastreo", id));
+    }
+
+    public record TransicionInmediata(EstadoRastreo destino, EstadoRastreo anterior) {}
+
+    /**
+     * Resuelve el estado activo inmediatamente anterior al destino dentro del
+     * mismo flujo, usando el mayor orden efectivo menor al del destino.
+     */
+    @Transactional(readOnly = true)
+    public TransicionInmediata resolverTransicionInmediata(Long estadoDestinoId) {
+        if (estadoDestinoId == null) {
+            throw new BadRequestException(
+                    "No se puede validar el ingreso al despacho porque no hay un estado de destino configurado.");
+        }
+        EstadoRastreo destino = findEntityById(estadoDestinoId);
+        Integer ordenDestino = ordenEfectivo(destino);
+        if (ordenDestino == null) {
+            throw new BadRequestException(
+                    "No se puede validar el ingreso al despacho porque el estado configurado no tiene un orden definido.");
+        }
+        TipoFlujoEstado tipoFlujo = destino.getTipoFlujo() != null
+                ? destino.getTipoFlujo()
+                : TipoFlujoEstado.NORMAL;
+        EstadoRastreo anterior = estadoRastreoRepository
+                .findAnterioresActivosMismoFlujo(tipoFlujo, ordenDestino, PageRequest.of(0, 1))
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException(
+                        "No se puede validar el ingreso al despacho porque el estado configurado no tiene "
+                                + "un estado activo anterior en su mismo flujo."));
+        return new TransicionInmediata(destino, anterior);
+    }
+
+    private Integer ordenEfectivo(EstadoRastreo estado) {
+        if (estado == null) return null;
+        return estado.getOrden() != null ? estado.getOrden() : estado.getOrdenTracking();
     }
 
     @Transactional(readOnly = true)

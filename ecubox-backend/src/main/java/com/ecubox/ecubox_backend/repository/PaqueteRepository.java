@@ -4,7 +4,9 @@ import com.ecubox.ecubox_backend.entity.Paquete;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -230,6 +232,25 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     /** IDs de paquetes pertenecientes a una lista de sacas (una sola query por lote). */
     @Query("SELECT p.id FROM Paquete p WHERE p.saca.id IN :sacaIds")
     List<Long> findIdsBySacaIdIn(@Param("sacaIds") List<Long> sacaIds);
+
+    @Query("""
+            SELECT p
+            FROM Paquete p
+            LEFT JOIN FETCH p.estadoRastreo
+            WHERE p.saca.id IN :sacaIds
+            ORDER BY p.saca.id, p.id
+            """)
+    List<Paquete> findBySacaIdInWithEstado(@Param("sacaIds") Collection<Long> sacaIds);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT p
+            FROM Paquete p
+            LEFT JOIN FETCH p.estadoRastreo
+            WHERE p.saca.id IN :sacaIds
+            ORDER BY p.saca.id, p.id
+            """)
+    List<Paquete> findBySacaIdInWithEstadoForUpdate(@Param("sacaIds") Collection<Long> sacaIds);
 
     /**
      * IDs de paquetes de las sacas indicadas cuyo estado actual es anterior (menor orden) al

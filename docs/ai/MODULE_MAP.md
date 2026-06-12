@@ -1,6 +1,6 @@
 # Mapa canónico de módulos ECUBOX
 
-> Fuente funcional: rama `dev`, merge `05a5cf73f770f8e230e0cdba34f7c77afdfb8cf7`.
+> Fuente funcional: rama `dev`, commit `4fed154d`.
 > Salvo indicación contraria, las rutas y clases de este documento están **verificadas en Git**.
 
 ## 1. Inventario funcional
@@ -17,7 +17,7 @@
 | Estados de rastreo | sección `/parametros-sistema/estados` y `/por-punto`; `useEstadosRastreo` | `/api/operario/estados-rastreo`, `/api/operario/config/estados-rastreo-por-punto` | `EstadoRastreoService`, resolver y repository; `estado_rastreo`, `estado_rastreo_transicion`, parámetros | `ESTADOS_RASTREO_*` | `EstadoRastreoServiceTest`, `ParametroSistemaServiceEstadosManualesTest`, diálogo de leyenda |
 | Envíos consolidados | `/envios-consolidados`, detalle; `useEnviosConsolidados` | `/api/envios-consolidados`; `EnvioConsolidadoController` | `EnvioConsolidadoService`, resolver operativo, manifiesto de consolidado; `envio_consolidado` y relación con paquetes | `ENVIOS_CONSOLIDADOS_*` | `EnvioConsolidadoServiceTest`, `EstadoConsolidadoOperativoResolverTest` |
 | Lotes de recepción | `/lotes-recepcion`, nuevo y detalle; `useLotesRecepcion` | `/api/operario/lotes-recepcion`; `OperarioLoteRecepcionController` | `LoteRecepcionService`; `lote_recepcion`, `lote_recepcion_guia` | `LOTES_RECEPCION_READ/CREATE/DELETE` | `LoteRecepcionServiceTest` |
-| Despachos, sacas y Mis entregas | `/despachos`, alta/detalle/edición; `/mis-entregas`; hooks operario/cliente | `/api/operario/despachos`, `/api/operario/sacas`, `/api/mis-despachos` | `DespachoService`, `SacaService`, `MisDespachosService`; `despacho`, `saca` | `DESPACHOS_WRITE`, `MIS_ENTREGAS_*`, acceso por enlace | `DespachoServiceTest`, distribución de sacas frontend |
+| Despachos, sacas y Mis entregas | `/despachos`, alta/detalle/edición; `/mis-entregas`; hooks operario/cliente | `/api/operario/despachos`, `/api/operario/despachos/sacas-elegibles`, `/api/operario/sacas`, `/api/mis-despachos` | `DespachoService`, `SacaService`, `EstadoRastreoService`, `MisDespachosService`; `despacho`, `saca`, `paquete` | `DESPACHOS_WRITE`, `MIS_ENTREGAS_*`, acceso por enlace | `DespachoServiceTest`, `EstadoRastreoServiceTest`, distribución de sacas frontend |
 | Manifiestos | `/manifiestos`, detalle; `useManifiestos` | `/api/manifiestos`; `ManifiestoController` | `ManifiestoService/Repository`; `manifiesto`; asigna despachos | `MANIFIESTOS_READ/WRITE` | Sin test directo localizado |
 | Liquidaciones | `/liquidaciones`, detalle; `useLiquidacion` | `/api/liquidaciones`; `LiquidacionController` | `LiquidacionService`, `LiquidacionExportService`; `liquidacion` y líneas de consolidado/despacho | `LIQUIDACION_CONSOLIDADO_READ/WRITE` | Sin test directo localizado |
 | Red de entrega | `/couriers-entrega`, `/agencias`, `/puntos-entrega`; hooks admin | Controllers de courier, agencia y puntos; variantes `/api/operario/*` | Services/repositories + versiones SCD2; `courier_entrega`, `agencia`, `agencia_courier_entrega` y tablas versionadas | `COURIERS_ENTREGA_*`, `AGENCIAS_*`, `PUNTOS_ENTREGA_*`; operario usa `DESPACHOS_WRITE` en consultas seleccionadas | Sin test directo localizado |
@@ -83,11 +83,12 @@
 
 ### Despacho y confirmación de entrega
 
-1. Operario crea despacho y selecciona tipo `DOMICILIO`, `AGENCIA` o `AGENCIA_COURIER_ENTREGA`.
-2. Puede organizar paquetes en sacas y aplicar estado de rastreo.
-3. El cliente o una sesión por enlace consulta `/mis-entregas`.
-4. La entrega se confirma con `MIS_ENTREGAS_CONFIRM`.
-5. La confirmación genera cambios de estado/eventos/notificaciones según el servicio.
+1. Operario crea despacho y selecciona tipo `DOMICILIO`, `AGENCIA` o `AGENCIA_COURIER_ENTREGA`; el despacho puede guardarse sin sacas.
+2. Para incorporar una saca nueva, el backend resuelve el estado de entrada desde parámetros y exige que todos sus paquetes estén exactamente en el estado activo inmediatamente anterior del mismo flujo por orden efectivo.
+3. `/api/operario/despachos/sacas-elegibles` filtra candidatas y devuelve el nombre configurado del estado requerido; `create` y `update` revalidan bajo transacción antes de asociar y aplicar el estado destino.
+4. En edición solo se valida esta regla para sacas nuevas; las ya asociadas no se rechazan si sus paquetes avanzaron.
+5. El cliente o una sesión por enlace consulta `/mis-entregas`.
+6. La entrega se confirma con `MIS_ENTREGAS_CONFIRM` y genera cambios de estado/eventos/notificaciones según el servicio.
 
 ### Rastreo público
 

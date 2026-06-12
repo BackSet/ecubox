@@ -5,6 +5,7 @@ import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,4 +37,17 @@ public interface EstadoRastreoRepository extends JpaRepository<EstadoRastreo, Lo
             """)
     Integer findMaxOrdenTrackingActivoByTipoFlujo(
             @Param("tipoFlujo") TipoFlujoEstado tipoFlujo);
+
+    @Query("""
+            SELECT e
+            FROM EstadoRastreo e
+            WHERE e.activo = true
+              AND e.tipoFlujo = :tipoFlujo
+              AND COALESCE(e.orden, e.ordenTracking) < :ordenDestino
+            ORDER BY COALESCE(e.orden, e.ordenTracking) DESC, e.id DESC
+            """)
+    List<EstadoRastreo> findAnterioresActivosMismoFlujo(
+            @Param("tipoFlujo") TipoFlujoEstado tipoFlujo,
+            @Param("ordenDestino") Integer ordenDestino,
+            Pageable pageable);
 }

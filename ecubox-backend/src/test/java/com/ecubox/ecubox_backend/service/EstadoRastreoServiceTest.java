@@ -13,12 +13,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -109,5 +111,44 @@ class EstadoRastreoServiceTest {
         // La leyenda se devuelve cruda: el placeholder {dias} lo resuelve el frontend.
         assertEquals("Tu paquete lleva {dias} días en revisión de aduana.", catalogo.get(1).getLeyenda());
         assertEquals(TipoFlujoEstado.ALTERNO, catalogo.get(1).getTipoFlujo());
+    }
+
+    @Test
+    void resolverTransicionInmediata_usaMayorOrdenAnteriorAunqueHayaHuecos() {
+        EstadoRastreo destino = EstadoRastreo.builder()
+                .id(30L).nombre("Destino").activo(true).orden(90).ordenTracking(90)
+                .tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        EstadoRastreo anterior = EstadoRastreo.builder()
+                .id(20L).nombre("Anterior").activo(true).orden(40).ordenTracking(40)
+                .tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        when(estadoRastreoRepository.findById(30L)).thenReturn(java.util.Optional.of(destino));
+        when(estadoRastreoRepository.findAnterioresActivosMismoFlujo(
+                org.mockito.ArgumentMatchers.eq(TipoFlujoEstado.NORMAL),
+                org.mockito.ArgumentMatchers.eq(90),
+                any(Pageable.class)))
+                .thenReturn(List.of(anterior));
+
+        var transicion = estadoRastreoService.resolverTransicionInmediata(30L);
+
+        assertEquals(30L, transicion.destino().getId());
+        assertEquals(20L, transicion.anterior().getId());
+    }
+
+    @Test
+    void resolverTransicionInmediata_fallaSiNoExisteEstadoAnterior() {
+        EstadoRastreo destino = EstadoRastreo.builder()
+                .id(30L).nombre("Destino").activo(true).orden(90).ordenTracking(90)
+                .tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        when(estadoRastreoRepository.findById(30L)).thenReturn(java.util.Optional.of(destino));
+        when(estadoRastreoRepository.findAnterioresActivosMismoFlujo(
+                org.mockito.ArgumentMatchers.eq(TipoFlujoEstado.NORMAL),
+                org.mockito.ArgumentMatchers.eq(90),
+                any(Pageable.class)))
+                .thenReturn(List.of());
+
+        var ex = assertThrows(BadRequestException.class,
+                () -> estadoRastreoService.resolverTransicionInmediata(30L));
+
+        assertTrue(ex.getMessage().contains("estado activo anterior"));
     }
 }

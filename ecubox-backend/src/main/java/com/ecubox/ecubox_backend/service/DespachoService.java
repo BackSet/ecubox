@@ -7,6 +7,7 @@ import com.ecubox.ecubox_backend.dto.DespachoResumenDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.MensajeWhatsAppDespachoGeneradoDTO;
 import com.ecubox.ecubox_backend.dto.SacaDTO;
+import com.ecubox.ecubox_backend.dto.SacasElegiblesDespachoDTO;
 import com.ecubox.ecubox_backend.entity.*;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
@@ -33,8 +34,10 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -286,6 +289,12 @@ public class DespachoService {
 
         List<Long> sacaIds = request.getSacaIds() != null ? request.getSacaIds() : new ArrayList<>();
         validarSacasParaTipoEntrega(request.getTipoEntrega(), sacaIds);
+        EstadoRastreoService.TransicionInmediata transicion = sacaIds.isEmpty()
+                ? null
+                : resolverTransicionIngresoDespacho();
+        List<Saca> sacasACambiar = sacaIds.isEmpty()
+                ? List.of()
+                : validarSacasNuevas(sacaIds, null, transicion.anterior(), true);
 
         Usuario operario = currentUserService.getCurrentUsuario();
         LocalDateTime fechaHora = request.getFechaHora() != null ? request.getFechaHora() : LocalDateTime.now();
@@ -308,21 +317,14 @@ public class DespachoService {
         congelarDestinoVersion(d);
         d = despachoRepository.save(d);
 
-        if (!sacaIds.isEmpty()) {
-            List<Saca> sacasACambiar = sacaRepository.findAllById(sacaIds);
-            if (sacasACambiar.size() != sacaIds.size()) {
-                Set<Long> encontradas = sacasACambiar.stream().map(Saca::getId).collect(Collectors.toSet());
-                Long faltante = sacaIds.stream().filter(sid -> !encontradas.contains(sid)).findFirst().orElse(null);
-                throw new ResourceNotFoundException("Saca", faltante);
-            }
+        if (!sacasACambiar.isEmpty()) {
             for (Saca saca : sacasACambiar) {
-                sacaEnDespachoValidator.requireSinDespacho(saca, null);
                 saca.setDespacho(d);
             }
             sacaRepository.saveAll(sacasACambiar);
             List<Long> paqueteIds = paqueteRepository.findIdsBySacaIdIn(sacaIds);
             if (!paqueteIds.isEmpty()) {
-                paqueteService.aplicarEstadoEnDespacho(paqueteIds);
+                paqueteService.aplicarEstadoEnDespacho(paqueteIds, transicion.destino().getId());
             }
             d = despachoRepository.findById(d.getId()).orElse(d);
         }
@@ -360,6 +362,18 @@ public class DespachoService {
         List<Long> requestedSacaIdsForValidation = request.getSacaIds() != null ? request.getSacaIds() : new ArrayList<>();
         validarSacasParaTipoEntrega(request.getTipoEntrega(), requestedSacaIdsForValidation);
 
+        List<Saca> currentSacas = d.getSacas() != null ? new ArrayList<>(d.getSacas()) : new ArrayList<>();
+        Set<Long> currentSet = currentSacas.stream().map(Saca::getId).collect(Collectors.toSet());
+        List<Long> nuevasSacaIds = requestedSacaIdsForValidation.stream()
+                .filter(sacaId -> !currentSet.contains(sacaId))
+                .toList();
+        EstadoRastreoService.TransicionInmediata transicion = nuevasSacaIds.isEmpty()
+                ? null
+                : resolverTransicionIngresoDespacho();
+        List<Saca> nuevasSacas = nuevasSacaIds.isEmpty()
+                ? List.of()
+                : validarSacasNuevas(nuevasSacaIds, id, transicion.anterior(), true);
+
         LocalDateTime fechaHora = request.getFechaHora() != null ? request.getFechaHora() : d.getFechaHora();
 
         d.setNumeroGuia(resolverNumeroGuia(request, d.getNumeroGuia()));
@@ -376,7 +390,6 @@ public class DespachoService {
         List<Long> requestedSacaIds = request.getSacaIds() != null ? request.getSacaIds() : new ArrayList<>();
         Set<Long> requestedSet = Set.copyOf(requestedSacaIds);
 
-        List<Saca> currentSacas = d.getSacas() != null ? d.getSacas() : new ArrayList<>();
         List<Long> sacasDesasignadas = new ArrayList<>();
         for (Saca saca : currentSacas) {
             if (!requestedSet.contains(saca.getId())) {
@@ -393,34 +406,110 @@ public class DespachoService {
             recomputarGuiasMasterDePaquetes(paqueteIdsDesasignados);
         }
 
-        List<Long> currentSacaIds = currentSacas.stream().map(Saca::getId).toList();
-        Set<Long> currentSet = Set.copyOf(currentSacaIds);
-        List<Long> nuevasSacaIds = new ArrayList<>();
-        if (!requestedSacaIds.isEmpty()) {
-            List<Saca> sacasReq = sacaRepository.findAllById(requestedSacaIds);
-            if (sacasReq.size() != requestedSacaIds.size()) {
-                Set<Long> encontradas = sacasReq.stream().map(Saca::getId).collect(Collectors.toSet());
-                Long faltante = requestedSacaIds.stream().filter(sid -> !encontradas.contains(sid)).findFirst().orElse(null);
-                throw new ResourceNotFoundException("Saca", faltante);
-            }
-            for (Saca saca : sacasReq) {
-                sacaEnDespachoValidator.requireSinDespacho(saca, id);
-                if (!currentSet.contains(saca.getId())) {
-                    nuevasSacaIds.add(saca.getId());
-                }
+        if (!nuevasSacas.isEmpty()) {
+            for (Saca saca : nuevasSacas) {
                 saca.setDespacho(d);
             }
-            sacaRepository.saveAll(sacasReq);
+            sacaRepository.saveAll(nuevasSacas);
         }
         if (!nuevasSacaIds.isEmpty()) {
             List<Long> paqueteIdsToApply = paqueteRepository.findIdsBySacaIdIn(nuevasSacaIds);
             if (!paqueteIdsToApply.isEmpty()) {
-                paqueteService.aplicarEstadoEnDespacho(paqueteIdsToApply);
+                paqueteService.aplicarEstadoEnDespacho(paqueteIdsToApply, transicion.destino().getId());
             }
         }
 
         d = despachoRepository.findById(d.getId()).orElse(d);
         return toDTO(d);
+    }
+
+    @Transactional(readOnly = true)
+    public SacasElegiblesDespachoDTO listarSacasElegibles() {
+        EstadoRastreoService.TransicionInmediata transicion = resolverTransicionIngresoDespacho();
+        List<Saca> candidatas = sacaRepository.findByDespachoIdIsNullOrderByIdAsc();
+        if (candidatas.isEmpty()) {
+            return respuestaElegibilidad(transicion, List.of());
+        }
+        List<Long> ids = candidatas.stream().map(Saca::getId).toList();
+        Map<Long, List<Paquete>> paquetesPorSaca = agruparPaquetes(
+                paqueteRepository.findBySacaIdInWithEstado(ids));
+        List<SacaDTO> elegibles = candidatas.stream()
+                .filter(saca -> paquetesCumplenEstado(
+                        paquetesPorSaca.getOrDefault(saca.getId(), List.of()),
+                        transicion.anterior().getId()))
+                .map(sacaService::toDTO)
+                .toList();
+        return respuestaElegibilidad(transicion, elegibles);
+    }
+
+    private SacasElegiblesDespachoDTO respuestaElegibilidad(
+            EstadoRastreoService.TransicionInmediata transicion,
+            List<SacaDTO> sacas) {
+        return SacasElegiblesDespachoDTO.builder()
+                .estadoRequeridoId(transicion.anterior().getId())
+                .estadoRequeridoNombre(transicion.anterior().getNombre())
+                .sacas(sacas)
+                .build();
+    }
+
+    private EstadoRastreoService.TransicionInmediata resolverTransicionIngresoDespacho() {
+        Long estadoDestinoId = parametroSistemaService.getEstadosRastreoPorPunto()
+                .getEstadoRastreoEnDespachoId();
+        if (estadoDestinoId == null) {
+            throw new BadRequestException(
+                    "No se puede validar el ingreso al despacho porque no hay un estado configurado "
+                            + "para el punto de despacho.");
+        }
+        return estadoRastreoService.resolverTransicionInmediata(estadoDestinoId);
+    }
+
+    private List<Saca> validarSacasNuevas(
+            List<Long> sacaIds,
+            Long despachoIdActual,
+            EstadoRastreo estadoRequerido,
+            boolean bloquearPaquetes) {
+        List<Long> idsUnicos = sacaIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (idsUnicos.size() != sacaIds.size()) {
+            throw new BadRequestException("La lista de sacas contiene IDs nulos o repetidos.");
+        }
+        List<Saca> sacas = sacaRepository.findAllById(idsUnicos);
+        if (sacas.size() != idsUnicos.size()) {
+            Set<Long> encontradas = sacas.stream().map(Saca::getId).collect(Collectors.toSet());
+            Long faltante = idsUnicos.stream().filter(id -> !encontradas.contains(id)).findFirst().orElse(null);
+            throw new ResourceNotFoundException("Saca", faltante);
+        }
+        for (Saca saca : sacas) {
+            sacaEnDespachoValidator.requireSinDespacho(saca, despachoIdActual);
+        }
+        List<Paquete> paquetes = bloquearPaquetes
+                ? paqueteRepository.findBySacaIdInWithEstadoForUpdate(idsUnicos)
+                : paqueteRepository.findBySacaIdInWithEstado(idsUnicos);
+        Map<Long, List<Paquete>> paquetesPorSaca = agruparPaquetes(paquetes);
+        for (Saca saca : sacas) {
+            if (!paquetesCumplenEstado(
+                    paquetesPorSaca.getOrDefault(saca.getId(), List.of()),
+                    estadoRequerido.getId())) {
+                throw new BadRequestException(
+                        "No se puede agregar la saca " + saca.getNumeroOrden()
+                                + " porque todos sus paquetes deben estar exactamente en el estado '"
+                                + estadoRequerido.getNombre() + "' "
+                                + "para ingresar al despacho.");
+            }
+        }
+        return sacas;
+    }
+
+    private Map<Long, List<Paquete>> agruparPaquetes(List<Paquete> paquetes) {
+        return paquetes.stream().collect(Collectors.groupingBy(
+                paquete -> paquete.getSaca().getId(),
+                LinkedHashMap::new,
+                Collectors.toList()));
+    }
+
+    private boolean paquetesCumplenEstado(List<Paquete> paquetes, Long estadoRequeridoId) {
+        return !paquetes.isEmpty() && paquetes.stream().allMatch(paquete ->
+                paquete.getEstadoRastreo() != null
+                        && Objects.equals(paquete.getEstadoRastreo().getId(), estadoRequeridoId));
     }
 
     @Transactional

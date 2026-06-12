@@ -547,6 +547,12 @@ public class PaqueteService {
     public void aplicarEstadoEnDespacho(List<Long> paqueteIds) {
         Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnDespachoId();
         if (estadoId == null) return;
+        aplicarEstadoEnDespacho(paqueteIds, estadoId);
+    }
+
+    /** Aplica el estado de entrada ya resuelto por el flujo transaccional del despacho. */
+    @Transactional
+    public void aplicarEstadoEnDespacho(List<Long> paqueteIds, Long estadoId) {
         aplicarEstadoEnConjunto(paqueteIds, estadoId,
                 TrackingEventType.ESTADO_APLICADO_DESPACHO, "DESPACHO_AUTO", "despacho");
     }
