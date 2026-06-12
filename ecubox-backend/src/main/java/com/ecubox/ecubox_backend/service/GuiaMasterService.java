@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.service;
 
+import com.ecubox.ecubox_backend.dto.AplicarAccionGuiasMasterResponse;
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.GuiaMasterDTO;
 import com.ecubox.ecubox_backend.dto.GuiaMasterDashboardDTO;
@@ -1054,6 +1055,85 @@ public class GuiaMasterService {
         registrarHistorial(saved, anterior, derivado,
                 TipoCambioEstadoGuiaMaster.REAPERTURA, motivoLimpio, actor);
         return saved;
+    }
+
+    /** Acciones de ciclo de vida aplicables en lote a guías master. */
+    public enum AccionBulkGuiaMaster {
+        APROBAR, RECALCULAR, MARCAR_REVISION, SALIR_REVISION, CANCELAR, REABRIR
+    }
+
+    /**
+     * Aplica una acción de ciclo de vida a varias guías master en una sola
+     * llamada (espejo del patrón de {@code EnvioConsolidadoService.aplicarTransicionOperativa}).
+     * Reutiliza los métodos individuales sin alterar sus reglas: cada guía que
+     * no cumple las precondiciones se devuelve como rechazada con el motivo
+     * de regla de negocio que lanzó el método correspondiente.
+     *
+     * <p>Los ids inexistentes se omiten silenciosamente (igual que en
+     * consolidados). Para RECALCULAR, {@link #recomputarEstado(Long)} es un
+     * no-op silencioso sobre guías congeladas (en revisión o terminales); aquí
+     * se reporta como rechazo para que el resumen del lote sea veraz.
+     */
+    @Transactional
+    public AplicarAccionGuiasMasterResponse aplicarAccionBulk(
+            String accionRaw, List<Long> guiaIds, String motivo, Long actorUsuarioId) {
+        AccionBulkGuiaMaster accion;
+        try {
+            accion = AccionBulkGuiaMaster.valueOf(accionRaw != null ? accionRaw.trim() : "");
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException(
+                    "No se puede aplicar la acción porque no es válida: " + accionRaw
+                            + ". Acciones permitidas: APROBAR, RECALCULAR, MARCAR_REVISION, "
+                            + "SALIR_REVISION, CANCELAR o REABRIR.");
+        }
+        String motivoLimpio = Strings.trimOrNull(motivo);
+        if ((accion == AccionBulkGuiaMaster.CANCELAR || accion == AccionBulkGuiaMaster.REABRIR)
+                && motivoLimpio == null) {
+            throw new BadRequestException(
+                    "No se puede aplicar la acción porque falta el motivo. "
+                            + "Indica el motivo para cancelar o reabrir guías.");
+        }
+        List<Long> ids = guiaIds == null ? List.of()
+                : guiaIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            throw new BadRequestException(
+                    "No se puede aplicar la acción porque no se indicó ninguna guía master. "
+                            + "Selecciona al menos una guía para continuar.");
+        }
+        List<GuiaMaster> universo = guiaMasterRepository.findAllById(ids);
+        int procesadas = 0;
+        List<AplicarAccionGuiasMasterResponse.RechazoGuiaMaster> rechazados = new ArrayList<>();
+        for (GuiaMaster gm : universo) {
+            try {
+                switch (accion) {
+                    case APROBAR -> aprobar(gm.getId(), actorUsuarioId);
+                    case RECALCULAR -> {
+                        if (gm.getEstadoGlobal() != null
+                                && gm.getEstadoGlobal().estaCongeladoParaRecalculo()) {
+                            throw new BadRequestException(
+                                    "No se puede recalcular porque la guía está en revisión o en un estado terminal. "
+                                            + "Estado actual: " + gm.getEstadoGlobal() + ".");
+                        }
+                        recomputarEstado(gm.getId());
+                    }
+                    case MARCAR_REVISION -> marcarEnRevision(gm.getId(), motivoLimpio, actorUsuarioId);
+                    case SALIR_REVISION -> salirDeRevision(gm.getId(), motivoLimpio, actorUsuarioId);
+                    case CANCELAR -> cancelar(gm.getId(), motivoLimpio, actorUsuarioId);
+                    case REABRIR -> reabrir(gm.getId(), motivoLimpio, actorUsuarioId);
+                }
+                procesadas++;
+            } catch (BadRequestException | ConflictException ex) {
+                rechazados.add(AplicarAccionGuiasMasterResponse.RechazoGuiaMaster.builder()
+                        .guiaMasterId(gm.getId())
+                        .trackingBase(gm.getTrackingBase())
+                        .motivo(ex.getMessage())
+                        .build());
+            }
+        }
+        return AplicarAccionGuiasMasterResponse.builder()
+                .procesadas(procesadas)
+                .rechazados(rechazados)
+                .build();
     }
 
     /** Obtiene el historial de cambios de estado mas reciente primero. */

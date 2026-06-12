@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CalendarClock, CheckSquare, ListChecks, Search, Square, Tag } from 'lucide-react';
+import { CheckSquare, ChevronDown, ChevronUp, Search, Square, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -24,8 +24,13 @@ import { cn } from '@/lib/utils';
 export interface AplicarEstadoItem {
   id: number;
   searchText: string;
-  date?: string | null;
   content: ReactNode;
+  /**
+   * Si está presente, el item NO es elegible para la acción seleccionada:
+   * se muestra deshabilitado (colapsado bajo "Mostrar no elegibles") con
+   * esta razón visible, en lugar de ocultarse silenciosamente.
+   */
+  disabledReason?: string;
 }
 
 export interface AplicarEstadoOption {
@@ -50,12 +55,6 @@ interface Props {
   items: AplicarEstadoItem[];
   selectedIds: number[];
   onSelectedIdsChange: (ids: number[]) => void;
-  mode: 'periodo' | 'seleccion';
-  onModeChange: (mode: 'periodo' | 'seleccion') => void;
-  dateFrom: string;
-  dateTo: string;
-  onDateFromChange: (value: string) => void;
-  onDateToChange: (value: string) => void;
   options: AplicarEstadoOption[];
   selectedOption: string;
   onSelectedOptionChange: (value: string) => void;
@@ -63,18 +62,15 @@ interface Props {
   optionHelp?: ReactNode;
   headerExtra?: ReactNode;
   filters?: AplicarEstadoFilter[];
-  hideModoSelector?: boolean;
-  periodHelp: ReactNode;
   loading: boolean;
   onConfirm: () => void | Promise<void>;
   onOpenChange: (open: boolean) => void;
-}
-
-function localIsoDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  /** Texto del botón de confirmar (default: "Aplicar estado"). */
+  confirmLabel?: string;
+  /** Placeholder del selector de acción/estado. */
+  selectPlaceholder?: string;
+  /** Mensaje cuando aún no se eligió acción/estado. */
+  emptyHint?: string;
 }
 
 export function AplicarEstadoMasivoDialog({
@@ -86,12 +82,6 @@ export function AplicarEstadoMasivoDialog({
   items,
   selectedIds,
   onSelectedIdsChange,
-  mode,
-  onModeChange,
-  dateFrom,
-  dateTo,
-  onDateFromChange,
-  onDateToChange,
   options,
   selectedOption,
   onSelectedOptionChange,
@@ -99,50 +89,41 @@ export function AplicarEstadoMasivoDialog({
   optionHelp,
   headerExtra,
   filters = [],
-  hideModoSelector = false,
-  periodHelp,
   loading,
   onConfirm,
   onOpenChange,
+  confirmLabel = 'Aplicar estado',
+  selectPlaceholder = 'Selecciona un estado...',
+  emptyHint,
 }: Props) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
-  const today = useMemo(() => localIsoDate(new Date()), []);
+  const [showNoElegibles, setShowNoElegibles] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setSearch('');
       setFilter('');
+      setShowNoElegibles(false);
     }
   }, [open]);
 
-  const visibleItems = useMemo(() => {
+  const { visibleElegibles, visibleNoElegibles } = useMemo(() => {
     const q = search.trim().toLowerCase();
     const activeFilter = filters.find((item) => item.value === filter);
-    return items.filter((item) => {
+    const visibles = items.filter((item) => {
       if (activeFilter && !activeFilter.matches(item)) return false;
       return !q || item.searchText.toLowerCase().includes(q);
     });
+    return {
+      visibleElegibles: visibles.filter((item) => !item.disabledReason),
+      visibleNoElegibles: visibles.filter((item) => item.disabledReason),
+    };
   }, [filter, filters, items, search]);
 
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   const allVisibleSelected =
-    visibleItems.length > 0 && visibleItems.every((item) => selected.has(item.id));
-
-  const period = useMemo(() => {
-    if (!dateFrom || !dateTo) return null;
-    const from = new Date(`${dateFrom}T00:00:00`).getTime();
-    const to = new Date(`${dateTo}T23:59:59`).getTime();
-    if (from > to) return { invalid: true, count: 0 };
-    return {
-      invalid: false,
-      count: items.filter((item) => {
-        if (!item.date) return false;
-        const value = new Date(item.date).getTime();
-        return value >= from && value <= to;
-      }).length,
-    };
-  }, [dateFrom, dateTo, items]);
+    visibleElegibles.length > 0 && visibleElegibles.every((item) => selected.has(item.id));
 
   const toggle = (id: number) => {
     onSelectedIdsChange(
@@ -152,21 +133,16 @@ export function AplicarEstadoMasivoDialog({
 
   const toggleVisible = () => {
     if (allVisibleSelected) {
-      const visibleIds = new Set(visibleItems.map((item) => item.id));
+      const visibleIds = new Set(visibleElegibles.map((item) => item.id));
       onSelectedIdsChange(selectedIds.filter((id) => !visibleIds.has(id)));
       return;
     }
     onSelectedIdsChange(
-      Array.from(new Set([...selectedIds, ...visibleItems.map((item) => item.id)])),
+      Array.from(new Set([...selectedIds, ...visibleElegibles.map((item) => item.id)])),
     );
   };
 
-  const disabled =
-    loading ||
-    !selectedOption ||
-    (mode === 'periodo'
-      ? !dateFrom || !dateTo || (period?.invalid ?? false) || period?.count === 0
-      : selectedIds.length === 0);
+  const disabled = loading || !selectedOption || selectedIds.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,36 +159,6 @@ export function AplicarEstadoMasivoDialog({
 
         <div className="space-y-4">
           {headerExtra}
-          {!hideModoSelector && (
-            <div className="inline-flex w-full rounded-lg border border-border bg-muted/30 p-1 text-sm">
-              <button
-                type="button"
-                onClick={() => onModeChange('periodo')}
-                className={cn(
-                  'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5',
-                  mode === 'periodo'
-                    ? 'bg-background font-medium text-foreground shadow-sm'
-                    : 'text-muted-foreground',
-                )}
-              >
-                <CalendarClock className="h-4 w-4" />
-                Por periodo
-              </button>
-              <button
-                type="button"
-                onClick={() => onModeChange('seleccion')}
-                className={cn(
-                  'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5',
-                  mode === 'seleccion'
-                    ? 'bg-background font-medium text-foreground shadow-sm'
-                    : 'text-muted-foreground',
-                )}
-              >
-                <ListChecks className="h-4 w-4" />
-                Por {selectionLabel}
-              </button>
-            </div>
-          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="estado-masivo-select">{optionLabel}</Label>
@@ -223,7 +169,7 @@ export function AplicarEstadoMasivoDialog({
             ) : (
               <Select value={selectedOption} onValueChange={onSelectedOptionChange}>
                 <SelectTrigger id="estado-masivo-select">
-                  <SelectValue placeholder="Selecciona un estado..." />
+                  <SelectValue placeholder={selectPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
                   {options.map((option) => (
@@ -244,50 +190,9 @@ export function AplicarEstadoMasivoDialog({
             {optionHelp && <div className="text-xs text-muted-foreground">{optionHelp}</div>}
           </div>
 
-          {mode === 'periodo' ? (
-            <div className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="estado-periodo-desde">Fecha inicio</Label>
-                  <Input
-                    id="estado-periodo-desde"
-                    type="date"
-                    value={dateFrom}
-                    max={today}
-                    onChange={(event) => onDateFromChange(event.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="estado-periodo-hasta">Fecha fin</Label>
-                  <Input
-                    id="estado-periodo-hasta"
-                    type="date"
-                    value={dateTo}
-                    min={dateFrom || undefined}
-                    max={today}
-                    onChange={(event) => onDateToChange(event.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground">{periodHelp}</div>
-              {period && (
-                <div
-                  className={cn(
-                    'rounded-md border p-3 text-sm',
-                    period.invalid || period.count === 0
-                      ? 'border-warning/30 bg-warning/10 text-warning'
-                      : 'border-success/30 bg-success/10 text-success',
-                  )}
-                >
-                  {period.invalid
-                    ? 'La fecha de inicio debe ser anterior o igual a la fecha de fin.'
-                    : `${period.count} ${selectionLabel} en el periodo.`}
-                </div>
-              )}
-            </div>
-          ) : !selectedOption ? (
+          {!selectedOption ? (
             <div className="rounded-md border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-              Selecciona un estado para ver los {selectionLabel} elegibles.
+              {emptyHint ?? `Selecciona un estado para ver los ${selectionLabel} elegibles.`}
             </div>
           ) : (
             <div className="space-y-3">
@@ -332,7 +237,7 @@ export function AplicarEstadoMasivoDialog({
                   variant="outline"
                   size="sm"
                   onClick={toggleVisible}
-                  disabled={visibleItems.length === 0}
+                  disabled={visibleElegibles.length === 0}
                 >
                   {allVisibleSelected ? (
                     <Square className="mr-2 h-4 w-4" />
@@ -344,29 +249,71 @@ export function AplicarEstadoMasivoDialog({
               </div>
 
               <div className="max-h-72 overflow-y-auto rounded-md border border-border">
-                {visibleItems.length === 0 ? (
+                {visibleElegibles.length === 0 && visibleNoElegibles.length === 0 ? (
                   <div className="p-4 text-center text-sm text-muted-foreground">
                     No hay elementos que coincidan.
                   </div>
                 ) : (
-                  <ul className="divide-y divide-border">
-                    {visibleItems.map((item) => (
-                      <li key={item.id}>
-                        <label
-                          className={cn(
-                            'flex cursor-pointer items-center gap-3 px-3 py-2',
-                            selected.has(item.id) ? 'bg-primary/5' : 'hover:bg-muted/40',
-                          )}
+                  <>
+                    {visibleElegibles.length === 0 && (
+                      <div className="border-b border-border p-3 text-center text-sm text-muted-foreground">
+                        No hay {selectionLabel} elegibles para esta acción.
+                      </div>
+                    )}
+                    <ul className="divide-y divide-border">
+                      {visibleElegibles.map((item) => (
+                        <li key={item.id}>
+                          <label
+                            className={cn(
+                              'flex cursor-pointer items-center gap-3 px-3 py-2',
+                              selected.has(item.id) ? 'bg-primary/5' : 'hover:bg-muted/40',
+                            )}
+                          >
+                            <Checkbox
+                              checked={selected.has(item.id)}
+                              onCheckedChange={() => toggle(item.id)}
+                            />
+                            <div className="min-w-0 flex-1">{item.content}</div>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    {visibleNoElegibles.length > 0 && (
+                      <div className="border-t border-border">
+                        <button
+                          type="button"
+                          onClick={() => setShowNoElegibles((v) => !v)}
+                          className="flex w-full items-center justify-center gap-2 bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50"
                         >
-                          <Checkbox
-                            checked={selected.has(item.id)}
-                            onCheckedChange={() => toggle(item.id)}
-                          />
-                          <div className="min-w-0 flex-1">{item.content}</div>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
+                          {showNoElegibles ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+                          {showNoElegibles
+                            ? 'Ocultar no elegibles'
+                            : `Mostrar no elegibles (${visibleNoElegibles.length})`}
+                        </button>
+                        {showNoElegibles && (
+                          <ul className="divide-y divide-border border-t border-border">
+                            {visibleNoElegibles.map((item) => (
+                              <li key={item.id}>
+                                <div className="flex items-start gap-3 px-3 py-2 opacity-60">
+                                  <Checkbox disabled checked={false} className="mt-0.5" />
+                                  <div className="min-w-0 flex-1">
+                                    {item.content}
+                                    <p className="mt-0.5 text-[11px] text-warning">
+                                      {item.disabledReason}
+                                    </p>
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -385,7 +332,7 @@ export function AplicarEstadoMasivoDialog({
           </Button>
           <Button onClick={onConfirm} disabled={disabled}>
             <Tag className="mr-2 h-4 w-4" />
-            {loading ? 'Aplicando...' : 'Aplicar estado'}
+            {loading ? 'Aplicando...' : confirmLabel}
           </Button>
         </div>
       </DialogContent>
