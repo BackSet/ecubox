@@ -30,7 +30,7 @@
 | Contexto IA | `docs/ai/` | Estos cuatro archivos canónicos. |
 | Infraestructura local | `docker-compose.yml`, `*/Dockerfile`, `ecubox-frontend/Caddyfile` | PostgreSQL, backend y frontend servido por Caddy. |
 | Despliegue | `ecubox-backend/railway.json`, `ecubox-frontend/railway.json`, `docs/despliegue/` | Configuración y guía de Railway. |
-| Migraciones | `ecubox-backend/src/main/resources/db/migration/` | Flyway `V1` a `V109`, con numeración no necesariamente contigua. |
+| Migraciones | `ecubox-backend/src/main/resources/db/migration/` | Flyway `V1` a `V110`, con numeración no necesariamente contigua. |
 | Seed de desarrollo | `ecubox-backend/src/main/resources/db/dev/` | Migración repetible solo del perfil `dev`. |
 | Tests backend | `ecubox-backend/src/test/java/` | JUnit/Spring Test/Mockito; predominan unitarios y pruebas HTTP aisladas. |
 | Tests frontend | `ecubox-frontend/src/**/*.test.{ts,tsx}` | Vitest, Testing Library y jsdom. |
