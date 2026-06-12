@@ -62,14 +62,14 @@ function buildEnlaceUrl(token: string): string {
   return `${window.location.origin}/acceso?token=${encodeURIComponent(token)}`;
 }
 
-async function copiarEnlace(token: string | null): Promise<boolean> {
+async function copiarEnlace(token: string | null, caducidad?: string): Promise<boolean> {
   if (!token) {
     toast.error('Este enlace no tiene un token disponible para copiar');
     return false;
   }
   try {
     await navigator.clipboard.writeText(buildEnlaceUrl(token));
-    toast.success('Enlace copiado al portapapeles');
+    toast.success('Enlace copiado', caducidad ? { description: caducidad } : undefined);
     return true;
   } catch {
     toast.error('No se pudo copiar el enlace');
@@ -362,14 +362,6 @@ export function EnlacesAccesoPage() {
 function EnlaceRow({ enlace, onRevocar }: { enlace: AccesoEnlace; onRevocar: () => void }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = async () => {
-    const ok = await copiarEnlace(enlace.token);
-    if (ok) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    }
-  };
-
   const nombres = enlace.consignatarios.map((c) => c.nombre).join(', ');
   const caducidad =
     enlace.tipo === 'TEMPORAL'
@@ -377,6 +369,14 @@ function EnlaceRow({ enlace, onRevocar }: { enlace: AccesoEnlace; onRevocar: () 
         ? `Caduca ${formatFecha(enlace.expiraAt)}`
         : 'Temporal'
       : 'Sin caducidad';
+
+  const handleCopy = async () => {
+    const ok = await copiarEnlace(enlace.token, caducidad);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
 
   return (
     <TableRow>
@@ -499,7 +499,12 @@ function CrearEnlaceDialog({ onClose }: { onClose: () => void }) {
         etiqueta: etiqueta.trim() || undefined,
       });
       setNuevoEnlaceUrl(buildEnlaceUrl(res.token));
-      toast.success('Enlace generado');
+      const exp = res.enlace?.expiraAt;
+      toast.success('Enlace de acceso generado', {
+        description: exp
+          ? `Caduca ${formatFecha(exp)} · Compártelo solo con el destinatario.`
+          : 'Sin caducidad · Compártelo solo con el destinatario; puedes revocarlo cuando quieras.',
+      });
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error) ?? 'No se pudo generar el enlace');
     }

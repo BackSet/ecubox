@@ -1,6 +1,8 @@
 package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.config.OpenApiConstants;
+import com.ecubox.ecubox_backend.dto.AplicarAccionGuiasMasterRequest;
+import com.ecubox.ecubox_backend.dto.AplicarAccionGuiasMasterResponse;
 import com.ecubox.ecubox_backend.dto.GuiaMasterCancelarRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterCerrarConFaltanteRequest;
 import com.ecubox.ecubox_backend.dto.GuiaMasterConfirmarDespachoParcialRequest;
@@ -220,6 +222,23 @@ public class GuiaMasterController {
         Long actorId = actorIdSafe();
         GuiaMaster gm = guiaMasterService.reabrir(id, request.getMotivo(), actorId);
         return ResponseEntity.ok(construirDTO(gm, true));
+    }
+
+    /**
+     * Acción masiva de ciclo de vida. Las guías que no cumplen las
+     * precondiciones se devuelven como rechazadas con su motivo, sin abortar
+     * el lote. Mismo permiso que los endpoints individuales equivalentes.
+     */
+    @PostMapping("/aplicar-accion")
+    @PreAuthorize("hasAuthority('GUIAS_MASTER_UPDATE')")
+    @Operation(summary = "Aplicar acción masiva a guías master",
+            description = "Aplica una acción de ciclo de vida (aprobar, recalcular, revisión, cancelar, reabrir) a varias guías master; las no elegibles se devuelven como rechazadas con motivo")
+    @ApiResponse(responseCode = "200", description = "Resultado del lote")
+    public ResponseEntity<AplicarAccionGuiasMasterResponse> aplicarAccion(
+            @Valid @RequestBody AplicarAccionGuiasMasterRequest request) {
+        Long actorId = actorIdSafe();
+        return ResponseEntity.ok(guiaMasterService.aplicarAccionBulk(
+                request.getAccion(), request.getGuiaIds(), request.getMotivo(), actorId));
     }
 
     @GetMapping("/{id}/historial")

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   obtenerWebPushPublicKey,
   registrarWebPushSubscription,
@@ -49,16 +49,25 @@ export function useActivarNotificaciones() {
   const mutation = useMutation({
     mutationFn: async () => {
       if (permission === 'requires-install') {
-        throw new Error('En iPhone o iPad, instala ECUBOX antes de activar los avisos.');
+        throw new Error(
+          'En iPhone o iPad primero instala ECUBOX como app: toca Compartir y luego "Agregar a inicio". Después podrás activar los avisos.',
+        );
       }
       if (!canUseNotifications()) {
-        throw new Error('Este navegador no admite notificaciones web.');
+        throw new Error(
+          'Este navegador no admite notificaciones web. Prueba con Chrome, Edge o Firefox actualizados.',
+        );
       }
 
       const permiso = await requestNotificationPermission();
       setPermission(permiso);
+      if (permiso === 'denied') {
+        throw new Error(
+          'El navegador bloqueó el permiso. Actívalo desde la configuración del sitio (ícono de candado junto a la dirección).',
+        );
+      }
       if (permiso !== 'granted') {
-        throw new Error('No se concedio el permiso de notificaciones.');
+        throw new Error('No se concedió el permiso. Vuelve a intentarlo y elige "Permitir".');
       }
 
       // La suscripcion Web Push requiere sesion (el endpoint esta protegido) y
@@ -75,11 +84,12 @@ export function useActivarNotificaciones() {
       await registrarWebPushSubscription(serializePushSubscription(subscription));
     },
     onSuccess: () => {
-      toast.success('Notificaciones activadas.');
+      notify.success('Notificaciones activadas', 'Recibirás avisos de ECUBOX en este dispositivo.');
     },
     onError: (error) => {
-      toast.error(
-        error instanceof Error ? error.message : 'No se pudieron activar las notificaciones.'
+      notify.error(
+        'No se pudieron activar las notificaciones',
+        error instanceof Error ? error.message : undefined,
       );
     },
   });

@@ -806,4 +806,59 @@ class GuiaMasterServiceTest {
         assertEquals("AGG-1 1/2", dto.getTimeline().get(0).getNumeroGuia());
         assertEquals(1, dto.getTimeline().get(0).getPiezaNumero());
     }
+
+    // ------------------------------------------------------------------
+    // aplicarAccionBulk (accion masiva sobre guias master)
+    // ------------------------------------------------------------------
+
+    @Test
+    void aplicarAccionBulk_cancelar_procesaElegiblesYRechazaTerminales() {
+        GuiaMaster activa = GuiaMaster.builder().id(1L).trackingBase("TB-OK")
+                .estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
+        GuiaMaster cancelada = GuiaMaster.builder().id(2L).trackingBase("TB-TERMINAL")
+                .estadoGlobal(EstadoGuiaMaster.CANCELADA).build();
+        when(guiaMasterRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(activa, cancelada));
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(activa));
+        when(guiaMasterRepository.findById(2L)).thenReturn(Optional.of(cancelada));
+        when(guiaMasterRepository.save(any(GuiaMaster.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var res = service.aplicarAccionBulk("CANCELAR", List.of(1L, 2L), "error de registro", null);
+
+        assertEquals(1, res.getProcesadas());
+        assertEquals(1, res.getRechazados().size());
+        var rechazo = res.getRechazados().get(0);
+        assertEquals(2L, rechazo.getGuiaMasterId());
+        assertEquals("TB-TERMINAL", rechazo.getTrackingBase());
+        assertTrue(rechazo.getMotivo().contains("estado terminal"));
+    }
+
+    @Test
+    void aplicarAccionBulk_accionDesconocida_lanzaBadRequest() {
+        var ex = assertThrows(BadRequestException.class,
+                () -> service.aplicarAccionBulk("EXPLOTAR", List.of(1L), null, null));
+        assertTrue(ex.getMessage().contains("no es válida"));
+        assertTrue(ex.getMessage().contains("EXPLOTAR"));
+    }
+
+    @Test
+    void aplicarAccionBulk_cancelarSinMotivo_lanzaBadRequest() {
+        var ex = assertThrows(BadRequestException.class,
+                () -> service.aplicarAccionBulk("CANCELAR", List.of(1L), "   ", null));
+        assertTrue(ex.getMessage().contains("falta el motivo"));
+        verify(guiaMasterRepository, never()).findAllById(anyList());
+    }
+
+    @Test
+    void aplicarAccionBulk_recalcular_guiaCongelada_seRechazaConMotivo() {
+        GuiaMaster enRevision = GuiaMaster.builder().id(3L).trackingBase("TB-REV")
+                .estadoGlobal(EstadoGuiaMaster.EN_REVISION).build();
+        when(guiaMasterRepository.findAllById(List.of(3L))).thenReturn(List.of(enRevision));
+
+        var res = service.aplicarAccionBulk("RECALCULAR", List.of(3L), null, null);
+
+        assertEquals(0, res.getProcesadas());
+        assertEquals(1, res.getRechazados().size());
+        assertTrue(res.getRechazados().get(0).getMotivo().contains("revisión"));
+        verify(guiaMasterRepository, never()).save(any());
+    }
 }

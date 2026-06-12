@@ -169,3 +169,28 @@ export async function listarHistorialGuiaMaster(
   );
   return data;
 }
+
+export interface AplicarAccionGuiasMasterPayload {
+  accion: string;
+  guiaIds: number[];
+  motivo?: string;
+}
+
+export interface AplicarAccionGuiasMasterResponse {
+  procesadas: number;
+  rechazados: { guiaMasterId: number; trackingBase: string; motivo: string }[];
+}
+
+/**
+ * Aplica una acción de ciclo de vida a varias guías master en una sola
+ * llamada; las no elegibles vuelven como rechazadas con su motivo.
+ */
+export async function aplicarAccionBulkGuiasMaster(
+  payload: AplicarAccionGuiasMasterPayload,
+): Promise<AplicarAccionGuiasMasterResponse> {
+  const { data } = await apiClient.post<AplicarAccionGuiasMasterResponse>(
+    `${BASE}/aplicar-accion`,
+    payload,
+  );
+  return data;
+}

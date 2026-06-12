@@ -18,6 +18,8 @@ import {
   reabrirGuiaMaster,
   listarHistorialGuiaMaster,
   type ListarGuiasMasterPageParams,
+  aplicarAccionBulkGuiasMaster,
+  type AplicarAccionGuiasMasterPayload,
 } from '@/lib/api/guias-master.service';
 import type {
   EstadoGuiaMaster,
@@ -236,5 +238,20 @@ export function useAllGuiasMaster(enabled = true) {
     queryFn: () => listarGuiasMaster(),
     staleTime: 0,
     enabled,
+  });
+}
+
+/**
+ * Acción masiva de ciclo de vida sobre guías master (un solo request).
+ * Invalida todo el prefijo: cubre list/page/detail/historial/dashboard/all.
+ */
+export function useAplicarAccionBulkGuiasMaster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: AplicarAccionGuiasMasterPayload) =>
+      aplicarAccionBulkGuiasMaster(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: GUIAS_MASTER_QUERY_KEY });
+    },
   });
 }
