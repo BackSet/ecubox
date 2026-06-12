@@ -7,7 +7,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 
 import java.util.List;
 import java.util.Optional;
@@ -83,6 +85,21 @@ public interface EnvioConsolidadoRepository
     List<Long> findAllIdsConPaquetes();
 
     /**
+     * Consolidados elegibles para el avance automático. EXISTS evita duplicar
+     * filas cuando un consolidado contiene varios paquetes.
+     */
+    @Query("""
+            SELECT e FROM EnvioConsolidado e
+            WHERE e.estadoOperativo IN :estados
+              AND EXISTS (
+                SELECT 1 FROM Paquete p WHERE p.envioConsolidado = e
+              )
+            ORDER BY e.createdAt DESC, e.id DESC
+            """)
+    List<EnvioConsolidado> findCandidatosAvanceEstados(
+            @Param("estados") List<EstadoEnvioConsolidadoOperativo> estados);
+
+    /**
      * Ids de consolidados elegibles para aplicar un estado de rastreo masivo:
      * los que tienen al menos un paquete en {@code estadoOrigenId}, o
      * (si {@code estadoOperativoAlterno} no es nulo) cuyo estado operativo
@@ -107,4 +124,8 @@ public interface EnvioConsolidadoRepository
     /** Conteo agrupado por estado de pago: filas [estadoPago, total] (para el resumen liviano). */
     @Query("SELECT e.estadoPago, COUNT(e) FROM EnvioConsolidado e GROUP BY e.estadoPago")
     List<Object[]> countAgrupadoPorEstadoPago();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM EnvioConsolidado e WHERE e.id IN :ids ORDER BY e.id")
+    List<EnvioConsolidado> findAllByIdForUpdate(@Param("ids") List<Long> ids);
 }

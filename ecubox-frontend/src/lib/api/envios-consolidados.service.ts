@@ -41,6 +41,30 @@ export async function listarEnviosConsolidados(
   return data;
 }
 
+export async function listarTodosEnviosConsolidados(): Promise<EnvioConsolidado[]> {
+  const consolidados: EnvioConsolidado[] = [];
+  let page = 0;
+  let totalPages = 1;
+  do {
+    const respuesta = await listarEnviosConsolidados({
+      estado: 'TODOS',
+      page,
+      size: 100,
+    });
+    consolidados.push(...respuesta.content);
+    totalPages = respuesta.totalPages;
+    page += 1;
+  } while (page < totalPages);
+  return consolidados;
+}
+
+export async function listarCandidatosAvanceEstados(): Promise<EnvioConsolidado[]> {
+  const { data } = await apiClient.get<EnvioConsolidado[]>(
+    `${BASE}/candidatos-avance-estados`,
+  );
+  return data;
+}
+
 /**
  * Resumen liviano del listado: conteo por estado operativo (KPIs/chips) y por
  * estado de pago. Reemplaza la descarga del dataset completo solo para la
@@ -208,6 +232,87 @@ export async function aplicarEstadoEnConsolidados(
 
 export async function getEstadosAplicablesConsolidados(): Promise<EstadoRastreo[]> {
   const { data } = await apiClient.get<EstadoRastreo[]>(`${BASE}/estados-aplicables`);
+  return data;
+}
+
+export interface AvanceEstadosConsolidadosPayload {
+  consolidadoIds: number[];
+  estadoFinalId: number;
+  fechaPrincipal: string;
+  fechasPorEstado?: Record<number, string>;
+  previewToken?: string;
+}
+
+export interface EstadoPasoConsolidado {
+  id: number;
+  nombre: string;
+  orden: number;
+}
+
+export interface PasoAvanceConsolidado {
+  estadoId: number;
+  estadoNombre: string;
+  orden: number;
+  fecha: string;
+  efectoOperativo?: EstadoEnvioConsolidadoOperativo | null;
+}
+
+export interface AvanceEstadosConsolidadosPreview {
+  previewToken: string;
+  estadoInicial: EstadoPasoConsolidado;
+  estadoFinal: EstadoPasoConsolidado;
+  pasos: PasoAvanceConsolidado[];
+  resumen: {
+    totalConsolidados: number;
+    totalPaquetes: number;
+    totalPasos: number;
+    totalEventosPrevistos: number;
+  };
+  consolidados: Array<{
+    id: number;
+    codigo: string;
+    totalPaquetes: number;
+    estadoOperativoActual: EstadoEnvioConsolidadoOperativo;
+    estadoOperativoFinal: EstadoEnvioConsolidadoOperativo;
+    version: number;
+  }>;
+  bloqueos: string[];
+  advertencias: string[];
+}
+
+export interface AvanceEstadosConsolidadosResponse {
+  consolidadosProcesados: number;
+  paquetesProcesados: number;
+  pasosAplicados: number;
+  eventosCreados: number;
+  estadoFinalId: number;
+  estadoFinalNombre: string;
+}
+
+export async function getEstadosDestinoSecuenciaConsolidados(): Promise<EstadoRastreo[]> {
+  const { data } = await apiClient.get<EstadoRastreo[]>(
+    `${BASE}/estados-destino-secuencia`,
+  );
+  return data;
+}
+
+export async function previewAvanceEstadosConsolidados(
+  body: AvanceEstadosConsolidadosPayload,
+): Promise<AvanceEstadosConsolidadosPreview> {
+  const { data } = await apiClient.post<AvanceEstadosConsolidadosPreview>(
+    `${BASE}/preview-secuencia-estados`,
+    body,
+  );
+  return data;
+}
+
+export async function aplicarAvanceEstadosConsolidados(
+  body: AvanceEstadosConsolidadosPayload,
+): Promise<AvanceEstadosConsolidadosResponse> {
+  const { data } = await apiClient.post<AvanceEstadosConsolidadosResponse>(
+    `${BASE}/aplicar-secuencia-estados`,
+    body,
+  );
   return data;
 }
 
