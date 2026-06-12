@@ -147,10 +147,12 @@ public class GlobalExceptionHandler {
         String message;
         if (friendly != null) {
             message = friendly;
-        } else if (rawMessage != null && rawMessage.length() <= 200) {
-            message = rawMessage;
         } else {
-            message = "Conflicto de datos (duplicado o restricción de integridad)";
+            // No devolvemos el mensaje crudo del driver: expone nombres de tablas
+            // y SQL. Lo logueamos para diagnostico y damos un mensaje neutro.
+            log.warn("data_integrity_violation constraint={} raw={}", constraint, rawMessage);
+            message = "No se pudo guardar porque el dato entra en conflicto con un registro existente "
+                    + "(valor duplicado o referencia en uso). Verifica los datos e intenta de nuevo.";
         }
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
@@ -186,32 +188,39 @@ public class GlobalExceptionHandler {
         if (constraint == null) return null;
         return switch (constraint) {
             case "idx_paquete_ref" ->
-                    "Ya existe otro paquete con esa referencia";
+                    "No se puede guardar el paquete porque la referencia ya está usada por otro paquete. "
+                            + "Regla: la referencia del paquete debe ser única.";
             case "paquete_numero_guia_key" ->
-                    "Ya existe otro paquete con ese número de guía";
+                    "No se puede guardar el paquete porque el número de guía ya está usado por otro paquete. "
+                            + "Regla: el número de guía debe ser único.";
             case "idx_paquete_guia_master_pieza_uk", "idx_paquete_master_pieza_uk" ->
-                    "Esa pieza ya está asignada en la guía master";
+                    "No se puede guardar el paquete porque ese número de pieza ya está asignado en la guía master. "
+                            + "Regla: cada número de pieza solo puede usarse una vez por guía. Elige otra pieza.";
             case "guia_master_tracking_base_key" ->
-                    "Ya existe una guía master con ese tracking base";
+                    "No se puede guardar la guía master porque ya existe otra con ese número (tracking base). "
+                            + "Regla: el número de guía master debe ser único.";
             case "manifiesto_codigo_key" ->
-                    "Ya existe un manifiesto con ese código";
+                    "No se puede guardar el manifiesto porque ya existe otro con ese código. "
+                            + "Regla: el código del manifiesto debe ser único.";
             case "uq_agencia_courier_entrega_courier_entrega_codigo",
                  "uq_agencia_courier_entrega_courier_entrega_codigo_vivos" ->
-                    "Ya existe un punto de entrega con ese código para el courier de entrega";
-            case "uq_consignatario_codigo_vivos" ->
-                    "Ya existe un consignatario con ese código";
-            case "uq_agencia_codigo_vivos" ->
-                    "Ya existe una agencia con ese código";
+                    "No se puede guardar el punto de entrega porque el courier de entrega ya tiene otro con ese código. "
+                            + "Regla: el código del punto de entrega debe ser único por courier de entrega.";
+            case "uq_consignatario_codigo_vivos", "consignatario_codigo_key" ->
+                    "No se puede guardar el consignatario porque ya existe otro con ese código. "
+                            + "Regla: el código del consignatario debe ser único.";
+            case "uq_agencia_codigo_vivos", "agencia_codigo_key" ->
+                    "No se puede guardar la agencia porque ya existe otra con ese código. "
+                            + "Regla: el código de la agencia debe ser único.";
             case "courier_entrega_codigo_key" ->
-                    "Ya existe un courier de entrega con ese código";
-            case "agencia_codigo_key" ->
-                    "Ya existe una agencia con ese código";
-            case "consignatario_codigo_key" ->
-                    "Ya existe un consignatario con ese código";
+                    "No se puede guardar el courier de entrega porque ya existe otro con ese código. "
+                            + "Regla: el código del courier de entrega debe ser único.";
             case "idx_lote_recepcion_guia_uk" ->
-                    "Ese número de guía ya está en el lote de recepción";
+                    "No se puede agregar la guía porque ese número ya está registrado en el lote de recepción. "
+                            + "Regla: una guía solo puede registrarse una vez por lote.";
             case "ux_tracking_view_paquete_numero_guia" ->
-                    "Conflicto en la vista de tracking del paquete";
+                    "No se pudo actualizar la vista de rastreo porque otro paquete ya usa ese número de guía. "
+                            + "Regla: el número de guía debe ser único.";
             default -> null;
         };
     }

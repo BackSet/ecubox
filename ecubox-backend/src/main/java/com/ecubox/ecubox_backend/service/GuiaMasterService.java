@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.service;
 
+import com.ecubox.ecubox_backend.dto.AplicarAccionGuiasMasterResponse;
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.GuiaMasterDTO;
 import com.ecubox.ecubox_backend.dto.GuiaMasterDashboardDTO;
@@ -125,7 +126,9 @@ public class GuiaMasterService {
             throw new BadRequestException("El total de piezas esperadas debe ser al menos 1");
         }
         if (guiaMasterRepository.existsByTrackingBaseIgnoreCase(tb)) {
-            throw new ConflictException("Ya existe una guía con ese número");
+            throw new ConflictException(
+                    "No se puede registrar la guía master porque ya existe otra con el número " + tb
+                            + ". Regla: el número de guía master (tracking base) debe ser único.");
         }
         Consignatario dest = null;
         Usuario clienteUsuario = null;
@@ -203,7 +206,9 @@ public class GuiaMasterService {
             if (!nuevoTb.equalsIgnoreCase(gm.getTrackingBase())) {
                 guiaMasterRepository.findByTrackingBaseIgnoreCase(nuevoTb).ifPresent(otra -> {
                     if (!otra.getId().equals(gm.getId())) {
-                        throw new ConflictException("Ya existe otra guía con ese número");
+                        throw new ConflictException(
+                                "No se puede cambiar el número de la guía master porque ya existe otra guía con el número "
+                                        + nuevoTb + ". Regla: el número de guía master (tracking base) debe ser único.");
                     }
                 });
                 gm.setTrackingBase(nuevoTb);
@@ -217,7 +222,10 @@ public class GuiaMasterService {
             }
             long registradas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId()).size();
             if (registradas > nuevoTotal) {
-                throw new BadRequestException("Ya hay " + registradas + " piezas registradas; el total no puede ser menor");
+                throw new BadRequestException(
+                        "No se puede reducir el total de piezas a " + nuevoTotal
+                                + " porque la guía master ya tiene " + registradas + " piezas registradas. "
+                                + "Regla: el total de piezas no puede ser menor que las piezas ya registradas.");
             }
             gm.setTotalPiezasEsperadas(nuevoTotal);
         }
@@ -229,8 +237,10 @@ public class GuiaMasterService {
             if (gm.getConsignatarioVersion() != null
                     && !req.getConsignatarioId().equals(actualId)) {
                 throw new BadRequestException(
-                        "Esta guia ya tiene piezas despachadas con un destinatario congelado. "
-                                + "No se puede cambiar el destinatario sin afectar la trazabilidad del envio.");
+                        "No se puede cambiar el consignatario porque la guía master ya tiene piezas despachadas "
+                                + "y el consignatario quedó congelado con ese despacho. "
+                                + "Regla: tras el primer despacho, el consignatario no se puede cambiar "
+                                + "para no afectar la trazabilidad del envío.");
             }
             Consignatario dest = consignatarioRepository.findById(req.getConsignatarioId())
                     .orElseThrow(() -> new BadRequestException("El destinatario indicado no existe"));
@@ -374,7 +384,9 @@ public class GuiaMasterService {
             if (!nuevoTb.equalsIgnoreCase(gm.getTrackingBase())) {
                 guiaMasterRepository.findByTrackingBaseIgnoreCase(nuevoTb).ifPresent(otra -> {
                     if (!otra.getId().equals(gm.getId())) {
-                        throw new ConflictException("Ya existe otra guía con ese número");
+                        throw new ConflictException(
+                                "No se puede cambiar el número de la guía porque ya existe otra guía registrada con el número "
+                                        + nuevoTb + ". Verifica el número o contacta al operario si crees que es un error.");
                     }
                 });
                 gm.setTrackingBase(nuevoTb);
@@ -722,21 +734,34 @@ public class GuiaMasterService {
     public int[] validarYAsignarPieza(GuiaMaster gm, Integer piezaNumero) {
         int total = Optional.ofNullable(gm.getTotalPiezasEsperadas()).orElse(0);
         if (total < 1) {
-            throw new BadRequestException("La guía master no tiene total de piezas definido");
+            throw new BadRequestException(
+                    "No se puede asignar la pieza porque la guía master no tiene definido el total de piezas. "
+                            + "Define el total de piezas de la guía antes de asignar piezas.");
         }
         int numero;
         if (piezaNumero != null) {
             if (piezaNumero < 1 || piezaNumero > total) {
-                throw new BadRequestException("Número de pieza fuera de rango 1.." + total);
+                throw new BadRequestException(
+                        "No se puede asignar la pieza " + piezaNumero
+                                + " porque está fuera del rango permitido. "
+                                + "Regla: el número de pieza debe estar entre 1 y " + total
+                                + " (total de piezas de la guía master).");
             }
             if (paqueteRepository.existsByGuiaMasterIdAndPiezaNumero(gm.getId(), piezaNumero)) {
-                throw new ConflictException("Ya existe una pieza " + piezaNumero + "/" + total + " para esta guía");
+                throw new ConflictException(
+                        "No se puede asignar la pieza " + piezaNumero + "/" + total
+                                + " porque ya está registrada en esta guía master. "
+                                + "Regla: cada número de pieza solo puede usarse una vez por guía. "
+                                + "Elige otro número de pieza.");
             }
             numero = piezaNumero;
         } else {
             List<Paquete> existentes = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(gm.getId());
             if (existentes.size() >= total) {
-                throw new ConflictException("La guía ya tiene todas las piezas asignadas (" + total + ")");
+                throw new ConflictException(
+                        "No se pueden asignar más piezas porque la guía master ya tiene todas sus piezas registradas ("
+                                + total + " de " + total + "). "
+                                + "Aumenta el total de piezas de la guía si esperas piezas adicionales.");
             }
             int next = existentes.stream()
                     .map(Paquete::getPiezaNumero)
@@ -843,16 +868,23 @@ public class GuiaMasterService {
         GuiaMaster gm = findById(guiaMasterId);
         EstadoGuiaMaster anterior = gm.getEstadoGlobal();
         if (anterior != null && anterior.esTerminal()) {
-            throw new BadRequestException("La guia ya esta cerrada (estado: " + anterior + ")");
+            throw new BadRequestException(
+                    "No se puede cerrar con faltante porque la guía master ya está cerrada. Estado actual: "
+                            + anterior + ".");
         }
         List<Paquete> piezas = paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(guiaMasterId);
         long despachadas = piezas.stream().filter(this::piezaDespachada).count();
         int total = Optional.ofNullable(gm.getTotalPiezasEsperadas()).orElse(0);
         if (despachadas == 0) {
-            throw new BadRequestException("No se puede cerrar con faltante: ninguna pieza ha sido despachada");
+            throw new BadRequestException(
+                    "No se puede cerrar con faltante porque ninguna pieza de la guía ha sido despachada. "
+                            + "Regla: el cierre con faltante solo aplica cuando ya se despachó al menos una pieza. "
+                            + "Si la guía no avanzará, usa la cancelación.");
         }
         if (total > 0 && piezas.size() >= total && piezas.stream().allMatch(this::piezaDespachada)) {
-            throw new BadRequestException("La guia ya esta completa y despachada; no requiere cierre con faltante");
+            throw new BadRequestException(
+                    "No se puede cerrar con faltante porque la guía ya está completa y todas sus piezas fueron despachadas ("
+                            + total + " de " + total + "); no hay faltantes que declarar.");
         }
         // DESPACHO_INCOMPLETO fue eliminado: el cierre con faltante equivale a CANCELADA
         gm.setEstadoGlobal(EstadoGuiaMaster.CANCELADA);
@@ -886,11 +918,15 @@ public class GuiaMasterService {
         GuiaMaster gm = findById(guiaMasterId);
         EstadoGuiaMaster anterior = gm.getEstadoGlobal();
         if (anterior != null && anterior.esTerminal()) {
-            throw new BadRequestException("La guia ya esta en estado terminal (" + anterior + ") y no se puede cancelar");
+            throw new BadRequestException(
+                    "No se puede cancelar la guía master porque ya está en un estado terminal. Estado actual: "
+                            + anterior + ". Reábrela primero si necesitas modificarla.");
         }
         String motivoLimpio = Strings.trimOrNull(motivo);
         if (motivoLimpio == null) {
-            throw new BadRequestException("Debes indicar el motivo de la cancelacion");
+            throw new BadRequestException(
+                    "No se puede cancelar la guía master porque falta el motivo. "
+                            + "Indica el motivo de la cancelación para continuar.");
         }
         Usuario actor = resolverUsuario(actorUsuarioId);
         gm.setEstadoGlobal(EstadoGuiaMaster.CANCELADA);
@@ -914,10 +950,12 @@ public class GuiaMasterService {
         GuiaMaster gm = findById(guiaMasterId);
         EstadoGuiaMaster anterior = gm.getEstadoGlobal();
         if (anterior == EstadoGuiaMaster.EN_REVISION) {
-            throw new BadRequestException("La guia ya esta en revision");
+            throw new BadRequestException("La guía master ya está en revisión; no es necesario volver a marcarla.");
         }
         if (anterior != null && anterior.esTerminal()) {
-            throw new BadRequestException("No se puede revisar una guia ya cerrada (" + anterior + ")");
+            throw new BadRequestException(
+                    "No se puede marcar en revisión la guía master porque ya está cerrada. Estado actual: "
+                            + anterior + ". Reábrela primero si necesitas revisarla.");
         }
         Usuario actor = resolverUsuario(actorUsuarioId);
         gm.setEstadoGlobal(EstadoGuiaMaster.EN_REVISION);
@@ -937,7 +975,9 @@ public class GuiaMasterService {
         GuiaMaster gm = findById(guiaMasterId);
         EstadoGuiaMaster anterior = gm.getEstadoGlobal();
         if (anterior != EstadoGuiaMaster.EN_REVISION) {
-            throw new BadRequestException("La guia no esta en revision");
+            throw new BadRequestException(
+                    "No se puede sacar de revisión la guía master porque no está en revisión. Estado actual: "
+                            + anterior + ".");
         }
         Usuario actor = resolverUsuario(actorUsuarioId);
         // Estado placeholder no congelado para que calcularEstado derive correctamente.
@@ -991,11 +1031,15 @@ public class GuiaMasterService {
         GuiaMaster gm = findById(guiaMasterId);
         EstadoGuiaMaster anterior = gm.getEstadoGlobal();
         if (anterior == null || !anterior.esTerminal()) {
-            throw new BadRequestException("Solo se pueden reabrir guias en estado terminal");
+            throw new BadRequestException(
+                    "No se puede reabrir la guía master porque no está cerrada. Estado actual: " + anterior
+                            + ". Regla: solo las guías en estado terminal (despacho completado o cancelada) se pueden reabrir.");
         }
         String motivoLimpio = Strings.trimOrNull(motivo);
         if (motivoLimpio == null) {
-            throw new BadRequestException("Debes indicar el motivo de la reapertura");
+            throw new BadRequestException(
+                    "No se puede reabrir la guía master porque falta el motivo. "
+                            + "Indica el motivo de la reapertura para continuar.");
         }
         Usuario actor = resolverUsuario(actorUsuarioId);
         // Limpiamos auditoria de cierre y recalculamos a partir de piezas.
@@ -1011,6 +1055,85 @@ public class GuiaMasterService {
         registrarHistorial(saved, anterior, derivado,
                 TipoCambioEstadoGuiaMaster.REAPERTURA, motivoLimpio, actor);
         return saved;
+    }
+
+    /** Acciones de ciclo de vida aplicables en lote a guías master. */
+    public enum AccionBulkGuiaMaster {
+        APROBAR, RECALCULAR, MARCAR_REVISION, SALIR_REVISION, CANCELAR, REABRIR
+    }
+
+    /**
+     * Aplica una acción de ciclo de vida a varias guías master en una sola
+     * llamada (espejo del patrón de {@code EnvioConsolidadoService.aplicarTransicionOperativa}).
+     * Reutiliza los métodos individuales sin alterar sus reglas: cada guía que
+     * no cumple las precondiciones se devuelve como rechazada con el motivo
+     * de regla de negocio que lanzó el método correspondiente.
+     *
+     * <p>Los ids inexistentes se omiten silenciosamente (igual que en
+     * consolidados). Para RECALCULAR, {@link #recomputarEstado(Long)} es un
+     * no-op silencioso sobre guías congeladas (en revisión o terminales); aquí
+     * se reporta como rechazo para que el resumen del lote sea veraz.
+     */
+    @Transactional
+    public AplicarAccionGuiasMasterResponse aplicarAccionBulk(
+            String accionRaw, List<Long> guiaIds, String motivo, Long actorUsuarioId) {
+        AccionBulkGuiaMaster accion;
+        try {
+            accion = AccionBulkGuiaMaster.valueOf(accionRaw != null ? accionRaw.trim() : "");
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException(
+                    "No se puede aplicar la acción porque no es válida: " + accionRaw
+                            + ". Acciones permitidas: APROBAR, RECALCULAR, MARCAR_REVISION, "
+                            + "SALIR_REVISION, CANCELAR o REABRIR.");
+        }
+        String motivoLimpio = Strings.trimOrNull(motivo);
+        if ((accion == AccionBulkGuiaMaster.CANCELAR || accion == AccionBulkGuiaMaster.REABRIR)
+                && motivoLimpio == null) {
+            throw new BadRequestException(
+                    "No se puede aplicar la acción porque falta el motivo. "
+                            + "Indica el motivo para cancelar o reabrir guías.");
+        }
+        List<Long> ids = guiaIds == null ? List.of()
+                : guiaIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            throw new BadRequestException(
+                    "No se puede aplicar la acción porque no se indicó ninguna guía master. "
+                            + "Selecciona al menos una guía para continuar.");
+        }
+        List<GuiaMaster> universo = guiaMasterRepository.findAllById(ids);
+        int procesadas = 0;
+        List<AplicarAccionGuiasMasterResponse.RechazoGuiaMaster> rechazados = new ArrayList<>();
+        for (GuiaMaster gm : universo) {
+            try {
+                switch (accion) {
+                    case APROBAR -> aprobar(gm.getId(), actorUsuarioId);
+                    case RECALCULAR -> {
+                        if (gm.getEstadoGlobal() != null
+                                && gm.getEstadoGlobal().estaCongeladoParaRecalculo()) {
+                            throw new BadRequestException(
+                                    "No se puede recalcular porque la guía está en revisión o en un estado terminal. "
+                                            + "Estado actual: " + gm.getEstadoGlobal() + ".");
+                        }
+                        recomputarEstado(gm.getId());
+                    }
+                    case MARCAR_REVISION -> marcarEnRevision(gm.getId(), motivoLimpio, actorUsuarioId);
+                    case SALIR_REVISION -> salirDeRevision(gm.getId(), motivoLimpio, actorUsuarioId);
+                    case CANCELAR -> cancelar(gm.getId(), motivoLimpio, actorUsuarioId);
+                    case REABRIR -> reabrir(gm.getId(), motivoLimpio, actorUsuarioId);
+                }
+                procesadas++;
+            } catch (BadRequestException | ConflictException ex) {
+                rechazados.add(AplicarAccionGuiasMasterResponse.RechazoGuiaMaster.builder()
+                        .guiaMasterId(gm.getId())
+                        .trackingBase(gm.getTrackingBase())
+                        .motivo(ex.getMessage())
+                        .build());
+            }
+        }
+        return AplicarAccionGuiasMasterResponse.builder()
+                .procesadas(procesadas)
+                .rechazados(rechazados)
+                .build();
     }
 
     /** Obtiene el historial de cambios de estado mas reciente primero. */
@@ -1171,8 +1294,9 @@ public class GuiaMasterService {
                     || piezaEnRecepcionBodega(p, enLoteRecepcionId)
                     || piezaDespachada(p)) {
                 throw new ConflictException(
-                        "No se puede cambiar el destinatario: la pieza " + p.getPiezaNumero()
-                                + "/" + p.getPiezaTotal() + " ya fue enviada, recibida o despachada.");
+                        "No se puede cambiar el destinatario porque la pieza " + p.getPiezaNumero()
+                                + "/" + p.getPiezaTotal() + " ya fue enviada, recibida en bodega o despachada. "
+                                + "Regla: el destinatario solo se puede cambiar mientras ninguna pieza haya avanzado en el flujo.");
             }
         }
         String codigoBase = PaqueteService.resolverCodigoBase(nuevoDest);

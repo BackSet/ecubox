@@ -68,7 +68,9 @@ public class MisDespachosService {
     public MiDespachoDTO confirmarEntrega(Long despachoId) {
         ReglaConfirmacion regla = cargarRegla();
         if (regla.entregaEstadoId() == null) {
-            throw new BadRequestException("La confirmación de entrega no está configurada en el sistema.");
+            throw new BadRequestException(
+                    "No se puede confirmar la entrega porque la confirmación de entrega no está configurada "
+                            + "en el sistema. Contacta al operario para que la habilite.");
         }
         List<Paquete> delDespacho = paquetesDelCliente().stream()
                 .filter(p -> p.getSaca() != null

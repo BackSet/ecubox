@@ -84,6 +84,7 @@ import {
 } from './_estado';
 import { ConsignatarioInfo } from '../paquetes/PaqueteCells';
 import { EditarConsignatarioDialog } from './EditarConsignatarioDialog';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 function piezaDespachada(p: Paquete): boolean {
   return p.despachoId != null || (p.despachoNumeroGuia ?? '').length > 0;
@@ -703,7 +704,7 @@ function AprobarGuiaAlert({
         {
           loading: 'Aprobando guía...',
           success: 'Guía master aprobada',
-          error: 'No se pudo aprobar la guía master',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudo aprobar la guía master',
         },
       );
       onClose();
@@ -766,7 +767,7 @@ function CerrarConFaltanteAlert({
         {
           loading: 'Cerrando guía con faltante...',
           success: 'Guía master cerrada con faltante',
-          error: 'No se pudo cerrar la guía master',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudo cerrar la guía master',
         },
       );
       onClose();
@@ -854,7 +855,7 @@ function DespacharParcialAlert({
         {
           loading: 'Confirmando despacho parcial...',
           success: 'Despacho parcial confirmado',
-          error: 'No se pudo confirmar el despacho parcial',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudo confirmar el despacho parcial',
         },
       );
       onClose();
@@ -1071,7 +1072,7 @@ function CancelarGuiaAlert({
         {
           loading: 'Cancelando guía...',
           success: 'Guía cancelada',
-          error: 'No se pudo cancelar la guía',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudo cancelar la guía',
         },
       );
       onClose();
@@ -1154,7 +1155,7 @@ function MarcarRevisionAlert({
         {
           loading: 'Marcando guía en revisión...',
           success: 'Guía marcada en revisión',
-          error: 'No se pudo marcar en revisión',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudo marcar en revisión',
         },
       );
       onClose();
@@ -1233,7 +1234,7 @@ function SalirRevisionAlert({
         {
           loading: 'Finalizando revisión y recalculando...',
           success: 'Revisión finalizada y estado recalculado',
-          error: 'No se pudo salir de revisión',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudo salir de revisión',
         },
       );
       onClose();
@@ -1314,7 +1315,7 @@ function ReabrirGuiaAlert({
         {
           loading: 'Reabriendo guía...',
           success: 'Guía reabierta',
-          error: 'No se pudo reabrir la guía',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudo reabrir la guía',
         },
       );
       onClose();

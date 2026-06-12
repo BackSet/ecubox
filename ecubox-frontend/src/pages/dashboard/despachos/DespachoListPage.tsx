@@ -92,6 +92,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { Despacho, TipoEntrega } from '@/types/despacho';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 const TIPO_LABELS: Record<TipoEntrega, string> = {
   DOMICILIO: 'Domicilio',
   AGENCIA: 'Agencia',
@@ -165,6 +166,7 @@ export function DespachoListPage() {
     );
   }, [estadosAplicables, todosEstadosActivos]);
 
+
   const [search, setSearchRaw] = useState('');
   const [tipoFiltro, setTipoFiltroRaw] = useState<TipoEntrega | typeof SIN_FILTRO>(SIN_FILTRO);
   const [courierEntregaFiltro, setCourierEntregaFiltroRaw] = useState<string | undefined>(undefined);
@@ -181,6 +183,32 @@ export function DespachoListPage() {
   const [whatsappDespachoId, setWhatsappDespachoId] = useState<number | null>(null);
   const [despachosSeleccionados, setDespachosSeleccionados] = useState<number[]>([]);
   const [estadoRastreoSeleccionado, setEstadoRastreoSeleccionado] = useState<number | null>(null);
+
+  // Razón por la que un despacho NO es elegible para el estado destino
+  // (regla de avance de 1 en 1), o null si es elegible.
+  const motivoNoElegibleDespacho = useMemo(() => {
+    return (d: Despacho): string | null => {
+      const target = (estadosAplicables ?? []).find((e) => e.id === estadoRastreoSeleccionado);
+      if (!target) return null;
+      const estadoActual = d.estadoRastreoComunNombre
+        ? `«${d.estadoRastreoComunNombre}»${d.estadoMixto ? ' (mixto)' : ''}`
+        : 'sin paquetes';
+      if (target.tipoFlujo === 'ALTERNO' && target.afterEstadoId != null) {
+        if (d.estadoRastreoComunId === target.afterEstadoId) return null;
+        const requerido = (todosEstadosActivos ?? []).find((e) => e.id === target.afterEstadoId);
+        return `Estado actual de sus paquetes: ${estadoActual} · se requiere «${requerido?.nombre ?? 'el estado anterior'}»`;
+      }
+      const predOrden = predecessorOrdenPorEstado.get(target.id);
+      if (predOrden == null) {
+        return 'El estado seleccionado no tiene un estado anterior en el flujo';
+      }
+      if (d.estadoRastreoComunOrden === predOrden) return null;
+      const requerido = (todosEstadosActivos ?? []).find(
+        (e) => e.tipoFlujo !== 'ALTERNO' && (e.orden ?? e.ordenTracking) === predOrden,
+      );
+      return `Estado actual de sus paquetes: ${estadoActual} · se requiere «${requerido?.nombre ?? 'el estado anterior'}»`;
+    };
+  }, [estadosAplicables, estadoRastreoSeleccionado, predecessorOrdenPorEstado, todosEstadosActivos]);
   const [exportingId, setExportingId] = useState<{ id: number; mode: 'pdf' | 'print' | 'xlsx' } | null>(null);
 
   // Período activo → rango de fechas (params del servidor).
@@ -304,7 +332,7 @@ export function DespachoListPage() {
           loading: `Aplicando estado a ${despachosSeleccionados.length} despacho${despachosSeleccionados.length === 1 ? '' : 's'}...`,
           success: (res) =>
             `Estado aplicado: ${res.despachosProcesados} despacho(s), ${res.paquetesActualizados} paquete(s)`,
-          error: 'No se pudo aplicar el estado',
+          error: (err) => getApiErrorMessage(err) ?? 'No se pudo aplicar el estado',
         },
       );
       cerrarAplicarEstado();
@@ -716,7 +744,7 @@ export function DespachoListPage() {
           await notify.run(deleteMutation.mutateAsync(deleteConfirmId), {
             loading: 'Eliminando despacho...',
             success: 'Despacho eliminado',
-            error: 'No se pudo eliminar el despacho',
+            error: (err) => getApiErrorMessage(err) ?? 'No se pudo eliminar el despacho',
           });
         }}
       />
@@ -732,35 +760,14 @@ export function DespachoListPage() {
         description="Selecciona un estado y marca los despachos que lo recibirán. Se aplica a todos los paquetes del despacho."
         selectionLabel="despachos"
         searchPlaceholder="Buscar por guía, courier, consignatario..."
-        hideModoSelector={true}
-        mode="seleccion"
-        onModeChange={() => {}}
-        dateFrom=""
-        dateTo=""
-        onDateFromChange={() => {}}
-        onDateToChange={() => {}}
         onOpenChange={(open) => {
           if (!open) cerrarAplicarEstado();
           else setAplicarEstadoOpen(open);
         }}
         items={(estadoRastreoSeleccionado != null ? allDespachos : [])
-          .filter((d) => {
-            const target = (estadosAplicables ?? []).find(
-              (e) => e.id === estadoRastreoSeleccionado,
-            );
-            if (!target) return true;
-            if (target.tipoFlujo === 'ALTERNO' && target.afterEstadoId != null) {
-              return d.estadoRastreoComunId === target.afterEstadoId;
-            }
-            // NORMAL: solo despachos cuyo estado común es exactamente el predecesor
-            // inmediato del estado destino según el catálogo configurado.
-            const predOrden = predecessorOrdenPorEstado.get(target.id);
-            if (predOrden == null) return false;
-            return d.estadoRastreoComunOrden === predOrden;
-          })
           .map((d) => ({
             id: d.id,
-            date: d.fechaHora,
+            disabledReason: motivoNoElegibleDespacho(d) ?? undefined,
             searchText: [
               d.id,
               d.numeroGuia,
@@ -797,12 +804,13 @@ export function DespachoListPage() {
         selectedOption={
           estadoRastreoSeleccionado != null ? String(estadoRastreoSeleccionado) : ''
         }
-        onSelectedOptionChange={(value) =>
-          setEstadoRastreoSeleccionado(value ? Number(value) : null)
-        }
+        onSelectedOptionChange={(value) => {
+          setEstadoRastreoSeleccionado(value ? Number(value) : null);
+          // La elegibilidad depende del estado destino; se reinicia la selección.
+          setDespachosSeleccionados([]);
+        }}
         optionLabel="Estado a aplicar"
-        optionHelp="Solo se listan despachos cuyos paquetes pueden recibir el estado seleccionado. Los estados gestionados por el sistema solo incluyen avance masivo y entrega confirmada."
-        periodHelp={null}
+        optionHelp="Solo se pueden marcar despachos cuyos paquetes están en el estado inmediatamente anterior (el avance es de 1 en 1). Los estados gestionados por el sistema solo incluyen avance masivo y entrega confirmada."
         onConfirm={handleAplicarEstado}
         loading={aplicarEstadoEnDespachos.isPending}
       />

@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import type { EstadoRastreoCliente } from '@/types/estado-rastreo';
 import type { GuiaMaster, MiGuiaCreateRequest, MiInicioDashboard } from '@/types/guia-master';
 import type { Paquete } from '@/types/paquete';
 
@@ -54,5 +55,11 @@ export async function eliminarMiGuia(id: number): Promise<void> {
 
 export async function obtenerMiInicioDashboard(): Promise<MiInicioDashboard> {
   const { data } = await apiClient.get<MiInicioDashboard>(`${BASE}/dashboard`);
+  return data;
+}
+
+/** Catálogo de estados de rastreo visibles para el cliente, con su leyenda. */
+export async function listarEstadosRastreoMisGuias(): Promise<EstadoRastreoCliente[]> {
+  const { data } = await apiClient.get<EstadoRastreoCliente[]>(`${BASE}/estados-rastreo`);
   return data;
 }

@@ -9,11 +9,15 @@ import {
   useCancelarGuiaMaster,
   useMarcarGuiaMasterEnRevision,
   useSalirGuiaMasterDeRevision,
-  useRecalcularGuiaMaster,
-  useReabrirGuiaMaster,
   useAllGuiasMaster,
   useAprobarGuiaMaster,
+  useAplicarAccionBulkGuiasMaster,
 } from '@/hooks/useGuiasMaster';
+import { MotivoBulkDialog } from '@/components/MotivoBulkDialog';
+import {
+  ResultadoBulkDialog,
+  type ResultadoBulkRechazo,
+} from '@/components/ResultadoBulkDialog';
 import { AplicarEstadoMasivoDialog, type AplicarEstadoOption } from '@/components/AplicarEstadoMasivoDialog';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { TablePagination } from '@/components/ui/TablePagination';
@@ -60,7 +64,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import {
   Boxes,
   Building2,
@@ -137,31 +141,43 @@ const AYUDA_ACCION: Record<string, string> = {
 };
 
 /**
- * Indica si una acción de ciclo de vida es aplicable a una guía, reflejando las precondiciones
- * del backend (GuiaMasterService). Una guía ya despachada/terminal no es elegible para cambios
- * de estado (salvo reabrir), y recalcular exige al menos una pieza registrada.
+ * Devuelve la razón por la que una guía NO es elegible para la acción, o
+ * {@code null} si es elegible. Refleja las precondiciones del backend
+ * (GuiaMasterService): el backend revalida al aplicar y devuelve su propio
+ * motivo si algo cambió entre la carga y el envío.
  */
-function guiaElegibleParaAccion(guia: GuiaMaster, accion: string): boolean {
+function motivoNoElegibleParaAccion(guia: GuiaMaster, accion: string): string | null {
   const estado = guia.estadoGlobal;
+  const estadoLabel = GUIA_MASTER_ESTADO_LABELS_CORTOS[estado] ?? estado;
   const terminal = ESTADOS_GUIA_TERMINALES.has(estado);
   const piezasRegistradas = guia.piezasRegistradas ?? 0;
   const piezasDespachadas = guia.piezasDespachadas ?? 0;
   switch (accion) {
     case 'APROBAR':
-      return estado === 'PENDIENTE_VERIFICACION' || estado === 'EN_REVISION';
+      if (estado === 'PENDIENTE_VERIFICACION' || estado === 'EN_REVISION') return null;
+      return `Solo se aprueban guías pendientes de verificación o en revisión · estado actual: ${estadoLabel}`;
     case 'RECALCULAR':
-      return !terminal && estado !== 'EN_REVISION' && piezasRegistradas >= 1;
+      if (terminal) return `Está en estado terminal (${estadoLabel}); el recálculo no aplica`;
+      if (estado === 'EN_REVISION') return 'Está en revisión; el recálculo automático está pausado';
+      if (piezasRegistradas < 1) return 'No tiene piezas registradas que permitan derivar un estado';
+      return null;
     case 'MARCAR_REVISION':
-      return !terminal && estado !== 'EN_REVISION';
+      if (estado === 'EN_REVISION') return 'Ya está en revisión';
+      if (terminal) return `Está en estado terminal (${estadoLabel}); reábrela primero`;
+      return null;
     case 'SALIR_REVISION':
-      return estado === 'EN_REVISION';
+      if (estado === 'EN_REVISION') return null;
+      return `No está en revisión · estado actual: ${estadoLabel}`;
     case 'CANCELAR':
-      // No se cancela una guía terminal ni una con piezas ya despachadas.
-      return !terminal && piezasDespachadas === 0;
+      if (terminal) return `Ya está en estado terminal (${estadoLabel})`;
+      if (piezasDespachadas > 0)
+        return `Tiene ${piezasDespachadas} pieza${piezasDespachadas === 1 ? '' : 's'} despachada${piezasDespachadas === 1 ? '' : 's'}; no se puede cancelar`;
+      return null;
     case 'REABRIR':
-      return terminal;
+      if (terminal) return null;
+      return `Solo se reabren guías en estado terminal · estado actual: ${estadoLabel}`;
     default:
-      return false;
+      return 'Acción desconocida';
   }
 }
 
@@ -247,18 +263,20 @@ export function GuiasMasterPage() {
   // Búsqueda y filtros se aplican en servidor; usamos el resultado tal cual.
   const filtered = guias;
 
-  // Hooks y lógica de "Aplicar estado" masivo
+  // Hooks y lógica de "Aplicar acción" masiva. Las acciones por fila del
+  // listado siguen usando los hooks individuales; el lote va por el endpoint bulk.
   const allGuiasQuery = useAllGuiasMaster(aplicarEstadoOpen);
   const marcarRevision = useMarcarGuiaMasterEnRevision();
   const salirRevision = useSalirGuiaMasterDeRevision();
-  const recalcular = useRecalcularGuiaMaster();
-  const cancelarBulk = useCancelarGuiaMaster();
-  const reabrirBulk = useReabrirGuiaMaster();
   const aprobarBulk = useAprobarGuiaMaster();
+  const aplicarAccionBulk = useAplicarAccionBulkGuiasMaster();
+  const [resultadoBulk, setResultadoBulk] = useState<{
+    accionLabel: string;
+    procesadas: number;
+    rechazados: ResultadoBulkRechazo[];
+  } | null>(null);
 
-  const aplicarIsPending =
-    marcarRevision.isPending || salirRevision.isPending || recalcular.isPending ||
-    cancelarBulk.isPending || reabrirBulk.isPending || aprobarBulk.isPending;
+  const aplicarIsPending = aplicarAccionBulk.isPending;
 
   const cerrarAplicarEstado = () => {
     setAplicarEstadoOpen(false);
@@ -268,11 +286,11 @@ export function GuiasMasterPage() {
 
   const handleAplicarAccionGuias = async () => {
     if (!accionSeleccionada) {
-      toast.warning('Selecciona una acción a aplicar');
+      notify.warning('Selecciona una acción a aplicar', 'Elige la acción de ciclo de vida que quieres ejecutar sobre las guías.');
       return;
     }
     if (guiasSeleccionadas.length === 0) {
-      toast.warning('Selecciona al menos una guía');
+      notify.warning('Selecciona al menos una guía', 'Marca las guías master a las que se aplicará la acción.');
       return;
     }
     if (ACCIONES_CON_MOTIVO.has(accionSeleccionada)) {
@@ -286,23 +304,25 @@ export function GuiasMasterPage() {
   };
 
   const runBulkAction = async (accion: string, ids: number[], motivo: string | undefined) => {
-    const results = await Promise.allSettled(
-      ids.map((id) => {
-        if (accion === 'APROBAR') return aprobarBulk.mutateAsync(id);
-        if (accion === 'RECALCULAR') return recalcular.mutateAsync(id);
-        if (accion === 'MARCAR_REVISION') return marcarRevision.mutateAsync({ id, body: { motivo: motivo ?? '' } });
-        if (accion === 'SALIR_REVISION') return salirRevision.mutateAsync({ id, body: { motivo: motivo ?? '' } });
-        if (accion === 'CANCELAR') return cancelarBulk.mutateAsync({ id, body: { motivo: motivo ?? '' } });
-        if (accion === 'REABRIR') return reabrirBulk.mutateAsync({ id, body: { motivo: motivo ?? '' } });
-        return Promise.reject(new Error('Acción desconocida'));
-      }),
-    );
-    const ok = results.filter((r) => r.status === 'fulfilled').length;
-    const fail = results.filter((r) => r.status === 'rejected').length;
-    if (fail === 0) {
-      toast.success(`Acción aplicada a ${ok} guía(s)`);
-    } else {
-      toast.warning(`${ok} aplicada(s) · ${fail} omitida(s) (ver condiciones)`);
+    const accionLabel = ACCIONES_GUIA.find((a) => a.value === accion)?.label ?? 'Acción';
+    try {
+      const res = await aplicarAccionBulk.mutateAsync({ accion, guiaIds: ids, motivo });
+      if (res.rechazados.length === 0) {
+        notify.success(
+          `Acción aplicada: ${accionLabel.toLowerCase()}`,
+          `${res.procesadas} guía${res.procesadas === 1 ? '' : 's'} master actualizada${res.procesadas === 1 ? '' : 's'}.`,
+        );
+      } else {
+        // Resumen detallado: el backend devuelve cada guía rechazada con su motivo.
+        setResultadoBulk({
+          accionLabel,
+          procesadas: res.procesadas,
+          rechazados: res.rechazados.map((r) => ({ codigo: r.trackingBase, motivo: r.motivo })),
+        });
+      }
+    } catch (err: unknown) {
+      notify.error('No se pudo aplicar la acción', getApiErrorMessage(err));
+      throw err;
     }
   };
 
@@ -604,9 +624,9 @@ export function GuiasMasterPage() {
                             onSelect: async () => {
                               try {
                                 await aprobarBulk.mutateAsync(g.id);
-                                toast.success('Guía master aprobada');
+                                notify.success('Guía master aprobada', `${g.trackingBase} · El estado se recalculará según sus piezas.`);
                               } catch (err: unknown) {
-                                toast.error(getApiErrorMessage(err) ?? 'No se pudo aprobar la guía');
+                                notify.error('No se pudo aprobar la guía master', getApiErrorMessage(err) ?? g.trackingBase);
                               }
                             },
                             hidden:
@@ -619,9 +639,9 @@ export function GuiasMasterPage() {
                             onSelect: async () => {
                               try {
                                 await marcarRevision.mutateAsync({ id: g.id, body: {} });
-                                toast.success('Guía marcada en revisión');
+                                notify.success('Guía master en revisión', `${g.trackingBase} · El recálculo automático queda pausado hasta salir de revisión.`);
                               } catch (err: unknown) {
-                                toast.error(getApiErrorMessage(err) ?? 'No se pudo marcar en revisión');
+                                notify.error('No se pudo marcar en revisión', getApiErrorMessage(err) ?? g.trackingBase);
                               }
                             },
                             hidden:
@@ -637,9 +657,9 @@ export function GuiasMasterPage() {
                             onSelect: async () => {
                               try {
                                 await salirRevision.mutateAsync({ id: g.id, body: {} });
-                                toast.success('Revisión finalizada');
+                                notify.success('Revisión finalizada', `${g.trackingBase} · La guía vuelve al estado derivado de sus piezas.`);
                               } catch (err: unknown) {
-                                toast.error(getApiErrorMessage(err) ?? 'No se pudo salir de revisión');
+                                notify.error('No se pudo salir de revisión', getApiErrorMessage(err) ?? g.trackingBase);
                               }
                             },
                             hidden: !hasUpdate || g.estadoGlobal !== 'EN_REVISION',
@@ -725,11 +745,16 @@ export function GuiasMasterPage() {
         onConfirm={async () => {
           if (!deletingGuia) return;
           try {
+            const piezas = deletingGuia.piezasRegistradas ?? 0;
             await eliminar.mutateAsync(deletingGuia.id);
-            toast.success('Guía eliminada');
+            notify.success(
+              'Guía master eliminada',
+              `${deletingGuia.trackingBase}` +
+                (piezas > 0 ? ` · Se eliminaron también sus ${piezas} pieza${piezas === 1 ? '' : 's'}.` : ''),
+            );
             setDeletingGuia(null);
           } catch (err: unknown) {
-            toast.error(getApiErrorMessage(err) ?? 'No se pudo eliminar la guía');
+            notify.error('No se pudo eliminar la guía master', getApiErrorMessage(err) ?? deletingGuia.trackingBase);
             throw err;
           }
         }}
@@ -741,20 +766,15 @@ export function GuiasMasterPage() {
         description="Aplica una acción de ciclo de vida a las guías master seleccionadas."
         selectionLabel="guías"
         searchPlaceholder="Buscar por tracking base..."
-        hideModoSelector={true}
-        mode="seleccion"
-        onModeChange={() => {}}
-        dateFrom=""
-        dateTo=""
-        onDateFromChange={() => {}}
-        onDateToChange={() => {}}
-        items={(accionSeleccionada ? allGuiasQuery.data ?? [] : [])
-          .filter((g) => guiaElegibleParaAccion(g, accionSeleccionada))
-          .map((g) => ({
+        confirmLabel="Aplicar acción"
+        selectPlaceholder="Selecciona una acción..."
+        emptyHint="Selecciona una acción para ver las guías elegibles."
+        items={(accionSeleccionada ? allGuiasQuery.data ?? [] : []).map((g) => ({
           id: g.id,
           searchText: [g.trackingBase, g.consignatarioNombre, g.clienteUsuarioNombre]
             .filter(Boolean)
             .join(' ') || String(g.id),
+          disabledReason: motivoNoElegibleParaAccion(g, accionSeleccionada) ?? undefined,
           content: (
             <div className="flex min-w-0 items-center justify-between gap-3">
               <div className="flex min-w-0 flex-col gap-0.5">
@@ -779,10 +799,14 @@ export function GuiasMasterPage() {
         onSelectedIdsChange={setGuiasSeleccionadas}
         options={[...ACCIONES_GUIA]}
         selectedOption={accionSeleccionada}
-        onSelectedOptionChange={setAccionSeleccionada}
+        onSelectedOptionChange={(value) => {
+          setAccionSeleccionada(value);
+          // La elegibilidad depende de la acción: una selección previa puede
+          // quedar inválida, así que se reinicia.
+          setGuiasSeleccionadas([]);
+        }}
         optionLabel="Acción"
         optionHelp={accionSeleccionada ? AYUDA_ACCION[accionSeleccionada] : undefined}
-        periodHelp={null}
         loading={aplicarIsPending}
         onConfirm={handleAplicarAccionGuias}
         onOpenChange={(open) => !open && cerrarAplicarEstado()}
@@ -792,7 +816,7 @@ export function GuiasMasterPage() {
         <MotivoBulkDialog
           accion={accionParaMotivo}
           count={guiasSeleccionadas.length}
-          loading={accionParaMotivo === 'CANCELAR' ? cancelarBulk.isPending : reabrirBulk.isPending}
+          loading={aplicarIsPending}
           onClose={() => {
             setMotivoBulkOpen(false);
             setMotivoBulk('');
@@ -806,6 +830,18 @@ export function GuiasMasterPage() {
           }}
           motivo={motivoBulk}
           onMotivoChange={setMotivoBulk}
+        />
+      )}
+
+      {resultadoBulk && (
+        <ResultadoBulkDialog
+          open
+          onOpenChange={(open) => !open && setResultadoBulk(null)}
+          accionLabel={resultadoBulk.accionLabel}
+          unidadSingular="guía master"
+          unidadPlural="guías master"
+          procesadas={resultadoBulk.procesadas}
+          rechazados={resultadoBulk.rechazados}
         />
       )}
 
@@ -935,7 +971,7 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
       }
       if (Object.keys(errs).length > 0) {
         setFieldErrors(errs);
-        toast.error(Object.values(errs)[0]);
+        notify.error('Revisa los datos de la guía', Object.values(errs)[0]);
         return;
       }
       setFieldErrors({});
@@ -952,7 +988,7 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
       }
       if (Object.keys(errs).length > 0) {
         setFieldErrors(errs);
-        toast.error(Object.values(errs)[0]);
+        notify.error('Revisa los datos de la guía', Object.values(errs)[0]);
         return;
       }
       setFieldErrors({});
@@ -966,25 +1002,19 @@ function GuiaMasterFormDialog(props: GuiaMasterFormDialogProps) {
           consignatarioId: consignatarioId!,
         };
         await actualizar.mutateAsync({ id: editing.id, body });
-        toast.success('Guía actualizada');
+        notify.success('Guía master actualizada', `${tb} · Cambios guardados.`);
       } else {
         await crear.mutateAsync({
           trackingBase: trackingBase.trim(),
           consignatarioId: consignatarioId!,
         });
-        toast.success('Guía registrada');
+        notify.success('Guía master registrada', `${trackingBase.trim()} · Lista para recibir piezas.`);
       }
       onClose();
     } catch (err: unknown) {
       const res = (err as { response?: { status?: number; data?: { message?: string } } })?.response;
-      if (res?.status === 409) {
-        toast.error(res?.data?.message ?? 'Ya existe otra guía con ese número');
-      } else {
-        toast.error(
-          res?.data?.message ??
-            (isEdit ? 'Error al actualizar la guía' : 'Error al registrar la guía'),
-        );
-      }
+      const titulo = isEdit ? 'No se pudo actualizar la guía master' : 'No se pudo registrar la guía master';
+      notify.error(titulo, res?.data?.message ?? (res?.status === 409 ? 'Ya existe otra guía con ese número.' : undefined));
     }
   }
 
@@ -1133,16 +1163,16 @@ function CancelarGuiaDialog({ guia, onClose }: CancelarGuiaDialogProps) {
     if (!parsed.success) {
       const msg = parsed.error.issues[0]?.message ?? 'Debes indicar un motivo';
       setMotivoError(msg);
-      toast.warning(msg);
+      notify.warning(msg);
       return;
     }
     setMotivoError(undefined);
     try {
       await cancelar.mutateAsync({ id: guia.id, body: { motivo: parsed.data.motivo } });
-      toast.success('Guía cancelada');
+      notify.success('Guía master cancelada', `${guia.trackingBase} · Quedó en estado terminal; puedes reabrirla si fue un error.`);
       onClose();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err) ?? 'No se pudo cancelar la guía');
+      notify.error('No se pudo cancelar la guía master', getApiErrorMessage(err) ?? guia.trackingBase);
     }
   }
 
@@ -1190,92 +1220,6 @@ function CancelarGuiaDialog({ guia, onClose }: CancelarGuiaDialogProps) {
             >
               {cancelar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {cancelar.isPending ? 'Cancelando...' : 'Cancelar guía'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-interface MotivoBulkDialogProps {
-  accion: 'CANCELAR' | 'REABRIR';
-  count: number;
-  motivo: string;
-  loading: boolean;
-  onMotivoChange: (v: string) => void;
-  onClose: () => void;
-  onConfirm: (motivo: string) => Promise<void>;
-}
-
-const MOTIVO_BULK_UI = {
-  CANCELAR: {
-    title: 'Cancelar',
-    nota: 'Solo se cancelarán las guías sin piezas despachadas y no terminales.',
-    placeholder: 'Ej: cliente solicitó anulación / error de registro',
-    submitVariant: 'destructive' as const,
-    pendingLabel: 'Cancelando...',
-  },
-  REABRIR: {
-    title: 'Reabrir',
-    nota: 'Solo se reabrirán guías en estado terminal (cerradas o canceladas); su estado se recalculará.',
-    placeholder: 'Ej: reactivación por nueva pieza / reapertura solicitada',
-    submitVariant: 'default' as const,
-    pendingLabel: 'Reabriendo...',
-  },
-};
-
-function MotivoBulkDialog({ accion, count, motivo, loading, onMotivoChange, onClose, onConfirm }: MotivoBulkDialogProps) {
-  const [motivoError, setMotivoError] = useState<string | undefined>();
-  const ui = MOTIVO_BULK_UI[accion];
-  const plural = count === 1 ? '' : 's';
-
-  async function handleConfirm(e: React.FormEvent) {
-    e.preventDefault();
-    const parsed = guiaCancelarSchema.safeParse({ motivo });
-    if (!parsed.success) {
-      const msg = parsed.error.issues[0]?.message ?? 'Debes indicar un motivo';
-      setMotivoError(msg);
-      toast.warning(msg);
-      return;
-    }
-    setMotivoError(undefined);
-    await onConfirm(parsed.data.motivo);
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && !loading && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{ui.title} {count} guía{plural} master</DialogTitle>
-          <p className="text-sm text-muted-foreground">{ui.nota}</p>
-        </DialogHeader>
-        <form onSubmit={handleConfirm} className="space-y-4">
-          <div>
-            <Label htmlFor="motivo-bulk" className="mb-1 block">
-              Motivo (obligatorio)
-            </Label>
-            <Textarea
-              id="motivo-bulk"
-              rows={3}
-              maxLength={MAX_MOTIVO}
-              value={motivo}
-              onChange={(e) => {
-                onMotivoChange(e.target.value);
-                setMotivoError(undefined);
-              }}
-              placeholder={ui.placeholder}
-              aria-invalid={!!motivoError}
-            />
-            {motivoError && <p className="mt-1 text-xs text-destructive">{motivoError}</p>}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
-              Volver
-            </Button>
-            <Button type="submit" variant={ui.submitVariant} disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? ui.pendingLabel : `${ui.title} ${count} guía${plural}`}
             </Button>
           </DialogFooter>
         </form>

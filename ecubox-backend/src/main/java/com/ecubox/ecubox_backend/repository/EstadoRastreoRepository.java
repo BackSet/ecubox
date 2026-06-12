@@ -17,6 +17,8 @@ public interface EstadoRastreoRepository extends JpaRepository<EstadoRastreo, Lo
 
     List<EstadoRastreo> findByActivoTrueOrderByOrdenTrackingAscIdAsc();
 
+    List<EstadoRastreo> findByActivoTrueAndPublicoTrackingTrueOrderByOrdenTrackingAscIdAsc();
+
     Optional<EstadoRastreo> findByCodigo(String codigo);
 
     boolean existsByCodigoAndIdNot(String codigo, Long id);

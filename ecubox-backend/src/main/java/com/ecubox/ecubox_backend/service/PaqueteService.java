@@ -341,7 +341,9 @@ public class PaqueteService {
     @Transactional
     public PaqueteDTO create(Long usuarioId, boolean canManageAny, boolean contenidoObligatorio, PaqueteCreateRequest request) {
         if (contenidoObligatorio && (request.getContenido() == null || request.getContenido().isBlank())) {
-            throw new BadRequestException("El contenido es obligatorio");
+            throw new BadRequestException(
+                    "No se puede registrar el paquete porque falta el contenido. "
+                            + "Regla: la descripción del contenido es obligatoria. Ingresa el contenido para continuar.");
         }
         Consignatario dest = consignatarioRepository.findById(request.getConsignatarioId())
                 .orElseThrow(() -> new ResourceNotFoundException("Destinatario", request.getConsignatarioId()));
@@ -364,7 +366,10 @@ public class PaqueteService {
         String numeroGuiaCompuesto = GuiaMasterService.componerNumeroGuia(
                 asignacion.guiaMaster(), asignacion.piezaNumero());
         if (numeroGuiaCompuesto == null || paqueteRepository.existsByNumeroGuia(numeroGuiaCompuesto)) {
-            throw new ConflictException("No se pudo generar un número de guía único; verifique la guía master y la pieza");
+            throw new ConflictException(
+                    "No se puede registrar el paquete porque el número de guía resultante ya está usado por otro paquete. "
+                            + "Regla: el número de guía (guía master + número de pieza) debe ser único. "
+                            + "Verifica la guía master y el número de pieza seleccionados.");
         }
         Paquete p = Paquete.builder()
                 .numeroGuia(numeroGuiaCompuesto)
@@ -600,7 +605,9 @@ public class PaqueteService {
 
     public void validarEstadoPosteriorAAsociacionConsolidado(Long estadoId) {
         if (estadoId == null) {
-            throw new BadRequestException("Seleccione el estado a aplicar");
+            throw new BadRequestException(
+                    "No se puede continuar porque no se seleccionó el estado de rastreo a aplicar. "
+                            + "Selecciona un estado para continuar.");
         }
         parametroSistemaService.validarEstadoRastreoAplicableManualmente(estadoId);
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoId);
@@ -610,20 +617,28 @@ public class PaqueteService {
 
         if (ordenObjetivo == null || ordenObjetivo <= ordenBase) {
             throw new BadRequestException(
-                    "Solo se pueden aplicar estados posteriores al punto de asociación a consolidado.");
+                    "No se puede aplicar el estado '" + estado.getNombre()
+                            + "' porque su orden no es posterior al punto de asociación a consolidado. "
+                            + "Regla: en este flujo solo se pueden aplicar estados posteriores a la asociación a consolidado.");
         }
 
         if (estado.getTipoFlujo() == TipoFlujoEstado.NORMAL) {
             if (ordenObjetivo > ordenLimite) {
                 throw new BadRequestException(
-                        "Solo se pueden aplicar estados hasta la llegada a bodega (lote de recepción) inclusive.");
+                        "No se puede aplicar el estado '" + estado.getNombre()
+                                + "' porque va más allá de la llegada a bodega. "
+                                + "Regla: en este flujo solo se pueden aplicar estados hasta la llegada a bodega "
+                                + "(lote de recepción) inclusive.");
             }
         } else if (estado.getTipoFlujo() == TipoFlujoEstado.ALTERNO && estado.getAfterEstado() != null) {
             EstadoRastreo after = estado.getAfterEstado();
             Integer ordenAfter = after.getOrden() != null ? after.getOrden() : after.getOrdenTracking();
             if (ordenAfter != null && ordenAfter > ordenLimite) {
                 throw new BadRequestException(
-                        "Solo se pueden aplicar estados hasta la llegada a bodega (lote de recepción) inclusive.");
+                        "No se puede aplicar el estado '" + estado.getNombre()
+                                + "' porque va más allá de la llegada a bodega. "
+                                + "Regla: en este flujo solo se pueden aplicar estados hasta la llegada a bodega "
+                                + "(lote de recepción) inclusive.");
             }
         }
     }
@@ -675,7 +690,8 @@ public class PaqueteService {
                 .getEstadoRastreoAsociarEnvioConsolidadoId();
         if (estadoId == null) {
             throw new BadRequestException(
-                    "No hay un estado configurado para la asociación a consolidado.");
+                    "No se puede continuar porque no hay un estado configurado para la asociación a consolidado. "
+                            + "Configura este punto en los parámetros del sistema.");
         }
         Integer orden = estadoRastreoService.getOrdenById(estadoId);
         if (orden == null) {
@@ -684,7 +700,8 @@ public class PaqueteService {
         }
         if (orden == null) {
             throw new BadRequestException(
-                    "El estado de asociación a consolidado no tiene orden de tracking.");
+                    "No se puede continuar porque el estado de asociación a consolidado no tiene orden de rastreo. "
+                            + "Revisa el catálogo de estados de rastreo y asigna un orden a ese estado.");
         }
         return orden;
     }
@@ -694,7 +711,8 @@ public class PaqueteService {
                 .getEstadoRastreoEnLoteRecepcionId();
         if (estadoId == null) {
             throw new BadRequestException(
-                    "No hay un estado configurado para el lote de recepción.");
+                    "No se puede continuar porque no hay un estado configurado para el lote de recepción. "
+                            + "Configura este punto en los parámetros del sistema.");
         }
         Integer orden = estadoRastreoService.getOrdenById(estadoId);
         if (orden == null) {
@@ -703,7 +721,8 @@ public class PaqueteService {
         }
         if (orden == null) {
             throw new BadRequestException(
-                    "El estado de lote de recepción no tiene un orden válido.");
+                    "No se puede continuar porque el estado de lote de recepción no tiene orden de rastreo. "
+                            + "Revisa el catálogo de estados de rastreo y asigna un orden a ese estado.");
         }
         return orden;
     }
@@ -932,7 +951,9 @@ public class PaqueteService {
         }
         if (!canEditPeso) {
             if (p.getContenido() == null || p.getContenido().isBlank()) {
-                throw new BadRequestException("El contenido es obligatorio");
+                throw new BadRequestException(
+                        "No se puede guardar el paquete porque falta el contenido. "
+                                + "Regla: la descripción del contenido es obligatoria. Ingresa el contenido para continuar.");
             }
         }
         boolean pesoCambioRecepcion = false;
@@ -963,10 +984,16 @@ public class PaqueteService {
                 String codigoBaseActual = resolverCodigoBase(p.getConsignatario());
                 if (codigoBaseActual != null && !newRef.startsWith(codigoBaseActual + "-")) {
                     throw new BadRequestException(
-                            "La referencia debe iniciar con el código del destinatario: " + codigoBaseActual);
+                            "No se puede guardar la referencia '" + newRef
+                                    + "' porque no corresponde al consignatario del paquete. "
+                                    + "Regla: la referencia debe iniciar con el código del consignatario, en este caso '"
+                                    + codigoBaseActual + "-'.");
                 }
                 if (paqueteRepository.existsByRefAndIdNot(newRef, paqueteId)) {
-                    throw new ConflictException("Ya existe otro paquete con esa referencia");
+                    throw new ConflictException(
+                            "No se puede guardar el paquete porque la referencia '" + newRef
+                                    + "' ya está usada por otro paquete. "
+                                    + "Regla: la referencia del paquete debe ser única.");
                 }
                 p.setRef(newRef);
             }
@@ -977,7 +1004,10 @@ public class PaqueteService {
                 String nuevoNumeroGuia = GuiaMasterService.componerNumeroGuia(p.getGuiaMaster(), p.getPiezaNumero());
                 if (nuevoNumeroGuia != null && !nuevoNumeroGuia.equals(p.getNumeroGuia())) {
                     if (paqueteRepository.existsByNumeroGuiaAndIdNot(nuevoNumeroGuia, paqueteId)) {
-                        throw new ConflictException("Ya existe otro paquete con ese número de guía");
+                        throw new ConflictException(
+                                "No se puede cambiar la guía master porque el número de guía resultante ("
+                                        + nuevoNumeroGuia + ") ya está usado por otro paquete. "
+                                        + "Regla: el número de guía debe ser único. Elige otra pieza u otra guía master.");
                     }
                     p.setNumeroGuia(nuevoNumeroGuia);
                 }
@@ -1007,7 +1037,10 @@ public class PaqueteService {
         if (nuevoNumeroGuia != null && !nuevoNumeroGuia.equals(p.getNumeroGuia())) {
             if (paqueteRepository.existsByNumeroGuiaAndIdNot(nuevoNumeroGuia,
                     Optional.ofNullable(p.getId()).orElse(-1L))) {
-                throw new ConflictException("Ya existe otro paquete con ese número de guía");
+                throw new ConflictException(
+                        "No se puede asignar la pieza porque el número de guía resultante ("
+                                + nuevoNumeroGuia + ") ya está usado por otro paquete. "
+                                + "Regla: el número de guía debe ser único. Elige otra pieza u otra guía master.");
             }
             p.setNumeroGuia(nuevoNumeroGuia);
         }
@@ -1537,7 +1570,10 @@ public class PaqueteService {
         validarEstadoNoReservadoParaPuntosOperativos(estadoRastreoId);
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoRastreoId);
         if (Boolean.FALSE.equals(estado.getActivo())) {
-            throw new BadRequestException("El estado de rastreo seleccionado no está activo");
+            throw new BadRequestException(
+                    "No se puede aplicar el estado '" + estado.getNombre() + "' porque no está activo en el catálogo. "
+                            + "Regla: solo se pueden aplicar estados de rastreo activos. "
+                            + "Activa el estado en la configuración o elige otro.");
         }
         List<CambiarEstadoRastreoBulkResponse.RechazoBulk> rechazados = new ArrayList<>();
         Set<Long> guiasAfectadas = new HashSet<>();
@@ -1553,12 +1589,14 @@ public class PaqueteService {
                 continue;
             }
             if (p.getSaca() != null) {
-                rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, "Tiene despacho/saca asociado"));
+                rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId,
+                        "El paquete ya está en una saca o despacho; su estado se gestiona desde el despacho"));
                 continue;
             }
             String trackingBase = p.getGuiaMaster() != null ? Strings.trimOrNull(p.getGuiaMaster().getTrackingBase()) : null;
             if (trackingBase != null && loteRecepcionGuiaRepository.existsByNumeroGuiaEnvio(trackingBase)) {
-                rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, "Está en lote de recepción"));
+                rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId,
+                        "La guía del paquete está en un lote de recepción; su estado se gestiona desde la recepción"));
                 continue;
             }
             EstadoRastreo origenActual = p.getEstadoRastreo();
@@ -1636,7 +1674,9 @@ public class PaqueteService {
         Paquete p = paqueteRepository.findById(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
         if (guiaMasterId == null) {
-            throw new BadRequestException("Debe indicar la guía master");
+            throw new BadRequestException(
+                    "No se puede asignar la pieza porque no se indicó la guía master. "
+                            + "Selecciona una guía master para continuar.");
         }
         Long previaId = p.getGuiaMaster() != null ? p.getGuiaMaster().getId() : null;
         if (previaId != null && previaId.equals(guiaMasterId) && piezaNumero != null
@@ -1656,7 +1696,9 @@ public class PaqueteService {
     @Transactional
     public List<PaqueteDTO> asignarGuiaMasterBulk(Long guiaMasterId, List<Long> paqueteIds) {
         if (guiaMasterId == null) {
-            throw new BadRequestException("Debe indicar la guía master");
+            throw new BadRequestException(
+                    "No se pueden asignar las piezas porque no se indicó la guía master. "
+                            + "Selecciona una guía master para continuar.");
         }
         List<PaqueteDTO> result = new ArrayList<>();
         Set<Long> guiasAfectadas = new HashSet<>();
@@ -1774,20 +1816,31 @@ public class PaqueteService {
         if (estadoActual.getId().equals(estadoDestino.getId())) return;
         if (estadoActual.getOrden() == null) return;
         if (!Boolean.TRUE.equals(estadoActual.getActivo())) {
-            throw new BadRequestException("El estado actual del paquete no está activo en la configuración.");
+            throw new BadRequestException(
+                    "No se puede cambiar el estado porque el estado actual del paquete ('" + estadoActual.getNombre()
+                            + "') no está activo en la configuración. "
+                            + "Activa ese estado en el catálogo o corrige el flujo desde la gestión de estados.");
         }
         Optional<EstadoRastreo> siguiente = estadoRastreoService.findSiguienteEstadoInmediato(estadoActual);
         if (siguiente.isEmpty()) {
-            throw new BadRequestException("El paquete ya está en el último estado del flujo configurado.");
+            throw new BadRequestException(
+                    "No se puede avanzar el estado porque el paquete ya está en el último estado del flujo configurado. "
+                            + "Estado actual: '" + estadoActual.getNombre() + "'.");
         }
         if (!siguiente.get().getId().equals(estadoDestino.getId())) {
             Integer ordenDestino = estadoDestino.getOrden();
             Integer ordenActual = estadoActual.getOrden();
             if (ordenDestino != null && ordenActual != null && ordenDestino < ordenActual) {
-                throw new BadRequestException("No se permite retroceder el estado de rastreo.");
+                throw new BadRequestException(
+                        "No se puede aplicar el estado '" + estadoDestino.getNombre()
+                                + "' porque implicaría retroceder en el flujo. Estado actual: '"
+                                + estadoActual.getNombre() + "'. Regla: el estado de rastreo solo puede avanzar.");
             }
             throw new BadRequestException(
-                    "Solo se permite avanzar al siguiente estado inmediato: '" + siguiente.get().getNombre() + "'.");
+                    "No se puede aplicar el estado '" + estadoDestino.getNombre()
+                            + "' porque el flujo avanza de uno en uno. Estado actual: '" + estadoActual.getNombre()
+                            + "'. Solo se permite avanzar al siguiente estado inmediato: '"
+                            + siguiente.get().getNombre() + "'.");
         }
     }
 
@@ -1834,7 +1887,10 @@ public class PaqueteService {
             return;
         }
         if (!Boolean.TRUE.equals(destino.getActivo())) {
-            throw new BadRequestException("El estado destino no está activo");
+            throw new BadRequestException(
+                    "No se puede aplicar el estado '" + destino.getNombre() + "' porque no está activo en el catálogo. "
+                            + "Regla: solo se pueden aplicar estados de rastreo activos. "
+                            + "Activa el estado en la configuración o elige otro.");
         }
     }
 

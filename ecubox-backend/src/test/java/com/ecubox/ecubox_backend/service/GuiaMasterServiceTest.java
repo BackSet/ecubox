@@ -164,7 +164,9 @@ class GuiaMasterServiceTest {
     void validarYAsignarPieza_fallaSiNumeroExcedeTotal() {
         GuiaMaster gm = GuiaMaster.builder().id(10L).totalPiezasEsperadas(2).build();
         var ex = assertThrows(BadRequestException.class, () -> service.validarYAsignarPieza(gm, 5));
-        assertNotNull(ex);
+        // Mensaje-contrato: incluye la pieza pedida y el rango permitido.
+        assertTrue(ex.getMessage().contains("pieza 5"));
+        assertTrue(ex.getMessage().contains("entre 1 y 2"));
     }
 
     @Test
@@ -172,7 +174,64 @@ class GuiaMasterServiceTest {
         GuiaMaster gm = GuiaMaster.builder().id(10L).totalPiezasEsperadas(3).build();
         when(paqueteRepository.existsByGuiaMasterIdAndPiezaNumero(10L, 2)).thenReturn(true);
         var ex = assertThrows(ConflictException.class, () -> service.validarYAsignarPieza(gm, 2));
-        assertNotNull(ex);
+        assertTrue(ex.getMessage().contains("pieza 2/3"));
+        assertTrue(ex.getMessage().contains("ya está registrada"));
+    }
+
+    @Test
+    void update_totalMenorQuePiezasRegistradas_mensajeIndicaReglaYDatos() {
+        GuiaMaster gm = GuiaMaster.builder().id(10L).trackingBase("TB-1")
+                .totalPiezasEsperadas(5).build();
+        when(guiaMasterRepository.findById(10L)).thenReturn(Optional.of(gm));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(10L))
+                .thenReturn(List.of(
+                        Paquete.builder().id(1L).piezaNumero(1).build(),
+                        Paquete.builder().id(2L).piezaNumero(2).build(),
+                        Paquete.builder().id(3L).piezaNumero(3).build()));
+
+        GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder()
+                .totalPiezasEsperadas(2).build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.update(10L, req));
+        assertTrue(ex.getMessage().contains("No se puede reducir el total de piezas a 2"));
+        assertTrue(ex.getMessage().contains("3 piezas registradas"));
+        verify(guiaMasterRepository, never()).save(any());
+    }
+
+    @Test
+    void update_consignatarioCongeladoPorDespacho_mensajeExplicaRegla() {
+        Consignatario actual = Consignatario.builder().id(1L).codigo("ECU-A").build();
+        GuiaMaster gm = GuiaMaster.builder().id(10L).trackingBase("TB-1")
+                .consignatario(actual)
+                .consignatarioVersion(com.ecubox.ecubox_backend.entity.ConsignatarioVersion.builder()
+                        .id(77L).build())
+                .build();
+        when(guiaMasterRepository.findById(10L)).thenReturn(Optional.of(gm));
+
+        GuiaMasterUpdateRequest req = GuiaMasterUpdateRequest.builder()
+                .consignatarioId(2L).build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.update(10L, req));
+        assertTrue(ex.getMessage().contains("No se puede cambiar el consignatario"));
+        assertTrue(ex.getMessage().contains("piezas despachadas"));
+        verify(guiaMasterRepository, never()).save(any());
+    }
+
+    @Test
+    void updateDestinatarioForCliente_guiaEnProceso_mensajeIndicaEstadoActual() {
+        Usuario cliente = Usuario.builder().id(5L).build();
+        GuiaMaster gm = GuiaMaster.builder().id(10L).trackingBase("TB-1")
+                .clienteUsuario(cliente)
+                .estadoGlobal(EstadoGuiaMaster.RECEPCION_PARCIAL).build();
+        when(guiaMasterRepository.findById(10L)).thenReturn(Optional.of(gm));
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> service.updateDestinatarioForCliente(10L, 2L, 5L));
+        assertTrue(ex.getMessage().contains("estado inicial de registro"));
+        assertTrue(ex.getMessage().contains("RECEPCION_PARCIAL"));
+        verify(guiaMasterRepository, never()).save(any());
     }
 
     @Test
@@ -746,5 +805,60 @@ class GuiaMasterServiceTest {
         assertEquals(t2, dto.getTimeline().get(1).getOccurredAt());
         assertEquals("AGG-1 1/2", dto.getTimeline().get(0).getNumeroGuia());
         assertEquals(1, dto.getTimeline().get(0).getPiezaNumero());
+    }
+
+    // ------------------------------------------------------------------
+    // aplicarAccionBulk (accion masiva sobre guias master)
+    // ------------------------------------------------------------------
+
+    @Test
+    void aplicarAccionBulk_cancelar_procesaElegiblesYRechazaTerminales() {
+        GuiaMaster activa = GuiaMaster.builder().id(1L).trackingBase("TB-OK")
+                .estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
+        GuiaMaster cancelada = GuiaMaster.builder().id(2L).trackingBase("TB-TERMINAL")
+                .estadoGlobal(EstadoGuiaMaster.CANCELADA).build();
+        when(guiaMasterRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(activa, cancelada));
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(activa));
+        when(guiaMasterRepository.findById(2L)).thenReturn(Optional.of(cancelada));
+        when(guiaMasterRepository.save(any(GuiaMaster.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var res = service.aplicarAccionBulk("CANCELAR", List.of(1L, 2L), "error de registro", null);
+
+        assertEquals(1, res.getProcesadas());
+        assertEquals(1, res.getRechazados().size());
+        var rechazo = res.getRechazados().get(0);
+        assertEquals(2L, rechazo.getGuiaMasterId());
+        assertEquals("TB-TERMINAL", rechazo.getTrackingBase());
+        assertTrue(rechazo.getMotivo().contains("estado terminal"));
+    }
+
+    @Test
+    void aplicarAccionBulk_accionDesconocida_lanzaBadRequest() {
+        var ex = assertThrows(BadRequestException.class,
+                () -> service.aplicarAccionBulk("EXPLOTAR", List.of(1L), null, null));
+        assertTrue(ex.getMessage().contains("no es válida"));
+        assertTrue(ex.getMessage().contains("EXPLOTAR"));
+    }
+
+    @Test
+    void aplicarAccionBulk_cancelarSinMotivo_lanzaBadRequest() {
+        var ex = assertThrows(BadRequestException.class,
+                () -> service.aplicarAccionBulk("CANCELAR", List.of(1L), "   ", null));
+        assertTrue(ex.getMessage().contains("falta el motivo"));
+        verify(guiaMasterRepository, never()).findAllById(anyList());
+    }
+
+    @Test
+    void aplicarAccionBulk_recalcular_guiaCongelada_seRechazaConMotivo() {
+        GuiaMaster enRevision = GuiaMaster.builder().id(3L).trackingBase("TB-REV")
+                .estadoGlobal(EstadoGuiaMaster.EN_REVISION).build();
+        when(guiaMasterRepository.findAllById(List.of(3L))).thenReturn(List.of(enRevision));
+
+        var res = service.aplicarAccionBulk("RECALCULAR", List.of(3L), null, null);
+
+        assertEquals(0, res.getProcesadas());
+        assertEquals(1, res.getRechazados().size());
+        assertTrue(res.getRechazados().get(0).getMotivo().contains("revisión"));
+        verify(guiaMasterRepository, never()).save(any());
     }
 }

@@ -171,7 +171,36 @@ class PaqueteServiceUpdateRefTest {
 
         assertThatThrownBy(() -> service.update(101L, 1L, true, true, req))
                 .isInstanceOf(BadRequestException.class)
+                // Mensaje-contrato: indica la accion bloqueada, la regla y el prefijo esperado.
+                .hasMessageContaining("No se puede guardar la referencia")
+                .hasMessageContaining("código del consignatario")
                 .hasMessageContaining("ECU-KZ66");
+
+        verify(paqueteRepository, never()).save(any());
+    }
+
+    @Test
+    void update_refDuplicada_mensajeIndicaReglaDeUnicidad() {
+        PaqueteService service = createService();
+        Usuario owner = Usuario.builder().id(1L).build();
+        Consignatario kevin = Consignatario.builder()
+                .id(20L).codigo("ECU-KZ66").usuario(owner).build();
+        Paquete paquete = paqueteCon(kevin, "ECU-KZ66-1");
+
+        when(paqueteRepository.findById(101L)).thenReturn(Optional.of(paquete));
+        when(paqueteRepository.existsByRefAndIdNot("ECU-KZ66-7", 101L)).thenReturn(true);
+
+        PaqueteUpdateRequest req = PaqueteUpdateRequest.builder()
+                .consignatarioId(20L)
+                .contenido("contenido valido")
+                .ref("ECU-KZ66-7")
+                .build();
+
+        assertThatThrownBy(() -> service.update(101L, 1L, true, true, req))
+                .isInstanceOf(com.ecubox.ecubox_backend.exception.ConflictException.class)
+                .hasMessageContaining("ECU-KZ66-7")
+                .hasMessageContaining("ya está usada por otro paquete")
+                .hasMessageContaining("debe ser única");
 
         verify(paqueteRepository, never()).save(any());
     }

@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { StatusBadge, type StatusTone } from '@/components/ui/StatusBadge';
+import type { EstadoLeyendaItem } from '@/components/estados/EstadosLeyendaDialog';
 import type {
   EnvioConsolidado,
   EstadoEnvioConsolidadoOperativo,
@@ -68,6 +69,23 @@ export const ENVIO_CONSOLIDADO_ESTADO_UI: Record<
   LIQUIDADO:        { label: 'Liquidado',           tone: 'success',  icon: Wallet      },
   CANCELADO:        { label: 'Cancelado',           tone: 'neutral',  icon: Ban         },
 };
+
+/**
+ * Items para la leyenda "¿Qué significa cada estado?" del envío
+ * consolidado (back-office), en el orden del flujo operativo.
+ */
+export function getEnvioConsolidadoLeyendaItems(): EstadoLeyendaItem[] {
+  return ENVIO_CONSOLIDADO_ESTADO_ORDEN.map((estado) => {
+    const ui = ENVIO_CONSOLIDADO_ESTADO_UI[estado];
+    return {
+      key: estado,
+      label: ui.label,
+      descripcion: ENVIO_CONSOLIDADO_ESTADO_DESCRIPCIONES[estado],
+      tone: ui.tone,
+      icon: ui.icon,
+    };
+  });
+}
 
 export function EnvioConsolidadoBadge({
   cerrado,

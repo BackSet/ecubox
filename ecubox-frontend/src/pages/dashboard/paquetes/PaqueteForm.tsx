@@ -17,7 +17,7 @@ import { PesoInputPair } from '@/components/PesoInput';
 import { sanitizeNumericDecimal } from '@/lib/inputFilters';
 import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import { useAuthStore } from '@/stores/authStore';
-import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
 import { UserRound, Phone, MapPin, ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useGuiasMaster } from '@/hooks/useGuiasMaster';
@@ -100,7 +100,7 @@ export function PaqueteForm({
         : undefined;
     if (guiaId == null) {
       form.setError('guiaMasterId', { message: 'Selecciona una guía' });
-      toast.error('Selecciona una guía para continuar');
+      notify.error('Selecciona una guía master', 'El paquete se registra como pieza de una guía master.');
       return;
     }
     const guia = guiasMaster.find((gm) => gm.id === guiaId);
@@ -109,7 +109,10 @@ export function PaqueteForm({
       form.setError('guiaMasterId', {
         message: 'La guía seleccionada no tiene consignatario asignado',
       });
-      toast.error('La guía seleccionada no tiene consignatario asignado');
+      notify.error(
+        isEdit ? 'No se pudo actualizar el paquete' : 'No se pudo registrar el paquete',
+        'La guía master seleccionada no tiene consignatario. Asigna un consignatario a la guía antes de registrar piezas.',
+      );
       return;
     }
     try {
@@ -135,7 +138,13 @@ export function PaqueteForm({
           id: paquete.id,
           body,
         });
-        toast.success('Paquete actualizado correctamente');
+        notify.success(
+          'Paquete actualizado',
+          guiaSeleccionada
+            ? `Pieza de la guía master ${guiaSeleccionada.trackingBase}` +
+                (consignatarioNombre ? ` para ${consignatarioNombre}.` : '.')
+            : undefined,
+        );
       } else {
         const createBody: {
           consignatarioId: number;
@@ -155,23 +164,29 @@ export function PaqueteForm({
           if (typeof kg === 'number' && !Number.isNaN(kg)) createBody.pesoKg = kg;
         }
         await createMutation.mutateAsync(createBody);
-        toast.success('Paquete registrado correctamente');
+        notify.success(
+          'Paquete registrado',
+          guiaSeleccionada
+            ? `Pieza agregada a la guía master ${guiaSeleccionada.trackingBase}` +
+                (consignatarioNombre ? ` para ${consignatarioNombre}.` : '.')
+            : undefined,
+        );
       }
       onSuccess();
     } catch (err: unknown) {
       const res = (err as { response?: { status?: number; data?: { message?: string } } })?.response;
       const status = res?.status;
       const message = res?.data?.message ?? '';
+      const titulo = isEdit ? 'No se pudo actualizar el paquete' : 'No se pudo registrar el paquete';
       if (status === 409) {
         if (message.includes('referencia')) {
-          toast.error('Ya existe otro paquete con esa referencia');
+          notify.error(titulo, message?.trim() || 'Ya existe otro paquete con esa referencia.');
           form.setError('ref', { message: 'Esta referencia ya está en uso' });
         } else {
-          toast.error(message?.trim() || 'Conflicto al guardar el paquete');
+          notify.error(titulo, message?.trim() || 'El paquete entra en conflicto con otro registro existente.');
         }
       } else {
-        const fallback = isEdit ? 'Error al actualizar el paquete' : 'Error al registrar el paquete';
-        toast.error(message?.trim() || fallback);
+        notify.error(titulo, message?.trim() || undefined);
         if (status === 400 && message?.toLowerCase().includes('contenido')) {
           form.setError('contenido', { message: 'El contenido es obligatorio' });
         }

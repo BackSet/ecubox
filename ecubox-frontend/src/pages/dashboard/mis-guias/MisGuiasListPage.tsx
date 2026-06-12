@@ -44,12 +44,14 @@ import { ConsignatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
 import type { StatusTone } from '@/components/ui/StatusBadge';
 import type { EstadoGuiaMaster, GuiaMaster } from '@/types/guia-master';
 import { EditarMiGuiaDialog } from './EditarMiGuiaDialog';
+import { EstadosLeyendaDialog } from '@/components/estados/EstadosLeyendaDialog';
 import {
   MI_GUIA_ESTADO_ICONS,
   MI_GUIA_ESTADO_LABELS_CORTOS,
   MI_GUIA_ESTADO_ORDEN,
   MI_GUIA_ESTADO_TONES,
   MiGuiaEstadoBadge,
+  getMisGuiasLeyendaItems,
 } from './_estado-cliente';
 import { RegistrarMisGuiasDialog } from './RegistrarMisGuiasDialog';
 
@@ -165,12 +167,20 @@ export function MisGuiasListPage() {
         searchPlaceholder="Buscar por número de guía o destinatario..."
         onSearchChange={setSearch}
         actions={
-          canEditar ? (
-            <Button className="w-full sm:w-auto" onClick={() => setRegistrarOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Registrar guías
-            </Button>
-          ) : undefined
+          <>
+            <EstadosLeyendaDialog
+              title="¿Qué significa cada estado?"
+              description="Estados por los que pasa una guía desde que la registras hasta la entrega."
+              items={getMisGuiasLeyendaItems()}
+              triggerLabel="Ver qué significa cada estado de tus guías"
+            />
+            {canEditar ? (
+              <Button className="w-full sm:w-auto" onClick={() => setRegistrarOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Registrar guías
+              </Button>
+            ) : null}
+          </>
         }
       />
 

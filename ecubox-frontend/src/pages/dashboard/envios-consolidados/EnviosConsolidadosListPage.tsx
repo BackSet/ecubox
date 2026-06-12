@@ -24,6 +24,8 @@ import {
   Unlock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { notify } from '@/lib/notify';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -87,6 +89,10 @@ import {
 } from '@/hooks/useEnviosConsolidados';
 import { useSearchPagination } from '@/hooks/useSearchPagination';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import {
+  ResultadoBulkDialog,
+  type ResultadoBulkRechazo,
+} from '@/components/ResultadoBulkDialog';
 import { AplicarEstadoMasivoDialog } from '@/components/AplicarEstadoMasivoDialog';
 import type { EstadoFiltro, EstadoPagoFiltro } from '@/lib/api/envios-consolidados.service';
 import type { EstadoPagoConsolidado } from '@/types/envio-consolidado';
@@ -95,8 +101,10 @@ import {
   EnvioConsolidadoBadge,
   ENVIO_CONSOLIDADO_ESTADO_ORDEN,
   ENVIO_CONSOLIDADO_ESTADO_UI,
+  getEnvioConsolidadoLeyendaItems,
   resolveEstadoOperativoConsolidado,
 } from './EnvioConsolidadoBadge';
+import { EstadosLeyendaDialog } from '@/components/estados/EstadosLeyendaDialog';
 import type { EstadoEnvioConsolidadoOperativo } from '@/types/envio-consolidado';
 
 import { formatWeightFromValues, formatWeightInline, LBS_TO_KG } from '@/lib/utils/weight';
@@ -341,6 +349,12 @@ export function EnviosConsolidadosListPage() {
     }
   }, [tipoAccionMasiva, estadoOperativoSeleccionado, estadoRastreoSeleccionado]);
 
+  const [resultadoBulk, setResultadoBulk] = useState<{
+    accionLabel: string;
+    procesadas: number;
+    rechazados: ResultadoBulkRechazo[];
+  } | null>(null);
+
   function handleBulkSelectedOptionChange(value: string) {
     if (tipoAccionMasiva === 'operativa') {
       setEstadoOperativoSeleccionado((value || null) as TransicionOperativa | null);
@@ -352,66 +366,60 @@ export function EnviosConsolidadosListPage() {
 
   const bulkItems = useMemo(() => {
     const all = dataTodos?.content ?? [];
+    const contenido = (envio: (typeof all)[number], operativo: EstadoEnvioConsolidadoOperativo) => (
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <MonoTrunc value={envio.codigo} copy={false} className="font-medium" />
+          <div className="text-xs text-muted-foreground">
+            {envio.totalPaquetes ?? 0} paquete(s)
+            {envio.estadoPago === 'PAGADO' ? ' · Pagado' : ''}
+          </div>
+        </div>
+        <EnvioConsolidadoBadge cerrado={envio.cerrado} estadoOperativo={operativo} />
+      </div>
+    );
     if (tipoAccionMasiva === 'operativa') {
       if (!estadoOperativoSeleccionado) return [];
       const origenesRequeridos = OPERATIVO_FUENTE[estadoOperativoSeleccionado];
-      return all
-        .filter((envio) => {
-          const operativo = resolveEstadoOperativoConsolidado(envio);
-          return origenesRequeridos ? origenesRequeridos.includes(operativo) : true;
-        })
-        .map((envio) => {
-          const operativo = resolveEstadoOperativoConsolidado(envio);
-          return {
-            id: envio.id,
-            date: envio.createdAt,
-            searchText: `${envio.codigo} estado:${operativo}`,
-            content: (
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <MonoTrunc value={envio.codigo} copy={false} className="font-medium" />
-                  <div className="text-xs text-muted-foreground">
-                    {envio.totalPaquetes ?? 0} paquete(s)
-                    {envio.estadoPago === 'PAGADO' ? ' · Pagado' : ''}
-                  </div>
-                </div>
-                <EnvioConsolidadoBadge
-                  cerrado={envio.cerrado}
-                  estadoOperativo={operativo}
-                />
-              </div>
-            ),
-          };
-        });
+      return all.map((envio) => {
+        const operativo = resolveEstadoOperativoConsolidado(envio);
+        const elegible = origenesRequeridos ? origenesRequeridos.includes(operativo) : true;
+        const disabledReason = elegible
+          ? undefined
+          : `Estado actual: «${ENVIO_CONSOLIDADO_ESTADO_UI[operativo].label}» · esta transición requiere ${origenesRequeridos
+              .map((src) => `«${ENVIO_CONSOLIDADO_ESTADO_UI[src].label}»`)
+              .join(' o ')}`;
+        return {
+          id: envio.id,
+          searchText: `${envio.codigo} estado:${operativo}`,
+          disabledReason,
+          content: contenido(envio, operativo),
+        };
+      });
     } else {
       if (!estadoRastreoSeleccionado) return [];
-      const elegiblesIds = new Set(elegiblesEstadoRastreo ?? []);
-      return all
-        .filter((envio) => envio.totalPaquetes > 0 && resolveEstadoOperativoConsolidado(envio) !== 'CANCELADO')
-        .filter((envio) => elegiblesIds.has(envio.id))
-        .map((envio) => {
-          const operativo = resolveEstadoOperativoConsolidado(envio);
-          return {
-            id: envio.id,
-            date: envio.createdAt,
-            searchText: `${envio.codigo} estado:${operativo}`,
-            content: (
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <MonoTrunc value={envio.codigo} copy={false} className="font-medium" />
-                  <div className="text-xs text-muted-foreground">
-                    {envio.totalPaquetes ?? 0} paquete(s)
-                    {envio.estadoPago === 'PAGADO' ? ' · Pagado' : ''}
-                  </div>
-                </div>
-                <EnvioConsolidadoBadge
-                  cerrado={envio.cerrado}
-                  estadoOperativo={operativo}
-                />
-              </div>
-            ),
-          };
-        });
+      // null = aún cargando los elegibles; no listamos nada para no marcar
+      // erróneamente todo como no elegible.
+      if (elegiblesEstadoRastreo == null) return [];
+      const elegiblesIds = new Set(elegiblesEstadoRastreo);
+      return all.map((envio) => {
+        const operativo = resolveEstadoOperativoConsolidado(envio);
+        let disabledReason: string | undefined;
+        if ((envio.totalPaquetes ?? 0) === 0) {
+          disabledReason = 'No tiene paquetes';
+        } else if (operativo === 'CANCELADO') {
+          disabledReason = 'El envío está cancelado';
+        } else if (!elegiblesIds.has(envio.id)) {
+          disabledReason =
+            'Sus paquetes no están en el estado de rastreo inmediatamente anterior (el avance es de 1 en 1)';
+        }
+        return {
+          id: envio.id,
+          searchText: `${envio.codigo} estado:${operativo}`,
+          disabledReason,
+          content: contenido(envio, operativo),
+        };
+      });
     }
   }, [tipoAccionMasiva, estadoOperativoSeleccionado, estadoRastreoSeleccionado, dataTodos, elegiblesEstadoRastreo]);
 
@@ -489,16 +497,29 @@ export function EnviosConsolidadosListPage() {
           estadoOperativoDestino: estadoOperativoSeleccionado,
           consolidadoIds: consolidadosSeleccionados,
         });
-        const rechazados = resultado.rechazados?.length ?? 0;
-        const msg = `${resultado.consolidadosProcesados} consolidado(s) actualizado(s)` +
-          (rechazados > 0 ? ` · ${rechazados} omitido(s)` : '');
-        if (rechazados > 0) toast.warning(msg);
-        else toast.success(msg);
+        const rechazados = resultado.rechazados ?? [];
+        const ok = resultado.consolidadosProcesados;
+        if (rechazados.length > 0) {
+          // El backend explica por qué rechazó cada consolidado; el detalle
+          // completo se muestra en el diálogo de resultado.
+          const accionLabel =
+            bulkOptions.find((o) => o.value === estadoOperativoSeleccionado)?.label ??
+            'Transición operativa';
+          setResultadoBulk({
+            accionLabel,
+            procesadas: ok,
+            rechazados: rechazados.map((r) => ({ codigo: r.codigo, motivo: r.motivo })),
+          });
+        } else {
+          notify.success(
+            'Transición aplicada',
+            `${ok} envío${ok === 1 ? '' : 's'} consolidado${ok === 1 ? '' : 's'} actualizado${ok === 1 ? '' : 's'}.`,
+          );
+        }
         setAplicarEstadoOpen(false);
         setConsolidadosSeleccionados([]);
       } catch (err: unknown) {
-        const r = (err as { response?: { data?: { message?: string } } })?.response;
-        toast.error(r?.data?.message ?? 'No se pudo aplicar el estado operativo');
+        notify.error('No se pudo aplicar el estado operativo', getApiErrorMessage(err));
       }
     } else {
       if (!estadoRastreoSeleccionado) return;
@@ -507,14 +528,17 @@ export function EnviosConsolidadosListPage() {
           consolidadoIds: consolidadosSeleccionados,
           estadoRastreoId: estadoRastreoSeleccionado,
         });
-        toast.success(
-          `${resultado.consolidadosProcesados} consolidado(s) y ${resultado.paquetesActualizados} paquete(s) actualizados con el nuevo estado de rastreo`
+        const estadoNombre = (estadosAplicables ?? []).find(
+          (e) => e.id === estadoRastreoSeleccionado,
+        )?.nombre;
+        notify.success(
+          estadoNombre ? `Estado de rastreo aplicado: ${estadoNombre}` : 'Estado de rastreo aplicado',
+          `${resultado.consolidadosProcesados} envío${resultado.consolidadosProcesados === 1 ? '' : 's'} consolidado${resultado.consolidadosProcesados === 1 ? '' : 's'} · ${resultado.paquetesActualizados} paquete${resultado.paquetesActualizados === 1 ? '' : 's'} actualizado${resultado.paquetesActualizados === 1 ? '' : 's'}.`,
         );
         setAplicarEstadoOpen(false);
         setConsolidadosSeleccionados([]);
       } catch (err: unknown) {
-        const r = (err as { response?: { data?: { message?: string } } })?.response;
-        toast.error(r?.data?.message ?? 'No se pudo aplicar el estado de rastreo');
+        notify.error('No se pudo aplicar el estado de rastreo', getApiErrorMessage(err));
       }
     }
   }
@@ -527,7 +551,13 @@ export function EnviosConsolidadosListPage() {
         value={q}
         onSearchChange={setQ}
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <EstadosLeyendaDialog
+              title="¿Qué significa cada estado?"
+              description="Estados operativos por los que pasa un envío consolidado, en orden del flujo."
+              items={getEnvioConsolidadoLeyendaItems()}
+              triggerLabel="Ver qué significa cada estado del envío consolidado"
+            />
             {hasEnviosUpdate && (
               <Button variant="outline" onClick={() => abrirAplicarEstado()}>
                 <Tag className="mr-2 h-4 w-4" />
@@ -845,13 +875,6 @@ export function EnviosConsolidadosListPage() {
         }
         selectionLabel="consolidados"
         searchPlaceholder="Buscar consolidado..."
-        hideModoSelector={true}
-        mode="seleccion"
-        onModeChange={() => {}}
-        dateFrom=""
-        dateTo=""
-        onDateFromChange={() => {}}
-        onDateToChange={() => {}}
         items={bulkItems}
         selectedIds={consolidadosSeleccionados}
         onSelectedIdsChange={setConsolidadosSeleccionados}
@@ -861,7 +884,6 @@ export function EnviosConsolidadosListPage() {
         optionLabel={tipoAccionMasiva === 'operativa' ? 'Estado operativo a aplicar' : 'Estado de rastreo de paquetes'}
         optionHelp={bulkOptionHelp}
         headerExtra={bulkHeaderExtra}
-        periodHelp={null}
         loading={aplicarTransicionMutation.isPending || aplicarEstadoMutation.isPending}
         onOpenChange={(open) => {
           setAplicarEstadoOpen(open);
@@ -873,6 +895,18 @@ export function EnviosConsolidadosListPage() {
         }}
         onConfirm={handleBulkConfirm}
       />
+
+      {resultadoBulk && (
+        <ResultadoBulkDialog
+          open
+          onOpenChange={(open) => !open && setResultadoBulk(null)}
+          accionLabel={resultadoBulk.accionLabel}
+          unidadSingular="envío consolidado"
+          unidadPlural="envíos consolidados"
+          procesadas={resultadoBulk.procesadas}
+          rechazados={resultadoBulk.rechazados}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmCerrar !== null}

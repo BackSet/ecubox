@@ -71,6 +71,7 @@ import {
   GuiaMasterPiezaCell,
   ConsignatarioCell,
 } from '@/pages/dashboard/paquetes/PaqueteCells';
+import { getApiErrorMessage } from '@/lib/api/error-message';
 
 const TAMANIO_LABELS: Record<TamanioSaca, string> = {
   INDIVIDUAL: 'Paquete individual',
@@ -311,7 +312,7 @@ export function DespachoDetailPage() {
       await notify.run(deleteMutation.mutateAsync(d.id), {
         loading: 'Eliminando despacho...',
         success: 'Despacho eliminado',
-        error: 'No se pudo eliminar el despacho',
+        error: (err) => getApiErrorMessage(err) ?? 'No se pudo eliminar el despacho',
       });
       navigate({ to: '/despachos' });
     } catch (err) {

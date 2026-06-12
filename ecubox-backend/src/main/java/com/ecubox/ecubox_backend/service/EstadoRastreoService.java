@@ -1,5 +1,6 @@
 package com.ecubox.ecubox_backend.service;
 
+import com.ecubox.ecubox_backend.dto.EstadoRastreoClienteDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoAlternoAfterItemRequest;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoRequest;
@@ -71,6 +72,27 @@ public class EstadoRastreoService {
     @Transactional(readOnly = true)
     public List<EstadoRastreo> findActivosEntities() {
         return estadoRastreoRepository.findByActivoTrueOrderByOrdenTrackingAscIdAsc();
+    }
+
+    /**
+     * Catálogo de estados visibles para el cliente final (leyenda de
+     * "qué significa cada estado" en mis-guias): solo estados activos y
+     * marcados como públicos, ordenados por el flujo de rastreo. La
+     * leyenda se devuelve cruda; si contiene el placeholder {dias},
+     * el frontend decide cómo presentarlo en un contexto sin conteo.
+     */
+    @Transactional(readOnly = true)
+    public List<EstadoRastreoClienteDTO> findCatalogoPublicoCliente() {
+        return estadoRastreoRepository
+                .findByActivoTrueAndPublicoTrackingTrueOrderByOrdenTrackingAscIdAsc().stream()
+                .map(e -> EstadoRastreoClienteDTO.builder()
+                        .id(e.getId())
+                        .nombre(e.getNombre())
+                        .leyenda(e.getLeyenda())
+                        .ordenTracking(e.getOrdenTracking())
+                        .tipoFlujo(e.getTipoFlujo())
+                        .build())
+                .toList();
     }
 
     /** Estados activos ordenados por tracking, excluyendo el origen (para cambio de estado masivo). */
@@ -147,7 +169,9 @@ public class EstadoRastreoService {
     public EstadoRastreoDTO create(EstadoRastreoRequest request) {
         String codigo = request.getCodigo() != null ? request.getCodigo().trim().toUpperCase() : "";
         if (estadoRastreoRepository.existsByCodigo(codigo)) {
-            throw new BadRequestException("Ya existe un estado de rastreo con el código " + codigo);
+            throw new BadRequestException(
+                    "No se puede crear el estado de rastreo porque ya existe otro con el código " + codigo
+                            + ". Regla: el código del estado de rastreo debe ser único. Usa un código distinto.");
         }
         EstadoRastreo e = toEntity(request);
         e.setCodigo(codigo);
@@ -167,7 +191,9 @@ public class EstadoRastreoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Estado de rastreo", id));
         String codigo = request.getCodigo() != null ? request.getCodigo().trim().toUpperCase() : "";
         if (estadoRastreoRepository.existsByCodigoAndIdNot(codigo, id)) {
-            throw new BadRequestException("Ya existe otro estado de rastreo con el código " + codigo);
+            throw new BadRequestException(
+                    "No se puede guardar el estado de rastreo porque el código " + codigo
+                            + " ya está usado por otro estado. Regla: el código del estado de rastreo debe ser único.");
         }
         e.setCodigo(codigo);
         e.setNombre(request.getNombre() != null ? request.getNombre().trim() : e.getNombre());
@@ -203,7 +229,10 @@ public class EstadoRastreoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Estado de rastreo", id));
         long count = paqueteRepository.countByEstadoRastreoId(id);
         if (count > 0) {
-            throw new BadRequestException("No se puede eliminar: hay " + count + " paquete(s) con este estado. Desactívelo en su lugar.");
+            throw new BadRequestException(
+                    "No se puede eliminar el estado de rastreo porque " + count
+                            + " paquete(s) lo tienen como estado actual. "
+                            + "Regla: solo se pueden eliminar estados sin paquetes asociados. Desactívalo en su lugar.");
         }
         estadoRastreoRepository.delete(e);
         invalidarCacheOrden();
@@ -262,7 +291,10 @@ public class EstadoRastreoService {
                 throw new BadRequestException("Estado alterno repetido en configuración: " + alternoId);
             }
             if (!idsBase.contains(afterId)) {
-                throw new BadRequestException("afterEstadoId inválido para alterno " + alternoId + ": " + afterId);
+                throw new BadRequestException(
+                        "La posición 'después de' del estado alterno " + alternoId
+                                + " no es válida: el estado " + afterId + " no es un estado base activo. "
+                                + "Regla: un estado alterno solo puede ubicarse después de un estado base activo.");
             }
             alternosPorBase.get(afterId).add(alternoId);
         }

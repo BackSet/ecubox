@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.controller;
 
 import com.ecubox.ecubox_backend.config.OpenApiConstants;
+import com.ecubox.ecubox_backend.dto.EstadoRastreoClienteDTO;
 import com.ecubox.ecubox_backend.dto.GuiaMasterDTO;
 import com.ecubox.ecubox_backend.dto.MiGuiaCreateRequest;
 import com.ecubox.ecubox_backend.dto.MiGuiaUpdateRequest;
@@ -10,6 +11,7 @@ import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.security.AccesoSessionResolver;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
+import com.ecubox.ecubox_backend.service.EstadoRastreoService;
 import com.ecubox.ecubox_backend.service.GuiaMasterService;
 import com.ecubox.ecubox_backend.service.PaqueteService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,15 +42,18 @@ public class MisGuiasController {
     private final PaqueteService paqueteService;
     private final CurrentUserService currentUserService;
     private final AccesoSessionResolver accesoSessionResolver;
+    private final EstadoRastreoService estadoRastreoService;
 
     public MisGuiasController(GuiaMasterService guiaMasterService,
                               PaqueteService paqueteService,
                               CurrentUserService currentUserService,
-                              AccesoSessionResolver accesoSessionResolver) {
+                              AccesoSessionResolver accesoSessionResolver,
+                              EstadoRastreoService estadoRastreoService) {
         this.guiaMasterService = guiaMasterService;
         this.paqueteService = paqueteService;
         this.currentUserService = currentUserService;
         this.accesoSessionResolver = accesoSessionResolver;
+        this.estadoRastreoService = estadoRastreoService;
     }
 
     @PostMapping
@@ -89,6 +94,20 @@ public class MisGuiasController {
                 .map(gm -> guiaMasterService.toDTO(gm, List.of()))
                 .toList();
         return ResponseEntity.ok(guias);
+    }
+
+    /**
+     * Catálogo de estados de rastreo visibles para el cliente (leyenda de
+     * "qué significa cada estado"). Se declara antes de {@code GET /{id}};
+     * Spring resuelve el patrón literal con prioridad sobre el variable.
+     */
+    @GetMapping("/estados-rastreo")
+    @PreAuthorize("hasAnyAuthority('MIS_GUIAS_READ', 'ACCESO_ENLACE_GUIAS_READ')")
+    @Operation(summary = "Catálogo de estados de rastreo",
+            description = "Lista los estados de rastreo activos y públicos con su leyenda, para explicar al cliente qué significa cada estado")
+    @ApiResponse(responseCode = "200", description = "Listado de estados de rastreo")
+    public ResponseEntity<List<EstadoRastreoClienteDTO>> estadosRastreo() {
+        return ResponseEntity.ok(estadoRastreoService.findCatalogoPublicoCliente());
     }
 
     @GetMapping("/{id}")
