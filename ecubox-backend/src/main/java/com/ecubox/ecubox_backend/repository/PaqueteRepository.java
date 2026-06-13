@@ -236,22 +236,9 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     BigDecimal sumPesoRegistradoEntre(@Param("desde") LocalDateTime desde,
                                       @Param("hasta") LocalDateTime hasta);
 
-    /**
-     * Promedio de días entre el registro del paquete y la fecha del despacho,
-     * para los paquetes despachados dentro del período. Devuelve {@code null}
-     * cuando no hay despachos con fechas válidas.
-     */
-    @Query(value = """
-            SELECT AVG(EXTRACT(EPOCH FROM (d.fecha_hora - p.created_at)) / 86400.0)
-            FROM paquete p
-            JOIN saca s ON p.saca_id = s.id
-            JOIN despacho d ON s.despacho_id = d.id
-            WHERE d.fecha_hora >= :desde
-              AND d.fecha_hora < :hasta
-              AND d.fecha_hora >= p.created_at
-            """, nativeQuery = true)
-    Double avgDiasDespachoEntre(@Param("desde") LocalDateTime desde,
-                                @Param("hasta") LocalDateTime hasta);
+    // Nota: el promedio de días a despacho se calcula desde el evento canónico
+    // de despacho del paquete (PaqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre),
+    // no desde `despacho.fecha_hora`.
 
     List<Paquete> findByConsignatarioUsuarioIdOrderByEstadoRastreo_OrdenAscIdAsc(Long usuarioId);
 

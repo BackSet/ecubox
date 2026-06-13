@@ -33,21 +33,19 @@ import {
 
 interface FilaPunto {
   etiqueta: string;
-  despachos: number;
-  paquetes: number;
+  paquetesDespachados: number;
   pesoLbs: number;
   registrados: number;
 }
 
 function combinarSeries(
-  despachos: EstadisticaSeriePunto[],
+  paquetesDespachados: EstadisticaSeriePunto[],
   registros: EstadisticaSeriePunto[],
 ): FilaPunto[] {
   const registradosPorPeriodo = new Map(registros.map((r) => [r.periodo, r.total]));
-  return despachos.map((d) => ({
+  return paquetesDespachados.map((d) => ({
     etiqueta: d.etiqueta,
-    despachos: d.total,
-    paquetes: d.paquetes,
+    paquetesDespachados: d.total,
     pesoLbs: Number(d.pesoLbs ?? 0),
     registrados: registradosPorPeriodo.get(d.periodo) ?? 0,
   }));
@@ -97,7 +95,6 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
 
   // ── KPIs de resultados del periodo ──
   drawKpiRow(ctx, [
-    { label: 'Despachos', value: fmtNumero(resultados.despachos.actual ?? 0, 0) },
     {
       label: 'Paquetes despachados',
       value: fmtNumero(resultados.paquetesDespachados.actual ?? 0, 0),
@@ -117,32 +114,30 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
   ]);
 
   drawInlineMetrics(ctx, 'Variación vs. periodo anterior', [
-    { label: 'Despachos', value: variacion(resultados.despachos) },
     { label: 'Paquetes despachados', value: variacion(resultados.paquetesDespachados) },
     { label: 'Paquetes registrados', value: variacion(resultados.paquetesRegistrados) },
     { label: 'Peso despachado', value: variacion(resultados.pesoDespachadoLbs) },
   ]);
 
-  drawInlineMetrics(ctx, 'Estimación financiera del periodo', [
-    { label: 'Margen bruto', value: fmtMoneda(resultados.margenBruto.actual ?? 0) },
-    { label: 'Costo distribución', value: fmtMoneda(resultados.costoDistribucion.actual ?? 0) },
-    { label: 'Ingreso neto aprox.', value: fmtMoneda(resultados.ingresoNeto.actual ?? 0) },
+  drawInlineMetrics(ctx, 'Estimación financiera del periodo (no contable)', [
+    { label: 'Margen bruto est.', value: fmtMoneda(resultados.margenBruto.actual ?? 0) },
+    { label: 'Costo distribución est.', value: fmtMoneda(resultados.costoDistribucion.actual ?? 0) },
+    { label: 'Ingreso neto est.', value: fmtMoneda(resultados.ingresoNeto.actual ?? 0) },
   ]);
 
-  // ── Evolución del periodo ──
-  const puntos = combinarSeries(resultados.despachosSerie, resultados.registrosSerie);
-  drawSectionTitle(ctx, 'Evolución del periodo');
+  // ── Movimiento de paquetes ──
+  const puntos = combinarSeries(resultados.paquetesDespachadosSerie, resultados.registrosSerie);
+  drawSectionTitle(ctx, 'Movimiento de paquetes');
   const puntoCols: ColumnDef<FilaPunto>[] = [
-    { key: 'periodo', label: 'PERÍODO', weight: 0.2, align: 'left', render: (r) => r.etiqueta },
-    { key: 'desp', label: 'DESPACHOS', weight: 0.2, align: 'right', render: (r) => fmtNumero(r.despachos, 0) },
-    { key: 'paq', label: 'PAQUETES DESP.', weight: 0.22, align: 'right', render: (r) => fmtNumero(r.paquetes, 0) },
-    { key: 'reg', label: 'REGISTRADOS', weight: 0.2, align: 'right', render: (r) => fmtNumero(r.registrados, 0) },
-    { key: 'peso', label: 'PESO (LBS)', weight: 0.18, align: 'right', render: (r) => fmtNumero(r.pesoLbs, 1) },
+    { key: 'periodo', label: 'PERÍODO', weight: 0.28, align: 'left', render: (r) => r.etiqueta },
+    { key: 'paq', label: 'PAQUETES DESP.', weight: 0.26, align: 'right', render: (r) => fmtNumero(r.paquetesDespachados, 0) },
+    { key: 'reg', label: 'REGISTRADOS', weight: 0.24, align: 'right', render: (r) => fmtNumero(r.registrados, 0) },
+    { key: 'peso', label: 'PESO DESP. (LBS)', weight: 0.22, align: 'right', render: (r) => fmtNumero(r.pesoLbs, 1) },
   ];
   drawTable<FilaPunto>(ctx, {
     columns: puntoCols,
     rows: puntos,
-    empty: 'Sin actividad en el período.',
+    empty: 'No hubo paquetes registrados ni despachados en este periodo.',
   });
 
   // ── Estado operativo actual ──

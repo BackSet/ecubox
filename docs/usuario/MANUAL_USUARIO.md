@@ -157,6 +157,19 @@ Orden sugerido según el flujo logístico (las rutas pueden variar ligeramente s
 - **Mis guías** (`/mis-guias`): seguimiento de guías master del cliente (`MIS_GUIAS_READ`).
 - **Mis entregas** (`/mis-entregas`): despachos con las piezas del cliente; puede **confirmar entrega** (`MIS_ENTREGAS_CONFIRM`) cuando el sistema lo habilita.
 
+#### ¿Cómo encuentro el número de guía?
+
+En `Mis guías` (y dentro de **Registrar guías**, con el enlace **«¿No sabes cuál número ingresar?»**) hay una ayuda que explica qué número registrar:
+
+- **Qué es**: el **número de guía** es el **código de rastreo** que aparece cuando la tienda confirma que tu paquete fue **enviado**. No es el número de pedido ni el de factura.
+- **Sí es la guía**: «Número de rastreo», «Tracking number», «Tracking ID», «Package tracking».
+- **No es la guía**: número de pedido, número de factura, SKU, código del producto, referencia de pago.
+- **Dónde aparece**: en el correo de «Pedido enviado / En camino», en el detalle del pedido (sección «Rastrear»/«Seguimiento») o en la confirmación del transportista.
+- **Compra dividida**: si la tienda dividió tu compra en **varios paquetes** y muestra varios números de rastreo, **registra cada número como una guía separada**.
+- **Ejemplos** (Amazon y SHEIN, ilustrativos; los formatos varían): un código correcto luce como `1Z999AA10123456784` o `TBA123456789000`; un número de pedido como `114-1234567-1234567` **no** sirve como guía.
+
+> Si pegas un número que **parece un número de pedido**, la app muestra un aviso, pero **no te bloquea**: puedes continuar si estás seguro. La validación acepta guías de cualquier transportista (con letras, guiones o distinta longitud).
+
 ---
 
 ## 6. Catálogos

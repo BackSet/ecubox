@@ -12,23 +12,37 @@ const GRANULARIDAD_ADJETIVO: Record<GranularidadEstadisticas, string> = {
 };
 
 interface SeriesChartProps {
-  despachos: EstadisticaSeriePunto[];
+  paquetesDespachados: EstadisticaSeriePunto[];
   registros: EstadisticaSeriePunto[];
   granularidad: GranularidadEstadisticas;
 }
 
 /**
- * Gráfico de barras de la evolución del periodo. No asume que las etiquetas son
- * meses: se adapta a granularidad diaria, semanal, mensual o trimestral.
+ * Gráfico de barras del movimiento de paquetes del periodo. No asume que las
+ * etiquetas son meses: se adapta a granularidad diaria, semanal, mensual o
+ * trimestral. Cuando ambas series están vacías o en cero muestra un estado
+ * vacío explícito en vez de un gráfico engañoso.
  */
-export function SeriesChart({ despachos, registros, granularidad }: SeriesChartProps) {
+export function SeriesChart({ paquetesDespachados, registros, granularidad }: SeriesChartProps) {
+  const sinDatos =
+    paquetesDespachados.every((item) => item.total === 0) &&
+    registros.every((item) => item.total === 0);
+
+  if (sinDatos) {
+    return (
+      <p className="flex h-32 items-center justify-center rounded-md border border-dashed border-[var(--color-border)] px-4 text-center text-[13px] text-[var(--color-muted-foreground)]">
+        No hubo paquetes registrados ni despachados en este periodo.
+      </p>
+    );
+  }
+
   const maxValue = Math.max(
     1,
-    ...despachos.map((item) => item.total),
+    ...paquetesDespachados.map((item) => item.total),
     ...registros.map((item) => item.total),
   );
   // Con muchos puntos (p. ej. serie diaria) las barras se estrechan.
-  const densa = despachos.length > 20;
+  const densa = paquetesDespachados.length > 20;
   const adjetivo = GRANULARIDAD_ADJETIVO[granularidad];
 
   return (
@@ -36,9 +50,9 @@ export function SeriesChart({ despachos, registros, granularidad }: SeriesChartP
       <div
         className="flex h-64 items-end gap-1.5 overflow-x-auto border-b border-l border-[var(--color-border)] px-3 pt-5"
         role="img"
-        aria-label={`Comparación ${adjetivo} de despachos y paquetes registrados`}
+        aria-label={`Comparación ${adjetivo} de paquetes despachados y registrados`}
       >
-        {despachos.map((item, index) => {
+        {paquetesDespachados.map((item, index) => {
           const registro = registros[index]?.total ?? 0;
           const dispatchHeight = Math.max(2, (item.total / maxValue) * 100);
           const registeredHeight = Math.max(2, (registro / maxValue) * 100);
@@ -46,7 +60,7 @@ export function SeriesChart({ despachos, registros, granularidad }: SeriesChartP
             <div
               key={item.periodo}
               className={`flex h-full flex-1 flex-col justify-end ${densa ? 'min-w-6' : 'min-w-12'}`}
-              title={`${item.etiqueta}: ${item.total} despachos, ${registro} paquetes registrados`}
+              title={`${item.etiqueta}: ${item.total} paquetes despachados, ${registro} registrados`}
             >
               <div className="flex h-[calc(100%-2rem)] items-end justify-center gap-1">
                 <div
@@ -74,7 +88,7 @@ export function SeriesChart({ despachos, registros, granularidad }: SeriesChartP
       <figcaption className="mt-3 flex flex-wrap gap-4 text-[12px] text-[var(--color-muted-foreground)]">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-primary)]" />
-          Despachos
+          Paquetes despachados
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-info)]" />

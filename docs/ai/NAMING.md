@@ -35,6 +35,10 @@
 | Pesaje | Cargar pesos, registro de peso | Proceso de capturar peso | **Verificado en Git** |
 | Peso (lbs) | `lb` | Unidad visible y contratos de peso | **Verificado en documentación** y utilidades |
 | Enlace de acceso | Link de acceso en copy canónico | Acceso sin cuenta, temporal o persistente | **Verificado en Git** |
+| Número de guía | Guía master en copy de cliente | Código de rastreo del transportista que el cliente registra en `/mis-guias`; equivale al `trackingBase` | **Verificado en Git/documentación** |
+| Número de rastreo | Tracking number / Tracking ID / Package tracking (sinónimos visibles) | Forma en que las tiendas (Amazon, SHEIN…) nombran el número de guía; es lo que el cliente debe copiar | **Verificado en documentación** |
+| Número de pedido | Número de guía (es un error frecuente del cliente) | Identificador de la compra en la tienda (order number); **no** es la guía. Patrón Amazon `ddd-ddddddd-ddddddd`. También aplica número de factura, SKU, código de producto, referencia de pago | **Verificado en documentación** |
+| Guía dividida en varios paquetes | Envío parcial como sinónimo de cliente | Cuando la tienda divide una compra y emite varios números de rastreo: cada uno se registra como una guía separada | **Verificado en documentación** |
 
 ## 2. Reglas por contexto
 
@@ -55,6 +59,11 @@
 - Mostrar pesos con `lbs`.
 - **Movimiento (motion)**: tokens canónicos de duración `--motion-instant|fast|normal|slow|emphasis` y de curva `--motion-ease-standard|enter|exit|emphasized`; utilidades `.ui-transition`, `.ui-interactive`, `.ui-surface-hover`, `.ui-motion-enter`, `.ui-motion-fade`, `.ui-motion-scale`, `.ui-motion-slide-up`, `.ui-motion-highlight`. Prohibido `transition-all` y duraciones/curvas literales en componentes. Toda animación respeta `prefers-reduced-motion`. Referencia: `ecubox-frontend/UI_GUIDELINES.md`.
 - **Estadísticas**: usar **«Periodo»** para el rango consultado (`[desde, hastaExclusivo)`, `hasta` exclusivo en el API; `hastaInclusivo` solo para mostrar). **«Preset»** es la selección rápida; **«Rango personalizado»** el modo manual; **«Granularidad»** la agregación temporal (diaria/semanal/mensual/trimestral). **«Periodo anterior equivalente»** es el rango contra el que se compara; **«Período en curso»** etiqueta un periodo parcial. **«Resultados del periodo»** (histórico, comparable) se separa de **«Estado operativo actual»** (fotografía, sin comparación histórica).
+- **Métricas de estadísticas**:
+  - **«Paquete registrado»**: paquete dado de alta en el sistema (por `paquete.created_at`). Métrica/serie **«Paquetes registrados»**.
+  - **«Paquete despachado»**: paquete que avanzó a despacho; se ancla en su **primera transición auditable** al estado `estadoRastreoEnDespachoId` (`PaqueteEstadoEvento`), no en `despacho.fecha_hora`. Métrica/serie **«Paquetes despachados»**; el gráfico que las compara es **«Movimiento de paquetes»**. Ya **no** existe un KPI «Despachos» (conteo de entidades `despacho`).
+  - **«Estimado/estimada»**: rótulo obligatorio para métricas que no son valores contables reales (**Margen bruto estimado**, **Costo de distribución estimado**, **Ingreso neto estimado**: peso registrado × tasas históricas de liquidación). No presentarlas como cifras contables.
+  - **«Dato no disponible» / «—»**: representación de un valor **no calculable** (`null`), distinto de un **cero real** (`0`). No convertir nulos ni excepciones en cero.
 - **Separación de lenguaje por audiencia (estados de guía)**: el vocabulario interno (operación/back-office) se separa del visible para el cliente. Cliente ve **Guía** (no «Guía master»), **Número de guía**, **Mis guías**, **Paquete** (no «Pieza»), **Envío** (nunca «Envío consolidado»/«consolidado»). El cliente no ve «Guía master», «Envío consolidado/consolidado», «Lote de recepción», «estado derivado», «recálculo automático» ni «admin/operario». Fuente única en código: `ecubox-frontend/src/lib/estados/guiaMasterEstados.ts` (catálogo `EstadoGuiaMaster` con etiqueta/descr. interna y de cliente; `describirEstadoCliente` expresa la parcialidad por cantidades, sin la palabra «parcial»). Las equivalencias se consultan en modo lectura en `/parametros-sistema/estados` («Equivalencias de estados para clientes»). El lenguaje interno se conserva intacto en paneles administrativos.
 - Ejecutar `npm run lint:nomenclatura` al modificar copy del frontend.
 
