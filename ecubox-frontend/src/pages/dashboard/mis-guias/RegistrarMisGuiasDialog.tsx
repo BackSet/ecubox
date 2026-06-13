@@ -32,6 +32,12 @@ import { MIS_GUIAS_QUERY_KEY } from '@/hooks/useMisGuias';
 import { registrarMiGuia } from '@/lib/api/mis-guias.service';
 import { miGuiasBulkSchema, MAX_MIS_GUIAS_BULK } from '@/lib/schemas/guia';
 import { cn } from '@/lib/utils';
+import { GuiaTrackingHelp } from './GuiaTrackingHelp';
+import {
+  GUIA_TRACKING_AVISO_PEDIDO,
+  GUIA_TRACKING_HINT_CAMPO,
+  pareceNumeroPedido,
+} from './guiaTrackingHelpContent';
 
 type FormValues = z.input<typeof miGuiasBulkSchema>;
 
@@ -300,10 +306,13 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
           {consignatarioId != null && (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Guías
-                  <span className="ml-1.5 font-normal text-muted-foreground">({fields.length})</span>
-                </h3>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Guías
+                    <span className="ml-1.5 font-normal text-muted-foreground">({fields.length})</span>
+                  </h3>
+                  <GuiaTrackingHelp variant="inline" />
+                </div>
                 {fields.length < MAX_MIS_GUIAS_BULK && !enviando && (
                   <div className="flex items-center gap-2">
                     <Button
@@ -357,6 +366,9 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
                     const err = formState.errors.guias?.[index]?.tracking?.message as
                       | string
                       | undefined;
+                    // Aviso heurístico NO bloqueante: el valor parece un número de pedido.
+                    const avisoPedido =
+                      !err && pareceNumeroPedido(watchedGuias?.[index]?.tracking ?? '');
                     return (
                       <div key={field.id} className="px-3 py-2">
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2rem_minmax(0,1fr)_2.5rem] sm:items-center sm:gap-3">
@@ -404,6 +416,15 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
                           </div>
                         </div>
                         {err && <p className="mt-1 text-xs text-destructive sm:pl-[2.75rem]">{err}</p>}
+                        {avisoPedido && (
+                          <p
+                            role="status"
+                            className="mt-1 flex items-start gap-1 text-xs text-[var(--color-warning)] sm:pl-[2.75rem]"
+                          >
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                            {GUIA_TRACKING_AVISO_PEDIDO}
+                          </p>
+                        )}
                       </div>
                     );
                   })}
@@ -431,6 +452,8 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
                   <span className="text-muted-foreground">{resumen.vacias} sin número</span>
                 )}
               </div>
+
+              <p className="text-[11px] font-medium text-foreground">{GUIA_TRACKING_HINT_CAMPO}</p>
 
               <p className="text-[11px] text-muted-foreground">
                 El total de paquetes y demás detalles los completaremos al recibir tu paquete.

@@ -54,6 +54,7 @@ import {
   getMisGuiasLeyendaItems,
 } from './_estado-cliente';
 import { RegistrarMisGuiasDialog } from './RegistrarMisGuiasDialog';
+import { GuiaTrackingHelp } from './GuiaTrackingHelp';
 
 type FiltroEstado = EstadoGuiaMaster | 'TODAS';
 
@@ -184,6 +185,10 @@ export function MisGuiasListPage() {
         }
       />
 
+      {!error && (
+        <GuiaTrackingHelp variant={!isLoading && guias.length === 0 ? 'detalle' : 'resumen'} />
+      )}
+
       {!isLoading && !error && guias.length > 0 && (
         <KpiCardsGrid>
           <KpiCard
@@ -286,9 +291,12 @@ export function MisGuiasListPage() {
           }
           action={
             guias.length === 0 ? (
-              canEditar ? (
-                <Button onClick={() => setRegistrarOpen(true)}>Registrar guías</Button>
-              ) : undefined
+              <div className="flex flex-col items-center gap-2 sm:flex-row">
+                {canEditar && (
+                  <Button onClick={() => setRegistrarOpen(true)}>Registrar guías</Button>
+                )}
+                <GuiaTrackingHelp variant="inline" />
+              </div>
             ) : estadoFiltro !== 'TODAS' ? (
               <Button variant="outline" onClick={() => setEstadoFiltro('TODAS')}>
                 Ver todas

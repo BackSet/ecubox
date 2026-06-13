@@ -61,6 +61,7 @@
 
 ### Registro de guía por cliente
 
+0. **Ayuda contextual «¿Cómo encuentro el número de guía?»**: componente compartido `GuiaTrackingHelp` (`mis-guias/GuiaTrackingHelp.tsx`, variantes `resumen`/`detalle`/`inline`) con contenido estructurado en `mis-guias/guiaTrackingHelpContent.ts` (mensaje principal, pedido vs guía, dónde aparece, compra dividida, ejemplos ficticios de Amazon y SHEIN). Se integra en `MisGuiasListPage` (tarjeta destacada/resumen + enlace en el estado vacío) y en `RegistrarMisGuiasDialog` (disparador «¿No sabes cuál número ingresar?» en diálogo anidado + texto breve bajo el campo). Incluye aviso heurístico **no bloqueante** `pareceNumeroPedido` (patrón de número de pedido de Amazon `ddd-ddddddd-ddddddd`); no endurece la validación por transportista. Tests: `GuiaTrackingHelp.test.tsx`, `RegistrarMisGuiasDialog.test.tsx`, `MisGuiasListPage.test.tsx`.
 1. **Entrada**: `/mis-guias`, DTO `MiGuiaCreateRequest`.
 2. **Validación**: Bean Validation, pertenencia/visibilidad del consignatario y unicidad del tracking.
 3. **Persistencia**: `guia_master` inicia en `PENDIENTE_VERIFICACION`; se registra historial.

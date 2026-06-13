@@ -35,6 +35,10 @@
 | Pesaje | Cargar pesos, registro de peso | Proceso de capturar peso | **Verificado en Git** |
 | Peso (lbs) | `lb` | Unidad visible y contratos de peso | **Verificado en documentación** y utilidades |
 | Enlace de acceso | Link de acceso en copy canónico | Acceso sin cuenta, temporal o persistente | **Verificado en Git** |
+| Número de guía | Guía master en copy de cliente | Código de rastreo del transportista que el cliente registra en `/mis-guias`; equivale al `trackingBase` | **Verificado en Git/documentación** |
+| Número de rastreo | Tracking number / Tracking ID / Package tracking (sinónimos visibles) | Forma en que las tiendas (Amazon, SHEIN…) nombran el número de guía; es lo que el cliente debe copiar | **Verificado en documentación** |
+| Número de pedido | Número de guía (es un error frecuente del cliente) | Identificador de la compra en la tienda (order number); **no** es la guía. Patrón Amazon `ddd-ddddddd-ddddddd`. También aplica número de factura, SKU, código de producto, referencia de pago | **Verificado en documentación** |
+| Guía dividida en varios paquetes | Envío parcial como sinónimo de cliente | Cuando la tienda divide una compra y emite varios números de rastreo: cada uno se registra como una guía separada | **Verificado en documentación** |
 
 ## 2. Reglas por contexto
 
