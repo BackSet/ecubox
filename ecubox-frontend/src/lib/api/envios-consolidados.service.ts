@@ -91,12 +91,13 @@ export interface ListarDisponiblesRecepcionParams {
 
 /**
  * Lista los envíos consolidados que pueden registrarse en un nuevo lote de
- * recepción. A diferencia del listado general, este endpoint es ortogonal a
- * la salida USA y el estado de pago: incluye envíos ya liquidados y pagados, porque
- * el flujo físico USA → Ecuador es independiente del flujo administrativo.
+ * recepción: SOLO los que están en `ARRIBADO_ECUADOR` (ya arribaron a Ecuador)
+ * y aún no fueron recibidos en bodega. La elegibilidad es ortogonal al estado
+ * de pago.
  *
- * El backend excluye automáticamente los envíos sin paquetes y los que ya
- * están en algún otro lote de recepción.
+ * El backend excluye automáticamente los envíos fuera de `ARRIBADO_ECUADOR`,
+ * los que no tienen paquetes y los que ya están en algún otro lote de
+ * recepción; al recibirlos quedan en `RECIBIDO_EN_BODEGA`.
  */
 export async function listarEnviosDisponiblesParaRecepcion(
   params: ListarDisponiblesRecepcionParams = {}
@@ -311,6 +312,92 @@ export async function aplicarAvanceEstadosConsolidados(
 ): Promise<AvanceEstadosConsolidadosResponse> {
   const { data } = await apiClient.post<AvanceEstadosConsolidadosResponse>(
     `${BASE}/aplicar-secuencia-estados`,
+    body,
+  );
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Avance automático OPERATIVO (estados del consolidado, NO de rastreo)
+// ---------------------------------------------------------------------------
+
+/** Destino operativo del avance automático: CERRADO, ENVIADO_DESDE_USA o ARRIBADO_ECUADOR. */
+export type DestinoAvanceOperativoCodigo =
+  | 'CERRADO'
+  | 'ENVIADO_DESDE_USA'
+  | 'ARRIBADO_ECUADOR';
+
+export interface DestinoAvanceOperativo {
+  codigo: DestinoAvanceOperativoCodigo;
+  nombre: string;
+}
+
+export interface PasoAvanceOperativo {
+  codigo: EstadoEnvioConsolidadoOperativo;
+  nombre: string;
+}
+
+export interface AvanceOperativoConsolidadosPayload {
+  consolidadoIds: number[];
+  estadoOperativoDestino: DestinoAvanceOperativoCodigo;
+  previewToken?: string;
+}
+
+export interface AvanceOperativoConsolidadosPreview {
+  previewToken: string;
+  estadoDestino: PasoAvanceOperativo;
+  pasos: PasoAvanceOperativo[];
+  consolidados: Array<{
+    id: number;
+    codigo: string;
+    estadoOperativoActual: EstadoEnvioConsolidadoOperativo;
+    estadoOperativoFinal: EstadoEnvioConsolidadoOperativo;
+    pasos: PasoAvanceOperativo[];
+    version: number;
+  }>;
+  resumen: {
+    totalConsolidados: number;
+    totalPasos: number;
+  };
+  advertencias: string[];
+}
+
+export interface AvanceOperativoConsolidadosResponse {
+  consolidadosProcesados: number;
+  pasosAplicados: number;
+  estadoFinal: string;
+  estadoFinalNombre: string;
+}
+
+export async function getDestinosAvanceOperativo(): Promise<DestinoAvanceOperativo[]> {
+  const { data } = await apiClient.get<DestinoAvanceOperativo[]>(
+    `${BASE}/destinos-avance-operativo`,
+  );
+  return data;
+}
+
+export async function getCandidatosAvanceOperativo(): Promise<EnvioConsolidado[]> {
+  const { data } = await apiClient.get<EnvioConsolidado[]>(
+    `${BASE}/candidatos-avance-operativo`,
+  );
+  return data;
+}
+
+export async function previewAvanceOperativoConsolidados(
+  body: AvanceOperativoConsolidadosPayload,
+): Promise<AvanceOperativoConsolidadosPreview> {
+  const { data } = await apiClient.post<AvanceOperativoConsolidadosPreview>(
+    `${BASE}/preview-avance-operativo`,
+    body,
+  );
+  return data;
+}
+
+export async function aplicarAvanceOperativoConsolidados(
+  body: AvanceOperativoConsolidadosPayload,
+): Promise<AvanceOperativoConsolidadosResponse> {
+  const { data } = await apiClient.post<AvanceOperativoConsolidadosResponse>(
+    `${BASE}/aplicar-avance-operativo`,
     body,
   );
   return data;

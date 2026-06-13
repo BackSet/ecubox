@@ -18,6 +18,8 @@ import java.util.List;
 @AllArgsConstructor
 public class AccesoEnlaceDTO {
     private Long id;
+    /** Identificador de negocio visible y estable (formato ACC-000001). */
+    private String codigo;
     /** Token en claro para reconstruir y copiar la URL del enlace. */
     private String token;
     private TipoAccesoEnlace tipo;

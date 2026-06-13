@@ -45,6 +45,7 @@ import { lbsToKg, kgToLbs } from '@/lib/utils/weight';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import type { Paquete, PaqueteCreateRequest, PaqueteUpdateRequest } from '@/types/paquete';
+import type { GuiaMaster } from '@/types/guia-master';
 import { QuickPresetChips } from '@/components/QuickPresetChips';
 import { CANTIDAD_PRESETS } from '@/lib/constants/operational-presets';
 import { GuiaMasterCombobox } from './GuiaMasterCombobox';
@@ -60,6 +61,33 @@ function emptyItem(): PaqueteItemValues {
     pesoKg: undefined,
     piezaNumero: undefined,
   };
+}
+
+/**
+ * Determina si una guía master puede recibir registro de piezas nuevas desde
+ * este formulario. Reglas:
+ *  - debe tener consignatario asignado;
+ *  - no puede estar PENDIENTE_VERIFICACION ni EN_REVISION (el backend lo bloquea
+ *    en validarYAsignarPieza; aquí evitamos ofrecerla en el selector);
+ *  - en creación, además, no debe tener el cupo de piezas ya completo.
+ * En edición no filtramos por cupo (se pueden ajustar piezas existentes).
+ */
+export function guiaAdmiteRegistroDePiezas(
+  gm: Pick<
+    GuiaMaster,
+    'consignatarioId' | 'estadoGlobal' | 'totalPiezasEsperadas' | 'piezasRegistradas'
+  >,
+  opts: { isEditMode: boolean },
+): boolean {
+  if (gm.consignatarioId == null) return false;
+  if (gm.estadoGlobal === 'PENDIENTE_VERIFICACION' || gm.estadoGlobal === 'EN_REVISION') {
+    return false;
+  }
+  if (opts.isEditMode) return true;
+  const total = gm.totalPiezasEsperadas;
+  const registradas = gm.piezasRegistradas ?? 0;
+  if (total != null && total > 0 && registradas >= total) return false;
+  return true;
 }
 
 function paqueteToItem(p: Paquete): PaqueteItemValues {
@@ -162,15 +190,7 @@ export function PaqueteBulkCreateForm({
   const [pesoTotalKgInput, setPesoTotalKgInput] = useState('');
 
   const guiasSeleccionables = useMemo(
-    () =>
-      guiasMaster.filter((gm) => {
-        if (gm.consignatarioId == null) return false;
-        if (isEditMode) return true; // en edición no filtramos
-        const total = gm.totalPiezasEsperadas;
-        const registradas = gm.piezasRegistradas ?? 0;
-        if (total != null && total > 0 && registradas >= total) return false;
-        return true;
-      }),
+    () => guiasMaster.filter((gm) => guiaAdmiteRegistroDePiezas(gm, { isEditMode })),
     [guiasMaster, isEditMode],
   );
 
@@ -205,6 +225,14 @@ export function PaqueteBulkCreateForm({
   const totalEsperadas = guiaSeleccionada?.totalPiezasEsperadas ?? null;
   const cupoRestante =
     totalEsperadas != null ? Math.max(0, totalEsperadas - piezasRegistradas) : null;
+
+  // Una guía pendiente de aprobación o en revisión no admite operaciones nuevas
+  // (agregar piezas). El backend lo bloquea en validarYAsignarPieza; aquí
+  // impedimos agregar filas en modo edición y avisamos al operario. En creación
+  // estas guías ni siquiera aparecen en el selector.
+  const estadoGuiaActual = (isEditMode ? guiaDetalle : guiaSeleccionada)?.estadoGlobal;
+  const bloqueaPiezasNuevas =
+    estadoGuiaActual === 'PENDIENTE_VERIFICACION' || estadoGuiaActual === 'EN_REVISION';
   const cantidadPresetOptions = useMemo(() => {
     const max =
       cupoRestante != null
@@ -331,6 +359,13 @@ export function PaqueteBulkCreateForm({
 
   function handleAddOne() {
     if (fields.length >= MAX_PAQUETES_BULK) return;
+    if (bloqueaPiezasNuevas) {
+      notify.warning(
+        'No se pueden agregar piezas',
+        'La guía está pendiente de aprobación o en revisión; apruébala o sácala de revisión antes de registrar piezas.',
+      );
+      return;
+    }
     append(emptyItem());
     setValue('cantidad', fields.length + 1, { shouldValidate: true });
     // Enfocar la nueva fila tras el render.
@@ -354,6 +389,13 @@ export function PaqueteBulkCreateForm({
   function handleDuplicate(idx: number) {
     if (fields.length >= MAX_PAQUETES_BULK) {
       notify.warning(`Máximo ${MAX_PAQUETES_BULK} paquetes por lote`);
+      return;
+    }
+    if (bloqueaPiezasNuevas) {
+      notify.warning(
+        'No se pueden agregar piezas',
+        'La guía está pendiente de aprobación o en revisión; apruébala o sácala de revisión antes de registrar piezas.',
+      );
       return;
     }
     const src = getValues(`paquetes.${idx}` as const);
@@ -391,6 +433,13 @@ export function PaqueteBulkCreateForm({
    * varios paquetes pegando, p. ej., una columna de una hoja de cálculo.
    */
   function pegarLista(text: string, startIndex?: number) {
+    if (bloqueaPiezasNuevas) {
+      notify.warning(
+        'No se pueden agregar piezas',
+        'La guía está pendiente de aprobación o en revisión; apruébala o sácala de revisión antes de registrar piezas.',
+      );
+      return;
+    }
     const lineas = text
       .split(/[\r\n\t,;]+/)
       .map((l) => l.trim())
@@ -1073,7 +1122,7 @@ export function PaqueteBulkCreateForm({
                       ({fields.length})
                     </span>
                   </h3>
-                  {fields.length < MAX_PAQUETES_BULK && !enviando && (
+                  {fields.length < MAX_PAQUETES_BULK && !enviando && !bloqueaPiezasNuevas && (
                     <div className="flex items-center gap-2">
                       <Button
                         type="button"
@@ -1093,12 +1142,20 @@ export function PaqueteBulkCreateForm({
                   )}
                 </div>
 
-                <p className="text-xs text-muted-foreground">
-                  <kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">Enter</kbd>{' '}
-                  pasa a la siguiente · pega una lista para crear varias filas ·{' '}
-                  <kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">Ctrl/⌘+Enter</kbd>{' '}
-                  guarda
-                </p>
+                {bloqueaPiezasNuevas ? (
+                  <p className="rounded-md border border-[var(--color-warning)] bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] px-3 py-2 text-xs text-foreground">
+                    La guía está {estadoGuiaActual === 'EN_REVISION' ? 'en revisión' : 'pendiente de aprobación'};
+                    no se pueden registrar piezas nuevas. Apruébala o sácala de revisión desde el
+                    módulo Guías master para habilitar el registro.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    <kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">Enter</kbd>{' '}
+                    pasa a la siguiente · pega una lista para crear varias filas ·{' '}
+                    <kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">Ctrl/⌘+Enter</kbd>{' '}
+                    guarda
+                  </p>
+                )}
 
                 {/* Planilla: todos los paquetes visibles a la vez */}
                 <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">

@@ -11,6 +11,10 @@ import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosPreviewDTO;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosRequest;
+import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosPreviewDTO;
+import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.DestinoAvanceOperativoDTO;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.LiquidacionConsolidadoLinea;
@@ -113,15 +117,15 @@ public class EnvioConsolidadoService {
 
     /**
      * Lista los envios consolidados que pueden incluirse en un nuevo lote de
-     * recepcion. Ortogonal a la salida USA y al {@code estadoPago}:
-     * un consolidado liquidado y pagado sigue siendo recepcionable mientras
-     * no haya sido recibido fisicamente.
+     * recepcion: SOLO los que están en {@code ARRIBADO_ECUADOR} (ya arribaron a
+     * Ecuador) y aún no fueron recibidos en bodega. Ortogonal al {@code estadoPago}.
      */
     @Transactional(readOnly = true)
     public Page<EnvioConsolidado> findDisponiblesParaRecepcion(String q, int page, int size) {
         Pageable pageable = Pageables.bounded(page, size, 200);
         String search = Strings.trimOrNull(q);
         return envioConsolidadoRepository.findDisponiblesParaRecepcion(
+                EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR,
                 search != null ? search : "",
                 pageable);
     }
@@ -273,6 +277,7 @@ public class EnvioConsolidadoService {
             throw new ResourceNotFoundException("Paquete", "uno o más ids no encontrados");
         }
         List<Long> idsAsociados = new ArrayList<>();
+        List<Paquete> nuevos = new ArrayList<>();
         for (Paquete p : paquetes) {
             EnvioConsolidado actual = p.getEnvioConsolidado();
             if (actual != null && actual.getId() != null && !actual.getId().equals(envio.getId())
@@ -284,8 +289,15 @@ public class EnvioConsolidadoService {
                         + "Reabre ese envío primero si necesitas moverlo.");
             }
             if (actual == null || !envio.getId().equals(actual.getId())) {
+                nuevos.add(p);
                 idsAsociados.add(p.getId());
             }
+        }
+        // Admisión por estado anterior inmediato: un paquete solo puede asociarse
+        // a un consolidado si está EXACTAMENTE en el estado de rastreo previo al
+        // de "asociar a envío consolidado" (configurado por punto). No se hardcodea.
+        validarPaquetesEnEstadoAnteriorAsociacion(nuevos);
+        for (Paquete p : paquetes) {
             p.setEnvioConsolidado(envio);
         }
         paqueteRepository.saveAll(paquetes);
@@ -306,6 +318,39 @@ public class EnvioConsolidadoService {
             paqueteService.aplicarEstadoEnLoteRecepcion(new ArrayList<>(ids), fechaLote);
         }
         return guardado;
+    }
+
+    /**
+     * Exige que cada paquete recién asociado esté EXACTAMENTE en el estado de
+     * rastreo inmediatamente anterior al configurado para "asociar a envío
+     * consolidado" ({@code estadoRastreoAsociarEnvioConsolidadoId} en
+     * /parametros-sistema/por-punto). Reusa {@link EstadoRastreoService#resolverTransicionInmediata}.
+     */
+    private void validarPaquetesEnEstadoAnteriorAsociacion(List<Paquete> nuevos) {
+        if (nuevos == null || nuevos.isEmpty()) {
+            return;
+        }
+        Long asociarId = parametroSistemaService.getEstadosRastreoPorPunto()
+                .getEstadoRastreoAsociarEnvioConsolidadoId();
+        if (asociarId == null) {
+            throw new BadRequestException(
+                    "No se pueden asociar paquetes porque no hay un estado configurado para la "
+                            + "asociación a envío consolidado. Configúralo en /parametros-sistema/por-punto.");
+        }
+        EstadoRastreoService.TransicionInmediata transicion =
+                estadoRastreoService.resolverTransicionInmediata(asociarId);
+        EstadoRastreo requerido = transicion.anterior();
+        for (Paquete p : nuevos) {
+            EstadoRastreo actual = p.getEstadoRastreo();
+            if (actual == null || !requerido.getId().equals(actual.getId())) {
+                throw new BadRequestException(
+                        "No se puede agregar el paquete " + p.getNumeroGuia()
+                                + " al envío consolidado porque debe estar exactamente en el estado '"
+                                + requerido.getNombre() + "' para poder asociarse. "
+                                + "Estado actual: "
+                                + (actual != null ? actual.getNombre() : "sin estado") + ".");
+            }
+        }
     }
 
     @Transactional
@@ -808,6 +853,260 @@ public class EnvioConsolidadoService {
                 .rechazados(List.of())
                 .build();
     }
+
+    // ------------------------------------------------------------------
+    // Avance automático OPERATIVO (estados del consolidado, NO de rastreo)
+    // ------------------------------------------------------------------
+
+    /**
+     * Destinos seleccionables del avance automático operativo: CERRADO,
+     * ENVIADO_DESDE_USA y ARRIBADO_ECUADOR. No incluye RECIBIDO_EN_BODEGA (se
+     * asigna al ingresar el consolidado a un lote de recepción) ni estados
+     * terminales o de preparación.
+     */
+    @Transactional(readOnly = true)
+    public List<DestinoAvanceOperativoDTO> listarDestinosAvanceOperativo() {
+        return EstadoEnvioConsolidadoOperativo.destinosAvanceOperativo().stream()
+                .map(e -> DestinoAvanceOperativoDTO.builder()
+                        .codigo(e.name())
+                        .nombre(nombreOperativo(e))
+                        .build())
+                .toList();
+    }
+
+    /**
+     * Candidatos para el avance operativo: consolidados con paquetes cuyo estado
+     * operativo es un origen válido (EN_PREPARACION, CERRADO o ENVIADO_DESDE_USA).
+     */
+    @Transactional(readOnly = true)
+    public List<EnvioConsolidado> listarCandidatosAvanceOperativo() {
+        return envioConsolidadoRepository.findCandidatosAvanceEstados(List.of(
+                EstadoEnvioConsolidadoOperativo.EN_PREPARACION,
+                EstadoEnvioConsolidadoOperativo.CERRADO,
+                EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA));
+    }
+
+    @Transactional(readOnly = true)
+    public AvanceOperativoConsolidadosPreviewDTO previewAvanceOperativo(
+            AvanceOperativoConsolidadosRequest request) {
+        return calcularAvanceOperativo(request, false).preview();
+    }
+
+    /**
+     * Aplica el avance operativo de forma atómica: para cada consolidado ejecuta
+     * en secuencia las transiciones operativas existentes (cerrar, enviar desde
+     * USA, arribar a Ecuador) hasta el destino. NO conduce el flujo por estados
+     * de rastreo; cada transición operativa ya aplica sus propios efectos.
+     */
+    @Transactional
+    public AvanceOperativoConsolidadosResponse aplicarAvanceOperativo(
+            AvanceOperativoConsolidadosRequest request) {
+        if (request.getPreviewToken() == null || request.getPreviewToken().isBlank()) {
+            throw new BadRequestException("Actualiza la vista previa antes de aplicar el avance.");
+        }
+        CalculoAvanceOperativo calculo = calcularAvanceOperativo(request, true);
+        if (!request.getPreviewToken().equals(calculo.preview().getPreviewToken())) {
+            throw new ConflictException(
+                    "Los consolidados cambiaron después de la vista previa. "
+                            + "Actualiza la vista previa antes de reintentar.");
+        }
+        int pasosAplicados = 0;
+        for (PlanConsolidado plan : calculo.planes()) {
+            for (EstadoEnvioConsolidadoOperativo paso : plan.pasos()) {
+                switch (paso) {
+                    case CERRADO -> cerrarConsolidado(plan.id());
+                    case ENVIADO_DESDE_USA -> enviarDesdeUsa(plan.id(), null);
+                    case ARRIBADO_ECUADOR -> marcarArribadoEcuador(plan.id(), null);
+                    default -> throw new BadRequestException(
+                            "Paso operativo no soportado en el avance automático: " + paso);
+                }
+                pasosAplicados++;
+            }
+        }
+        return AvanceOperativoConsolidadosResponse.builder()
+                .consolidadosProcesados(calculo.planes().size())
+                .pasosAplicados(pasosAplicados)
+                .estadoFinal(calculo.destino().name())
+                .estadoFinalNombre(nombreOperativo(calculo.destino()))
+                .build();
+    }
+
+    private CalculoAvanceOperativo calcularAvanceOperativo(
+            AvanceOperativoConsolidadosRequest request, boolean bloquear) {
+        if (request == null || request.getConsolidadoIds() == null
+                || request.getConsolidadoIds().isEmpty()) {
+            throw new BadRequestException("Selecciona al menos un envío consolidado.");
+        }
+        EstadoEnvioConsolidadoOperativo destino = parseDestinoOperativo(request.getEstadoOperativoDestino());
+        validarDestinoAvanceOperativo(destino);
+
+        List<Long> ids = request.getConsolidadoIds().stream()
+                .filter(Objects::nonNull).distinct().sorted().toList();
+        if (ids.size() != request.getConsolidadoIds().size()) {
+            throw new BadRequestException("La selección contiene IDs nulos o repetidos.");
+        }
+        List<EnvioConsolidado> consolidados = bloquear
+                ? envioConsolidadoRepository.findAllByIdForUpdate(ids)
+                : envioConsolidadoRepository.findAllById(ids);
+        if (consolidados.size() != ids.size()) {
+            Set<Long> encontrados = consolidados.stream()
+                    .map(EnvioConsolidado::getId).collect(Collectors.toSet());
+            Long faltante = ids.stream().filter(id -> !encontrados.contains(id)).findFirst().orElse(null);
+            throw new ResourceNotFoundException("Envío consolidado", faltante);
+        }
+
+        List<PlanConsolidado> planes = new ArrayList<>();
+        for (EnvioConsolidado envio : consolidados) {
+            validarPuedeCambiarEstado(envio);
+            EstadoEnvioConsolidadoOperativo actual = envio.getEstadoOperativo();
+            validarOrigenAvanceOperativo(envio, actual, destino);
+            planes.add(new PlanConsolidado(
+                    envio.getId(), envio.getCodigo(), actual, pasosOperativos(actual, destino)));
+        }
+
+        // Unión ordenada de pasos para mostrar el camino en el preview.
+        java.util.LinkedHashSet<EstadoEnvioConsolidadoOperativo> pasosUnion = new java.util.LinkedHashSet<>();
+        for (EstadoEnvioConsolidadoOperativo e : EstadoEnvioConsolidadoOperativo.secuenciaAvanceOperativo()) {
+            if (planes.stream().anyMatch(p -> p.pasos().contains(e))) pasosUnion.add(e);
+        }
+
+        String token = construirTokenOperativo(consolidados, destino);
+        List<AvanceOperativoConsolidadosPreviewDTO.Consolidado> detalles = consolidados.stream()
+                .sorted(Comparator.comparing(EnvioConsolidado::getId))
+                .map(e -> {
+                    PlanConsolidado plan = planes.stream()
+                            .filter(p -> p.id().equals(e.getId())).findFirst().orElseThrow();
+                    return AvanceOperativoConsolidadosPreviewDTO.Consolidado.builder()
+                            .id(e.getId()).codigo(e.getCodigo())
+                            .estadoOperativoActual(plan.actual())
+                            .estadoOperativoFinal(destino)
+                            .pasos(plan.pasos().stream().map(this::pasoOperativoDto).toList())
+                            .version(e.getVersion())
+                            .build();
+                })
+                .toList();
+        AvanceOperativoConsolidadosPreviewDTO preview = AvanceOperativoConsolidadosPreviewDTO.builder()
+                .previewToken(token)
+                .estadoDestino(pasoOperativoDto(destino))
+                .pasos(pasosUnion.stream().map(this::pasoOperativoDto).toList())
+                .consolidados(detalles)
+                .resumen(AvanceOperativoConsolidadosPreviewDTO.Resumen.builder()
+                        .totalConsolidados(consolidados.size())
+                        .totalPasos(planes.stream().mapToInt(p -> p.pasos().size()).sum())
+                        .build())
+                .advertencias(List.of(
+                        "La operación es atómica: si falla un paso, no se aplicará ningún cambio.",
+                        "El estado 'Recibido en bodega' no se asigna aquí; se registra al ingresar el "
+                                + "consolidado a un lote de recepción."))
+                .build();
+        return new CalculoAvanceOperativo(preview, planes, destino);
+    }
+
+    private EstadoEnvioConsolidadoOperativo parseDestinoOperativo(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new BadRequestException("Selecciona el estado operativo destino del avance.");
+        }
+        try {
+            return EstadoEnvioConsolidadoOperativo.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException(
+                    "El estado operativo destino '" + raw + "' no es válido.");
+        }
+    }
+
+    private void validarDestinoAvanceOperativo(EstadoEnvioConsolidadoOperativo destino) {
+        if (destino == EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA) {
+            throw new BadRequestException(
+                    "El estado 'Recibido en bodega' no es un destino del avance automático. "
+                            + "Se asigna al registrar el consolidado en un lote de recepción.");
+        }
+        if (!destino.esDestinoAvanceOperativo()) {
+            throw new BadRequestException(
+                    "El destino " + destino + " no es válido para el avance automático operativo. "
+                            + "Destinos permitidos: CERRADO, ENVIADO_DESDE_USA, ARRIBADO_ECUADOR.");
+        }
+    }
+
+    private void validarOrigenAvanceOperativo(EnvioConsolidado envio,
+                                              EstadoEnvioConsolidadoOperativo actual,
+                                              EstadoEnvioConsolidadoOperativo destino) {
+        if (actual == EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA) {
+            throw new ConflictException(
+                    "El consolidado " + envio.getCodigo() + " ya fue recibido en bodega; "
+                            + "ese estado no participa del avance automático.");
+        }
+        if (actual == EstadoEnvioConsolidadoOperativo.LIQUIDADO
+                || actual == EstadoEnvioConsolidadoOperativo.CANCELADO) {
+            throw new ConflictException(
+                    "El consolidado " + envio.getCodigo() + " está " + actual
+                            + " y no admite avance operativo.");
+        }
+        int ordenActual = actual.ordenAvanceOperativo();
+        if (ordenActual < 0) {
+            throw new ConflictException(
+                    "El consolidado " + envio.getCodigo()
+                            + " no está en un estado que admita avance operativo (estado actual: "
+                            + actual + ").");
+        }
+        if (ordenActual >= destino.ordenAvanceOperativo()) {
+            throw new ConflictException(
+                    "El consolidado " + envio.getCodigo() + " ya está en " + actual
+                            + " y no puede avanzar a " + destino + ".");
+        }
+    }
+
+    /** Pasos operativos en (actual, destino], en orden progresivo. */
+    private List<EstadoEnvioConsolidadoOperativo> pasosOperativos(
+            EstadoEnvioConsolidadoOperativo actual, EstadoEnvioConsolidadoOperativo destino) {
+        int ordenActual = actual.ordenAvanceOperativo();
+        int ordenDestino = destino.ordenAvanceOperativo();
+        List<EstadoEnvioConsolidadoOperativo> pasos = new ArrayList<>();
+        for (EstadoEnvioConsolidadoOperativo e : EstadoEnvioConsolidadoOperativo.secuenciaAvanceOperativo()) {
+            int orden = e.ordenAvanceOperativo();
+            if (orden > ordenActual && orden <= ordenDestino) pasos.add(e);
+        }
+        return pasos;
+    }
+
+    private AvanceOperativoConsolidadosPreviewDTO.Paso pasoOperativoDto(EstadoEnvioConsolidadoOperativo estado) {
+        return AvanceOperativoConsolidadosPreviewDTO.Paso.builder()
+                .codigo(estado.name()).nombre(nombreOperativo(estado)).build();
+    }
+
+    private String construirTokenOperativo(List<EnvioConsolidado> consolidados,
+                                           EstadoEnvioConsolidadoOperativo destino) {
+        String canonical = consolidados.stream().sorted(Comparator.comparing(EnvioConsolidado::getId))
+                .map(e -> e.getId() + ":" + e.getVersion() + ":" + e.getEstadoOperativo())
+                .collect(Collectors.joining("|"))
+                + "#" + destino.name();
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 no disponible", e);
+        }
+    }
+
+    private String nombreOperativo(EstadoEnvioConsolidadoOperativo estado) {
+        return switch (estado) {
+            case VACIO -> "Vacío";
+            case EN_PREPARACION -> "En preparación";
+            case CERRADO -> "Cerrado";
+            case ENVIADO_DESDE_USA -> "Enviado desde USA";
+            case ARRIBADO_ECUADOR -> "Arribado a Ecuador";
+            case RECIBIDO_EN_BODEGA -> "Recibido en bodega";
+            case LIQUIDADO -> "Liquidado";
+            case CANCELADO -> "Cancelado";
+        };
+    }
+
+    private record PlanConsolidado(Long id, String codigo,
+                                   EstadoEnvioConsolidadoOperativo actual,
+                                   List<EstadoEnvioConsolidadoOperativo> pasos) {}
+
+    private record CalculoAvanceOperativo(AvanceOperativoConsolidadosPreviewDTO preview,
+                                          List<PlanConsolidado> planes,
+                                          EstadoEnvioConsolidadoOperativo destino) {}
 
     /**
      * Cierra el consolidado para registro (EN_PREPARACION → CERRADO). Aplica

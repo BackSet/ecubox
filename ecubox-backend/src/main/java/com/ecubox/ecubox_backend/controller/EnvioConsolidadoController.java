@@ -13,6 +13,10 @@ import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosPreviewDTO;
+import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosRequest;
+import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.DestinoAvanceOperativoDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.PageResponse;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
@@ -282,6 +286,42 @@ public class EnvioConsolidadoController {
                 request.getConsolidadoIds(),
                 request.getFechaInicio(),
                 request.getFechaFin()));
+    }
+
+    @GetMapping("/destinos-avance-operativo")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Listar destinos del avance operativo",
+            description = "Estados operativos destino del avance automático: CERRADO, ENVIADO_DESDE_USA y ARRIBADO_ECUADOR")
+    public ResponseEntity<List<DestinoAvanceOperativoDTO>> destinosAvanceOperativo() {
+        return ResponseEntity.ok(envioConsolidadoService.listarDestinosAvanceOperativo());
+    }
+
+    @GetMapping("/candidatos-avance-operativo")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Listar candidatos del avance operativo",
+            description = "Consolidados con paquetes en un estado operativo origen válido (EN_PREPARACION, CERRADO o ENVIADO_DESDE_USA)")
+    public ResponseEntity<List<EnvioConsolidadoDTO>> candidatosAvanceOperativo() {
+        return ResponseEntity.ok(envioConsolidadoService.listarCandidatosAvanceOperativo().stream()
+                .map(envio -> envioConsolidadoService.toDTO(envio, false))
+                .toList());
+    }
+
+    @PostMapping("/preview-avance-operativo")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Previsualizar avance operativo",
+            description = "Valida la selección y el destino y calcula los pasos operativos intermedios sin modificar datos")
+    public ResponseEntity<AvanceOperativoConsolidadosPreviewDTO> previewAvanceOperativo(
+            @Valid @RequestBody AvanceOperativoConsolidadosRequest request) {
+        return ResponseEntity.ok(envioConsolidadoService.previewAvanceOperativo(request));
+    }
+
+    @PostMapping("/aplicar-avance-operativo")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Aplicar avance operativo",
+            description = "Aplica atómicamente los pasos operativos intermedios del consolidado hasta el destino")
+    public ResponseEntity<AvanceOperativoConsolidadosResponse> aplicarAvanceOperativo(
+            @Valid @RequestBody AvanceOperativoConsolidadosRequest request) {
+        return ResponseEntity.ok(envioConsolidadoService.aplicarAvanceOperativo(request));
     }
 
     @GetMapping(value = "/{id}/manifiesto.pdf", produces = MediaType.APPLICATION_PDF_VALUE)

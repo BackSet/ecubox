@@ -55,6 +55,10 @@ public interface EnvioConsolidadoRepository
      *
      * <p>Reglas:
      * <ul>
+     *   <li>Debe estar EXACTAMENTE en {@code estadoOperativo = :estado}
+     *       (ARRIBADO_ECUADOR): solo un consolidado que ya arribó a Ecuador
+     *       puede recibirse físicamente en bodega. El estado siguiente,
+     *       RECIBIDO_EN_BODEGA, lo asigna la propia recepción.</li>
      *   <li>Debe tener al menos un {@link Paquete} asociado (un envio vacio
      *       no aporta nada al lote).</li>
      *   <li>No puede estar ya incluido en otro {@link com.ecubox.ecubox_backend.entity.LoteRecepcionGuia}
@@ -64,9 +68,10 @@ public interface EnvioConsolidadoRepository
      */
     @Query("""
             SELECT e FROM EnvioConsolidado e
-            WHERE EXISTS (
-              SELECT 1 FROM Paquete p WHERE p.envioConsolidado = e
-            )
+            WHERE e.estadoOperativo = :estado
+              AND EXISTS (
+                SELECT 1 FROM Paquete p WHERE p.envioConsolidado = e
+              )
               AND NOT EXISTS (
                 SELECT 1 FROM LoteRecepcionGuia g
                 WHERE LOWER(g.numeroGuiaEnvio) = LOWER(e.codigo)
@@ -75,6 +80,7 @@ public interface EnvioConsolidadoRepository
             ORDER BY e.createdAt DESC
             """)
     Page<EnvioConsolidado> findDisponiblesParaRecepcion(
+            @Param("estado") EstadoEnvioConsolidadoOperativo estado,
             @Param("q") String q, Pageable pageable);
 
     /** Ids de consolidados que tienen al menos un paquete asociado. */

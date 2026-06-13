@@ -34,6 +34,8 @@ public class CodigoSecuenciaService {
     public static final String ENTITY_GUIA_MASTER_AUTO = "GUIA_MASTER_AUTO";
     /** Número de guía autogenerado para despachos de retiro presencial en agencia. */
     public static final String ENTITY_DESPACHO_RETIRO_AGENCIA = "DESPACHO_RETIRO_AGENCIA";
+    /** Código de negocio visible de los enlaces de acceso (formato ACC-NNNNNN). */
+    public static final String ENTITY_ACCESO_ENLACE = "ACCESO_ENLACE";
 
     public static final String SCOPE_GLOBAL = "GLOBAL";
 
@@ -167,5 +169,16 @@ public class CodigoSecuenciaService {
     public String nextTrackingBaseAuto() {
         long n = siguiente(ENTITY_GUIA_MASTER_AUTO, SCOPE_GLOBAL, 0L);
         return "AUTO-" + String.format("%08d", n);
+    }
+
+    /**
+     * Genera el siguiente código único para un enlace de acceso.
+     * Formato: {@code ACC-<NNNNNN>} con padding a 6 dígitos. La secuencia se
+     * siembra en la migración con {@code MAX(id)} para que los nuevos códigos
+     * queden por encima de los backfilleados (ACC-{id}) y no colisionen.
+     */
+    public String nextCodigoAccesoEnlace() {
+        long n = siguiente(ENTITY_ACCESO_ENLACE, SCOPE_GLOBAL, 0L);
+        return "ACC-" + String.format("%06d", n);
     }
 }

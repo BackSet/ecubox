@@ -33,6 +33,8 @@ import com.ecubox.ecubox_backend.entity.LoteRecepcion;
 import com.ecubox.ecubox_backend.entity.LoteRecepcionGuia;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.entity.Usuario;
+import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
+import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
@@ -126,6 +128,9 @@ public class LoteRecepcionService {
             if (loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(canonico)) continue;
             List<Paquete> paquetes = paquetesPorCodigoEnvio(canonico);
             if (paquetes.isEmpty()) continue;
+            // Admisión por estado anterior: solo un consolidado ARRIBADO_ECUADOR
+            // puede recibirse en bodega. Al admitirlo queda RECIBIDO_EN_BODEGA.
+            validarYMarcarRecibido(envio);
             LoteRecepcionGuia guia = LoteRecepcionGuia.builder()
                     .loteRecepcion(lote)
                     .numeroGuiaEnvio(canonico)
@@ -177,6 +182,9 @@ public class LoteRecepcionService {
             if (loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(canonico)) continue;
             List<Paquete> paquetes = paquetesPorCodigoEnvio(canonico);
             if (paquetes.isEmpty()) continue;
+            // Admisión por estado anterior: solo un consolidado ARRIBADO_ECUADOR
+            // puede recibirse en bodega. Al admitirlo queda RECIBIDO_EN_BODEGA.
+            validarYMarcarRecibido(envio);
             LoteRecepcionGuia guia = LoteRecepcionGuia.builder()
                     .loteRecepcion(lote)
                     .numeroGuiaEnvio(canonico)
@@ -199,6 +207,24 @@ public class LoteRecepcionService {
     private EnvioConsolidado resolverEnvio(String codigo) {
         if (codigo == null || codigo.isBlank()) return null;
         return envioConsolidadoRepository.findByCodigoIgnoreCase(codigo.trim()).orElse(null);
+    }
+
+    /**
+     * Valida que el consolidado esté EXACTAMENTE en {@code ARRIBADO_ECUADOR}
+     * (estado anterior requerido para la recepción en bodega) y, si lo está, lo
+     * transiciona explícitamente a {@code RECIBIDO_EN_BODEGA} dentro de la misma
+     * transacción. Rechaza con error claro cualquier otro estado, sin tocar paquetes.
+     */
+    private void validarYMarcarRecibido(EnvioConsolidado envio) {
+        if (envio.getEstadoOperativo() != EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR) {
+            throw new BadRequestException(
+                    "No se puede recibir el envío consolidado " + envio.getCodigo()
+                            + " en bodega porque no está en 'Arribado a Ecuador'. Estado actual: "
+                            + envio.getEstadoOperativo()
+                            + ". Regla: solo un consolidado que ya arribó a Ecuador puede recibirse en bodega.");
+        }
+        envio.setEstadoOperativo(EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA);
+        envioConsolidadoRepository.save(envio);
     }
 
     @Transactional(readOnly = true)

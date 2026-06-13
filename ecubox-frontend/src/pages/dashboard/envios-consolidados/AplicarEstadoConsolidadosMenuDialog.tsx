@@ -11,14 +11,14 @@ import { cn } from '@/lib/utils';
 import {
   useAplicarEstadoEnConsolidados,
   useAplicarTransicionConsolidados,
-  useCandidatosAvanceEstados,
+  useCandidatosAvanceOperativo,
+  useDestinosAvanceOperativo,
   useElegiblesParaEstadoRastreoConsolidados,
   useEstadosAplicablesConsolidados,
-  useEstadosDestinoSecuenciaConsolidados,
 } from '@/hooks/useEnviosConsolidados';
 import type { EnvioConsolidado, EstadoEnvioConsolidadoOperativo } from '@/types/envio-consolidado';
 import { EnvioConsolidadoBadge, ENVIO_CONSOLIDADO_ESTADO_UI, resolveEstadoOperativoConsolidado } from './EnvioConsolidadoBadge';
-import { AvanceEstadosConsolidadosDialog } from './AvanceEstadosConsolidadosDialog';
+import { AvanceOperativoConsolidadosDialog } from './AvanceOperativoConsolidadosDialog';
 
 /** Modos de "Aplicar estado": tres formas peer de mover un consolidado. */
 type ModoAplicar = 'operativa' | 'avance' | 'rastreo';
@@ -67,19 +67,19 @@ const MODOS: ModoDef[] = [
   {
     modo: 'operativa',
     titulo: 'Transición operativa',
-    descripcion: 'Un paso administrativo del consolidado.',
+    descripcion: 'Un solo paso operativo del consolidado.',
     icon: ArrowRightLeft,
   },
   {
     modo: 'avance',
     titulo: 'Avance automático',
-    descripcion: 'Varios pasos con vista previa y fechas.',
+    descripcion: 'Varios pasos operativos hasta un destino.',
     icon: FastForward,
   },
   {
     modo: 'rastreo',
-    titulo: 'Estado de rastreo',
-    descripcion: 'Un estado a los paquetes del consolidado.',
+    titulo: 'Estado de rastreo de paquetes',
+    descripcion: 'Acción técnica sobre paquetes del consolidado.',
     icon: Layers,
   },
 ];
@@ -164,15 +164,15 @@ export function AplicarEstadoConsolidadosMenuDialog({
     open && modo === 'rastreo',
   );
   const {
-    data: estadosDestino = [],
-    isLoading: estadosDestinoLoading,
-    isError: estadosDestinoError,
-  } = useEstadosDestinoSecuenciaConsolidados(open && esAvance);
+    data: destinosAvance = [],
+    isLoading: destinosAvanceLoading,
+    isError: destinosAvanceError,
+  } = useDestinosAvanceOperativo(open && esAvance);
   const {
     data: candidatosAvance = [],
     isLoading: candidatosAvanceLoading,
     isError: candidatosAvanceError,
-  } = useCandidatosAvanceEstados(open && esAvance);
+  } = useCandidatosAvanceOperativo(open && esAvance);
   const seleccionInicialAvance = useMemo(() => {
     const idsCandidatos = new Set(candidatosAvance.map((envio) => envio.id));
     return (seleccionados.length > 0 ? seleccionados : seleccionInicial).filter(
@@ -379,16 +379,16 @@ export function AplicarEstadoConsolidadosMenuDialog({
         onConfirm={confirmar}
       />
 
-      <AvanceEstadosConsolidadosDialog
+      <AvanceOperativoConsolidadosDialog
         open={open && esAvance}
         headerExtra={selector}
         consolidados={candidatosAvance}
         seleccionInicial={seleccionInicialAvance}
-        estadosDestino={estadosDestino}
+        destinos={destinosAvance}
         consolidadosLoading={candidatosAvanceLoading}
         consolidadosError={candidatosAvanceError}
-        estadosLoading={estadosDestinoLoading}
-        estadosError={estadosDestinoError}
+        destinosLoading={destinosAvanceLoading}
+        destinosError={destinosAvanceError}
         onOpenChange={(next) => {
           if (!next) cerrar();
         }}

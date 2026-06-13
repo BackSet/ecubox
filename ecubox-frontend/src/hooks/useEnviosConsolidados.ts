@@ -12,6 +12,10 @@ import {
   getElegiblesParaEstadoRastreo,
   getEstadosAplicablesConsolidados,
   getEstadosDestinoSecuenciaConsolidados,
+  getDestinosAvanceOperativo,
+  getCandidatosAvanceOperativo,
+  previewAvanceOperativoConsolidados,
+  aplicarAvanceOperativoConsolidados,
   listarEnviosConsolidados,
   listarCandidatosAvanceEstados,
   listarTodosEnviosConsolidados,
@@ -73,9 +77,10 @@ export function useEnvioConsolidadoResumen() {
 
 /**
  * Lista los envíos consolidados elegibles para crearse o agregarse a un lote
- * de recepción. Incluye envíos enviados desde USA y/o pagados (la recepción física es
- * ortogonal al estado administrativo). El backend excluye los que ya están
- * en otro lote y los que no tienen paquetes.
+ * de recepción: SOLO los que están en `ARRIBADO_ECUADOR` (ya arribaron a
+ * Ecuador) y todavía no fueron recibidos en bodega. El backend excluye además
+ * los que ya están en otro lote y los que no tienen paquetes; al recibirlos
+ * pasan a `RECIBIDO_EN_BODEGA`. La elegibilidad es ortogonal al estado de pago.
  */
 export function useEnviosDisponiblesParaRecepcion(
   params: ListarDisponiblesRecepcionParams = {},
@@ -199,6 +204,45 @@ export function useAplicarAvanceEstadosConsolidados() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: aplicarAvanceEstadosConsolidados,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ENVIOS_CONSOLIDADOS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['paquetes'] });
+      qc.invalidateQueries({ queryKey: ['operario', 'paquetes'] });
+      qc.invalidateQueries({ queryKey: ['tracking-events'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Avance automático OPERATIVO (estados del consolidado, NO de rastreo)
+// ---------------------------------------------------------------------------
+
+export function useDestinosAvanceOperativo(enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'destinos-avance-operativo'],
+    queryFn: getDestinosAvanceOperativo,
+    enabled,
+  });
+}
+
+export function useCandidatosAvanceOperativo(enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'candidatos-avance-operativo'],
+    queryFn: getCandidatosAvanceOperativo,
+    enabled,
+  });
+}
+
+export function usePreviewAvanceOperativoConsolidados() {
+  return useMutation({
+    mutationFn: previewAvanceOperativoConsolidados,
+  });
+}
+
+export function useAplicarAvanceOperativoConsolidados() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: aplicarAvanceOperativoConsolidados,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ENVIOS_CONSOLIDADOS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ['paquetes'] });

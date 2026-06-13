@@ -48,9 +48,9 @@ export function LoteRecepcionNuevoPage() {
   const [enviosError, setEnviosError] = useState<string | undefined>();
 
   // El endpoint `disponibles-recepcion` devuelve ya filtrados los envios que
-  // (a) tienen al menos un paquete y (b) no estan en otro lote. Es ortogonal
-  // a la salida USA / pago porque la recepcion fisica
-  // ocurre cuando llegan a Ecuador, sin importar si ya estan liquidados.
+  // (a) estan en ARRIBADO_ECUADOR, (b) tienen al menos un paquete y (c) no
+  // estan en otro lote. Solo un consolidado que ya arribo a Ecuador puede
+  // recibirse en bodega; al recibirlo pasa a RECIBIDO_EN_BODEGA.
   const { data: enviosResp, isLoading: loadingEnvios } = useEnviosDisponiblesParaRecepcion({
     size: 200,
   });
@@ -238,9 +238,9 @@ export function LoteRecepcionNuevoPage() {
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               Marca como recibidos todos los paquetes asociados a uno o varios
-              envíos consolidados. Se listan tanto envíos en preparación como
-              enviados desde USA (incluso ya liquidados): la recepción física en
-              bodega es independiente del estado administrativo.
+              envíos consolidados. Solo se listan consolidados en estado
+              «Arribado a Ecuador» pendientes de recibir en bodega; al recibirlos
+              quedan en «Recibido en bodega».
             </p>
           </div>
         </div>
@@ -382,7 +382,7 @@ export function LoteRecepcionNuevoPage() {
                         loadingEnvios
                           ? 'Cargando envíos...'
                           : opcionesDisponibles.length === 0
-                            ? 'No hay envíos pendientes de recepción'
+                            ? 'No hay consolidados «Arribado a Ecuador» pendientes de recibir'
                             : 'Buscar por código de envío consolidado'
                       }
                       searchPlaceholder="Escribe el código..."

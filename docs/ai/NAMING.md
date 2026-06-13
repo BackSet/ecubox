@@ -43,7 +43,9 @@
 - “Pieza” describe pertenencia a una guía master; “Paquete” describe gestión individual.
 - Diferenciar “Agencia” ECUBOX de “Punto de entrega” perteneciente a un courier.
 - Mostrar los nombres de estados de rastreo recibidos desde configuración/API; no convertir nombres visibles actuales en constantes de negocio.
-- Usar “Avanzar estados” o “Avance automático de estados” para la operación que aplica una secuencia completa; reservar “Aplicar estado” para una única transición heredada.
+- En «Aplicar estado» de envíos consolidados, los tres modos son términos canónicos: **«Transición operativa»** (un solo paso operativo del consolidado), **«Avance automático»** (varios pasos operativos hasta un destino: `CERRADO`, `ENVIADO_DESDE_USA` o `ARRIBADO_ECUADOR`) y **«Estado de rastreo de paquetes»** (acción técnica sobre los paquetes). El «Avance automático» opera sobre el estado operativo del consolidado, no sobre estados de rastreo; no mezclar ambos vocabularios.
+- **«Estados por punto»**: estados de rastreo de paquetes configurables por hito en `/parametros-sistema/por-punto` (`EstadosRastreoPorPuntoDTO`: asociar a consolidado, lote de recepción, en despacho, etc.). El código nunca hardcodea estos estados; los resuelve por configuración.
+- **«Estado anterior inmediato»**: regla de admisión por la que una entidad solo entra a un flujo si está EXACTAMENTE en el estado previo requerido. Para paquetes se resuelve con `EstadoRastreoService.resolverTransicionInmediata`; para consolidados, la recepción en bodega exige `ARRIBADO_ECUADOR` y los deja en `RECIBIDO_EN_BODEGA`.
 - Mostrar pesos con `lbs`.
 - Ejecutar `npm run lint:nomenclatura` al modificar copy del frontend.
 
@@ -80,7 +82,7 @@
 | Courier de entrega | `CourierEntrega` | `courier_entrega` | `/api/couriers-entrega` | `/couriers-entrega` |
 | Punto de entrega | `AgenciaCourierEntrega` | `agencia_courier_entrega` | `/api/puntos-entrega` | `/puntos-entrega` |
 | Agencia ECUBOX | `Agencia` | `agencia` | `/api/agencias` | `/agencias` |
-| Envío consolidado | `EnvioConsolidado`, DTOs `AvanceEstadosConsolidados*` | `envio_consolidado` | `/api/envios-consolidados`; secuencia en `/preview-secuencia-estados` y `/aplicar-secuencia-estados` | `/envios-consolidados` |
+| Envío consolidado | `EnvioConsolidado`; avance operativo DTOs `AvanceOperativoConsolidados*` / `DestinoAvanceOperativoDTO`; secuencia de rastreo (técnico) DTOs `AvanceEstadosConsolidados*` | `envio_consolidado` | `/api/envios-consolidados`; avance operativo en `/preview-avance-operativo` y `/aplicar-avance-operativo`; secuencia de rastreo en `/preview-secuencia-estados` y `/aplicar-secuencia-estados` | `/envios-consolidados` |
 | Lote de recepción | `LoteRecepcion` | `lote_recepcion` | `/api/operario/lotes-recepcion` | `/lotes-recepcion` |
 | Despacho | `Despacho` | `despacho` | `/api/operario/despachos` | `/despachos` |
 | Entrega del cliente | `Despacho` + DTOs `MiDespacho*` | `despacho` | `/api/mis-despachos` | `/mis-entregas` |
@@ -88,7 +90,7 @@
 | Liquidación | `Liquidacion` | `liquidacion` | `/api/liquidaciones` | `/liquidaciones` |
 | Estado de rastreo | `EstadoRastreo` | `estado_rastreo` | `/api/operario/estados-rastreo` | `/parametros-sistema/estados` |
 | Rastreo público | `TrackingResolveResponse` | vistas/eventos de rastreo | `/api/tracking` | `/tracking` |
-| Enlace de acceso | `AccesoEnlace`, `TipoAccesoEnlace` | `acceso_enlace` | `/api/acceso-enlaces`, `/api/auth/acceso-enlace` | `/enlaces-acceso`, `/acceso` |
+| Enlace de acceso | `AccesoEnlace`, `TipoAccesoEnlace`; código de negocio visible `codigo` con formato canónico `ACC-000001` (no editable, no reemplaza al token) | `acceso_enlace` | `/api/acceso-enlaces`, `/api/auth/acceso-enlace` | `/enlaces-acceso`, `/acceso` |
 | Casillero | Sin entidad propia confirmada | Datos de usuario/parámetros | Configuración pública/perfil | `/casillero` |
 
 ## 4. Roles, permisos, enums y estados
