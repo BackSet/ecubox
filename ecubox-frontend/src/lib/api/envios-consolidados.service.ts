@@ -316,6 +316,92 @@ export async function aplicarAvanceEstadosConsolidados(
   return data;
 }
 
+// ---------------------------------------------------------------------------
+// Avance automático OPERATIVO (estados del consolidado, NO de rastreo)
+// ---------------------------------------------------------------------------
+
+/** Destino operativo del avance automático: CERRADO, ENVIADO_DESDE_USA o ARRIBADO_ECUADOR. */
+export type DestinoAvanceOperativoCodigo =
+  | 'CERRADO'
+  | 'ENVIADO_DESDE_USA'
+  | 'ARRIBADO_ECUADOR';
+
+export interface DestinoAvanceOperativo {
+  codigo: DestinoAvanceOperativoCodigo;
+  nombre: string;
+}
+
+export interface PasoAvanceOperativo {
+  codigo: EstadoEnvioConsolidadoOperativo;
+  nombre: string;
+}
+
+export interface AvanceOperativoConsolidadosPayload {
+  consolidadoIds: number[];
+  estadoOperativoDestino: DestinoAvanceOperativoCodigo;
+  previewToken?: string;
+}
+
+export interface AvanceOperativoConsolidadosPreview {
+  previewToken: string;
+  estadoDestino: PasoAvanceOperativo;
+  pasos: PasoAvanceOperativo[];
+  consolidados: Array<{
+    id: number;
+    codigo: string;
+    estadoOperativoActual: EstadoEnvioConsolidadoOperativo;
+    estadoOperativoFinal: EstadoEnvioConsolidadoOperativo;
+    pasos: PasoAvanceOperativo[];
+    version: number;
+  }>;
+  resumen: {
+    totalConsolidados: number;
+    totalPasos: number;
+  };
+  advertencias: string[];
+}
+
+export interface AvanceOperativoConsolidadosResponse {
+  consolidadosProcesados: number;
+  pasosAplicados: number;
+  estadoFinal: string;
+  estadoFinalNombre: string;
+}
+
+export async function getDestinosAvanceOperativo(): Promise<DestinoAvanceOperativo[]> {
+  const { data } = await apiClient.get<DestinoAvanceOperativo[]>(
+    `${BASE}/destinos-avance-operativo`,
+  );
+  return data;
+}
+
+export async function getCandidatosAvanceOperativo(): Promise<EnvioConsolidado[]> {
+  const { data } = await apiClient.get<EnvioConsolidado[]>(
+    `${BASE}/candidatos-avance-operativo`,
+  );
+  return data;
+}
+
+export async function previewAvanceOperativoConsolidados(
+  body: AvanceOperativoConsolidadosPayload,
+): Promise<AvanceOperativoConsolidadosPreview> {
+  const { data } = await apiClient.post<AvanceOperativoConsolidadosPreview>(
+    `${BASE}/preview-avance-operativo`,
+    body,
+  );
+  return data;
+}
+
+export async function aplicarAvanceOperativoConsolidados(
+  body: AvanceOperativoConsolidadosPayload,
+): Promise<AvanceOperativoConsolidadosResponse> {
+  const { data } = await apiClient.post<AvanceOperativoConsolidadosResponse>(
+    `${BASE}/aplicar-avance-operativo`,
+    body,
+  );
+  return data;
+}
+
 /**
  * Ids de consolidados elegibles para aplicar `estadoRastreoId` a sus paquetes:
  * solo los que tienen paquetes en el estado de rastreo inmediatamente

@@ -3,6 +3,10 @@ package com.ecubox.ecubox_backend.service;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosPreviewDTO;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosPreviewDTO;
+import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosRequest;
+import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.DestinoAvanceOperativoDTO;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
@@ -710,6 +714,166 @@ class EnvioConsolidadoServiceTest {
         });
         when(estadoRastreoService.findActivosEntities())
                 .thenReturn(List.of(salida, inicial, intermedio, cierre, limite));
+    }
+
+    // ------------------------------------------------------------------
+    // Avance automático OPERATIVO (estados del consolidado, no de rastreo)
+    // ------------------------------------------------------------------
+
+    private EnvioConsolidado consolidadoOperativo(Long id, EstadoEnvioConsolidadoOperativo estado) {
+        return EnvioConsolidado.builder()
+                .id(id).codigo("ENV-" + id).version(0L).estadoOperativo(estado).build();
+    }
+
+    private AvanceOperativoConsolidadosRequest requestAvance(List<Long> ids, String destino, String token) {
+        return AvanceOperativoConsolidadosRequest.builder()
+                .consolidadoIds(ids).estadoOperativoDestino(destino).previewToken(token).build();
+    }
+
+    @Test
+    void destinosAvanceOperativo_soloCerradoEnviadoArribado() {
+        List<DestinoAvanceOperativoDTO> destinos = service.listarDestinosAvanceOperativo();
+        assertEquals(List.of("CERRADO", "ENVIADO_DESDE_USA", "ARRIBADO_ECUADOR"),
+                destinos.stream().map(DestinoAvanceOperativoDTO::getCodigo).toList());
+    }
+
+    @Test
+    void previewAvanceOperativo_desdePreparacionHastaArribo_devuelveTresPasos() {
+        EnvioConsolidado envio = consolidadoOperativo(1L, EstadoEnvioConsolidadoOperativo.EN_PREPARACION);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(envio));
+
+        AvanceOperativoConsolidadosPreviewDTO preview = service.previewAvanceOperativo(
+                requestAvance(List.of(1L), "ARRIBADO_ECUADOR", null));
+
+        assertEquals(List.of("CERRADO", "ENVIADO_DESDE_USA", "ARRIBADO_ECUADOR"),
+                preview.getPasos().stream().map(AvanceOperativoConsolidadosPreviewDTO.Paso::getCodigo).toList());
+        assertEquals("ARRIBADO_ECUADOR", preview.getEstadoDestino().getCodigo());
+        assertNotNull(preview.getPreviewToken());
+        // No debe tocar el flujo de estados de rastreo.
+        verify(paqueteService, never()).aplicarEstadoSecuenciaConsolidados(anyList(), any(), any(), any());
+    }
+
+    @Test
+    void aplicarAvanceOperativo_desdePreparacionHastaArribo_dejaArribadoEcuador() {
+        EnvioConsolidado envio = consolidadoOperativo(1L, EstadoEnvioConsolidadoOperativo.EN_PREPARACION);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(envio));
+        when(envioRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(envio));
+        when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
+
+        String token = service.previewAvanceOperativo(
+                requestAvance(List.of(1L), "ARRIBADO_ECUADOR", null)).getPreviewToken();
+
+        AvanceOperativoConsolidadosResponse res = service.aplicarAvanceOperativo(
+                requestAvance(List.of(1L), "ARRIBADO_ECUADOR", token));
+
+        assertEquals(EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR, envio.getEstadoOperativo());
+        assertEquals(3, res.getPasosAplicados());
+        assertEquals(1, res.getConsolidadosProcesados());
+        assertEquals("ARRIBADO_ECUADOR", res.getEstadoFinal());
+        // El avance operativo no conduce el flujo por estados de rastreo.
+        verify(paqueteService, never()).aplicarEstadoSecuenciaConsolidados(anyList(), any(), any(), any());
+    }
+
+    @Test
+    void aplicarAvanceOperativo_desdeCerradoHastaArribo_aplicaDosPasos() {
+        EnvioConsolidado envio = consolidadoOperativo(1L, EstadoEnvioConsolidadoOperativo.CERRADO);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(envio));
+        when(envioRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(envio));
+        when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
+
+        String token = service.previewAvanceOperativo(
+                requestAvance(List.of(1L), "ARRIBADO_ECUADOR", null)).getPreviewToken();
+        AvanceOperativoConsolidadosResponse res = service.aplicarAvanceOperativo(
+                requestAvance(List.of(1L), "ARRIBADO_ECUADOR", token));
+
+        assertEquals(EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR, envio.getEstadoOperativo());
+        assertEquals(2, res.getPasosAplicados());
+    }
+
+    @Test
+    void aplicarAvanceOperativo_desdeEnviadoHastaArribo_aplicaUnPaso() {
+        EnvioConsolidado envio = consolidadoOperativo(1L, EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(envio));
+        when(envioRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(envio));
+        when(envioRepository.findById(1L)).thenReturn(Optional.of(envio));
+
+        String token = service.previewAvanceOperativo(
+                requestAvance(List.of(1L), "ARRIBADO_ECUADOR", null)).getPreviewToken();
+        AvanceOperativoConsolidadosResponse res = service.aplicarAvanceOperativo(
+                requestAvance(List.of(1L), "ARRIBADO_ECUADOR", token));
+
+        assertEquals(EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR, envio.getEstadoOperativo());
+        assertEquals(1, res.getPasosAplicados());
+    }
+
+    @Test
+    void previewAvanceOperativo_rechazaDestinoRecibidoEnBodega() {
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                service.previewAvanceOperativo(requestAvance(List.of(1L), "RECIBIDO_EN_BODEGA", null)));
+        assertTrue(ex.getMessage().contains("lote de recepción"));
+    }
+
+    @Test
+    void previewAvanceOperativo_rechazaDestinoLiquidado() {
+        assertThrows(BadRequestException.class, () ->
+                service.previewAvanceOperativo(requestAvance(List.of(1L), "LIQUIDADO", null)));
+    }
+
+    @Test
+    void previewAvanceOperativo_rechazaDestinoCancelado() {
+        assertThrows(BadRequestException.class, () ->
+                service.previewAvanceOperativo(requestAvance(List.of(1L), "CANCELADO", null)));
+    }
+
+    @Test
+    void previewAvanceOperativo_rechazaDestinoEnPreparacion() {
+        assertThrows(BadRequestException.class, () ->
+                service.previewAvanceOperativo(requestAvance(List.of(1L), "EN_PREPARACION", null)));
+    }
+
+    @Test
+    void previewAvanceOperativo_rechazaDestinoVacio() {
+        assertThrows(BadRequestException.class, () ->
+                service.previewAvanceOperativo(requestAvance(List.of(1L), "VACIO", null)));
+    }
+
+    @Test
+    void previewAvanceOperativo_rechazaOrigenVacio() {
+        EnvioConsolidado envio = consolidadoOperativo(1L, EstadoEnvioConsolidadoOperativo.VACIO);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(envio));
+        assertThrows(ConflictException.class, () ->
+                service.previewAvanceOperativo(requestAvance(List.of(1L), "CERRADO", null)));
+    }
+
+    @Test
+    void previewAvanceOperativo_rechazaOrigenRecibidoEnBodega() {
+        EnvioConsolidado envio = consolidadoOperativo(1L, EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(envio));
+        ConflictException ex = assertThrows(ConflictException.class, () ->
+                service.previewAvanceOperativo(requestAvance(List.of(1L), "ARRIBADO_ECUADOR", null)));
+        assertTrue(ex.getMessage().contains("recibido en bodega"));
+    }
+
+    @Test
+    void previewAvanceOperativo_rechazaOrigenLiquidadoOCancelado() {
+        EnvioConsolidado liquidado = consolidadoOperativo(1L, EstadoEnvioConsolidadoOperativo.LIQUIDADO);
+        when(envioRepository.findAllById(List.of(1L))).thenReturn(List.of(liquidado));
+        assertThrows(ConflictException.class, () ->
+                service.previewAvanceOperativo(requestAvance(List.of(1L), "ARRIBADO_ECUADOR", null)));
+
+        EnvioConsolidado cancelado = consolidadoOperativo(2L, EstadoEnvioConsolidadoOperativo.CANCELADO);
+        when(envioRepository.findAllById(List.of(2L))).thenReturn(List.of(cancelado));
+        assertThrows(ConflictException.class, () ->
+                service.previewAvanceOperativo(requestAvance(List.of(2L), "ARRIBADO_ECUADOR", null)));
+    }
+
+    @Test
+    void aplicarAvanceOperativo_rechazaPreviewTokenDesactualizado() {
+        EnvioConsolidado envio = consolidadoOperativo(1L, EstadoEnvioConsolidadoOperativo.EN_PREPARACION);
+        when(envioRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(envio));
+        assertThrows(ConflictException.class, () ->
+                service.aplicarAvanceOperativo(requestAvance(List.of(1L), "ARRIBADO_ECUADOR", "token-viejo")));
+        verify(paqueteService, never()).aplicarEstadoSecuenciaConsolidados(anyList(), any(), any(), any());
     }
 
     private EstadoRastreo estado(Long id, String nombre, int orden) {

@@ -12,6 +12,10 @@ import {
   getElegiblesParaEstadoRastreo,
   getEstadosAplicablesConsolidados,
   getEstadosDestinoSecuenciaConsolidados,
+  getDestinosAvanceOperativo,
+  getCandidatosAvanceOperativo,
+  previewAvanceOperativoConsolidados,
+  aplicarAvanceOperativoConsolidados,
   listarEnviosConsolidados,
   listarCandidatosAvanceEstados,
   listarTodosEnviosConsolidados,
@@ -199,6 +203,45 @@ export function useAplicarAvanceEstadosConsolidados() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: aplicarAvanceEstadosConsolidados,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ENVIOS_CONSOLIDADOS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['paquetes'] });
+      qc.invalidateQueries({ queryKey: ['operario', 'paquetes'] });
+      qc.invalidateQueries({ queryKey: ['tracking-events'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Avance automático OPERATIVO (estados del consolidado, NO de rastreo)
+// ---------------------------------------------------------------------------
+
+export function useDestinosAvanceOperativo(enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'destinos-avance-operativo'],
+    queryFn: getDestinosAvanceOperativo,
+    enabled,
+  });
+}
+
+export function useCandidatosAvanceOperativo(enabled = true) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'candidatos-avance-operativo'],
+    queryFn: getCandidatosAvanceOperativo,
+    enabled,
+  });
+}
+
+export function usePreviewAvanceOperativoConsolidados() {
+  return useMutation({
+    mutationFn: previewAvanceOperativoConsolidados,
+  });
+}
+
+export function useAplicarAvanceOperativoConsolidados() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: aplicarAvanceOperativoConsolidados,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ENVIOS_CONSOLIDADOS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ['paquetes'] });
