@@ -58,5 +58,6 @@ public class PaqueteDTO {
     private Boolean enFlujoAlterno;
     private String motivoAlterno;
     private Boolean bloqueado;
+    private RevisionPaqueteDTO revisionActiva;
     private LocalDateTime createdAt;
 }

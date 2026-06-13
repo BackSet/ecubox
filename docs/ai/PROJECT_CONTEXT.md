@@ -190,6 +190,8 @@ Variables por nombre, sin valores:
 - No cambiar contratos, permisos, tablas ni nombres canónicos sin revisar todas las capas.
 - No editar migraciones históricas.
 - Mantener sincronizados estos cuatro archivos después de cada implementación.
+- Las revisiones administrativas que suspenden operabilidad se modelan como historial independiente del estado logístico; la condición activa se protege en servicio, base de datos y validadores operativos.
+- Una bandeja de trabajo separa consulta global, operación normal y atención especializada; filtros, conteos y paginación se resuelven en servidor.
 - **Contradicción**: `docs/desarrollo/TECH-STACK.md` tiene versiones antiguas frente a manifiestos.
 - **Contradicción**: `docs/desarrollo/ARQUITECTURA_BACKEND.md` menciona `entity/enums`, `PermissionConstants`, `AuthService`, `PaqueteMapper` y entidades de tracking que no coinciden con el árbol actual.
 - **Contradicción**: `docs/nomenclatura.md` mapea algunos endpoints como `/api/consignatarios`, `/api/lotes-recepcion`, `/api/despachos` y `/api/casillero`; el código actual expone variantes como `/api/mis-consignatarios`, `/api/operario/consignatarios`, `/api/operario/lotes-recepcion`, `/api/operario/despachos`, y el casillero se obtiene por configuración.

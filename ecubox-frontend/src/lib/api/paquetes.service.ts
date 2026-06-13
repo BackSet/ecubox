@@ -5,6 +5,9 @@ import type {
   PaqueteCreateRequest,
   PaqueteUpdateRequest,
   PaqueteResumen,
+  BandejaPaquete,
+  MotivoRevisionPaquete,
+  RevisionPaquete,
 } from '@/types/paquete';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 import type { PageResponse, PageQuery } from '@/types/page';
@@ -26,6 +29,7 @@ export interface PaqueteListParams extends PageQuery {
   guiaMasterId?: number;
   /** uno de: 'sin_peso' | 'con_peso' | 'sin_guia_master' | 'vencidos' */
   chip?: string;
+  bandeja?: BandejaPaquete;
 }
 
 /** Paquetes paginados con búsqueda libre (numeroGuia, ref, contenido, guía master, envío, consignatario) y filtros. */
@@ -42,6 +46,7 @@ export async function getPaquetesPaginated(
       // Todos los chips (incluido "vencidos") se resuelven server-side: el
       // vencimiento ahora es un predicado SQL sobre fecha_limite_retiro.
       chip: params.chip || undefined,
+      bandeja: params.bandeja ?? 'todos',
       page: params.page ?? 0,
       size: params.size ?? 25,
     },
@@ -55,6 +60,7 @@ export interface PaqueteResumenParams {
   consignatarioId?: number;
   envio?: string;
   guiaMasterId?: number;
+  bandeja?: BandejaPaquete;
 }
 
 /**
@@ -72,6 +78,7 @@ export async function getPaqueteResumen(
       consignatarioId: params.consignatarioId,
       envio: params.envio,
       guiaMasterId: params.guiaMasterId,
+      bandeja: params.bandeja ?? 'todos',
     },
   });
   return data;
@@ -94,6 +101,37 @@ export async function updatePaquete(
 
 export async function deletePaquete(id: number): Promise<void> {
   await apiClient.delete(`${BASE}/${id}`);
+}
+
+export async function iniciarRevisionPaquete(
+  paqueteId: number,
+  body: { motivo: MotivoRevisionPaquete; observacion?: string },
+): Promise<RevisionPaquete> {
+  const { data } = await apiClient.post<RevisionPaquete>(
+    `${BASE}/${paqueteId}/revisiones`,
+    body,
+  );
+  return data;
+}
+
+export async function resolverRevisionPaquete(
+  paqueteId: number,
+  body: { observacion?: string },
+): Promise<RevisionPaquete> {
+  const { data } = await apiClient.post<RevisionPaquete>(
+    `${BASE}/${paqueteId}/revisiones/activa/resolver`,
+    body,
+  );
+  return data;
+}
+
+export async function getHistorialRevisionPaquete(
+  paqueteId: number,
+): Promise<RevisionPaquete[]> {
+  const { data } = await apiClient.get<RevisionPaquete[]>(
+    `${BASE}/${paqueteId}/revisiones`,
+  );
+  return data;
 }
 
 /** Sugiere una ref única para un paquete (solo admin/operario). */

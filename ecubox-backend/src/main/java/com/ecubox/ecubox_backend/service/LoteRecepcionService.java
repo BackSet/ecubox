@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ecubox.ecubox_backend.dto.LoteRecepcionCreateRequest;
@@ -41,6 +42,7 @@ import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
+import com.ecubox.ecubox_backend.service.validation.PaqueteOperacionValidator;
 
 @Service
 public class LoteRecepcionService {
@@ -52,6 +54,7 @@ public class LoteRecepcionService {
     private final CurrentUserService currentUserService;
     private final EnvioConsolidadoRepository envioConsolidadoRepository;
     private final GuiaMasterService guiaMasterService;
+    private final PaqueteOperacionValidator paqueteOperacionValidator;
 
     public LoteRecepcionService(LoteRecepcionRepository loteRecepcionRepository,
                                LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
@@ -60,6 +63,20 @@ public class LoteRecepcionService {
                                CurrentUserService currentUserService,
                                EnvioConsolidadoRepository envioConsolidadoRepository,
                                GuiaMasterService guiaMasterService) {
+        this(loteRecepcionRepository, loteRecepcionGuiaRepository, paqueteRepository,
+                paqueteService, currentUserService, envioConsolidadoRepository, guiaMasterService,
+                new PaqueteOperacionValidator(null));
+    }
+
+    @Autowired
+    public LoteRecepcionService(LoteRecepcionRepository loteRecepcionRepository,
+                               LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
+                               PaqueteRepository paqueteRepository,
+                               PaqueteService paqueteService,
+                               CurrentUserService currentUserService,
+                               EnvioConsolidadoRepository envioConsolidadoRepository,
+                               GuiaMasterService guiaMasterService,
+                               PaqueteOperacionValidator paqueteOperacionValidator) {
         this.loteRecepcionRepository = loteRecepcionRepository;
         this.loteRecepcionGuiaRepository = loteRecepcionGuiaRepository;
         this.paqueteRepository = paqueteRepository;
@@ -67,6 +84,7 @@ public class LoteRecepcionService {
         this.currentUserService = currentUserService;
         this.envioConsolidadoRepository = envioConsolidadoRepository;
         this.guiaMasterService = guiaMasterService;
+        this.paqueteOperacionValidator = paqueteOperacionValidator;
     }
 
     /**
@@ -128,6 +146,7 @@ public class LoteRecepcionService {
             if (loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(canonico)) continue;
             List<Paquete> paquetes = paquetesPorCodigoEnvio(canonico);
             if (paquetes.isEmpty()) continue;
+            paqueteOperacionValidator.requireOperativos(paquetes);
             // Admisión por estado anterior: solo un consolidado ARRIBADO_ECUADOR
             // puede recibirse en bodega. Al admitirlo queda RECIBIDO_EN_BODEGA.
             validarYMarcarRecibido(envio);
@@ -182,6 +201,7 @@ public class LoteRecepcionService {
             if (loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(canonico)) continue;
             List<Paquete> paquetes = paquetesPorCodigoEnvio(canonico);
             if (paquetes.isEmpty()) continue;
+            paqueteOperacionValidator.requireOperativos(paquetes);
             // Admisión por estado anterior: solo un consolidado ARRIBADO_ECUADOR
             // puede recibirse en bodega. Al admitirlo queda RECIBIDO_EN_BODEGA.
             validarYMarcarRecibido(envio);

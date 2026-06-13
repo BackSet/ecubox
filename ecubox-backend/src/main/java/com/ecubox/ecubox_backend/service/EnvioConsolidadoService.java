@@ -32,7 +32,9 @@ import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
 import com.ecubox.ecubox_backend.util.Pageables;
+import com.ecubox.ecubox_backend.service.validation.PaqueteOperacionValidator;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -82,6 +84,7 @@ public class EnvioConsolidadoService {
     private final EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver;
     private final EstadoRastreoService estadoRastreoService;
     private final ParametroSistemaService parametroSistemaService;
+    private final PaqueteOperacionValidator paqueteOperacionValidator;
     private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
     private static final String MENSAJE_REQUIERE_PAQUETE =
             "El consolidado debe contener al menos un paquete para cambiar de estado.";
@@ -91,12 +94,28 @@ public class EnvioConsolidadoService {
             EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA);
     public EnvioConsolidadoService(EnvioConsolidadoRepository envioConsolidadoRepository,
                                    PaqueteRepository paqueteRepository,
-                                   @Lazy PaqueteService paqueteService,
+                                   PaqueteService paqueteService,
                                    LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository,
                                    LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
                                    EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver,
                                    EstadoRastreoService estadoRastreoService,
                                    ParametroSistemaService parametroSistemaService) {
+        this(envioConsolidadoRepository, paqueteRepository, paqueteService,
+                liquidacionConsolidadoLineaRepository, loteRecepcionGuiaRepository,
+                estadoConsolidadoOperativoResolver, estadoRastreoService, parametroSistemaService,
+                new PaqueteOperacionValidator(null));
+    }
+
+    @Autowired
+    public EnvioConsolidadoService(EnvioConsolidadoRepository envioConsolidadoRepository,
+                                   PaqueteRepository paqueteRepository,
+                                   @Lazy PaqueteService paqueteService,
+                                   LiquidacionConsolidadoLineaRepository liquidacionConsolidadoLineaRepository,
+                                   LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
+                                   EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver,
+                                   EstadoRastreoService estadoRastreoService,
+                                   ParametroSistemaService parametroSistemaService,
+                                   PaqueteOperacionValidator paqueteOperacionValidator) {
         this.envioConsolidadoRepository = envioConsolidadoRepository;
         this.paqueteRepository = paqueteRepository;
         this.paqueteService = paqueteService;
@@ -105,6 +124,7 @@ public class EnvioConsolidadoService {
         this.estadoConsolidadoOperativoResolver = estadoConsolidadoOperativoResolver;
         this.estadoRastreoService = estadoRastreoService;
         this.parametroSistemaService = parametroSistemaService;
+        this.paqueteOperacionValidator = paqueteOperacionValidator;
     }
 
     @Transactional(readOnly = true)
@@ -270,10 +290,14 @@ public class EnvioConsolidadoService {
                             + "Selecciona al menos un paquete para continuar.");
         }
         Set<Long> ids = new LinkedHashSet<>(paqueteIds);
-        List<Paquete> paquetes = paqueteRepository.findAllById(ids);
+        List<Paquete> paquetes = paqueteRepository.findAllByIdForUpdate(ids);
+        if (paquetes.isEmpty()) {
+            paquetes = paqueteRepository.findAllById(ids);
+        }
         if (paquetes.size() != ids.size()) {
             throw new ResourceNotFoundException("Paquete", "uno o más ids no encontrados");
         }
+        paqueteOperacionValidator.requireOperativos(paquetes);
         List<Long> idsAsociados = new ArrayList<>();
         List<Paquete> nuevos = new ArrayList<>();
         for (Paquete p : paquetes) {
@@ -366,7 +390,12 @@ public class EnvioConsolidadoService {
                     "No se pueden quitar paquetes porque no se seleccionó ninguno. "
                             + "Selecciona al menos un paquete para continuar.");
         }
-        List<Paquete> paquetes = paqueteRepository.findAllById(new LinkedHashSet<>(paqueteIds));
+        Set<Long> ids = new LinkedHashSet<>(paqueteIds);
+        List<Paquete> paquetes = paqueteRepository.findAllByIdForUpdate(ids);
+        if (paquetes.isEmpty()) {
+            paquetes = paqueteRepository.findAllById(ids);
+        }
+        paqueteOperacionValidator.requireOperativos(paquetes);
         for (Paquete p : paquetes) {
             if (p.getEnvioConsolidado() != null
                     && envio.getId().equals(p.getEnvioConsolidado().getId())) {
