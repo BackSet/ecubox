@@ -142,7 +142,7 @@ export function TrackingPage() {
             badge="Rastreo público"
             badgeIcon={PackageSearch}
             title="Rastreo de envío"
-            description="Ingresa el número de pieza o la guía master para ver el estado de tu envío."
+            description="Ingresa el número de paquete o de guía para ver el estado de tu envío."
             aside={
               <p className="landing-text-muted hidden max-w-xs items-center gap-1.5 text-xs lg:flex">
                 <ShieldCheck className="size-3.5 shrink-0 text-[var(--color-success)]" />

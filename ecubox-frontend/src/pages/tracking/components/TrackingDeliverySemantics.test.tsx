@@ -54,7 +54,7 @@ describe('semántica pública de entrega', () => {
           numeroGuia: 'DEMO-DOMICILIO',
           operadorEntrega: {
             tipoEntrega: 'DOMICILIO',
-            courierNombre: 'Courier Uno',
+            courierEntregaNombre: 'Courier Uno',
           },
         }}
       />,
@@ -68,7 +68,7 @@ describe('semántica pública de entrega', () => {
           numeroGuia: 'DEMO-COURIER',
           operadorEntrega: {
             tipoEntrega: 'AGENCIA_COURIER',
-            courierNombre: 'Courier Uno',
+            courierEntregaNombre: 'Courier Uno',
           },
         }}
       />,

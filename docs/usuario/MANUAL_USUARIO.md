@@ -321,13 +321,40 @@ flowchart LR
   Pq --> Lotes
 ```
 
+### Lenguaje interno vs. lenguaje del cliente
+
+ECUBOX separa el vocabulario **interno** (operación, back-office, esta documentación) del vocabulario **visible para el cliente**. La operación conserva sus términos técnicos; el cliente ve términos más simples.
+
+| Interno (operación) | Visible para el cliente |
+|---|---|
+| Guía master / número de guía master | **Guía** / **Número de guía** / **Mis guías** |
+| Pieza | **Paquete** |
+| Envío consolidado / consolidado | **Envío** (el cliente nunca ve «consolidado») |
+
+**Estados de guía** (parcial y completo comparten una sola etiqueta de cliente; la diferencia se explica con cantidades de paquetes):
+
+| Estado técnico | Etiqueta interna | Etiqueta cliente |
+|---|---|---|
+| `PENDIENTE_VERIFICACION` | Pendiente de verificación | Pendiente de verificación |
+| `VERIFICADA` | Verificada | Guía verificada |
+| `EN_REVISION` | En revisión | En revisión |
+| `SIN_PAQUETES_REGISTRADOS` | Sin paquetes registrados | Sin paquetes registrados |
+| `CON_PAQUETES_REGISTRADOS` | Con paquetes registrados | En preparación |
+| `ENVIO_PARCIAL` / `ENVIO_COMPLETO` | Envío parcial / Envío completo | En camino a Ecuador |
+| `RECEPCION_PARCIAL` / `RECEPCION_COMPLETA` | Recepción parcial / Recepción completa | En bodega |
+| `DESPACHO_PARCIAL` | Despacho parcial | En camino al destino |
+| `DESPACHO_COMPLETADO` | Despacho completado | Entregada |
+| `CANCELADA` | Cancelada | Cancelada |
+
+> Estas equivalencias se administran solo en código (catálogo compartido `src/lib/estados/guiaMasterEstados.ts`) y se consultan en modo lectura desde **Parámetros del sistema → Estados de rastreo → «Equivalencias de estados para clientes»**.
+
 ### Glosario breve
 
 | Término | Significado |
 |---------|-------------|
-| **Paquete** | Unidad de envío registrada con guía master y, en su caso, peso (lbs) y consignatario. |
-| **Guía master / número de guía** | Identificador del envío para rastreo y operación (equivalente al MAWB de la industria courier). |
-| **Pieza** | Unidad física que pertenece a una guía master (se enumera como `n/total`). |
+| **Paquete** | Unidad de envío registrada con guía master y, en su caso, peso (lbs) y consignatario. En superficies de cliente, **Pieza** también se presenta como «Paquete». |
+| **Guía master / número de guía** | Identificador del envío para rastreo y operación (equivalente al MAWB de la industria courier). Para el cliente se muestra simplemente como **Guía**. |
+| **Pieza** | Unidad física que pertenece a una guía master (se enumera como `n/total`). En la vista del cliente se nombra **Paquete**. |
 | **Casillero** | Dirección USA asignada al cliente para recibir compras antes de consolidarse y enviarse a Ecuador. |
 | **Consignatario** (back-office) / **Destinatario** (vista cliente) | Persona o entidad en destino asociada a los paquetes. |
 | **Courier de entrega** | Empresa de paquetería de última milla en Ecuador (Servientrega, Laar, Tramaco, etc.). |

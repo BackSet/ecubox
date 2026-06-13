@@ -433,7 +433,7 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
               </div>
 
               <p className="text-[11px] text-muted-foreground">
-                El total de piezas y demás detalles los completará el operario al recibir el paquete.
+                El total de paquetes y demás detalles los completaremos al recibir tu paquete.
               </p>
             </div>
           )}

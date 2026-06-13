@@ -76,7 +76,7 @@ function isEstadoEditableCliente(estado: EstadoGuiaMaster): boolean {
   return estado === 'SIN_PAQUETES_REGISTRADOS' || estado === 'CON_PAQUETES_REGISTRADOS' || estado === 'PENDIENTE_VERIFICACION';
 }
 const TOOLTIP_NO_EDITABLE =
-  'Ya no es posible editar esta guía porque sus piezas están en proceso. Si necesitas un cambio, contáctanos.';
+  'Ya no es posible editar esta guía porque sus paquetes están en proceso. Si necesitas un cambio, contáctanos.';
 
 export function MisGuiasListPage() {
   const navigate = useNavigate();
@@ -347,7 +347,7 @@ export function MisGuiasListPage() {
                 <TableHead className="min-w-[12rem]">
                   <span className="inline-flex items-center gap-1.5">
                     <PackageCheck className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    Piezas
+                    Paquetes
                   </span>
                 </TableHead>
                 <TableHead className="w-[20rem]">
@@ -394,7 +394,15 @@ export function MisGuiasListPage() {
                       />
                     </TableCell>
                     <TableCell className="align-top">
-                      <MiGuiaEstadoBadge estado={g.estadoGlobal} />
+                      <MiGuiaEstadoBadge
+                        estado={g.estadoGlobal}
+                        conteos={{
+                          totalEsperado: g.totalPiezasEsperadas,
+                          registrados: g.piezasRegistradas,
+                          recibidos: g.piezasRecibidas,
+                          despachados: g.piezasDespachadas,
+                        }}
+                      />
                     </TableCell>
                     <TableCell className="align-top">
                       <PiezasMiniProgress guia={g} />
@@ -420,7 +428,7 @@ export function MisGuiasListPage() {
                       <RowActionsMenu
                         items={[
                           {
-                            label: 'Ver piezas',
+                            label: 'Ver paquetes',
                             icon: Eye,
                             onSelect: () =>
                               navigate({
@@ -561,7 +569,7 @@ function MiGuiaCard({
         <div onClick={(e) => e.stopPropagation()}>
           <RowActionsMenu
             items={[
-              { label: 'Ver piezas', icon: Eye, onSelect: onOpen },
+              { label: 'Ver paquetes', icon: Eye, onSelect: onOpen },
               {
                 label: 'Editar guía',
                 icon: Pencil,
@@ -644,12 +652,12 @@ function PiezasMiniProgress({ guia: g }: { guia: GuiaMaster }) {
           <Badge
             variant="outline"
             className="border-[var(--color-warning)]/30 text-[var(--color-warning)]"
-            title="Aún no sabemos cuántas piezas en total tendrá esta guía. El operario lo confirmará al recibir el primer paquete."
+            title="Aún no sabemos cuántos paquetes en total tendrá esta guía. Lo confirmaremos al recibir el primer paquete."
           >
             Total por confirmar
           </Badge>
           <p className="text-[11px] text-muted-foreground">
-            {recibidas > 0 ? `${recibidas} en bodega EE.UU.` : 'Sin piezas en bodega aún'}
+            {recibidas > 0 ? `${recibidas} en bodega EE.UU.` : 'Sin paquetes en bodega aún'}
             {despachadas > 0 ? ` · ${despachadas} en camino a Ecuador` : ''}
           </p>
         </div>

@@ -21,9 +21,9 @@ import { KpiCardsGridSkeleton } from '@/components/skeletons/KpiCardSkeleton';
 import { ListItemsSkeleton } from '@/components/skeletons/ListItemsSkeleton';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  GuiaMasterEstadoBadge,
-  GUIA_MASTER_ESTADO_LABELS,
-} from '@/pages/dashboard/guias-master/_estado';
+  MiGuiaEstadoBadge,
+  MI_GUIA_ESTADO_LABELS,
+} from '@/pages/dashboard/mis-guias/_estado-cliente';
 import { RegistrarMisGuiasDialog } from '@/pages/dashboard/mis-guias/RegistrarMisGuiasDialog';
 import type { GuiaMaster } from '@/types/guia-master';
 
@@ -107,7 +107,7 @@ export function InicioClienteSection() {
                 : `${data.totalGuiasSinTotalDefinido} guías pendientes de revisar`}
             </p>
             <p className="text-[13px] text-[var(--color-muted-foreground)]">
-              El operario aún debe confirmar el total de piezas. Te avisaremos cuando esté listo.
+              Nuestro equipo aún debe confirmar el total de paquetes. Te avisaremos cuando esté listo.
             </p>
           </div>
         </div>
@@ -127,14 +127,14 @@ export function InicioClienteSection() {
           label="Activas"
           value={data.totalGuiasActivas}
           tone="neutral"
-          hint={`${data.piezasEnTransito} pieza(s) en tránsito`}
+          hint={`${data.piezasEnTransito} paquete(s) en tránsito`}
         />
         <KpiCard
           icon={<AlertCircle className="h-5 w-5" strokeWidth={1.75} />}
           label="Pendientes de revisar"
           value={data.totalGuiasSinTotalDefinido}
           tone={data.totalGuiasSinTotalDefinido > 0 ? 'warning' : 'neutral'}
-          hint="A la espera del operario"
+          hint="A la espera de revisión"
         />
         <KpiCard
           icon={<Users className="h-5 w-5" strokeWidth={1.75} />}
@@ -168,7 +168,7 @@ export function InicioClienteSection() {
           <div className="flex items-center gap-2">
             <PackageSearch className="h-5 w-5 text-[var(--color-muted-foreground)]" strokeWidth={1.75} />
             <p className="text-[13px] text-[var(--color-foreground)]">
-              ¿Quieres rastrear una pieza específica?
+              ¿Quieres rastrear un paquete específico?
             </p>
           </div>
           <Link
@@ -242,9 +242,17 @@ function ListaGuiasCard({
                   </p>
                 </div>
                 <div className="shrink-0">
-                  <GuiaMasterEstadoBadge estado={g.estadoGlobal} />
+                  <MiGuiaEstadoBadge
+                    estado={g.estadoGlobal}
+                    conteos={{
+                      totalEsperado: g.totalPiezasEsperadas,
+                      registrados: g.piezasRegistradas,
+                      recibidos: g.piezasRecibidas,
+                      despachados: g.piezasDespachadas,
+                    }}
+                  />
                   <p className="mt-1 text-right text-[10px] text-[var(--color-muted-foreground)]">
-                    {GUIA_MASTER_ESTADO_LABELS[g.estadoGlobal]}
+                    {MI_GUIA_ESTADO_LABELS[g.estadoGlobal]}
                   </p>
                 </div>
               </Link>

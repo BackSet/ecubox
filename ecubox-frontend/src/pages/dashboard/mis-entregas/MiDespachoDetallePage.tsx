@@ -343,7 +343,7 @@ export function MiDespachoDetallePage() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard
           icon={<PackageIcon className="h-5 w-5" />}
-          label="Mis piezas"
+          label="Mis paquetes"
           value={stats.piezas}
           tone="primary"
           hint={`${stats.piezas} ${stats.piezas === 1 ? 'pieza incluida' : 'piezas incluidas'} en este despacho`}
@@ -466,8 +466,8 @@ export function MiDespachoDetallePage() {
         {d.piezas.length === 0 ? (
           <EmptyState
             icon={PackageIcon}
-            title="Este despacho no tiene piezas visibles"
-            description="Aquí aparecerán únicamente las piezas asociadas a tu cuenta."
+            title="Este despacho no tiene paquetes visibles"
+            description="Aquí aparecerán únicamente los paquetes asociados a tu cuenta."
           />
         ) : piezasFiltradas.length === 0 ? (
           <div className="rounded-md border border-dashed border-border bg-[var(--color-muted)]/20 px-4 py-3 text-sm text-muted-foreground">

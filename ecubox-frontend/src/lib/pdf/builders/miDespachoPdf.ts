@@ -52,12 +52,12 @@ export function buildMiDespachoPdf(d: MiDespachoDetalle): jsPDF {
       filas: [
         { label: 'Tipo', value: d.tipoEntrega ? TIPO_LABELS[d.tipoEntrega] ?? d.tipoEntrega : '-' },
         { label: 'Destino', value: safeStr(d.destinoNombre) },
-        { label: 'Piezas', value: String(d.totalPiezas) },
+        { label: 'Paquetes', value: String(d.totalPiezas) },
       ],
     },
   ]);
 
-  drawSectionTitle(ctx, 'Piezas');
+  drawSectionTitle(ctx, 'Paquetes');
 
   const columns: ColumnDef<MiDespachoPieza>[] = [
     { key: 'n', label: '#', weight: 0.5, align: 'right', render: (_r, i) => String(i + 1) },
@@ -74,10 +74,10 @@ export function buildMiDespachoPdf(d: MiDespachoDetalle): jsPDF {
     { key: 'lbs', label: 'Lbs', weight: 1, align: 'right', render: (r) => fmtNumero(r.pesoLbs) },
     { key: 'kg', label: 'Kg', weight: 1, align: 'right', render: (r) => fmtNumero(r.pesoKg) },
   ];
-  drawTable(ctx, { columns, rows: d.piezas, empty: 'Sin piezas' });
+  drawTable(ctx, { columns, rows: d.piezas, empty: 'Sin paquetes' });
 
   drawTotalBar(ctx, {
-    left: `${d.totalPiezas} pieza(s)`,
+    left: `${d.totalPiezas} paquete(s)`,
     right: `${fmtNumero(d.pesoLbsTotal)} lbs · ${fmtNumero(d.pesoKgTotal)} kg`,
   });
 

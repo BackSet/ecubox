@@ -40,14 +40,14 @@ const FEATURES: Feature[] = [
   {
     title: 'Rastreo en tiempo real',
     description:
-      'Sigue tu paquete en cada paso. Consulta el estado de tu envío y de cada pieza del consolidado.',
+      'Sigue tu paquete en cada paso. Consulta el estado de tu envío y de cada paquete de tu guía.',
     icon: MapPin,
     href: '/tracking',
     ctaLabel: 'Rastrear ahora',
     accent: 'from-[var(--color-ecubox-acento-claro)]/20 to-[var(--color-ecubox-acento-claro)]/0',
     bullets: [
       { icon: ShieldCheck, text: 'Actualizaciones por estado oficial' },
-      { icon: Sparkles, text: 'Funciona con guía o consolidador' },
+      { icon: Sparkles, text: 'Funciona con tu número de guía o de paquete' },
     ],
   },
   {

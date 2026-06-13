@@ -45,14 +45,14 @@ import { ConsignatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
 import { EstadosLeyendaDialog } from '@/components/estados/EstadosLeyendaDialog';
 import { EditarMiGuiaDialog } from './EditarMiGuiaDialog';
 import {
-  MI_GUIA_ESTADO_DESCRIPCIONES,
+  describirEstadoCliente,
   MiGuiaEstadoBadge,
   getEstadosRastreoLeyendaItems,
   getMisGuiasLeyendaItems,
 } from './_estado-cliente';
 
 const TOOLTIP_NO_EDITABLE =
-  'Ya no es posible editar esta guía porque sus piezas están en proceso. Si necesitas un cambio, contáctanos.';
+  'Ya no es posible editar esta guía porque sus paquetes están en proceso. Si necesitas un cambio, contáctanos.';
 
 function isEstadoEditableCliente(estado: EstadoGuiaMaster): boolean {
   return (
@@ -96,7 +96,7 @@ export function MiGuiaDetailPage() {
           <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Pieza</TableHead>
+                <TableHead>Paquete</TableHead>
                 <TableHead className="hidden md:table-cell">Destinatario</TableHead>
                 <TableHead className="text-right">Estado</TableHead>
               </TableRow>
@@ -126,7 +126,13 @@ export function MiGuiaDetailPage() {
 
   const editable = isEstadoEditableCliente(guia.estadoGlobal);
   const totalPendiente = guia.totalPiezasEsperadas == null;
-  const estadoDescripcion = MI_GUIA_ESTADO_DESCRIPCIONES[guia.estadoGlobal];
+  const conteosGuia = {
+    totalEsperado: guia.totalPiezasEsperadas,
+    registrados: guia.piezasRegistradas,
+    recibidos: guia.piezasRecibidas,
+    despachados: guia.piezasDespachadas,
+  };
+  const estadoDescripcion = describirEstadoCliente(guia.estadoGlobal, conteosGuia);
 
   return (
     <div className="page-stack">
@@ -144,7 +150,7 @@ export function MiGuiaDetailPage() {
               <span className="text-xs uppercase tracking-wide text-muted-foreground">
                 Mi guía
               </span>
-              <MiGuiaEstadoBadge estado={guia.estadoGlobal} />
+              <MiGuiaEstadoBadge estado={guia.estadoGlobal} conteos={conteosGuia} />
               <EstadosLeyendaDialog
                 title="¿Qué significa cada estado?"
                 description="Estados por los que pasa una guía desde que la registras hasta la entrega."
@@ -208,9 +214,9 @@ export function MiGuiaDetailPage() {
           <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-warning)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              Aún no sabemos cuántas piezas en total tendrá esta guía. Lo confirmaremos
+              Aún no sabemos cuántos paquetes en total tendrá esta guía. Lo confirmaremos
               cuando recibamos el primer paquete en la bodega de EE.UU. Mientras tanto,
-              puedes seguir viendo el detalle de las piezas que vayan llegando.
+              puedes seguir viendo el detalle de los paquetes que vayan llegando.
             </p>
           </div>
         )}
@@ -219,7 +225,7 @@ export function MiGuiaDetailPage() {
           <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-warning)]" />
             <p>
-              Esta guía ya tiene piezas en proceso, por lo que el número y el destinatario
+              Esta guía ya tiene paquetes en proceso, por lo que el número y el destinatario
               no pueden modificarse. Si necesitas hacer un cambio, contáctanos y con gusto
               te ayudamos.
             </p>
@@ -239,10 +245,10 @@ export function MiGuiaDetailPage() {
             />
           </InfoBlock>
 
-          <InfoBlock label="Total de piezas" icon={<PackageIcon className="h-3.5 w-3.5" />}>
+          <InfoBlock label="Total de paquetes" icon={<PackageIcon className="h-3.5 w-3.5" />}>
             <p className="text-sm font-medium">
               {guia.totalPiezasEsperadas != null
-                ? `${guia.totalPiezasEsperadas} pieza${guia.totalPiezasEsperadas === 1 ? '' : 's'}`
+                ? `${guia.totalPiezasEsperadas} paquete${guia.totalPiezasEsperadas === 1 ? '' : 's'}`
                 : 'Por confirmar'}
             </p>
             {guia.totalPiezasEsperadas == null && (
@@ -261,34 +267,34 @@ export function MiGuiaDetailPage() {
       <SurfaceCard className="space-y-3 p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="flex items-center gap-1">
-            <h2 className="text-lg font-semibold">Detalle de piezas</h2>
+            <h2 className="text-lg font-semibold">Detalle de paquetes</h2>
             <EstadosLeyendaDialog
-              title="Estados de rastreo de tus piezas"
-              description="Cada pieza avanza por estos estados desde la bodega de EE.UU. hasta la entrega."
+              title="Estados de rastreo de tus paquetes"
+              description="Cada paquete avanza por estos estados desde la bodega de EE.UU. hasta la entrega."
               items={getEstadosRastreoLeyendaItems(estadosRastreo)}
-              triggerLabel="Ver qué significa cada estado de rastreo de tus piezas"
+              triggerLabel="Ver qué significa cada estado de rastreo de tus paquetes"
               isLoading={loadingEstadosRastreo}
               className="h-6 w-6"
             />
           </div>
           {piezas && piezas.length > 0 && (
             <span className="text-xs text-muted-foreground">
-              {piezas.length} pieza{piezas.length === 1 ? '' : 's'} registrada
+              {piezas.length} paquete{piezas.length === 1 ? '' : 's'} registrado
               {piezas.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
         {!loadingPiezas && (!piezas || piezas.length === 0) ? (
           <p className="rounded-md border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-            Todavía no hay piezas registradas para esta guía. Te avisaremos en cuanto la
-            bodega de EE.UU. reciba la primera.
+            Todavía no hay paquetes registrados para esta guía. Te avisaremos en cuanto la
+            bodega de EE.UU. reciba el primero.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[5rem]">Pieza</TableHead>
+                  <TableHead className="w-[5rem]">Paquete</TableHead>
                   <TableHead className="min-w-[14rem]">Tracking ECUBOX</TableHead>
                   <TableHead className="min-w-[10rem]">Estado</TableHead>
                   <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
@@ -465,7 +471,7 @@ function PiezaEstadoBadges({
         <Badge
           variant="outline"
           className="border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 font-normal text-[var(--color-warning)]"
-          title="Esta pieza llegó a la bodega de EE.UU."
+          title="Este paquete llegó a la bodega de EE.UU."
         >
           En bodega EE.UU.
         </Badge>
@@ -474,7 +480,7 @@ function PiezaEstadoBadges({
         <Badge
           variant="outline"
           className="border-[var(--color-success)]/30 bg-[var(--color-success)]/10 font-normal text-[var(--color-success)]"
-          title="Esta pieza ya está en camino a Ecuador."
+          title="Este paquete ya está en camino a Ecuador."
         >
           En camino a Ecuador
         </Badge>

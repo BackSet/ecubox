@@ -149,13 +149,13 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
   const piezas = data.master?.piezas ?? [];
   if (piezas.length > 1) {
     const titulo = data.master?.trackingBase
-      ? `Otras piezas de la guía ${data.master.trackingBase}`
-      : 'Otras piezas de esta guía';
-    renderer.drawSectionTitle(titulo, 'Piezas relacionadas al mismo consolidado.');
+      ? `Otros paquetes de la guía ${data.master.trackingBase}`
+      : 'Otros paquetes de esta guía';
+    renderer.drawSectionTitle(titulo, 'Paquetes relacionados de la misma guía.');
     renderer.drawTable(
       [
         { key: 'guia', label: 'Número de guía', widthRatio: 0.38 },
-        { key: 'pieza', label: 'Pieza', widthRatio: 0.14 },
+        { key: 'pieza', label: 'Paquete', widthRatio: 0.14 },
         { key: 'estado', label: 'Estado actual', widthRatio: 0.48 },
       ],
       piezas.map((p) => ({

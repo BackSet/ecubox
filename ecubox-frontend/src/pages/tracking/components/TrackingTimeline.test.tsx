@@ -15,6 +15,7 @@ describe('TrackingTimeline', () => {
             orden: 1,
             tipoFlujo: 'NORMAL',
             esActual: false,
+            leyenda: null,
           },
           {
             id: 20,
@@ -34,6 +35,7 @@ describe('TrackingTimeline', () => {
             orden: 3,
             tipoFlujo: 'NORMAL',
             esActual: false,
+            leyenda: null,
           },
         ]}
       />,
