@@ -18,41 +18,11 @@ public interface DespachoRepository extends JpaRepository<Despacho, Long>,
 
     List<Despacho> findByFechaHoraBetweenOrderByFechaHoraAscIdAsc(LocalDateTime desde, LocalDateTime hasta);
 
-    /**
-     * Agrega despachos/paquetes/peso por punto temporal. {@code trunc} es la
-     * unidad de {@code date_trunc} (day/week/month/quarter), de modo que la
-     * granularidad se calcula en base de datos.
-     */
-    @Query(value = """
-            SELECT date_trunc(:trunc, d.fecha_hora) AS periodo,
-                   COUNT(DISTINCT d.id) AS total_despachos,
-                   COUNT(p.id) AS total_paquetes,
-                   COALESCE(SUM(p.peso_lbs), 0) AS peso_lbs
-            FROM despacho d
-            LEFT JOIN saca s ON s.despacho_id = d.id
-            LEFT JOIN paquete p ON p.saca_id = s.id
-            WHERE d.fecha_hora >= :desde
-              AND d.fecha_hora < :hasta
-            GROUP BY 1
-            ORDER BY 1
-            """, nativeQuery = true)
-    List<Object[]> aggregateByPeriodo(@Param("trunc") String trunc,
-                                      @Param("desde") LocalDateTime desde,
-                                      @Param("hasta") LocalDateTime hasta);
-
-    /** Totales escalares del periodo: [despachos, paquetes, peso_lbs]. */
-    @Query(value = """
-            SELECT COUNT(DISTINCT d.id) AS total_despachos,
-                   COUNT(p.id) AS total_paquetes,
-                   COALESCE(SUM(p.peso_lbs), 0) AS peso_lbs
-            FROM despacho d
-            LEFT JOIN saca s ON s.despacho_id = d.id
-            LEFT JOIN paquete p ON p.saca_id = s.id
-            WHERE d.fecha_hora >= :desde
-              AND d.fecha_hora < :hasta
-            """, nativeQuery = true)
-    Object[] aggregateResumen(@Param("desde") LocalDateTime desde,
-                              @Param("hasta") LocalDateTime hasta);
+    // Nota: las antiguas agregaciones de estadísticas por `despacho.fecha_hora`
+    // (aggregateByPeriodo/aggregateResumen) se eliminaron. Las métricas de
+    // "paquetes despachados" ahora se calculan desde la fuente canónica y
+    // auditable de eventos de paquete (PaqueteEstadoEventoRepository), ya que
+    // `fecha_hora` es nullable y editable y producía conteos en cero.
 
     @Query("""
             SELECT d
