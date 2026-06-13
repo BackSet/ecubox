@@ -170,7 +170,7 @@ export function TrackingSummaryCard({
             aria-label={`Avance del envío: ${progressRedondeado}%`}
           >
             <div
-              className={`h-full rounded-full transition-all duration-500 ${styles.bar}`}
+              className={`h-full rounded-full transition-[width,background-color] [transition-duration:var(--motion-slow)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none ${styles.bar}`}
               style={{ width: `${Math.max(progress, 4)}%` }}
             />
           </div>

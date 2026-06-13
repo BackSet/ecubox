@@ -63,7 +63,7 @@ export function FAQ() {
           <AccordionItem
             key={i}
             value={`item-${i}`}
-            className="landing-card overflow-hidden transition-all duration-200 data-[state=open]:border-[var(--color-primary)]/40 data-[state=open]:shadow-md"
+            className="landing-card overflow-hidden transition-[border-color,box-shadow] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] data-[state=open]:border-[var(--color-primary)]/40 data-[state=open]:shadow-md"
           >
             <AccordionTrigger className="w-full cursor-pointer px-4 py-3.5 text-left text-sm font-semibold landing-text transition hover:bg-[var(--color-landing-card-muted)] sm:px-5 sm:py-4 md:px-6 md:py-5 md:text-base">
               {item.q}

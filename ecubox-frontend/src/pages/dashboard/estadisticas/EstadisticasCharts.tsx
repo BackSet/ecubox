@@ -50,12 +50,12 @@ export function SeriesChart({ despachos, registros, granularidad }: SeriesChartP
             >
               <div className="flex h-[calc(100%-2rem)] items-end justify-center gap-1">
                 <div
-                  className="w-2.5 rounded-t bg-[var(--color-primary)] transition-[height]"
+                  className="w-2.5 rounded-t bg-[var(--color-primary)] transition-[height] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none"
                   style={{ height: `${dispatchHeight}%` }}
                   aria-hidden
                 />
                 <div
-                  className="w-2.5 rounded-t bg-[var(--color-info)] transition-[height]"
+                  className="w-2.5 rounded-t bg-[var(--color-info)] transition-[height] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none"
                   style={{ height: `${registeredHeight}%` }}
                   aria-hidden
                 />
@@ -110,7 +110,7 @@ export function StatusDistributionChart({
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-[var(--color-muted)]">
               <div
-                className="h-full rounded-full bg-[var(--color-primary)]"
+                className="h-full rounded-full bg-[var(--color-primary)] transition-[width] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none"
                 style={{ width: `${Math.max(1, width)}%` }}
               />
             </div>

@@ -81,8 +81,16 @@ evita cambios bruscos. Nunca decorativo ni constante.
 `KpiCard` (variante enlazada), `PesoInput`/`PesoInputPair` y `EmptyState` (entrada
 con `.ui-motion-slide-up`) ya consumen estas utilidades/tokens; no reimplementes
 transiciones a mano. Los controles accionables llevan feedback de presión
-(`active:scale-[0.97]`). Las barras de progreso que animan ancho usan
-`transition-[width,background-color]` con tokens, no `transition-all`.
+(`active:scale-[0.97]`). Las barras de progreso y los gráficos (`SeriesChart`,
+`StatusDistributionChart`) que animan dimensión usan `transition-[width|height]`
+con tokens + `motion-reduce:transition-none` (solo animan al cambiar datos, no en
+cada render), nunca `transition-all`.
+
+> **`transition-all` está erradicado** de `src/` (dashboard y público). Para
+> superficies con hover-lift, listar propiedades explícitas
+> (`transition-[transform,box-shadow,border-color,...]`) con tokens, o usar
+> `.ui-surface-hover`. Nunca animes propiedades de layout (`width`/`height`) salvo
+> barras finas de progreso/gráficos.
 
 ### Animaciones permitidas
 
