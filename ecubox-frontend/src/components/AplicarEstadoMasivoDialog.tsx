@@ -61,6 +61,7 @@ interface Props {
   optionLabel: string;
   optionHelp?: ReactNode;
   headerExtra?: ReactNode;
+  contentExtra?: ReactNode;
   filters?: AplicarEstadoFilter[];
   loading: boolean;
   onConfirm: () => void | Promise<void>;
@@ -71,6 +72,7 @@ interface Props {
   selectPlaceholder?: string;
   /** Mensaje cuando aún no se eligió acción/estado. */
   emptyHint?: string;
+  confirmDisabled?: boolean;
 }
 
 export function AplicarEstadoMasivoDialog({
@@ -88,6 +90,7 @@ export function AplicarEstadoMasivoDialog({
   optionLabel,
   optionHelp,
   headerExtra,
+  contentExtra,
   filters = [],
   loading,
   onConfirm,
@@ -95,6 +98,7 @@ export function AplicarEstadoMasivoDialog({
   confirmLabel = 'Aplicar estado',
   selectPlaceholder = 'Selecciona un estado...',
   emptyHint,
+  confirmDisabled = false,
 }: Props) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
@@ -142,7 +146,7 @@ export function AplicarEstadoMasivoDialog({
     );
   };
 
-  const disabled = loading || !selectedOption || selectedIds.length === 0;
+  const disabled = loading || confirmDisabled || !selectedOption || selectedIds.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -305,8 +309,10 @@ export function AplicarEstadoMasivoDialog({
                                     <p className="mt-0.5 text-[11px] text-warning">
                                       {item.disabledReason}
                                     </p>
-                                  </div>
-                                </div>
+          </div>
+
+          {contentExtra}
+        </div>
                               </li>
                             ))}
                           </ul>

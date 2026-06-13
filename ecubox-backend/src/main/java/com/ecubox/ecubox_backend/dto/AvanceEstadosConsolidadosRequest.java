@@ -20,13 +20,13 @@ public class AvanceEstadosConsolidadosRequest {
     @NotEmpty(message = "Indique al menos un consolidado")
     private List<Long> consolidadoIds;
 
-    @NotNull(message = "Seleccione el estado final")
-    private Long estadoFinalId;
+    @NotNull(message = "Seleccione la transición final")
+    private String transicionFinalCodigo;
 
     @NotNull(message = "La fecha principal es obligatoria")
     private LocalDateTime fechaPrincipal;
 
-    private Map<Long, LocalDateTime> fechasPorEstado;
+    private Map<String, LocalDateTime> fechasPorTransicion;
 
     /** Obligatorio al aplicar; se obtiene desde el preview. */
     private String previewToken;

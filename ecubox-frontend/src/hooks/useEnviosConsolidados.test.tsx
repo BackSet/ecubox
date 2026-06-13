@@ -20,10 +20,10 @@ describe('useAplicarAvanceEstadosConsolidados', () => {
     vi.mocked(aplicarAvanceEstadosConsolidados).mockResolvedValue({
       consolidadosProcesados: 1,
       paquetesProcesados: 2,
-      pasosAplicados: 1,
+      transicionesAplicadas: 1,
       eventosCreados: 2,
-      estadoFinalId: 20,
-      estadoFinalNombre: 'Cerrado',
+      transicionFinalCodigo: 'CERRADO',
+      consolidados: [{ id: 1, codigo: 'CONS-1', estadoFinal: 'CERRADO' }],
     });
     const queryClient = new QueryClient({
       defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
@@ -36,7 +36,7 @@ describe('useAplicarAvanceEstadosConsolidados', () => {
 
     await result.current.mutateAsync({
       consolidadoIds: [1],
-      estadoFinalId: 20,
+      transicionFinalCodigo: 'CERRADO',
       fechaPrincipal: '2026-06-12T10:00:00',
       previewToken: 'token',
     });

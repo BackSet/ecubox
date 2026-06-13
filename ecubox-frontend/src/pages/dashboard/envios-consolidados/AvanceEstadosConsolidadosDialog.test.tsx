@@ -44,7 +44,85 @@ const candidatos: EnvioConsolidado[] = [
     cerrado: false,
     totalPaquetes: 1,
   },
+  {
+    id: 4,
+    codigo: 'RECIBIDO-1',
+    cerrado: true,
+    estadoOperativo: 'RECIBIDO_EN_BODEGA',
+    totalPaquetes: 3,
+  },
+  {
+    id: 5,
+    codigo: 'CERRADO-1',
+    cerrado: true,
+    estadoOperativo: 'CERRADO',
+    totalPaquetes: 2,
+  },
+  {
+    id: 6,
+    codigo: 'ENVIADO-1',
+    cerrado: true,
+    estadoOperativo: 'ENVIADO_DESDE_USA',
+    totalPaquetes: 1,
+  },
+  {
+    id: 7,
+    codigo: 'ARRIBADO-1',
+    cerrado: true,
+    estadoOperativo: 'ARRIBADO_ECUADOR',
+    totalPaquetes: 1,
+  },
 ];
+
+const transicionCierre = {
+  id: 'CERRADO',
+  codigo: 'CERRADO',
+  etiqueta: 'Cerrado',
+  orden: 20,
+  estadoPrevioRequerido: 'EN_PREPARACION' as const,
+  estadoResultante: 'CERRADO' as const,
+  estadoAplicadoPaquetes: {
+    id: 20,
+    codigo: 'MANIFESTADO',
+    nombre: 'Manifestado',
+    orden: 20,
+  },
+  disponible: true,
+  tipo: 'REQUERIDA' as const,
+  requisitos: [],
+  permiso: 'ENVIOS_CONSOLIDADOS_UPDATE',
+};
+const transicionEnvio = {
+  ...transicionCierre,
+  id: 'ENVIADO_DESDE_USA',
+  codigo: 'ENVIADO_DESDE_USA',
+  etiqueta: 'Enviado desde usa',
+  orden: 40,
+  estadoPrevioRequerido: 'CERRADO' as const,
+  estadoResultante: 'ENVIADO_DESDE_USA' as const,
+  estadoAplicadoPaquetes: {
+    id: 40,
+    codigo: 'ENVIADO_USA',
+    nombre: 'Enviado desde USA',
+    orden: 40,
+  },
+};
+const transicionArribo = {
+  ...transicionCierre,
+  id: 'ARRIBADO_ECUADOR',
+  codigo: 'ARRIBADO_ECUADOR',
+  etiqueta: 'Arribado ecuador',
+  orden: 60,
+  estadoPrevioRequerido: 'ENVIADO_DESDE_USA' as const,
+  estadoResultante: 'ARRIBADO_ECUADOR' as const,
+  estadoAplicadoPaquetes: {
+    id: 60,
+    codigo: 'ARRIBADO_EC',
+    nombre: 'Arribado a Ecuador',
+    orden: 60,
+  },
+};
+const transiciones = [transicionCierre, transicionEnvio, transicionArribo];
 
 beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'hasPointerCapture', {
@@ -71,19 +149,11 @@ function renderDialog(seleccionInicial: number[] = []) {
       open
       consolidados={candidatos}
       seleccionInicial={seleccionInicial}
-      estadosDestino={[
-        {
-          id: 20,
-          codigo: 'CERRADO',
-          nombre: 'Cerrado',
-          ordenTracking: 20,
-          activo: true,
-        },
-      ]}
+      transiciones={transiciones}
       consolidadosLoading={false}
       consolidadosError={false}
-      estadosLoading={false}
-      estadosError={false}
+      transicionesLoading={false}
+      transicionesError={false}
       onOpenChange={() => {}}
     />,
   );
@@ -100,15 +170,46 @@ describe('AvanceEstadosConsolidadosDialog', () => {
     expect(esCandidatoAvanceEstados(candidatos[0]!)).toBe(true);
     expect(esCandidatoAvanceEstados(candidatos[1]!)).toBe(false);
     expect(esCandidatoAvanceEstados(candidatos[2]!)).toBe(false);
+    expect(esCandidatoAvanceEstados(candidatos[3]!)).toBe(false);
+    expect(esCandidatoAvanceEstados(candidatos[4]!)).toBe(true);
+    expect(esCandidatoAvanceEstados(candidatos[5]!)).toBe(true);
+    expect(esCandidatoAvanceEstados(candidatos[6]!)).toBe(false);
   });
 
-  it('muestra el candidato como En preparación y oculta los inválidos', () => {
+  it('lista inmediatamente los elegibles y excluye estados gestionados en otros puntos', () => {
     renderDialog();
 
     expect(screen.getByText('PREP-1')).toBeInTheDocument();
-    expect(screen.getByText('En preparación')).toBeInTheDocument();
+    expect(screen.getByText('CERRADO-1')).toBeInTheDocument();
+    expect(screen.getByText('ENVIADO-1')).toBeInTheDocument();
     expect(screen.queryByText('VACIO-1')).not.toBeInTheDocument();
-    expect(screen.queryByText('SIN-ESTADO')).not.toBeInTheDocument();
+    expect(screen.queryByText('RECIBIDO-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('ARRIBADO-1')).not.toBeInTheDocument();
+  });
+
+  it('el primer consolidado bloquea los que tienen otro estado inicial', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByText('PREP-1'));
+
+    expect(
+      screen.getAllByText('Selecciona consolidados en En preparación.'),
+    ).toHaveLength(2);
+    expect(screen.getAllByRole('checkbox').filter((item) => item.hasAttribute('disabled')))
+      .toHaveLength(2);
+  });
+
+  it('calcula Hasta desde el estado operativo del consolidado seleccionado', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByText('CERRADO-1'));
+    await user.click(screen.getByRole('combobox', { name: 'Hasta' }));
+
+    expect(screen.queryByRole('option', { name: 'Cerrado' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Enviado desde usa' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Arribado ecuador' })).toBeInTheDocument();
   });
 
   it('mantiene deshabilitada la aplicación sin selección ni preview', () => {
@@ -128,7 +229,7 @@ describe('AvanceEstadosConsolidadosDialog', () => {
     });
     renderDialog([1]);
 
-    await user.click(screen.getByRole('combobox', { name: 'Avanzar hasta' }));
+    await user.click(screen.getByRole('combobox', { name: 'Hasta' }));
     await user.click(await screen.findByRole('option', { name: 'Cerrado' }));
     await user.click(screen.getByRole('button', { name: 'Generar vista previa' }));
 
