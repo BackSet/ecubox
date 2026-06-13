@@ -8,6 +8,8 @@ export interface ConsignatarioResumen {
 
 export interface AccesoEnlace {
   id: number;
+  /** Identificador de negocio visible y estable (formato ACC-000001). */
+  codigo: string;
   /** Token en claro para reconstruir y copiar la URL del enlace. */
   token: string | null;
   tipo: TipoAccesoEnlace;

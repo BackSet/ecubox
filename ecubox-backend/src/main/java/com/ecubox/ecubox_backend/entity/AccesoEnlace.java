@@ -28,6 +28,14 @@ public class AccesoEnlace {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Identificador de negocio visible y estable (formato {@code ACC-000001}).
+     * Se asigna automáticamente al generar el enlace y no es editable. Es solo
+     * de presentación/búsqueda: NO autentica el acceso (eso lo hace el token).
+     */
+    @Column(nullable = false, unique = true, length = 20)
+    private String codigo;
+
     /** SHA-256 (hex) del token; índice único de búsqueda en el canje. */
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;

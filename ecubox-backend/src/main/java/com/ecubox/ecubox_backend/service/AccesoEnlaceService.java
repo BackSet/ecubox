@@ -42,13 +42,16 @@ public class AccesoEnlaceService {
     private final AccesoEnlaceRepository enlaceRepository;
     private final ConsignatarioRepository consignatarioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final CodigoSecuenciaService codigoSecuenciaService;
 
     public AccesoEnlaceService(AccesoEnlaceRepository enlaceRepository,
                                ConsignatarioRepository consignatarioRepository,
-                               UsuarioRepository usuarioRepository) {
+                               UsuarioRepository usuarioRepository,
+                               CodigoSecuenciaService codigoSecuenciaService) {
         this.enlaceRepository = enlaceRepository;
         this.consignatarioRepository = consignatarioRepository;
         this.usuarioRepository = usuarioRepository;
+        this.codigoSecuenciaService = codigoSecuenciaService;
     }
 
     @Transactional
@@ -74,6 +77,7 @@ public class AccesoEnlaceService {
         String tokenPlano = generarTokenPlano();
 
         AccesoEnlace enlace = AccesoEnlace.builder()
+                .codigo(codigoSecuenciaService.nextCodigoAccesoEnlace())
                 .tokenHash(hash(tokenPlano))
                 .token(tokenPlano)
                 .tipo(request.getTipo())
@@ -180,6 +184,7 @@ public class AccesoEnlaceService {
     private AccesoEnlaceDTO toDTO(AccesoEnlace e) {
         return AccesoEnlaceDTO.builder()
                 .id(e.getId())
+                .codigo(e.getCodigo())
                 .token(e.getToken())
                 .tipo(e.getTipo())
                 .etiqueta(e.getEtiqueta())

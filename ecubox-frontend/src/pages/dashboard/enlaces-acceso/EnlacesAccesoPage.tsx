@@ -120,6 +120,7 @@ export function EnlacesAccesoPage() {
     if (!q) return enlaces;
     return enlaces.filter(
       (e) =>
+        e.codigo.toLowerCase().includes(q) ||
         e.etiqueta?.toLowerCase().includes(q) ||
         e.consignatarios.some(
           (c) =>
@@ -183,7 +184,7 @@ export function EnlacesAccesoPage() {
 
       <ListToolbar
         title="Enlaces de acceso"
-        searchPlaceholder="Buscar por etiqueta o consignatario..."
+        searchPlaceholder="Buscar por código, etiqueta o consignatario..."
         onSearchChange={setSearch}
         actions={
           <Button className="w-full sm:w-auto" onClick={() => setCrearOpen(true)}>
@@ -382,6 +383,9 @@ function EnlaceRow({ enlace, onRevocar }: { enlace: AccesoEnlace; onRevocar: () 
     <TableRow>
       <TableCell className="max-w-[20rem] align-top">
         <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-semibold text-foreground" title="Código del enlace">
+            {enlace.codigo}
+          </span>
           <Badge variant={enlace.tipo === 'PERSISTENTE' ? 'secondary' : 'outline'}>
             {enlace.tipo === 'PERSISTENTE' ? 'Persistente' : 'Temporal'}
           </Badge>
@@ -469,6 +473,7 @@ function CrearEnlaceDialog({ onClose }: { onClose: () => void }) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [agregarId, setAgregarId] = useState<number | undefined>(undefined);
   const [nuevoEnlaceUrl, setNuevoEnlaceUrl] = useState<string | null>(null);
+  const [nuevoEnlaceCodigo, setNuevoEnlaceCodigo] = useState<string | null>(null);
 
   const seleccionados = useMemo(
     () => consignatarios.filter((c) => selectedIds.has(c.id)),
@@ -499,6 +504,7 @@ function CrearEnlaceDialog({ onClose }: { onClose: () => void }) {
         etiqueta: etiqueta.trim() || undefined,
       });
       setNuevoEnlaceUrl(buildEnlaceUrl(res.token));
+      setNuevoEnlaceCodigo(res.enlace?.codigo ?? null);
       const exp = res.enlace?.expiraAt;
       toast.success('Enlace de acceso generado', {
         description: exp
@@ -523,7 +529,17 @@ function CrearEnlaceDialog({ onClose }: { onClose: () => void }) {
         {nuevoEnlaceUrl ? (
           <div className="space-y-4">
             <div className="rounded-md border border-[var(--color-success)]/40 bg-[var(--color-success)]/5 p-3">
-              <p className="mb-2 text-sm font-medium text-foreground">Enlace listo para compartir</p>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-foreground">Enlace listo para compartir</p>
+                {nuevoEnlaceCodigo && (
+                  <span
+                    className="font-mono text-xs font-semibold text-foreground"
+                    title="Código del enlace"
+                  >
+                    {nuevoEnlaceCodigo}
+                  </span>
+                )}
+              </div>
               <CopiableUrl url={nuevoEnlaceUrl} />
               <p className="mt-2 text-xs text-muted-foreground">
                 También podrás copiarlo más tarde desde la lista con el botón “Copiar”.

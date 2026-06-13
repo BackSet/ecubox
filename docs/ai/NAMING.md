@@ -88,7 +88,7 @@
 | Liquidación | `Liquidacion` | `liquidacion` | `/api/liquidaciones` | `/liquidaciones` |
 | Estado de rastreo | `EstadoRastreo` | `estado_rastreo` | `/api/operario/estados-rastreo` | `/parametros-sistema/estados` |
 | Rastreo público | `TrackingResolveResponse` | vistas/eventos de rastreo | `/api/tracking` | `/tracking` |
-| Enlace de acceso | `AccesoEnlace`, `TipoAccesoEnlace` | `acceso_enlace` | `/api/acceso-enlaces`, `/api/auth/acceso-enlace` | `/enlaces-acceso`, `/acceso` |
+| Enlace de acceso | `AccesoEnlace`, `TipoAccesoEnlace`; código de negocio visible `codigo` con formato canónico `ACC-000001` (no editable, no reemplaza al token) | `acceso_enlace` | `/api/acceso-enlaces`, `/api/auth/acceso-enlace` | `/enlaces-acceso`, `/acceso` |
 | Casillero | Sin entidad propia confirmada | Datos de usuario/parámetros | Configuración pública/perfil | `/casillero` |
 
 ## 4. Roles, permisos, enums y estados
