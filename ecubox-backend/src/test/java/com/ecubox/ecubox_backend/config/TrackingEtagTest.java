@@ -3,10 +3,13 @@ package com.ecubox.ecubox_backend.config;
 import com.ecubox.ecubox_backend.dto.TrackingMasterResponse;
 import com.ecubox.ecubox_backend.dto.TrackingResolveResponse;
 import com.ecubox.ecubox_backend.dto.TrackingResponse;
+import com.ecubox.ecubox_backend.dto.TrackingEstadoItemDTO;
+import com.ecubox.ecubox_backend.dto.TrackingOperadorEntregaDTO;
 import com.ecubox.ecubox_backend.enums.EstadoGuiaMaster;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -51,6 +54,30 @@ class TrackingEtagTest {
         String e1 = TrackingEtag.of(TrackingResolveResponse.ofPieza(base));
         String e2 = TrackingEtag.of(TrackingResolveResponse.ofPieza(otra));
         assertNotEquals(e1, e2);
+    }
+
+    @Test
+    void of_pieza_cambiaConCatalogoLeyendaOrdenYEntrega() {
+        TrackingResponse base = TrackingResponse.builder()
+                .numeroGuia("ABC-1")
+                .estadoActualId(5L)
+                .estados(List.of(TrackingEstadoItemDTO.builder()
+                        .id(5L).codigo("A").nombre("Nombre A").orden(1).leyenda("Leyenda A").build()))
+                .operadorEntrega(TrackingOperadorEntregaDTO.builder()
+                        .tipoEntrega("AGENCIA").agenciaNombre("Oficina A").build())
+                .build();
+        TrackingResponse modificado = TrackingResponse.builder()
+                .numeroGuia("ABC-1")
+                .estadoActualId(5L)
+                .estados(List.of(TrackingEstadoItemDTO.builder()
+                        .id(5L).codigo("A").nombre("Nombre renombrado").orden(2).leyenda("Leyenda nueva").build()))
+                .operadorEntrega(TrackingOperadorEntregaDTO.builder()
+                        .tipoEntrega("AGENCIA").agenciaNombre("Oficina B").build())
+                .build();
+
+        assertNotEquals(
+                TrackingEtag.of(TrackingResolveResponse.ofPieza(base)),
+                TrackingEtag.of(TrackingResolveResponse.ofPieza(modificado)));
     }
 
     @Test

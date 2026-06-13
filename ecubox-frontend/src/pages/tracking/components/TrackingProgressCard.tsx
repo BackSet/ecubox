@@ -28,6 +28,7 @@ export function TrackingProgressCard({ result }: TrackingProgressCardProps) {
   const periodoVencido = Boolean(result.paqueteVencido) || diasAtrasoRetiro > 0;
   const periodoCumplido = !periodoVencido && result.diasRestantes === 0;
   const periodoEnRango = !periodoVencido && (result.diasRestantes ?? 0) > 0;
+  const fechaLimite = formatFechaLimite(result.fechaLimiteRetiro);
 
   // Sin cuenta regresiva finalizada y sin días → no hay nada útil que mostrar.
   if (!result.cuentaRegresivaFinalizada && !showDias) {
@@ -85,10 +86,26 @@ export function TrackingProgressCard({ result }: TrackingProgressCardProps) {
               <span>Hoy es el último día para retirar tu envío.</span>
             </p>
           ) : null}
+          {fechaLimite ? (
+            <p className="text-sm text-[var(--color-muted-foreground)] sm:col-span-2">
+              Fecha límite: <strong className="text-[var(--color-foreground)]">{fechaLimite}</strong>
+            </p>
+          ) : null}
         </div>
       )}
     </section>
   );
+}
+
+function formatFechaLimite(value?: string): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString('es-EC', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 interface StatTileProps {

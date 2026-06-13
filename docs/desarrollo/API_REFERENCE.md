@@ -54,7 +54,7 @@ Estos endpoints no requieren autenticación:
 | GET | `/api/health` | Estado del servidor |
 | POST | `/api/auth/login` | Iniciar sesión |
 | POST | `/api/auth/register/simple` | Registro de cliente |
-| GET | `/api/tracking?numeroGuia=...` | Rastreo público de paquete |
+| GET | `/api/v1/tracking?codigo=...` | Rastreo público de pieza o guía master |
 | GET | `/api/config/tarifa-calculadora` | Tarifa por libra (público) |
 
 ---
@@ -129,13 +129,15 @@ Base: `/api/health`
 
 ## Tracking
 
-Base: `/api/tracking`
+Base: `/api/v1/tracking`
 
 | Método | Ruta | Permiso | Descripción |
 |--------|------|---------|-------------|
-| GET | `/api/tracking?numeroGuia=ABC123` | Público | Rastreo de paquete por número de guía |
+| GET | `/api/v1/tracking?codigo=ABC123` | Público | Resuelve pieza o guía master; `numeroGuia` se conserva como alias |
+| GET | `/api/v1/tracking/examples` | Público | Lista escenarios sintéticos disponibles según el catálogo activo |
+| GET | `/api/v1/tracking/examples/{codigo}` | Público | Resuelve un escenario sintético con `TrackingResolveResponse` |
 
-**Response (200):** `TrackingResponse` con información del paquete, estados de rastreo, despacho y destinatario (consignatario en términos de back-office).
+**Response (200):** `TrackingResolveResponse` con pieza o guía master. Los ejemplos no consultan paquetes, consignatarios, despachos ni guías reales. Las respuestas resueltas soportan `ETag`, `If-None-Match` y `304`.
 
 ---
 

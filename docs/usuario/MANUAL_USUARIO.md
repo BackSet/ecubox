@@ -250,6 +250,9 @@ Los **estados de rastreo** describen en qué etapa está un paquete (por ejemplo
 | **Eliminar** | Solo si **ningún paquete** usa ese estado; en caso contrario el sistema lo impedirá (mensaje acorde al backend). |
 | **Orden de tracking** | Reordena los estados **base** y define **después de qué base** va cada estado **alterno**. Debes pulsar **Guardar orden tracking** para aplicar los cambios. Este orden afecta cómo se muestra la progresión en rastreo. |
 
+La página pública de ejemplos usa este mismo catálogo en tiempo real. Crear, renombrar,
+reordenar, ocultar o desactivar un estado no requiere editar la web pública.
+
 **Permisos de escritura en el catálogo**
 
 - Puedes crear, editar, desactivar, eliminar y guardar orden si tienes `ESTADOS_RASTREO_CREATE` o `ESTADOS_RASTREO_UPDATE`, o si eres **ADMIN** u **OPERARIO** (según la lógica actual de la pantalla).

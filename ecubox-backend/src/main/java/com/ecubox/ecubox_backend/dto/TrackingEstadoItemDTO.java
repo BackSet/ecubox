@@ -19,6 +19,8 @@ public class TrackingEstadoItemDTO {
     private String nombre;
     private Integer orden;
     private TipoFlujoEstado tipoFlujo;
+    /** Estado base tras el que se inserta este paso alterno, si aplica. */
+    private Long afterEstadoId;
     /** Leyenda con {dias} ya reemplazado por el valor numérico, o null. */
     private String leyenda;
     private boolean esActual;

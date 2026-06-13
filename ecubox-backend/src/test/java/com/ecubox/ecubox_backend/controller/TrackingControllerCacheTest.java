@@ -3,6 +3,9 @@ package com.ecubox.ecubox_backend.controller;
 import com.ecubox.ecubox_backend.dto.TrackingResolveResponse;
 import com.ecubox.ecubox_backend.dto.TrackingResponse;
 import com.ecubox.ecubox_backend.service.TrackingResolverService;
+import com.ecubox.ecubox_backend.service.TrackingExampleService;
+import com.ecubox.ecubox_backend.dto.TrackingExampleItemDTO;
+import com.ecubox.ecubox_backend.enums.TrackingTipo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -28,12 +31,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 class TrackingControllerCacheTest {
 
     private TrackingResolverService resolverService;
+    private TrackingExampleService exampleService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         resolverService = mock(TrackingResolverService.class);
-        TrackingController controller = new TrackingController(resolverService);
+        exampleService = mock(TrackingExampleService.class);
+        TrackingController controller = new TrackingController(
+                resolverService,
+                exampleService);
         ReflectionTestUtils.setField(controller, "cacheMaxAgeSeconds", 30L);
         ReflectionTestUtils.setField(controller, "staleWhileRevalidateSeconds", 60L);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
@@ -100,5 +107,26 @@ class TrackingControllerCacheTest {
                 .andReturn();
         assertEquals(200, result.getResponse().getStatus());
         org.junit.jupiter.api.Assertions.assertTrue(result.getResponse().getContentAsByteArray().length > 0);
+    }
+
+    @Test
+    void examples_listaYResolucionUsanContratoPublicoConEtag() throws Exception {
+        when(exampleService.listar()).thenReturn(java.util.List.of(
+                TrackingExampleItemDTO.builder()
+                        .codigo("DEMO")
+                        .titulo("Ejemplo")
+                        .descripcion("Sintético")
+                        .tipo(TrackingTipo.PIEZA)
+                        .build()));
+        when(exampleService.resolver("DEMO")).thenReturn(fakeResponse());
+
+        MvcResult list = mockMvc.perform(get("/api/v1/tracking/examples")).andReturn();
+        assertEquals(200, list.getResponse().getStatus());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                list.getResponse().getContentAsString().contains("\"codigo\":\"DEMO\""));
+
+        MvcResult resolved = mockMvc.perform(get("/api/v1/tracking/examples/DEMO")).andReturn();
+        assertEquals(200, resolved.getResponse().getStatus());
+        assertNotNull(resolved.getResponse().getHeader("ETag"));
     }
 }

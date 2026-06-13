@@ -114,6 +114,23 @@ class EstadoRastreoServiceTest {
     }
 
     @Test
+    void findCatalogoPublicoEntities_insertaAlternoDespuesDeSuAncla() {
+        EstadoRastreo base1 = EstadoRastreo.builder()
+                .id(1L).ordenTracking(1).tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        EstadoRastreo base2 = EstadoRastreo.builder()
+                .id(2L).ordenTracking(2).tipoFlujo(TipoFlujoEstado.NORMAL).build();
+        EstadoRastreo alterno = EstadoRastreo.builder()
+                .id(3L).ordenTracking(99).tipoFlujo(TipoFlujoEstado.ALTERNO)
+                .afterEstado(base1).build();
+        when(estadoRastreoRepository.findByActivoTrueAndPublicoTrackingTrueOrderByOrdenTrackingAscIdAsc())
+                .thenReturn(List.of(base1, base2, alterno));
+
+        var result = estadoRastreoService.findCatalogoPublicoEntities();
+
+        assertEquals(List.of(1L, 3L, 2L), result.stream().map(EstadoRastreo::getId).toList());
+    }
+
+    @Test
     void resolverTransicionInmediata_usaMayorOrdenAnteriorAunqueHayaHuecos() {
         EstadoRastreo destino = EstadoRastreo.builder()
                 .id(30L).nombre("Destino").activo(true).orden(90).ordenTracking(90)

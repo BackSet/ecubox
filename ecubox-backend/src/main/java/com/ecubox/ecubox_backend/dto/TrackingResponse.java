@@ -32,6 +32,8 @@ public class TrackingResponse {
     private Integer diasMaxRetiro;
     private Integer diasTranscurridos;
     private Integer diasRestantes;
+    /** Instante local de Ecuador a partir del cual el retiro se considera vencido. */
+    private String fechaLimiteRetiro;
     private Boolean cuentaRegresivaFinalizada;
     private Boolean paqueteVencido;
     private String flujoActual;

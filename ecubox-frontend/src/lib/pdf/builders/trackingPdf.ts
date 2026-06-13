@@ -12,8 +12,8 @@ import { kgToLbs, lbsToKg } from '@/lib/utils/weight';
 function labelTipoEntrega(tipo?: string): string {
   if (!tipo) return 'Modalidad no disponible';
   if (tipo === 'DOMICILIO') return 'Entrega a domicilio';
-  if (tipo === 'AGENCIA') return 'Retiro en agencia';
-  if (tipo === 'AGENCIA_COURIER_ENTREGA') return 'Retiro en agencia aliada';
+  if (tipo === 'AGENCIA') return 'Retiro en oficina';
+  if (tipo === 'AGENCIA_COURIER_ENTREGA') return 'Punto de retiro del courier';
   return tipo;
 }
 
@@ -77,18 +77,24 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
 
   const estados = data.estados ?? [];
   const currentIndex = estados.findIndex((s) => s.esActual);
-  const totalBase = estados.filter((s) => s.tipoFlujo !== 'ALTERNO').length;
-  const pasoBaseActual =
-    currentIndex >= 0
-      ? estados.slice(0, currentIndex + 1).filter((s) => s.tipoFlujo !== 'ALTERNO').length
+  const estadosBase = estados.filter((s) => s.tipoFlujo !== 'ALTERNO');
+  const totalBase = estadosBase.length;
+  const actual = estados.find((s) => s.esActual);
+  const pasoBaseActual = actual?.tipoFlujo === 'ALTERNO'
+    ? actual.afterEstadoId != null
+      ? estadosBase.findIndex((s) => s.id === actual.afterEstadoId) + 1
+      : 0
+    : actual
+      ? estadosBase.findIndex((s) => s.id === actual.id) + 1
       : 0;
-  const progressPct = totalBase > 0 ? (pasoBaseActual / totalBase) * 100 : 0;
+  const progresoDeterminado = totalBase > 0 && pasoBaseActual > 0;
+  const progressPct = progresoDeterminado ? (pasoBaseActual / totalBase) * 100 : 0;
 
   const showDias =
     data.diasMaxRetiro != null && (data.diasTranscurridos != null || data.diasRestantes != null);
 
   const heroStats = [
-  { label: 'Avance', value: `${Math.round(progressPct)}%` },
+  { label: 'Avance', value: progresoDeterminado ? `${Math.round(progressPct)}%` : 'Indeterminado' },
   ...(showDias
     ? [
         { label: 'Días transcurridos', value: String(data.diasTranscurridos ?? 0) },
@@ -105,9 +111,9 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     subtitle: `Estado actualizado el ${formatPdfFecha(data.fechaEstadoDesde)}`,
     progressPct,
     progressCaption:
-      totalBase > 0
+      progresoDeterminado
         ? `Paso base ${pasoBaseActual} de ${totalBase} en el flujo estimado del envío`
-        : 'Flujo de estados no configurado',
+        : 'No se pudo ubicar el estado dentro del flujo base configurado',
     stats: heroStats.slice(0, 3),
   });
 
@@ -128,6 +134,13 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
       'info',
       'Plazo de retiro',
       'El periodo de espera configurado para este envío ya se cumplió.'
+    );
+  }
+  if (data.fechaLimiteRetiro) {
+    renderer.drawCallout(
+      data.paqueteVencido ? 'warning' : 'info',
+      'Fecha límite de retiro',
+      formatPdfFecha(data.fechaLimiteRetiro)
     );
   }
 
@@ -250,7 +263,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
     if (op.tipoEntrega === 'AGENCIA') {
       entregaRows.push(
         [
-          { label: 'Agencia', value: pdfSafe(op.agenciaNombre) },
+          { label: 'Oficina', value: pdfSafe(op.agenciaNombre) },
           { label: 'Horario de atención', value: pdfSafe(op.horarioAtencionAgencia) },
         ],
         [
@@ -259,7 +272,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
             value: `${pdfSafe(op.agenciaDireccion)} — ${pdfSafe(op.agenciaProvincia)} / ${pdfSafe(op.agenciaCanton)}`,
           },
           {
-            label: 'Días máx. retiro agencia',
+            label: 'Días máx. retiro en oficina',
             value: String(op.diasMaxRetiroAgencia ?? 'No configurado'),
           },
         ],

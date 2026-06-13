@@ -12,10 +12,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { trackingSearchSchema } from '@/lib/schemas/primitives';
-import {
-  isTrackingSampleCodigo,
-  normalizeTrackingSampleCodigo,
-} from '@/lib/tracking/trackingSamples';
 import { HeroRouteIllustration } from '@/components/public/HeroRouteIllustration';
 import { useSeason } from '@/hooks/useSeason';
 import { useTemaTemporadaPublic } from '@/hooks/useTemaTemporada';
@@ -45,13 +41,10 @@ export function Hero() {
     setValidationError(null);
     setSubmitting(true);
     const codigoConsulta = parsed.data;
-    const target = isTrackingSampleCodigo(codigoConsulta)
-      ? {
-          to: '/tracking/ejemplo' as const,
-          search: { codigo: normalizeTrackingSampleCodigo(codigoConsulta) } as never,
-        }
-      : { to: '/tracking' as const, search: { codigo: codigoConsulta } as never };
-    void navigate(target).finally(() => setSubmitting(false));
+    void navigate({
+      to: '/tracking',
+      search: { codigo: codigoConsulta } as never,
+    }).finally(() => setSubmitting(false));
   }
 
   return (

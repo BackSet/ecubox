@@ -89,7 +89,7 @@ class PaqueteServiceTimelineTest {
 
         Paquete p = Paquete.builder().id(50L).numeroGuia("PAQ-1").estadoRastreo(enUsa).build();
         when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("PAQ-1")).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(registrado, enUsa, enEcuador));
+        when(estadoRastreoService.findCatalogoPublicoEntities()).thenReturn(List.of(registrado, enUsa, enEcuador));
 
         LocalDateTime t1 = LocalDateTime.now().minusDays(3);
         LocalDateTime t2 = LocalDateTime.now().minusDays(1);
@@ -121,7 +121,7 @@ class PaqueteServiceTimelineTest {
 
         Paquete p = Paquete.builder().id(60L).numeroGuia("PAQ-2").estadoRastreo(enUsa).build();
         when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("PAQ-2")).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(registrado, enUsa));
+        when(estadoRastreoService.findCatalogoPublicoEntities()).thenReturn(List.of(registrado, enUsa));
 
         LocalDateTime original = LocalDateTime.now().minusDays(5);
         LocalDateTime correccion = LocalDateTime.now().minusDays(1);
@@ -156,7 +156,7 @@ class PaqueteServiceTimelineTest {
                 .fechaEstadoActualDesde(fechaActual)
                 .build();
         when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("PAQ-3")).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(registrado, enUsa));
+        when(estadoRastreoService.findCatalogoPublicoEntities()).thenReturn(List.of(registrado, enUsa));
         when(trackingEventService.listarEventosPorPaquete(70L)).thenReturn(List.of());
 
         TrackingResponse resp = service.findByNumeroGuiaForTracking("PAQ-3");

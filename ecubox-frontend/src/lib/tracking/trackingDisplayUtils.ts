@@ -36,6 +36,7 @@ export interface TrackingPiezaDisplay {
   currentIndex: number;
   totalPasosBase: number;
   pasoBaseActual: number;
+  progresoDeterminado: boolean;
   hasDespachoInfo: boolean;
   hasPaquetesDespacho: boolean;
   hasOperadorEntrega: boolean;
@@ -50,10 +51,17 @@ export function computePiezaDisplay(pieza: TrackingResponse): TrackingPiezaDispl
   const estadosBase = estados.filter((e) => e.tipoFlujo !== 'ALTERNO');
   const totalPasosBase = estadosBase.length;
   const pasoBaseActual = (() => {
-    if (currentIndex < 0) return 0;
-    const visiblesHastaActual = estados.slice(0, currentIndex + 1);
-    return visiblesHastaActual.filter((e) => e.tipoFlujo !== 'ALTERNO').length;
+    const actual = estados.find((e) => e.esActual);
+    if (!actual) return 0;
+    if (actual.tipoFlujo === 'ALTERNO') {
+      if (actual.afterEstadoId == null) return 0;
+      const anchorIndex = estadosBase.findIndex((e) => e.id === actual.afterEstadoId);
+      return anchorIndex >= 0 ? anchorIndex + 1 : 0;
+    }
+    const baseIndex = estadosBase.findIndex((e) => e.id === actual.id);
+    return baseIndex >= 0 ? baseIndex + 1 : 0;
   })();
+  const progresoDeterminado = totalPasosBase > 0 && pasoBaseActual > 0;
   const piezasHermanas = pieza.master?.piezas ?? [];
 
   return {
@@ -63,6 +71,7 @@ export function computePiezaDisplay(pieza: TrackingResponse): TrackingPiezaDispl
     currentIndex,
     totalPasosBase,
     pasoBaseActual,
+    progresoDeterminado,
     hasDespachoInfo: pieza.despacho != null,
     hasPaquetesDespacho: (pieza.paquetesDespacho?.length ?? 0) > 0,
     hasOperadorEntrega: pieza.operadorEntrega != null,
