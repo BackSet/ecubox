@@ -505,6 +505,55 @@ Las páginas públicas comparten el lenguaje "landing":
 
 ---
 
+## 5.5 Responsive (estándar canónico)
+
+### Viewports canónicos
+
+Verificar en: **320, 360, 390, 430, 768, 1024, 1280, 1440, 1720 px**, además de
+zoom 200%, texto aumentado, orientación horizontal y datos con nombres extensos.
+Regla dura: a 320 px **ninguna** página debe producir scroll horizontal
+(`document.documentElement.scrollWidth <= clientWidth`).
+
+### Reglas
+
+1. **`min-w-0` en hijos flexibles que deban encoger.** Un hijo flex/grid tiene
+   `min-width: auto` por defecto: su contenido (texto `nowrap`, valor de un
+   `Select`) fija un ancho mínimo que **propaga overflow hacia arriba**. Añade
+   `min-w-0` al hijo (y a contenedores intermedios) para permitir `truncate`/
+   `line-clamp`. Causa raíz del fallo histórico en `/parametros-sistema/por-punto`.
+2. **Controles a `w-full max-w-full` en móvil**; el ancho limitado se activa desde
+   un breakpoint (`sm:w-[220px]`), nunca como ancho base fijo.
+3. **`truncate`/`line-clamp` solo funcionan con `min-w-0`** en la cadena flex.
+   Define por cada texto largo si **envuelve, trunca o rompe** (`break-words`).
+4. **Acciones apiladas en móvil** (`flex-col gap-… sm:flex-row`); ver `PageHeader`,
+   `TablePagination`.
+5. **Tablas**: envolver en `ListTableShell` (`.table-responsive` con
+   `overflow-x:auto`). La **tabla** desplaza su contenedor, **no la página**.
+6. **Popovers / dialogs no superan el viewport**: `Select` (`max-w-[calc(100vw-2rem)]`),
+   `SearchableCombobox` (`minWidth: min(max(trigger,16rem), calc(100vw-16px))`),
+   `Dialog` (`w-[calc(100%-1.5rem)] max-w-lg`). Radix porta el contenido fuera del
+   `overflow` del contenedor.
+7. **Prohibido** ocultar defectos con `overflow-x-hidden` global en `body`/shell;
+   corrige el nodo que desborda. No reducir tipografía globalmente.
+8. No depender de hover; targets táctiles ≥ ~32–36 px de alto.
+
+### Controles compartidos ya endurecidos
+
+`SelectTrigger` (`min-w-0 max-w-full`, valor `min-w-0` truncable, icono `shrink-0`),
+`SelectContent` (`max-w-[calc(100vw-2rem)]`, scroll vertical, items multilínea),
+`SearchableCombobox` (trigger `min-w-0`, valor `min-w-0 flex-1 truncate`, popover
+acotado al viewport). Reutilízalos; no reimplementes triggers a mano.
+
+### Pruebas responsive
+
+JSDOM no mide píxeles: en Vitest se prueba **estructura** (clases `min-w-0`/
+`max-w-full`, variantes, teclado, apertura/selección). Para regresión visual real
+se recomienda Playwright (proyectos 320/390/768/1280) aseverando
+`scrollWidth <= clientWidth`; aún no incorporado (requiere autorización de
+dependencia). Mientras tanto, checklist manual con DevTools device toolbar.
+
+---
+
 ## 6. Checklist al crear una página nueva
 
 - [ ] Root: `<div className="page-stack">` (dashboard) o `landing-shell` (público)
@@ -518,3 +567,5 @@ Las páginas públicas comparten el lenguaje "landing":
 - [ ] Badges de estado: `StatusBadge` o `DomainStatusBadge`
 - [ ] Sin colores Tailwind crudos
 - [ ] Sin `<h1>`/`<h2>` ad-hoc — usa `PageHeader`/`FormSection`
+- [ ] Responsive: `min-w-0` en hijos flex que truncan; controles `w-full` en móvil;
+      sin scroll horizontal a 320 px (ver §5.5)

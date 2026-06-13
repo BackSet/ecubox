@@ -2972,6 +2972,42 @@ function EstadosRastreoPorPuntoView() {
             );
           })}
         </div>
+
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+          <header className="mb-4 flex items-center justify-between gap-2">
+            <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Eye className="h-4 w-4 text-muted-foreground" />
+              Vista del flujo de paquete configurado
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              {PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete' && p.source === 'rastreo' && valuesByKey[p.key] !== '').length}
+              {' / '}
+              {PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete' && p.source === 'rastreo').length} pasos
+            </span>
+          </header>
+          <div className="space-y-5">
+            <FlowTimeline
+              items={PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete').map((punto) => {
+                const value = valuesByKey[punto.key];
+                const estadoLabel = selectedOptionLabel(punto, value, estados);
+                const configured = value !== '';
+                const isMissingRequired = punto.required && !configured;
+                return {
+                  key: punto.key,
+                  icon: punto.icon,
+                  label: punto.label,
+                  sublabel:
+                    punto.source === 'referencia'
+                      ? punto.efecto
+                      : (estadoLabel ?? (punto.required ? 'Pendiente' : 'No configurado')),
+                  sublabelPending: punto.source !== 'referencia' && !estadoLabel,
+                  state: configured ? 'configured' : isMissingRequired ? 'missing-required' : 'empty',
+                  badgeText: punto.badgeText,
+                };
+              })}
+            />
+          </div>
+        </div>
       </section>
 
       {/* SECCIÓN B: Estados de Guía master */}
@@ -3064,43 +3100,6 @@ function EstadosRastreoPorPuntoView() {
         </div>
       </section>
 
-      {/* Vista del flujo */}
-      <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
-        <header className="mb-4 flex items-center justify-between gap-2">
-          <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Eye className="h-4 w-4 text-muted-foreground" />
-            Vista del flujo de paquete configurado
-          </h3>
-          <span className="text-[11px] text-muted-foreground">
-            {PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete' && p.source === 'rastreo' && valuesByKey[p.key] !== '').length}
-            {' / '}
-            {PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete' && p.source === 'rastreo').length} pasos
-          </span>
-        </header>
-        <div className="space-y-5">
-          <FlowTimeline
-            items={PUNTOS_FLUJO.filter((p) => p.group === 'Flujo de paquete').map((punto) => {
-              const value = valuesByKey[punto.key];
-              const estadoLabel = selectedOptionLabel(punto, value, estados);
-              const configured = value !== '';
-              const isMissingRequired = punto.required && !configured;
-              return {
-                key: punto.key,
-                icon: punto.icon,
-                label: punto.label,
-                sublabel:
-                  punto.source === 'referencia'
-                    ? punto.efecto
-                    : (estadoLabel ?? (punto.required ? 'Pendiente' : 'No configurado')),
-                sublabelPending: punto.source !== 'referencia' && !estadoLabel,
-                state: configured ? 'configured' : isMissingRequired ? 'missing-required' : 'empty',
-                badgeText: punto.badgeText,
-              };
-            })}
-          />
-        </div>
-      </section>
-
       {/* Botones */}
       <div className="flex flex-wrap items-center justify-end gap-2">
         {isDirty && (
@@ -3151,7 +3150,7 @@ function PuntoCard({ punto, value, onChange, options, readOnly, duplicate }: Pun
   return (
     <article
       className={cn(
-        'flex flex-col gap-3 rounded-xl border bg-[var(--color-card)] p-4 transition-colors',
+        'flex min-w-0 flex-col gap-3 rounded-xl border bg-[var(--color-card)] p-4 transition-colors',
         duplicate
           ? 'border-[var(--color-destructive)]/50'
           : isPending

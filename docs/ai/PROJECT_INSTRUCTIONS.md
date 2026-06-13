@@ -59,6 +59,7 @@ Etiquetas:
 - Backend: el patrón predominante es Controller -> Service -> Repository; conserva autorización con `@PreAuthorize`.
 - Frontend: conserva TanStack Router/Query, servicios Axios, stores Zustand y esquemas Zod existentes.
 - Frontend (diseño/movimiento): usa los tokens y utilidades de movimiento de `src/index.css` (`--motion-*`, `.ui-transition`, `.ui-interactive`, `.ui-surface-hover`, `.ui-motion-*`); no introduzcas `transition-all`, duraciones/curvas literales ni colores literales. Toda animación debe respetar `prefers-reduced-motion`. Sigue `ecubox-frontend/UI_GUIDELINES.md`.
+- Frontend (responsive): a 320 px ninguna página debe producir scroll horizontal. Hijos flex que truncan llevan `min-w-0`; controles `w-full max-w-full` en móvil con ancho limitado solo desde breakpoint; acciones apiladas en móvil; tablas vía `ListTableShell` desplazan su contenedor; popovers/dialogs acotados al viewport. Prohibido ocultar overflow con `overflow-x-hidden` global o reducir tipografía globalmente. Detalle en `UI_GUIDELINES.md` §5.5.
 - Base de datos: Flyway gobierna el esquema; todo cambio futuro requiere migración nueva.
 - Nomenclatura: consulta `docs/ai/NAMING.md` y `docs/nomenclatura.md`; ejecuta el lint de nomenclatura cuando cambie copy.
 - No cambies contratos API, nombres canónicos o permisos sin revisar frontend, backend, migraciones, tests y documentación.

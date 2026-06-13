@@ -77,7 +77,9 @@ function formatMoney(value: number | null | undefined) {
 /** Texto de comparación contra el periodo anterior equivalente. */
 function comparaHint(metrica: MetricaComparable): string {
   if (!metrica.comparacionDisponible) {
-    return 'Sin periodo anterior comparable';
+    // comparacionDisponible solo es false cuando actual y anterior son 0:
+    // no hay nada que comparar porque no hubo actividad en el periodo.
+    return 'Sin actividad en el periodo';
   }
   if (metrica.variacionPct == null) {
     const dif = metrica.diferencia ?? 0;

@@ -36,6 +36,7 @@
 | Errores | Backend `exception/`; frontend `lib/api/error-message.ts`, interceptor Axios, estados de error de página |
 | Paginación/búsqueda | `PageResponse`, `Pageables`, `SearchSpecifications`, `useSearchPagination`, `createCrudQueryHooks` |
 | Diseño y movimiento | Frontend `src/index.css` (tokens de color/radio/**motion** + utilidades `.ui-transition`, `.ui-interactive`, `.ui-surface-hover`, `.ui-motion-*`, todas con `prefers-reduced-motion`); guía `ecubox-frontend/UI_GUIDELINES.md`; consumidas por `Button`, `Input`, `Switch`, `Table`, `ChipFiltro`, `KpiCard` y demás componentes compartidos |
+| Responsive | Estándar en `UI_GUIDELINES.md` §5.5. Controles compartidos endurecidos: `ui/select.tsx` (`SelectTrigger` `min-w-0 max-w-full` + valor truncable; `SelectContent` `max-w-[calc(100vw-2rem)]`), `ui/searchable-combobox.tsx` (trigger/valor `min-w-0`; popover acotado al viewport). `EstadosRastreoPorPuntoView` (`PuntoCard`) en `ParametrosSistemaPage.tsx` apila info+selector y usa `min-w-0` en el grid item |
 | Exportación | Frontend `lib/pdf`, `lib/xlsx`, `lib/exporters`; backend exportadores de consolidado/liquidación |
 | Observabilidad | Health, Micrometer, logs, health del proyector, ETag |
 | PWA | `vite.config.ts`, `src/sw.ts`, hooks PWA/Web Push, manifest e iconos |

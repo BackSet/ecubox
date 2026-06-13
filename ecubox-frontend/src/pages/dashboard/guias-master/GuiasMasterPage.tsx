@@ -415,7 +415,7 @@ export function GuiasMasterPage() {
                   {pendientesCount > 0 && (
                     <Badge
                       variant="outline"
-                      className="border-[var(--color-warning)] text-[11px] text-[var(--color-warning)]"
+                      className="border-transparent bg-[var(--color-warning)] px-1.5 text-[11px] font-semibold text-[var(--color-warning-foreground)]"
                     >
                       {pendientesCount}
                     </Badge>

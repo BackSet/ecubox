@@ -121,7 +121,7 @@ export function SearchableCombobox<T>({
           id={id}
           disabled={disabled}
           className={cn(
-            'input-clean flex w-full items-center justify-between gap-2 text-left',
+            'input-clean flex w-full min-w-0 max-w-full items-center justify-between gap-2 text-left',
             disabled && 'cursor-not-allowed opacity-60',
             className
           )}
@@ -129,7 +129,7 @@ export function SearchableCombobox<T>({
         >
           <span
             className={cn(
-              'flex-1 truncate',
+              'min-w-0 flex-1 truncate',
               !selected && 'text-[var(--color-muted-foreground)]'
             )}
           >
@@ -179,7 +179,8 @@ export function SearchableCombobox<T>({
           collisionPadding={8}
           className="z-[60] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-popover)]"
           style={{
-            minWidth: 'max(var(--radix-popover-trigger-width), 320px)',
+            // Piso usable para la búsqueda, pero nunca más ancho que el viewport.
+            minWidth: 'min(max(var(--radix-popover-trigger-width), 16rem), calc(100vw - 16px))',
             maxWidth: 'min(480px, calc(100vw - 16px))',
             maxHeight: 'var(--radix-popover-content-available-height)',
           }}
