@@ -1,26 +1,42 @@
 import type {
   EstadisticaDistribucionEstado,
-  EstadisticaSerieMensual,
+  EstadisticaSeriePunto,
+  GranularidadEstadisticas,
 } from '@/types/estadisticas';
 
-interface MonthlyChartProps {
-  despachos: EstadisticaSerieMensual[];
-  registros: EstadisticaSerieMensual[];
+const GRANULARIDAD_ADJETIVO: Record<GranularidadEstadisticas, string> = {
+  DIARIA: 'diaria',
+  SEMANAL: 'semanal',
+  MENSUAL: 'mensual',
+  TRIMESTRAL: 'trimestral',
+};
+
+interface SeriesChartProps {
+  despachos: EstadisticaSeriePunto[];
+  registros: EstadisticaSeriePunto[];
+  granularidad: GranularidadEstadisticas;
 }
 
-export function MonthlyChart({ despachos, registros }: MonthlyChartProps) {
+/**
+ * Gráfico de barras de la evolución del periodo. No asume que las etiquetas son
+ * meses: se adapta a granularidad diaria, semanal, mensual o trimestral.
+ */
+export function SeriesChart({ despachos, registros, granularidad }: SeriesChartProps) {
   const maxValue = Math.max(
     1,
     ...despachos.map((item) => item.total),
     ...registros.map((item) => item.total),
   );
+  // Con muchos puntos (p. ej. serie diaria) las barras se estrechan.
+  const densa = despachos.length > 20;
+  const adjetivo = GRANULARIDAD_ADJETIVO[granularidad];
 
   return (
     <figure>
       <div
-        className="flex h-64 items-end gap-2 overflow-x-auto border-b border-l border-[var(--color-border)] px-3 pt-5"
+        className="flex h-64 items-end gap-1.5 overflow-x-auto border-b border-l border-[var(--color-border)] px-3 pt-5"
         role="img"
-        aria-label="Comparación mensual de despachos y paquetes registrados"
+        aria-label={`Comparación ${adjetivo} de despachos y paquetes registrados`}
       >
         {despachos.map((item, index) => {
           const registro = registros[index]?.total ?? 0;
@@ -29,24 +45,28 @@ export function MonthlyChart({ despachos, registros }: MonthlyChartProps) {
           return (
             <div
               key={item.periodo}
-              className="flex h-full min-w-12 flex-1 flex-col justify-end"
+              className={`flex h-full flex-1 flex-col justify-end ${densa ? 'min-w-6' : 'min-w-12'}`}
               title={`${item.etiqueta}: ${item.total} despachos, ${registro} paquetes registrados`}
             >
               <div className="flex h-[calc(100%-2rem)] items-end justify-center gap-1">
                 <div
-                  className="w-3 rounded-t bg-[var(--color-primary)] transition-[height]"
+                  className="w-2.5 rounded-t bg-[var(--color-primary)] transition-[height]"
                   style={{ height: `${dispatchHeight}%` }}
                   aria-hidden
                 />
                 <div
-                  className="w-3 rounded-t bg-[var(--color-info)] transition-[height]"
+                  className="w-2.5 rounded-t bg-[var(--color-info)] transition-[height]"
                   style={{ height: `${registeredHeight}%` }}
                   aria-hidden
                 />
               </div>
-              <span className="mt-2 truncate text-center text-[10px] text-[var(--color-muted-foreground)]">
-                {item.etiqueta}
-              </span>
+              {!densa || index % 2 === 0 ? (
+                <span className="mt-2 truncate text-center text-[10px] text-[var(--color-muted-foreground)]">
+                  {item.etiqueta}
+                </span>
+              ) : (
+                <span className="mt-2 h-[14px]" aria-hidden />
+              )}
             </div>
           );
         })}

@@ -241,7 +241,7 @@ export function InicioAdminSection() {
               </div>
             </div>
             <Button asChild variant="outline" size="sm" className="shrink-0 gap-1.5">
-              <Link to="/estadisticas">
+              <Link to="/estadisticas" search={{ preset: 'ultimos-12-meses' } as never}>
                 Ver estadísticas
                 <ChevronRight className="h-4 w-4" aria-hidden />
               </Link>

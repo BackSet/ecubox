@@ -110,17 +110,22 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     @Query("SELECT p.id FROM Paquete p WHERE CAST(p.createdAt AS LocalDate) BETWEEN :inicio AND :fin")
     List<Long> findIdsByCreatedAtBetween(@Param("inicio") LocalDate inicio, @Param("fin") LocalDate fin);
 
+    /**
+     * Agrega paquetes registrados por punto temporal. {@code trunc} es la unidad
+     * de {@code date_trunc} (day/week/month/quarter).
+     */
     @Query(value = """
-            SELECT date_trunc('month', p.created_at) AS periodo,
+            SELECT date_trunc(:trunc, p.created_at) AS periodo,
                    COUNT(*) AS total
             FROM paquete p
             WHERE p.created_at >= :desde
               AND p.created_at < :hasta
-            GROUP BY date_trunc('month', p.created_at)
+            GROUP BY date_trunc(:trunc, p.created_at)
             ORDER BY periodo
             """, nativeQuery = true)
-    List<Object[]> aggregateRegistradosByMonth(@Param("desde") LocalDateTime desde,
-                                               @Param("hasta") LocalDateTime hasta);
+    List<Object[]> aggregateRegistradosByPeriodo(@Param("trunc") String trunc,
+                                                 @Param("desde") LocalDateTime desde,
+                                                 @Param("hasta") LocalDateTime hasta);
 
     @Query("""
             SELECT p.estadoRastreo.id, p.estadoRastreo.codigo,

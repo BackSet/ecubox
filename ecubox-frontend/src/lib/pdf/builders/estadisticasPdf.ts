@@ -1,11 +1,13 @@
 import { jsPDF } from 'jspdf';
 import type {
   EstadisticasDashboard,
-  EstadisticaSerieMensual,
+  EstadisticaSeriePunto,
+  MetricaComparable,
   PaqueteDemorado,
   PaqueteInconsistente,
   ExcepcionOperativa,
 } from '@/types/estadisticas';
+import { GRANULARIDAD_LABEL } from '@/pages/dashboard/estadisticas/periodo';
 import { ECUBOX_PDF_COLORS } from '@/lib/pdf/theme';
 import {
   createDocCtx,
@@ -24,12 +26,12 @@ import {
 } from '@/lib/pdf/builders/internal-doc';
 
 /**
- * PDF del reporte de estadísticas operativas: resumen en KPIs, evolución
- * mensual, inventario por estado y el detalle de paquetes demorados. Sigue la
- * identidad visual de los demás documentos internos de ECUBOX.
+ * PDF del reporte de estadísticas operativas. Refleja el periodo real (con su
+ * periodo anterior equivalente, variaciones y granularidad) y separa los
+ * resultados históricos de la fotografía operativa actual.
  */
 
-interface FilaMes {
+interface FilaPunto {
   etiqueta: string;
   despachos: number;
   paquetes: number;
@@ -37,10 +39,10 @@ interface FilaMes {
   registrados: number;
 }
 
-function combinarMeses(
-  despachos: EstadisticaSerieMensual[],
-  registros: EstadisticaSerieMensual[],
-): FilaMes[] {
+function combinarSeries(
+  despachos: EstadisticaSeriePunto[],
+  registros: EstadisticaSeriePunto[],
+): FilaPunto[] {
   const registradosPorPeriodo = new Map(registros.map((r) => [r.periodo, r.total]));
   return despachos.map((d) => ({
     etiqueta: d.etiqueta,
@@ -51,22 +53,32 @@ function combinarMeses(
   }));
 }
 
-function proyeccionProximoMes(series: EstadisticaSerieMensual[]): number {
-  if (!series.length) return 0;
-  const ultimos = series.slice(-3);
-  return Math.round(ultimos.reduce((sum, item) => sum + item.total, 0) / ultimos.length);
+function variacion(metrica: MetricaComparable): string {
+  if (!metrica.comparacionDisponible) return 's/ comparación';
+  if (metrica.variacionPct == null) {
+    const dif = metrica.diferencia ?? 0;
+    return `${dif > 0 ? '+' : ''}${fmtNumero(dif, 1)}`;
+  }
+  const arrow = metrica.variacionPct >= 0 ? '+' : '-';
+  return `${arrow}${fmtNumero(Math.abs(metrica.variacionPct), 1)} %`;
 }
 
 export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const ctx = createDocCtx(doc);
+  const { resultados, estadoActual } = data;
 
-  const periodo = `${fmtFechaCorta(data.periodoDesde)} – ${fmtFechaCorta(data.periodoHasta)}`;
+  const periodo = `${fmtFechaCorta(data.periodo.desde)} – ${fmtFechaCorta(data.periodo.hastaInclusivo)}`;
+  const periodoAnterior = `${fmtFechaCorta(data.periodoAnterior.desde)} – ${fmtFechaCorta(
+    data.periodoAnterior.hastaInclusivo,
+  )}`;
 
   const header = () =>
     drawDocHeader(ctx, {
       titulo: 'Estadísticas operativas',
-      subtitulo: 'Reporte de tendencias y alertas de operación',
+      subtitulo: `Resultados del periodo · Granularidad ${GRANULARIDAD_LABEL[
+        data.granularidad
+      ].toLowerCase()}${data.periodoParcial ? ' · Período en curso' : ''}`,
       codigo: periodo,
       meta: `Generado ${fmtFechaHora(data.generadoEn)}`,
     });
@@ -77,109 +89,83 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
 
   header();
 
-  // ── KPIs del resumen ──
+  drawInlineMetrics(ctx, 'Periodo comparado', [
+    { label: 'Periodo', value: periodo },
+    { label: 'Periodo anterior', value: periodoAnterior },
+    { label: 'Granularidad', value: GRANULARIDAD_LABEL[data.granularidad] },
+  ]);
+
+  // ── KPIs de resultados del periodo ──
   drawKpiRow(ctx, [
-    { label: 'Despachos del período', value: fmtNumero(data.resumen.totalDespachos, 0) },
-    { label: 'Paquetes despachados', value: fmtNumero(data.resumen.paquetesDespachados, 0) },
-    { label: 'Paquetes registrados', value: fmtNumero(data.resumen.paquetesRegistrados, 0) },
-    { label: 'Pendientes', value: fmtNumero(data.resumen.pendientesDespacho, 0) },
+    { label: 'Despachos', value: fmtNumero(resultados.despachos.actual ?? 0, 0) },
     {
-      label: 'Demorados',
-      value: fmtNumero(data.resumen.demoradosSinDespachar, 0),
-      highlight: data.resumen.demoradosSinDespachar > 0,
+      label: 'Paquetes despachados',
+      value: fmtNumero(resultados.paquetesDespachados.actual ?? 0, 0),
     },
-    { label: 'Peso desp. (lb)', value: fmtNumero(data.resumen.pesoDespachadoLbs, 1) },
+    {
+      label: 'Paquetes registrados',
+      value: fmtNumero(resultados.paquetesRegistrados.actual ?? 0, 0),
+    },
+    { label: 'Peso desp. (lbs)', value: fmtNumero(resultados.pesoDespachadoLbs.actual ?? 0, 1) },
     {
       label: 'Tiempo prom. despacho',
       value:
-        data.resumen.tiempoPromedioDespachoDias != null
-          ? `${fmtNumero(data.resumen.tiempoPromedioDespachoDias, 1)} días`
+        resultados.tiempoPromedioDespachoDias.actual != null
+          ? `${fmtNumero(resultados.tiempoPromedioDespachoDias.actual, 1)} días`
           : '—',
     },
   ]);
 
-  drawInlineMetrics(ctx, 'Estimación financiera', [
-    {
-      label: 'Margen bruto',
-      value: fmtMoneda(data.resumen.margenBruto),
-    },
-    {
-      label: 'Costo distribución',
-      value: fmtMoneda(data.resumen.costoDistribucion),
-    },
-    {
-      label: 'Ingreso neto aprox.',
-      value: fmtMoneda(data.resumen.ingresoNetoAproximado),
-    },
+  drawInlineMetrics(ctx, 'Variación vs. periodo anterior', [
+    { label: 'Despachos', value: variacion(resultados.despachos) },
+    { label: 'Paquetes despachados', value: variacion(resultados.paquetesDespachados) },
+    { label: 'Paquetes registrados', value: variacion(resultados.paquetesRegistrados) },
+    { label: 'Peso despachado', value: variacion(resultados.pesoDespachadoLbs) },
   ]);
 
-  // ── Proyección del próximo mes (media de los últimos 3 meses) ──
-  const tasaDespacho =
-    data.resumen.paquetesRegistrados > 0
-      ? (data.resumen.paquetesDespachados / data.resumen.paquetesRegistrados) * 100
-      : 0;
-  drawInlineMetrics(ctx, 'Proyección próx. mes', [
-    { label: 'Despachos', value: fmtNumero(proyeccionProximoMes(data.despachosPorMes), 0) },
-    { label: 'Registrados', value: fmtNumero(proyeccionProximoMes(data.paquetesRegistradosPorMes), 0) },
-    { label: 'Tasa de despacho', value: `${fmtNumero(tasaDespacho, 0)}%` },
+  drawInlineMetrics(ctx, 'Estimación financiera del periodo', [
+    { label: 'Margen bruto', value: fmtMoneda(resultados.margenBruto.actual ?? 0) },
+    { label: 'Costo distribución', value: fmtMoneda(resultados.costoDistribucion.actual ?? 0) },
+    { label: 'Ingreso neto aprox.', value: fmtMoneda(resultados.ingresoNeto.actual ?? 0) },
   ]);
 
-  if (data.resumen.entregadosSinDespacho > 0) {
-    drawInlineMetrics(ctx, 'Alerta de integridad', [
-      {
-        label: 'Entregados sin despacho',
-        value: fmtNumero(data.resumen.entregadosSinDespacho, 0),
-      },
-      {
-        label: 'Acción',
-        value: 'Revisar trazabilidad',
-      },
-    ]);
-  }
-
-  if (data.resumen.excepcionesOperativas > 0) {
-    drawInlineMetrics(ctx, 'Excepciones del sistema', [
-      {
-        label: 'Total detectado',
-        value: fmtNumero(data.resumen.excepcionesOperativas, 0),
-      },
-      {
-        label: 'Prioridad',
-        value: 'Revisión operativa',
-      },
-    ]);
-  }
-
-  // ── Evolución mensual ──
-  const meses = combinarMeses(data.despachosPorMes, data.paquetesRegistradosPorMes);
-  drawSectionTitle(ctx, 'Evolución mensual');
-  const mesCols: ColumnDef<FilaMes>[] = [
-    { key: 'mes', label: 'MES', weight: 0.2, align: 'left', render: (r) => r.etiqueta },
+  // ── Evolución del periodo ──
+  const puntos = combinarSeries(resultados.despachosSerie, resultados.registrosSerie);
+  drawSectionTitle(ctx, 'Evolución del periodo');
+  const puntoCols: ColumnDef<FilaPunto>[] = [
+    { key: 'periodo', label: 'PERÍODO', weight: 0.2, align: 'left', render: (r) => r.etiqueta },
     { key: 'desp', label: 'DESPACHOS', weight: 0.2, align: 'right', render: (r) => fmtNumero(r.despachos, 0) },
     { key: 'paq', label: 'PAQUETES DESP.', weight: 0.22, align: 'right', render: (r) => fmtNumero(r.paquetes, 0) },
     { key: 'reg', label: 'REGISTRADOS', weight: 0.2, align: 'right', render: (r) => fmtNumero(r.registrados, 0) },
-    { key: 'peso', label: 'PESO (LB)', weight: 0.18, align: 'right', render: (r) => fmtNumero(r.pesoLbs, 1) },
+    { key: 'peso', label: 'PESO (LBS)', weight: 0.18, align: 'right', render: (r) => fmtNumero(r.pesoLbs, 1) },
   ];
-  drawTable<FilaMes>(ctx, {
-    columns: mesCols,
-    rows: meses,
+  drawTable<FilaPunto>(ctx, {
+    columns: puntoCols,
+    rows: puntos,
     empty: 'Sin actividad en el período.',
   });
 
-  // ── Inventario por estado ──
-  drawSectionTitle(ctx, 'Inventario por estado');
-  const estadoCols: ColumnDef<EstadisticasDashboard['paquetesPorEstado'][number]>[] = [
+  // ── Estado operativo actual ──
+  drawSectionTitle(ctx, `Estado operativo actual (al ${fmtFechaHora(data.generadoEn)})`);
+  drawInlineMetrics(ctx, 'Fotografía operativa', [
+    { label: 'Pendientes', value: fmtNumero(estadoActual.pendientesDespacho, 0) },
+    { label: 'Demorados', value: fmtNumero(estadoActual.demoradosSinDespachar, 0) },
+    { label: 'Entregados sin despacho', value: fmtNumero(estadoActual.entregadosSinDespacho, 0) },
+    { label: 'Excepciones', value: fmtNumero(estadoActual.excepcionesOperativas, 0) },
+  ]);
+
+  drawSectionTitle(ctx, 'Inventario por estado (actual)');
+  const estadoCols: ColumnDef<EstadisticasDashboard['estadoActual']['distribucion'][number]>[] = [
     { key: 'estado', label: 'ESTADO', weight: 0.55, align: 'left', render: (r) => safeStr(r.nombre) },
     { key: 'codigo', label: 'CÓDIGO', weight: 0.25, align: 'left', render: (r) => safeStr(r.codigo), mono: true },
     { key: 'total', label: 'PAQUETES', weight: 0.2, align: 'right', render: (r) => fmtNumero(r.total, 0) },
   ];
   drawTable(ctx, {
     columns: estadoCols,
-    rows: data.paquetesPorEstado,
+    rows: estadoActual.distribucion,
     empty: 'Sin paquetes registrados.',
   });
 
-  // ── Paquetes demorados ──
   drawSectionTitle(
     ctx,
     `Paquetes demorados sin despacho (> ${data.diasMaxSinDespachar} días laborables)`,
@@ -197,24 +183,24 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
   ];
   drawTable<PaqueteDemorado>(ctx, {
     columns: demoradoCols,
-    rows: data.paquetesDemorados,
+    rows: estadoActual.paquetesDemorados,
     empty: 'No hay paquetes que superen el tiempo estimado sin despacho.',
   });
 
-  if (data.resumen.demoradosSinDespachar > data.paquetesDemorados.length) {
+  if (estadoActual.demoradosSinDespachar > estadoActual.paquetesDemorados.length) {
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);
     doc.setTextColor(...ECUBOX_PDF_COLORS.muted);
     doc.text(
-      `Se muestran los ${data.paquetesDemorados.length} casos más antiguos de ${data.resumen.demoradosSinDespachar}.`,
+      `Se muestran los ${estadoActual.paquetesDemorados.length} casos más antiguos de ${estadoActual.demoradosSinDespachar}.`,
       ctx.margin,
       ctx.y + 4,
     );
     ctx.y += 8;
   }
 
-  if (data.resumen.entregadosSinDespacho > 0) {
-    drawSectionTitle(ctx, 'Entregados sin despacho registrado');
+  if (estadoActual.entregadosSinDespacho > 0) {
+    drawSectionTitle(ctx, 'Entregados sin despacho registrado (actual)');
     const inconsistenteCols: ColumnDef<PaqueteInconsistente>[] = [
       { key: 'idx', label: '#', weight: 0.05, align: 'center', render: (_, i) => String(i + 1) },
       { key: 'guia', label: 'GUÍA', weight: 0.2, align: 'left', render: (r) => safeStr(r.numeroGuia), mono: true },
@@ -226,13 +212,13 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
     ];
     drawTable<PaqueteInconsistente>(ctx, {
       columns: inconsistenteCols,
-      rows: data.paquetesEntregadosSinDespacho,
+      rows: estadoActual.paquetesEntregadosSinDespacho,
       empty: 'No hay inconsistencias de entrega sin despacho.',
     });
   }
 
-  if (data.resumen.excepcionesOperativas > 0) {
-    drawSectionTitle(ctx, 'Excepciones operativas y de integridad');
+  if (estadoActual.excepcionesOperativas > 0) {
+    drawSectionTitle(ctx, 'Excepciones operativas y de integridad (actual)');
     const excepcionCols: ColumnDef<ExcepcionOperativa>[] = [
       { key: 'sev', label: 'SEV.', weight: 0.07, align: 'center', render: (r) => r.severidad },
       { key: 'mod', label: 'MÓDULO', weight: 0.14, align: 'left', render: (r) => safeStr(r.modulo) },
@@ -242,7 +228,7 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
     ];
     drawTable<ExcepcionOperativa>(ctx, {
       columns: excepcionCols,
-      rows: data.excepcionesOperativas,
+      rows: estadoActual.excepciones,
       empty: 'No se detectaron otras excepciones.',
     });
   }

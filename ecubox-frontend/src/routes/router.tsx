@@ -14,6 +14,10 @@ import { RouteErrorScreen } from '@/components/RouteErrorScreen';
 import { useAuthStore } from '@/stores/authStore';
 import { applyTheme, useThemeStore } from '@/stores/themeStore';
 import {
+  normalizeSearch,
+  type EstadisticasSearch,
+} from '@/pages/dashboard/estadisticas/periodo';
+import {
   SEO_DEFAULT_DESCRIPTION,
   SEO_DEFAULT_TITLE,
   buildHomeJsonLd,
@@ -443,6 +447,8 @@ const inicioRoute = createRoute({
 const estadisticasRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/estadisticas',
+  validateSearch: (search: Record<string, unknown>): EstadisticasSearch =>
+    normalizeSearch(search),
   beforeLoad: requirePermission('ESTADISTICAS_READ'),
   component: withDashboardLayout(EstadisticasPage),
 });

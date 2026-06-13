@@ -1,7 +1,10 @@
 package com.ecubox.ecubox_backend.service;
 
+import com.ecubox.ecubox_backend.dto.EstadisticasConsulta;
 import com.ecubox.ecubox_backend.dto.EstadisticasDashboardDTO;
+import com.ecubox.ecubox_backend.dto.EstadisticasDashboardDTO.MetricaComparable;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.enums.GranularidadEstadisticas;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.repository.DespachoRepository;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
@@ -18,9 +21,9 @@ import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.IsoFields;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,8 +35,12 @@ public class EstadisticasService {
 
     private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
     private static final int DIAS_MAX_PROCESO_LABORABLES = 12;
+    private static final Locale LOCALE_EC = Locale.forLanguageTag("es-EC");
+    private static final DateTimeFormatter ETIQUETA_DIA =
+            DateTimeFormatter.ofPattern("d MMM", LOCALE_EC);
     private static final DateTimeFormatter ETIQUETA_MES =
-            DateTimeFormatter.ofPattern("MMM yy", Locale.forLanguageTag("es-EC"));
+            DateTimeFormatter.ofPattern("MMM yy", LOCALE_EC);
+    private static final BigDecimal CIEN = BigDecimal.valueOf(100);
 
     private final DespachoRepository despachoRepository;
     private final PaqueteRepository paqueteRepository;
@@ -41,29 +48,110 @@ public class EstadisticasService {
     private final EstadisticasExcepcionRepository excepcionRepository;
     private final LiquidacionRepository liquidacionRepository;
     private final ParametroSistemaService parametroSistemaService;
+    private final PeriodoEstadisticasResolver periodoResolver;
 
     public EstadisticasService(DespachoRepository despachoRepository,
                                PaqueteRepository paqueteRepository,
                                EstadoRastreoRepository estadoRastreoRepository,
                                EstadisticasExcepcionRepository excepcionRepository,
                                LiquidacionRepository liquidacionRepository,
-                               ParametroSistemaService parametroSistemaService) {
+                               ParametroSistemaService parametroSistemaService,
+                               PeriodoEstadisticasResolver periodoResolver) {
         this.despachoRepository = despachoRepository;
         this.paqueteRepository = paqueteRepository;
         this.estadoRastreoRepository = estadoRastreoRepository;
         this.excepcionRepository = excepcionRepository;
         this.liquidacionRepository = liquidacionRepository;
         this.parametroSistemaService = parametroSistemaService;
+        this.periodoResolver = periodoResolver;
+    }
+
+    /** Compatibilidad heredada: {@code ?meses=N}. */
+    @Transactional(readOnly = true)
+    public EstadisticasDashboardDTO dashboard(Integer mesesSolicitados) {
+        return dashboard(new EstadisticasConsulta(
+                null, null, null, null, null, null, mesesSolicitados));
     }
 
     @Transactional(readOnly = true)
-    public EstadisticasDashboardDTO dashboard(Integer mesesSolicitados) {
-        int meses = Math.max(3, Math.min(24, mesesSolicitados != null ? mesesSolicitados : 12));
+    public EstadisticasDashboardDTO dashboard(EstadisticasConsulta consulta) {
         LocalDate hoy = LocalDate.now(ZONA_ECUADOR);
-        YearMonth primerMes = YearMonth.from(hoy).minusMonths(meses - 1L);
-        LocalDateTime desde = primerMes.atDay(1).atStartOfDay();
-        LocalDateTime hasta = YearMonth.from(hoy).plusMonths(1).atDay(1).atStartOfDay();
-        int diasMaxSinDespachar = DIAS_MAX_PROCESO_LABORABLES;
+        PeriodoEstadisticasResolver.Resuelto periodo = periodoResolver.resolver(consulta, hoy);
+        GranularidadEstadisticas granularidad = periodo.granularidad();
+
+        LocalDateTime desde = periodo.desde().atStartOfDay();
+        LocalDateTime hasta = periodo.hastaExclusivo().atStartOfDay();
+        LocalDateTime antDesde = periodo.anteriorDesde().atStartOfDay();
+        LocalDateTime antHasta = periodo.anteriorHastaExclusivo().atStartOfDay();
+
+        // ── Resultados del periodo (histórico + comparación) ──
+        ResumenDespachos despActual = resumenDespachos(desde, hasta);
+        ResumenDespachos despAnterior = resumenDespachos(antDesde, antHasta);
+
+        long registradosActual = paqueteRepository.countRegistradosEntre(desde, hasta);
+        long registradosAnterior = paqueteRepository.countRegistradosEntre(antDesde, antHasta);
+
+        BigDecimal pesoRegActual = paqueteRepository.sumPesoRegistradoEntre(desde, hasta);
+        BigDecimal pesoRegAnterior = paqueteRepository.sumPesoRegistradoEntre(antDesde, antHasta);
+
+        Double avgActual = paqueteRepository.avgDiasDespachoEntre(desde, hasta);
+        Double avgAnterior = paqueteRepository.avgDiasDespachoEntre(antDesde, antHasta);
+
+        LiquidacionRepository.TasasEstimacionProjection tasas =
+                liquidacionRepository.findTasasEstimacionHistoricas();
+        BigDecimal margenActual = estimarPorPeso(pesoRegActual, tasas.getMargenPorLibra());
+        BigDecimal margenAnterior = estimarPorPeso(pesoRegAnterior, tasas.getMargenPorLibra());
+        BigDecimal costoActual = estimarPorPeso(pesoRegActual, tasas.getCostoDistribucionPorLibra());
+        BigDecimal costoAnterior = estimarPorPeso(pesoRegAnterior, tasas.getCostoDistribucionPorLibra());
+        BigDecimal ingresoActual = margenActual.subtract(costoActual).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal ingresoAnterior = margenAnterior.subtract(costoAnterior).setScale(4, RoundingMode.HALF_UP);
+
+        List<EstadisticasDashboardDTO.SeriePunto> despachosSerie = buildSerie(
+                granularidad, periodo.desde(), periodo.hastaExclusivo(),
+                despachoRepository.aggregateByPeriodo(granularidad.getTruncUnit(), desde, hasta),
+                true);
+        List<EstadisticasDashboardDTO.SeriePunto> registrosSerie = buildSerie(
+                granularidad, periodo.desde(), periodo.hastaExclusivo(),
+                paqueteRepository.aggregateRegistradosByPeriodo(granularidad.getTruncUnit(), desde, hasta),
+                false);
+
+        EstadisticasDashboardDTO.ResultadosPeriodo resultados =
+                new EstadisticasDashboardDTO.ResultadosPeriodo(
+                        comparable(BigDecimal.valueOf(despActual.despachos()),
+                                BigDecimal.valueOf(despAnterior.despachos())),
+                        comparable(BigDecimal.valueOf(despActual.paquetes()),
+                                BigDecimal.valueOf(despAnterior.paquetes())),
+                        comparable(BigDecimal.valueOf(registradosActual),
+                                BigDecimal.valueOf(registradosAnterior)),
+                        comparable(despActual.peso(), despAnterior.peso()),
+                        comparable(redondearDias(avgActual), redondearDias(avgAnterior)),
+                        comparable(margenActual, margenAnterior),
+                        comparable(costoActual, costoAnterior),
+                        comparable(ingresoActual, ingresoAnterior),
+                        despachosSerie,
+                        registrosSerie);
+
+        // ── Estado operativo actual (fotografía, sin comparación histórica) ──
+        EstadisticasDashboardDTO.EstadoOperativoActual estadoActual = estadoActual();
+
+        return new EstadisticasDashboardDTO(
+                LocalDateTime.now(ZONA_ECUADOR),
+                granularidad,
+                periodo.parcial(),
+                new EstadisticasDashboardDTO.Periodo(
+                        periodo.preset(), periodo.desde(), periodo.hastaExclusivo(),
+                        periodo.hastaExclusivo().minusDays(1)),
+                new EstadisticasDashboardDTO.Periodo(
+                        periodo.preset(), periodo.anteriorDesde(), periodo.anteriorHastaExclusivo(),
+                        periodo.anteriorHastaExclusivo().minusDays(1)),
+                DIAS_MAX_PROCESO_LABORABLES,
+                resultados,
+                estadoActual);
+    }
+
+    // ───────────────────────── Estado operativo actual ─────────────────────────
+
+    private EstadisticasDashboardDTO.EstadoOperativoActual estadoActual() {
         int ordenTerminal = estadoRastreoRepository
                 .findMaxOrdenTrackingActivoByTipoFlujo(TipoFlujoEstado.NORMAL);
         Long estadoDespachoId = parametroSistemaService.getEstadosRastreoPorPunto()
@@ -71,58 +159,19 @@ public class EstadisticasService {
         int ordenDespacho = estadoRastreoRepository.findById(estadoDespachoId)
                 .map(estado -> estado.getOrdenTracking() != null ? estado.getOrdenTracking() : 0)
                 .orElse(0);
-
-        Map<YearMonth, EstadisticasDashboardDTO.SerieMensual> despachos =
-                initializeMonths(primerMes, meses);
-        for (Object[] row : despachoRepository.aggregateByMonth(desde, hasta)) {
-            YearMonth month = toYearMonth(row[0]);
-            despachos.put(month, serie(month, longValue(row[1]), longValue(row[2]), decimal(row[3])));
-        }
-
-        Map<YearMonth, EstadisticasDashboardDTO.SerieMensual> registros =
-                initializeMonths(primerMes, meses);
-        for (Object[] row : paqueteRepository.aggregateRegistradosByMonth(desde, hasta)) {
-            YearMonth month = toYearMonth(row[0]);
-            registros.put(month, serie(month, longValue(row[1]), 0, BigDecimal.ZERO));
-        }
-
-        List<EstadisticasDashboardDTO.SerieMensual> despachosSerie =
-                new ArrayList<>(despachos.values());
-        List<EstadisticasDashboardDTO.SerieMensual> registrosSerie =
-                new ArrayList<>(registros.values());
-        long totalDespachos = despachosSerie.stream().mapToLong(EstadisticasDashboardDTO.SerieMensual::total).sum();
-        long paquetesDespachados = despachosSerie.stream().mapToLong(EstadisticasDashboardDTO.SerieMensual::paquetes).sum();
-        BigDecimal pesoDespachado = despachosSerie.stream()
-                .map(EstadisticasDashboardDTO.SerieMensual::pesoLbs)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        long paquetesRegistrados = paqueteRepository.countRegistradosEntre(desde, hasta);
-        Double avgDiasDespacho = paqueteRepository.avgDiasDespachoEntre(desde, hasta);
-        Double tiempoPromedioDespachoDias = avgDiasDespacho != null
-                ? Math.round(avgDiasDespacho * 10.0) / 10.0
-                : null;
-        BigDecimal pesoRegistrado = paqueteRepository.sumPesoRegistradoEntre(desde, hasta);
-        LiquidacionRepository.TasasEstimacionProjection tasasEstimacion =
-                liquidacionRepository.findTasasEstimacionHistoricas();
-        BigDecimal margenBruto = estimarPorPeso(
-                pesoRegistrado, tasasEstimacion.getMargenPorLibra());
-        BigDecimal costoDistribucion = estimarPorPeso(
-                pesoRegistrado, tasasEstimacion.getCostoDistribucionPorLibra());
-        BigDecimal ingresoNetoAproximado =
-                margenBruto.subtract(costoDistribucion).setScale(4, RoundingMode.HALF_UP);
+        int diasMax = DIAS_MAX_PROCESO_LABORABLES;
+        LocalDate hoyLocal = LocalDate.now(ZONA_ECUADOR);
 
         List<EstadisticasDashboardDTO.DistribucionEstado> estados =
                 paqueteRepository.aggregateByEstado().stream()
                         .map(row -> new EstadisticasDashboardDTO.DistribucionEstado(
                                 nullableLong(row[0]), string(row[1]), string(row[2]), longValue(row[3])))
                         .toList();
-
-        LocalDate hoyLocal = LocalDate.now(ZONA_ECUADOR);
         List<EstadisticasDashboardDTO.PaqueteDemorado> demorados =
                 paqueteRepository.findDemoradosSinDespachar(
-                                hoyLocal, diasMaxSinDespachar, ordenTerminal,
-                                Pageables.bounded(0, 100, 100))
+                                hoyLocal, diasMax, ordenTerminal, Pageables.bounded(0, 100, 100))
                         .stream()
-                        .map(paquete -> toDemorado(paquete, hoyLocal, diasMaxSinDespachar))
+                        .map(paquete -> toDemorado(paquete, hoyLocal, diasMax))
                         .toList();
         List<EstadisticasDashboardDTO.PaqueteInconsistente> entregadosSinDespacho =
                 paqueteRepository.findEntregadosSinDespacho(
@@ -136,53 +185,124 @@ public class EstadisticasService {
                         .map(EstadisticasService::toExcepcion)
                         .toList();
 
-        return new EstadisticasDashboardDTO(
-                LocalDateTime.now(ZONA_ECUADOR),
-                desde.toLocalDate(),
-                hasta.toLocalDate().minusDays(1),
-                diasMaxSinDespachar,
-                new EstadisticasDashboardDTO.Resumen(
-                        totalDespachos,
-                        paquetesDespachados,
-                        paquetesRegistrados,
-                        paqueteRepository.countPendientesDespacho(ordenTerminal),
-                        paqueteRepository.countDemoradosSinDespachar(
-                                hoyLocal, diasMaxSinDespachar, ordenTerminal),
-                        paqueteRepository.countEntregadosSinDespacho(ordenTerminal),
-                        excepcionRepository.countExcepciones(ordenDespacho, ordenTerminal),
-                        pesoDespachado,
-                        tiempoPromedioDespachoDias,
-                        margenBruto,
-                        costoDistribucion,
-                        ingresoNetoAproximado),
-                despachosSerie,
-                registrosSerie,
+        return new EstadisticasDashboardDTO.EstadoOperativoActual(
+                paqueteRepository.countPendientesDespacho(ordenTerminal),
+                paqueteRepository.countDemoradosSinDespachar(hoyLocal, diasMax, ordenTerminal),
+                paqueteRepository.countEntregadosSinDespacho(ordenTerminal),
+                excepcionRepository.countExcepciones(ordenDespacho, ordenTerminal),
                 estados,
                 demorados,
                 entregadosSinDespacho,
                 excepciones);
     }
 
-    private static Map<YearMonth, EstadisticasDashboardDTO.SerieMensual> initializeMonths(
-            YearMonth first, int months) {
-        Map<YearMonth, EstadisticasDashboardDTO.SerieMensual> result = new LinkedHashMap<>();
-        for (int i = 0; i < months; i++) {
-            YearMonth month = first.plusMonths(i);
-            result.put(month, serie(month, 0, 0, BigDecimal.ZERO));
-        }
-        return result;
+    // ───────────────────────── Series por granularidad ─────────────────────────
+
+    private record ResumenDespachos(long despachos, long paquetes, BigDecimal peso) {
     }
 
-    private static EstadisticasDashboardDTO.SerieMensual serie(
-            YearMonth month, long total, long paquetes, BigDecimal pesoLbs) {
-        String label = ETIQUETA_MES.format(month.atDay(1));
-        return new EstadisticasDashboardDTO.SerieMensual(
-                month.toString(),
-                Character.toUpperCase(label.charAt(0)) + label.substring(1),
-                total,
-                paquetes,
-                pesoLbs);
+    private ResumenDespachos resumenDespachos(LocalDateTime desde, LocalDateTime hasta) {
+        Object[] row = despachoRepository.aggregateResumen(desde, hasta);
+        if (row == null || row.length < 3) {
+            return new ResumenDespachos(0, 0, BigDecimal.ZERO);
+        }
+        return new ResumenDespachos(longValue(row[0]), longValue(row[1]), decimal(row[2]));
     }
+
+    /**
+     * Construye una serie con todos los puntos del rango inicializados en cero,
+     * para no agrupar localmente datos incompletos: los huecos se muestran como
+     * observaciones nulas explícitas.
+     */
+    private static List<EstadisticasDashboardDTO.SeriePunto> buildSerie(
+            GranularidadEstadisticas granularidad, LocalDate desde, LocalDate hastaExclusivo,
+            List<Object[]> filas, boolean conDespachos) {
+        Map<String, EstadisticasDashboardDTO.SeriePunto> puntos = new LinkedHashMap<>();
+        for (LocalDate inicio = truncar(desde, granularidad);
+             inicio.isBefore(hastaExclusivo);
+             inicio = siguiente(inicio, granularidad)) {
+            String clave = clave(inicio, granularidad);
+            puntos.put(clave, new EstadisticasDashboardDTO.SeriePunto(
+                    clave, etiqueta(inicio, granularidad), 0, 0, BigDecimal.ZERO));
+        }
+        for (Object[] fila : filas) {
+            LocalDate inicio = toLocalDate(fila[0]);
+            String clave = clave(inicio, granularidad);
+            long total = longValue(fila[1]);
+            long paquetes = conDespachos && fila.length > 2 ? longValue(fila[2]) : 0;
+            BigDecimal peso = conDespachos && fila.length > 3 ? decimal(fila[3]) : BigDecimal.ZERO;
+            puntos.put(clave, new EstadisticasDashboardDTO.SeriePunto(
+                    clave, etiqueta(inicio, granularidad), total, paquetes, peso));
+        }
+        return new ArrayList<>(puntos.values());
+    }
+
+    private static LocalDate truncar(LocalDate fecha, GranularidadEstadisticas g) {
+        return switch (g) {
+            case DIARIA -> fecha;
+            case SEMANAL -> fecha.minusDays(fecha.getDayOfWeek().getValue() - 1L); // lunes ISO
+            case MENSUAL -> fecha.withDayOfMonth(1);
+            case TRIMESTRAL -> {
+                int mesInicioTrim = ((fecha.getMonthValue() - 1) / 3) * 3 + 1;
+                yield LocalDate.of(fecha.getYear(), mesInicioTrim, 1);
+            }
+        };
+    }
+
+    private static LocalDate siguiente(LocalDate inicio, GranularidadEstadisticas g) {
+        return switch (g) {
+            case DIARIA -> inicio.plusDays(1);
+            case SEMANAL -> inicio.plusWeeks(1);
+            case MENSUAL -> inicio.plusMonths(1);
+            case TRIMESTRAL -> inicio.plusMonths(3);
+        };
+    }
+
+    private static String clave(LocalDate inicio, GranularidadEstadisticas g) {
+        return switch (g) {
+            case DIARIA, SEMANAL -> inicio.toString(); // ISO yyyy-MM-dd (inicio de día/semana)
+            case MENSUAL -> String.format("%04d-%02d", inicio.getYear(), inicio.getMonthValue());
+            case TRIMESTRAL -> inicio.getYear() + "-Q" + inicio.get(IsoFields.QUARTER_OF_YEAR);
+        };
+    }
+
+    private static String etiqueta(LocalDate inicio, GranularidadEstadisticas g) {
+        return switch (g) {
+            case DIARIA, SEMANAL -> ETIQUETA_DIA.format(inicio);
+            case MENSUAL -> capitalizar(ETIQUETA_MES.format(inicio));
+            case TRIMESTRAL -> "T" + inicio.get(IsoFields.QUARTER_OF_YEAR) + " "
+                    + String.format("%02d", inicio.getYear() % 100);
+        };
+    }
+
+    private static String capitalizar(String texto) {
+        if (texto == null || texto.isEmpty()) return texto;
+        return Character.toUpperCase(texto.charAt(0)) + texto.substring(1);
+    }
+
+    // ───────────────────────── Comparación ─────────────────────────
+
+    private static MetricaComparable comparable(BigDecimal actual, BigDecimal anterior) {
+        boolean hayAnterior = anterior != null;
+        BigDecimal diferencia = (actual != null && hayAnterior) ? actual.subtract(anterior) : null;
+        Double variacionPct = null;
+        if (actual != null && hayAnterior && anterior.signum() != 0) {
+            BigDecimal pct = actual.subtract(anterior)
+                    .multiply(CIEN)
+                    .divide(anterior.abs(), 4, RoundingMode.HALF_UP);
+            variacionPct = Math.round(pct.doubleValue() * 10.0) / 10.0;
+        }
+        boolean comparacionDisponible = hayAnterior
+                && !(anterior.signum() == 0 && (actual == null || actual.signum() == 0));
+        return new MetricaComparable(actual, anterior, diferencia, variacionPct, comparacionDisponible);
+    }
+
+    private static BigDecimal redondearDias(Double valor) {
+        if (valor == null) return null;
+        return BigDecimal.valueOf(Math.round(valor * 10.0) / 10.0);
+    }
+
+    // ───────────────────────── Mapeos auxiliares ─────────────────────────
 
     private static EstadisticasDashboardDTO.PaqueteDemorado toDemorado(
             Paquete paquete, LocalDate hoy, int diasMax) {
@@ -213,8 +333,7 @@ public class EstadisticasService {
         return dias;
     }
 
-    private static EstadisticasDashboardDTO.PaqueteInconsistente toInconsistente(
-            Paquete paquete) {
+    private static EstadisticasDashboardDTO.PaqueteInconsistente toInconsistente(Paquete paquete) {
         return new EstadisticasDashboardDTO.PaqueteInconsistente(
                 paquete.getId(),
                 paquete.getNumeroGuia(),
@@ -228,28 +347,24 @@ public class EstadisticasService {
 
     private static EstadisticasDashboardDTO.ExcepcionOperativa toExcepcion(Object[] row) {
         return new EstadisticasDashboardDTO.ExcepcionOperativa(
-                string(row[0]),
-                string(row[1]),
-                string(row[2]),
-                nullableLong(row[3]),
-                string(row[4]),
-                string(row[5]),
-                string(row[6]),
-                string(row[7]),
-                string(row[8]));
+                string(row[0]), string(row[1]), string(row[2]), nullableLong(row[3]),
+                string(row[4]), string(row[5]), string(row[6]), string(row[7]), string(row[8]));
     }
 
-    private static YearMonth toYearMonth(Object value) {
+    private static LocalDate toLocalDate(Object value) {
         if (value instanceof Timestamp timestamp) {
-            return YearMonth.from(timestamp.toLocalDateTime());
+            return timestamp.toLocalDateTime().toLocalDate();
         }
         if (value instanceof LocalDateTime dateTime) {
-            return YearMonth.from(dateTime);
+            return dateTime.toLocalDate();
         }
         if (value instanceof java.sql.Date date) {
-            return YearMonth.from(date.toLocalDate());
+            return date.toLocalDate();
         }
-        return YearMonth.parse(String.valueOf(value).substring(0, 7));
+        if (value instanceof LocalDate date) {
+            return date;
+        }
+        return LocalDate.parse(String.valueOf(value).substring(0, 10));
     }
 
     private static long longValue(Object value) {
@@ -263,9 +378,7 @@ public class EstadisticasService {
     }
 
     private static BigDecimal estimarPorPeso(BigDecimal pesoLbs, BigDecimal tasaPorLibra) {
-        return decimal(pesoLbs)
-                .multiply(decimal(tasaPorLibra))
-                .setScale(4, RoundingMode.HALF_UP);
+        return decimal(pesoLbs).multiply(decimal(tasaPorLibra)).setScale(4, RoundingMode.HALF_UP);
     }
 
     private static Long nullableLong(Object value) {
