@@ -14,10 +14,6 @@ import { TrackingSearchPanel } from '@/pages/tracking/components/TrackingSearchP
 import { TrackingResultsSection } from '@/pages/tracking/components/TrackingResultsSection';
 import { trackingSearchSchema } from '@/lib/schemas/primitives';
 import { codigoFromResolved } from '@/lib/tracking/trackingDisplayUtils';
-import {
-  isTrackingSampleCodigo,
-  normalizeTrackingSampleCodigo,
-} from '@/lib/tracking/trackingSamples';
 
 function getCodigoFromUrl(): string {
   if (typeof window === 'undefined') return '';
@@ -71,13 +67,6 @@ export function TrackingPage() {
 
   async function executeSearch(rawCodigo: string) {
     const cod = normalizarCodigo(rawCodigo);
-    if (isTrackingSampleCodigo(cod)) {
-      void navigate({
-        to: '/tracking/ejemplo',
-        search: { codigo: normalizeTrackingSampleCodigo(cod) } as never,
-      });
-      return;
-    }
     const validation = validateCodigo(cod);
     if (validation) {
       setValidationError(validation);
@@ -119,15 +108,6 @@ export function TrackingPage() {
     if (autoQueryDone) return;
     const codFromUrl = getCodigoFromUrl();
     if (!codFromUrl) {
-      setAutoQueryDone(true);
-      return;
-    }
-    if (isTrackingSampleCodigo(codFromUrl)) {
-      void navigate({
-        to: '/tracking/ejemplo',
-        search: { codigo: normalizeTrackingSampleCodigo(codFromUrl) } as never,
-        replace: true,
-      });
       setAutoQueryDone(true);
       return;
     }
@@ -259,4 +239,3 @@ export function TrackingPage() {
     </PublicPageLayout>
   );
 }
-

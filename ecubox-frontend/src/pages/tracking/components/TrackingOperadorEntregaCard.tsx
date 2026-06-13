@@ -29,8 +29,8 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
       : isDomicilio
       ? { label: 'Entrega a domicilio', color: 'bg-[var(--color-info)]' }
       : isAgencia
-        ? { label: 'Retiro en agencia', color: 'bg-[var(--color-success)]' }
-        : { label: 'Retiro en punto de entrega', color: 'bg-[var(--color-warning)]' };
+        ? { label: 'Retiro en oficina', color: 'bg-[var(--color-success)]' }
+        : { label: 'Punto de retiro del courier', color: 'bg-[var(--color-warning)]' };
 
   return (
     <section className="surface-card p-5 sm:p-6 space-y-4">
@@ -74,7 +74,7 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
 
         {isAgencia ? (
           <div className="rounded-lg border border-[var(--color-border)] p-4">
-            <p className="text-sm font-semibold text-[var(--color-foreground)]">Agencia de retiro</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">Oficina de retiro</p>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
               {op?.agenciaNombre ?? 'No disponible'}
             </p>
@@ -85,7 +85,7 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
               Horario: {op?.horarioAtencionAgencia ?? 'No disponible'}
             </p>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-              Plazo máximo para retirar en agencia: {op?.diasMaxRetiroAgencia ?? 'No informado'} día(s)
+              Plazo máximo para retirar en oficina: {op?.diasMaxRetiroAgencia ?? 'No informado'} día(s)
             </p>
             {op?.agenciaEncargado?.trim() ? (
               <div className="mt-3 rounded-md border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 px-3 py-2">
@@ -96,7 +96,7 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
                   {op.agenciaEncargado}
                 </p>
                 <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                  Acércate a la agencia y solicita tu paquete con esta persona. Lleva tu identificación.
+                  Acércate a la oficina y solicita tu paquete con esta persona. Lleva tu identificación.
                 </p>
               </div>
             ) : null}
@@ -104,7 +104,7 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
         ) : null}
         {isAgenciaCourierEntrega && (
           <div className="rounded-lg border border-[var(--color-border)] p-4">
-            <p className="text-sm font-semibold text-[var(--color-foreground)]">Punto de entrega del courier</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">Punto de retiro del courier</p>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
               {op?.agenciaCourierEntregaEtiqueta ?? 'No disponible'}
             </p>
@@ -120,6 +120,7 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
           </div>
         )}
 
+        {(isDomicilio || isAgenciaCourierEntrega) ? (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-4">
           <p className="text-sm font-semibold text-[var(--color-foreground)]">Rastreo en la web del courier de entrega</p>
           <p className="mt-1.5 text-sm text-[var(--color-muted-foreground)]">
@@ -146,8 +147,8 @@ export function TrackingOperadorEntregaCard({ result }: TrackingOperadorEntregaC
             </p>
           )}
         </div>
+        ) : null}
       </div>
     </section>
   );
 }
-

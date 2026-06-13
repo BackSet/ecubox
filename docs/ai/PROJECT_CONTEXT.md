@@ -88,6 +88,7 @@ Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.js
 - Mapeo mixto: MapStruct en `AgenciaMapper`, `CourierEntregaMapper`, `EstadoRastreoMapper`, `PermisoMapper` y `RolMapper`; otros servicios realizan mapeo directo.
 - Búsquedas paginadas usan `PageResponse`, `Pageable`, Specifications y proyecciones según el módulo.
 - Procesos programados y event-driven viven en `scheduler/`, `event/`, `projection/` y servicios de outbox/rastreo.
+- **Fuente única del rastreo público**: el backend compone nombres, códigos, leyendas, visibilidad, orden (`ordenTracking` + `afterEstado`), flujo, cuenta regresiva y modalidad. `TrackingExampleService` genera ejemplos sintéticos desde ese catálogo/configuración y el frontend no mantiene una secuencia paralela de estados.
 
 ### Contratos API y errores
 

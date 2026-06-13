@@ -52,12 +52,13 @@ export const TrackingExportContent = forwardRef<HTMLDivElement, TrackingExportCo
               result={piezaDisplay.pieza}
               fechaFormateada={piezaDisplay.fechaFormateada}
               progress={
-                piezaDisplay.totalPasosBase > 0
+                piezaDisplay.progresoDeterminado
                   ? (piezaDisplay.pasoBaseActual / piezaDisplay.totalPasosBase) * 100
                   : 0
               }
               pasoBaseActual={piezaDisplay.pasoBaseActual}
               totalPasosBase={piezaDisplay.totalPasosBase}
+              progresoDeterminado={piezaDisplay.progresoDeterminado}
             />
             <TrackingProgressCard
               result={piezaDisplay.pieza}

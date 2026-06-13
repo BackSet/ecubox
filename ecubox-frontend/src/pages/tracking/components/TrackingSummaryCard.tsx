@@ -16,6 +16,7 @@ interface TrackingSummaryCardProps {
   progress: number;
   pasoBaseActual: number;
   totalPasosBase: number;
+  progresoDeterminado: boolean;
 }
 
 type HeroTone = 'info' | 'success' | 'warning' | 'danger';
@@ -104,6 +105,7 @@ export function TrackingSummaryCard({
   progress,
   pasoBaseActual,
   totalPasosBase,
+  progresoDeterminado,
 }: TrackingSummaryCardProps) {
   const estadoTexto = result.estadoRastreoNombre ?? 'Estado no disponible';
   const completo = totalPasosBase > 0 && pasoBaseActual >= totalPasosBase;
@@ -158,22 +160,28 @@ export function TrackingSummaryCard({
               )}
             </p>
             <p className={`text-sm font-bold tabular-nums ${styles.percent}`}>
-              {progressRedondeado}%
+              {progresoDeterminado ? `${progressRedondeado}%` : 'Indeterminado'}
             </p>
           </div>
-          <div
-            className={`h-2.5 w-full overflow-hidden rounded-full ${styles.barTrack}`}
-            role="progressbar"
-            aria-valuenow={progressRedondeado}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={`Avance del envío: ${progressRedondeado}%`}
-          >
+          {progresoDeterminado ? (
             <div
-              className={`h-full rounded-full transition-[width,background-color] [transition-duration:var(--motion-slow)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none ${styles.bar}`}
-              style={{ width: `${Math.max(progress, 4)}%` }}
-            />
-          </div>
+              className={`h-2.5 w-full overflow-hidden rounded-full ${styles.barTrack}`}
+              role="progressbar"
+              aria-valuenow={progressRedondeado}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Avance del envío: ${progressRedondeado}%`}
+            >
+              <div
+                className={`h-full rounded-full transition-[width,background-color] [transition-duration:var(--motion-slow)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none ${styles.bar}`}
+                style={{ width: `${Math.max(progress, 4)}%` }}
+              />
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--color-muted-foreground)]">
+              El catálogo no permite ubicar este estado dentro del flujo base.
+            </p>
+          )}
         </div>
       </div>
 

@@ -1217,6 +1217,7 @@ public class PaqueteService {
         Integer diasMaxRetiro = plazoRetiroInfo.diasMaxRetiro();
         Integer diasTranscurridos = plazoRetiroInfo.diasTranscurridos();
         Integer diasRestantes = plazoRetiroInfo.diasRestantes();
+        LocalDateTime fechaLimiteRetiro = computeFechaLimiteRetiro(p);
 
         // Sprint 2: cargar event log y construir mapa estadoId -> ultimo occurredAt
         // para enriquecer los items del timeline con fechas reales (auditables).
@@ -1237,13 +1238,10 @@ public class PaqueteService {
             }
         }
 
-        List<EstadoRastreo> todosEstados = estadoRastreoService.findActivosEntities();
+        List<EstadoRastreo> todosEstados = estadoRastreoService.findCatalogoPublicoEntities();
         for (EstadoRastreo e : todosEstados) {
             boolean esActual = estadoActualId != null && estadoActualId.equals(e.getId());
             boolean esAlterno = TipoFlujoEstado.ALTERNO.equals(e.getTipoFlujo());
-            if (!Boolean.TRUE.equals(e.getPublicoTracking()) && !esActual) {
-                continue;
-            }
             // Los estados alternos solo se muestran si ocurrieron; en fallback sin eventos
             // solo permitimos el alterno si es el estado actual.
             if (esAlterno && !esActual) {
@@ -1262,6 +1260,7 @@ public class PaqueteService {
                     .nombre(e.getNombre())
                     .orden(e.getOrdenTracking())
                     .tipoFlujo(e.getTipoFlujo())
+                    .afterEstadoId(e.getAfterEstado() != null ? e.getAfterEstado().getId() : null)
                     .leyenda(leyenda)
                     .esActual(esActual)
                     .fechaOcurrencia(fechaOcurrencia)
@@ -1303,6 +1302,9 @@ public class PaqueteService {
                 .diasMaxRetiro(diasMaxRetiro)
                 .diasTranscurridos(diasTranscurridos)
                 .diasRestantes(diasRestantes)
+                .fechaLimiteRetiro(fechaLimiteRetiro != null
+                        ? fechaLimiteRetiro.format(ISO_FORMATTER)
+                        : null)
                 .cuentaRegresivaFinalizada(plazoRetiroInfo.cuentaRegresivaFinalizada())
                 .paqueteVencido(plazoRetiroInfo.paqueteVencido())
                 .flujoActual(Boolean.TRUE.equals(p.getEnFlujoAlterno()) ? "ALTERNO" : "NORMAL")
@@ -1341,23 +1343,36 @@ public class PaqueteService {
                                                       List<TrackingEstadoItemDTO> alternosActuales,
                                                       List<TrackingEstadoItemDTO> alternosPorEventos,
                                                       Set<Long> alternosPermitidos) {
-        Map<Long, TrackingEstadoItemDTO> uniqueTimeline = new LinkedHashMap<>();
-        for (TrackingEstadoItemDTO estado : estadosBase) {
-            uniqueTimeline.put(estado.getId(), estado);
-        }
+        Map<Long, TrackingEstadoItemDTO> alternos = new LinkedHashMap<>();
         for (TrackingEstadoItemDTO alternoActual : alternosActuales) {
             if (alternosPermitidos.contains(alternoActual.getId())) {
-                uniqueTimeline.put(alternoActual.getId(), alternoActual);
+                alternos.put(alternoActual.getId(), alternoActual);
             }
         }
         for (TrackingEstadoItemDTO alternoEvento : alternosPorEventos) {
             if (alternosPermitidos.contains(alternoEvento.getId())) {
-                uniqueTimeline.put(alternoEvento.getId(), alternoEvento);
+                alternos.put(alternoEvento.getId(), alternoEvento);
             }
         }
-        return uniqueTimeline.values().stream()
-                .sorted(Comparator.comparing(TrackingEstadoItemDTO::getOrden).thenComparing(TrackingEstadoItemDTO::getId))
-                .toList();
+        List<TrackingEstadoItemDTO> resultado = new ArrayList<>();
+        Set<Long> insertados = new HashSet<>();
+        for (TrackingEstadoItemDTO base : estadosBase) {
+            resultado.add(base);
+            alternos.values().stream()
+                    .filter(a -> Objects.equals(a.getAfterEstadoId(), base.getId()))
+                    .sorted(Comparator.comparing(TrackingEstadoItemDTO::getOrden)
+                            .thenComparing(TrackingEstadoItemDTO::getId))
+                    .forEach(a -> {
+                        resultado.add(a);
+                        insertados.add(a.getId());
+                    });
+        }
+        alternos.values().stream()
+                .filter(a -> !insertados.contains(a.getId()))
+                .sorted(Comparator.comparing(TrackingEstadoItemDTO::getOrden)
+                        .thenComparing(TrackingEstadoItemDTO::getId))
+                .forEach(resultado::add);
+        return resultado;
     }
 
     private List<TrackingEstadoItemDTO> buildAlternoTimelineFromEventos(List<PaqueteEstadoEvento> eventos,
@@ -1373,7 +1388,8 @@ public class PaqueteService {
             if (!TipoFlujoEstado.ALTERNO.equals(destino.getTipoFlujo())) {
                 continue;
             }
-            if (!Boolean.TRUE.equals(destino.getPublicoTracking()) && !destino.getId().equals(estadoActualId)) {
+            if (!Boolean.TRUE.equals(destino.getActivo())
+                    || !Boolean.TRUE.equals(destino.getPublicoTracking())) {
                 continue;
             }
             String leyenda = renderLeyenda(destino.getLeyenda(), diasTranscurridos);
@@ -1383,6 +1399,7 @@ public class PaqueteService {
                     .nombre(destino.getNombre())
                     .orden(destino.getOrdenTracking())
                     .tipoFlujo(destino.getTipoFlujo())
+                    .afterEstadoId(destino.getAfterEstado() != null ? destino.getAfterEstado().getId() : null)
                     .leyenda(leyenda)
                     .esActual(estadoActualId != null && estadoActualId.equals(destino.getId()))
                     .fechaOcurrencia(ocurrenciaPorEstado.get(destino.getId()))

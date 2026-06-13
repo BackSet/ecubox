@@ -24,14 +24,15 @@ Cualquier persona puede abrir la página de **Rastreo** (desde la web pública),
 
 - Un **resumen** con el estado actual del envío y, si aplica, texto aclaratorio (**leyenda**) asociado a ese estado.
 - El bloque **Flujo del envío**: una línea de tiempo con los pasos del recorrido. Los pasos “normales” siguen la secuencia configurada por la empresa. Las **novedades informativas** (estados de tipo alterno) solo se muestran **cuando realmente aplican** a ese envío, para no llenar la pantalla de pasos que no corresponden.
-- Tarjetas con datos útiles según el caso: despacho, saca, datos de entrega (domicilio, agencia, etc.), cuando el sistema los tenga.
+- Tarjetas con datos útiles según el caso: despacho, saca y modalidad (**Entrega a domicilio**, **Retiro en oficina** o **Punto de retiro del courier**), cuando el sistema los tenga.
+- Una página de ejemplos construida con el catálogo vigente. Sus personas, códigos y ubicaciones son ficticios; no usa envíos reales.
 
 **Si un estado “no es visible” en el rastreo público**
 
 En **Parámetros**, cada estado puede marcarse como visible o no para el tracking. La regla práctica es:
 
-- Los estados **no marcados como visibles** **no** aparecen en la lista del flujo **mientras el paquete no esté en ellos**.
-- El estado en el que el paquete **está ahora mismo** **sí se muestra siempre** en el resumen y en la línea de tiempo, para que el cliente sepa en qué etapa va aunque ese nombre no se hubiera listado antes como paso público.
+- Los estados **no marcados como visibles** o inactivos no aparecen como pasos de la línea de tiempo pública.
+- Los alternos públicos solo aparecen si realmente ocurrieron o si son el estado actual. Su posición respeta el campo **después de** configurado.
 
 Así se evita mostrar etapas internas que la empresa prefiere ocultar, sin dejar al cliente sin saber **cuál es su situación actual**.
 
@@ -56,6 +57,7 @@ A partir de ahí:
 - El cálculo usa la **fecha calendario en Ecuador** (zona horaria del país) para ser coherente con el negocio local.
 
 Cuando los días restantes llegan a **cero**, la interfaz puede indicar que **el periodo de espera ya se cumplió** (es decir, se alcanzó el plazo máximo configurado).
+Cuando el contrato permite calcularla, también se muestra la **fecha límite absoluta**.
 
 ### Cuándo **no** hay plazo ni cuenta regresiva
 

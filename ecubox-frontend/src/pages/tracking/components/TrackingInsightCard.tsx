@@ -26,6 +26,7 @@ export function TrackingInsightCard({ result, whatsapp }: TrackingInsightCardPro
     whatsapp,
     `Hola ECUBOX, necesito ayuda con mi envio ${result.numeroGuia}.`
   );
+  const leyenda = current?.leyenda ?? result.leyenda ?? null;
 
   return (
     <section className="surface-card space-y-4 p-5 sm:p-6">
@@ -34,11 +35,11 @@ export function TrackingInsightCard({ result, whatsapp }: TrackingInsightCardPro
           <Sparkles className="h-4 w-4 text-[var(--color-primary)]" />
           Qué significa este estado
         </h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-[var(--color-muted-foreground)]">
-          {current?.leyenda ??
-            result.leyenda ??
-            'Estamos actualizando el recorrido con la información disponible del envío.'}
-        </p>
+        {leyenda ? (
+          <p className="mt-1.5 text-sm leading-relaxed text-[var(--color-muted-foreground)]">
+            {leyenda}
+          </p>
+        ) : null}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -115,10 +116,10 @@ function buildNextAction(result: TrackingResponse, nextStep?: string): string {
     return 'Mantente atento al contacto del operador de entrega.';
   }
   if (result.operadorEntrega?.tipoEntrega === 'AGENCIA') {
-    return 'Cuando esté listo, acércate a la agencia indicada con tu identificación.';
+    return 'Acércate a la oficina indicada con tu identificación antes de la fecha límite.';
   }
   if (result.operadorEntrega?.tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
-    return 'Cuando esté listo, retira en el punto de entrega asignado.';
+    return 'Cuando esté listo, retira en el punto asignado por el courier.';
   }
   if (nextStep) return `Siguiente etapa esperada: ${nextStep}.`;
   return 'No necesitas hacer nada por ahora; te avisaremos con la próxima novedad.';

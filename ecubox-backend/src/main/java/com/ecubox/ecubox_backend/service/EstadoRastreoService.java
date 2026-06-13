@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.PageRequest;
 
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -73,6 +74,49 @@ public class EstadoRastreoService {
     @Transactional(readOnly = true)
     public List<EstadoRastreo> findActivosEntities() {
         return estadoRastreoRepository.findByActivoTrueOrderByOrdenTrackingAscIdAsc();
+    }
+
+    /**
+     * Catálogo canónico del tracking público. El orden base proviene de
+     * {@code ordenTracking}; los alternos con ancla se insertan inmediatamente
+     * después de su estado base. Los estados ocultos o inactivos no participan.
+     */
+    @Transactional(readOnly = true)
+    public List<EstadoRastreo> findCatalogoPublicoEntities() {
+        List<EstadoRastreo> publicos = estadoRastreoRepository
+                .findByActivoTrueAndPublicoTrackingTrueOrderByOrdenTrackingAscIdAsc();
+        List<EstadoRastreo> bases = publicos.stream()
+                .filter(e -> !TipoFlujoEstado.ALTERNO.equals(e.getTipoFlujo()))
+                .sorted(Comparator.comparing(EstadoRastreo::getOrdenTracking)
+                        .thenComparing(EstadoRastreo::getId))
+                .toList();
+        Map<Long, List<EstadoRastreo>> alternosPorBase = publicos.stream()
+                .filter(e -> TipoFlujoEstado.ALTERNO.equals(e.getTipoFlujo()))
+                .filter(e -> e.getAfterEstado() != null && e.getAfterEstado().getId() != null)
+                .collect(Collectors.groupingBy(
+                        e -> e.getAfterEstado().getId(),
+                        LinkedHashMap::new,
+                        Collectors.collectingAndThen(Collectors.toList(), items -> items.stream()
+                                .sorted(Comparator.comparing(EstadoRastreo::getOrdenTracking)
+                                        .thenComparing(EstadoRastreo::getId))
+                                .toList())));
+
+        Set<Long> insertados = new HashSet<>();
+        List<EstadoRastreo> resultado = new ArrayList<>();
+        for (EstadoRastreo base : bases) {
+            resultado.add(base);
+            for (EstadoRastreo alterno : alternosPorBase.getOrDefault(base.getId(), List.of())) {
+                resultado.add(alterno);
+                insertados.add(alterno.getId());
+            }
+        }
+        publicos.stream()
+                .filter(e -> TipoFlujoEstado.ALTERNO.equals(e.getTipoFlujo()))
+                .filter(e -> !insertados.contains(e.getId()))
+                .sorted(Comparator.comparing(EstadoRastreo::getOrdenTracking)
+                        .thenComparing(EstadoRastreo::getId))
+                .forEach(resultado::add);
+        return resultado;
     }
 
     /**

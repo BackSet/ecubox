@@ -159,7 +159,7 @@ class PaqueteServiceOp3Test {
                 .build();
 
         when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("ABC123")).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(registrado, enUsa, retenido));
+        when(estadoRastreoService.findCatalogoPublicoEntities()).thenReturn(List.of(registrado, enUsa, retenido));
 
         var response = paqueteService.findByNumeroGuiaForTracking("abc123");
 
@@ -187,7 +187,7 @@ class PaqueteServiceOp3Test {
                 .build();
 
         when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("XYZ999")).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(registrado, retenido));
+        when(estadoRastreoService.findCatalogoPublicoEntities()).thenReturn(List.of(registrado, retenido));
 
         var response = paqueteService.findByNumeroGuiaForTracking("xyz999");
 
@@ -223,7 +223,7 @@ class PaqueteServiceOp3Test {
         PaqueteEstadoEvento ev3 = PaqueteEstadoEvento.builder().estadoDestino(base3).build();
 
         when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("GUIA-102")).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(base1, base2, base3, base4, base5, base6, alterno));
+        when(estadoRastreoService.findCatalogoPublicoEntities()).thenReturn(List.of(base1, base2, base3, base4, base5, base6, alterno));
         when(trackingEventService.listarEventosPorPaquete(102L)).thenReturn(List.of(ev1, ev2, ev3));
 
         var response = serviceWithEvents.findByNumeroGuiaForTracking("guia-102");
@@ -259,7 +259,7 @@ class PaqueteServiceOp3Test {
         PaqueteEstadoEvento evAlterno = PaqueteEstadoEvento.builder().estadoDestino(alterno).build();
 
         when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("GUIA-103")).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(base1, base2, alterno));
+        when(estadoRastreoService.findCatalogoPublicoEntities()).thenReturn(List.of(base1, base2, alterno));
         when(trackingEventService.listarEventosPorPaquete(103L)).thenReturn(List.of(ev1, ev2, evAlterno));
 
         var response = serviceWithEvents.findByNumeroGuiaForTracking("guia-103");
@@ -300,7 +300,7 @@ class PaqueteServiceOp3Test {
         PaqueteEstadoEvento evAlternoRetenido = PaqueteEstadoEvento.builder().estadoDestino(retenido).build();
 
         when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("GUIA-110")).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(base1, base2, retenido, direccionIncompleta));
+        when(estadoRastreoService.findCatalogoPublicoEntities()).thenReturn(List.of(base1, base2, retenido, direccionIncompleta));
         when(trackingEventService.listarEventosPorPaquete(110L)).thenReturn(List.of(ev1, ev2, evAlternoRetenido));
 
         var response = serviceWithEvents.findByNumeroGuiaForTracking("guia-110");
@@ -325,7 +325,7 @@ class PaqueteServiceOp3Test {
                 .build();
 
         when(paqueteRepository.findByNumeroGuiaWithSacaAndDespacho("GUIA-104")).thenReturn(Optional.of(p));
-        when(estadoRastreoService.findActivosEntities()).thenReturn(List.of(enAgencia));
+        when(estadoRastreoService.findCatalogoPublicoEntities()).thenReturn(List.of(enAgencia));
 
         var response = paqueteService.findByNumeroGuiaForTracking("guia-104");
 

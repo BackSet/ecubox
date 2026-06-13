@@ -3,8 +3,10 @@ package com.ecubox.ecubox_backend.controller;
 import com.ecubox.ecubox_backend.config.OpenApiConstants;
 import com.ecubox.ecubox_backend.config.TrackingEtag;
 import com.ecubox.ecubox_backend.dto.TrackingResolveResponse;
+import com.ecubox.ecubox_backend.dto.TrackingExampleItemDTO;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.service.TrackingResolverService;
+import com.ecubox.ecubox_backend.service.TrackingExampleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,10 +19,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 /**
  * Endpoint publico unificado de tracking.
@@ -44,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 public class TrackingController {
 
     private final TrackingResolverService trackingResolverService;
+    private final TrackingExampleService trackingExampleService;
 
     @Value("${tracking.cache.max-age-seconds:30}")
     private long cacheMaxAgeSeconds;
@@ -51,8 +56,10 @@ public class TrackingController {
     @Value("${tracking.cache.stale-while-revalidate-seconds:60}")
     private long staleWhileRevalidateSeconds;
 
-    public TrackingController(TrackingResolverService trackingResolverService) {
+    public TrackingController(TrackingResolverService trackingResolverService,
+                              TrackingExampleService trackingExampleService) {
         this.trackingResolverService = trackingResolverService;
+        this.trackingExampleService = trackingExampleService;
     }
 
     /**
@@ -77,6 +84,27 @@ public class TrackingController {
             throw new BadRequestException("Debes indicar el parametro 'codigo'");
         }
         TrackingResolveResponse body = trackingResolverService.resolve(input);
+        String etag = TrackingEtag.of(body);
+        if (matchesIfNoneMatch(request, etag)) {
+            return notModified(etag);
+        }
+        return cacheable(ResponseEntity.ok(), etag).body(body);
+    }
+
+    @Operation(summary = "Listar ejemplos de tracking")
+    @SecurityRequirements
+    @GetMapping("/api/v1/tracking/examples")
+    public ResponseEntity<List<TrackingExampleItemDTO>> listExamples() {
+        return cacheable(ResponseEntity.ok(), null).body(trackingExampleService.listar());
+    }
+
+    @Operation(summary = "Resolver ejemplo de tracking")
+    @SecurityRequirements
+    @GetMapping("/api/v1/tracking/examples/{codigo}")
+    public ResponseEntity<TrackingResolveResponse> resolveExample(
+            @PathVariable String codigo,
+            HttpServletRequest request) {
+        TrackingResolveResponse body = trackingExampleService.resolver(codigo);
         String etag = TrackingEtag.of(body);
         if (matchesIfNoneMatch(request, etag)) {
             return notModified(etag);

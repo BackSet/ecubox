@@ -22,6 +22,9 @@
 | Lote de recepción | Llegada, ingreso de mercancía | Registro agrupado de recepción en bodega | **Verificado en Git** |
 | Despacho | Envío, cuando se refiere a la salida final registrada | Salida hacia destinatario | **Verificado en Git** |
 | Retiro en oficina | "Pickup"; tratar "retiro presencial en agencia" como concepto distinto (es sinónimo en código) | Despacho `tipo_entrega = AGENCIA` con `agencia_id` informado y `courier_entrega_id` NULL; el número `RET-AG-*` se autogenera solo para despachos nuevos | **Verificado en Git**: `Despacho`, `DespachoService.resolverNumeroGuia`, migración V110 |
+| Punto de retiro del courier | Retiro en agencia, punto de entrega cuando describe la modalidad | Despacho `tipo_entrega = AGENCIA_COURIER_ENTREGA`; la entidad sigue siendo `AgenciaCourierEntrega` | **Verificado en Git**: tracking público y `TipoEntrega` |
+| Entrega a domicilio | Delivery, entrega domiciliaria | Despacho `tipo_entrega = DOMICILIO` | **Verificado en Git**: tracking público y `TipoEntrega` |
+| Flujo alterno | Excepción como nombre genérico de estado | Estado público `tipo_flujo = ALTERNO`; solo aparece si ocurrió o es actual y conserva el avance del último estado base | **Verificado en Git**: `PaqueteService`, `TrackingEstadoItemDTO` |
 | Cotización | "Presupuesto", "estimado" como sustantivo en copy | Resultado de la calculadora pública (`/calculadora`): copia, compartir y exportación PDF; no se persiste | **Verificado en Git**: `CalculadoraPage`, `lib/calculadora/cotizacion.ts` |
 | Saca | Bolsa, contenedor genérico | Agrupación física usada en despacho | **Verificado en Git** |
 | Manifiesto | Manifiesto de carga/aéreo sin necesidad | Documento operativo/aduanero | **Verificado en Git** |
@@ -43,6 +46,7 @@
 - “Pieza” describe pertenencia a una guía master; “Paquete” describe gestión individual.
 - Diferenciar “Agencia” ECUBOX de “Punto de entrega” perteneciente a un courier.
 - Mostrar los nombres de estados de rastreo recibidos desde configuración/API; no convertir nombres visibles actuales en constantes de negocio.
+- En rastreo público distinguir **Retiro en oficina**, **Punto de retiro del courier**, **Entrega a domicilio** y **Flujo alterno**. No usar “Retiro en agencia” para la oficina propia ECUBOX.
 - En «Aplicar estado» de envíos consolidados, los tres modos son términos canónicos: **«Transición operativa»** (una acción individual), **«Avance automático»** (un rango de acciones) y **«Estado de rastreo de paquetes»** (acción técnica sobre los paquetes).
 - En Avance automático, **«Hasta»** identifica la transición operativa final; el inicio se deriva del estado operativo común de la selección. El tracking de paquetes es un efecto configurado de cada transición.
 - Usar **«Estado aplicado a paquetes»** para el estado de rastreo asociado por configuración a una transición operativa.
@@ -94,7 +98,7 @@
 | Manifiesto | `Manifiesto` | `manifiesto` | `/api/manifiestos` | `/manifiestos` |
 | Liquidación | `Liquidacion` | `liquidacion` | `/api/liquidaciones` | `/liquidaciones` |
 | Estado de rastreo | `EstadoRastreo` | `estado_rastreo` | `/api/operario/estados-rastreo` | `/parametros-sistema/estados` |
-| Rastreo público | `TrackingResolveResponse` | vistas/eventos de rastreo | `/api/tracking` | `/tracking` |
+| Rastreo público | `TrackingResolveResponse` | vistas/eventos de rastreo | `/api/v1/tracking`; ejemplos en `/api/v1/tracking/examples` | `/tracking`, `/tracking/ejemplo` |
 | Estadísticas | `EstadisticasDashboardDTO` (`resultados`/`estadoActual`, `MetricaComparable`, `SeriePunto`); `EstadisticasConsulta`, `PeriodoEstadisticasResolver`; enums `GranularidadEstadisticas`, `PresetPeriodoEstadisticas` | agregaciones sobre `despacho`/`paquete` (sin tabla propia) | `/api/estadisticas` | `/estadisticas` |
 | Enlace de acceso | `AccesoEnlace`, `TipoAccesoEnlace`; código de negocio visible `codigo` con formato canónico `ACC-000001` (no editable, no reemplaza al token) | `acceso_enlace` | `/api/acceso-enlaces`, `/api/auth/acceso-enlace` | `/enlaces-acceso`, `/acceso` |
 | Casillero | Sin entidad propia confirmada | Datos de usuario/parámetros | Configuración pública/perfil | `/casillero` |

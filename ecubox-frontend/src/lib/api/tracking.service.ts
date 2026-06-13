@@ -6,6 +6,7 @@ export interface TrackingEstadoItem {
   nombre: string;
   orden: number;
   tipoFlujo?: 'NORMAL' | 'ALTERNO';
+  afterEstadoId?: number | null;
   leyenda: string | null;
   esActual: boolean;
   /** Timestamp real desde el event log; null para pasos futuros del catalogo. */
@@ -89,6 +90,7 @@ export interface TrackingResponse {
   diasMaxRetiro?: number;
   diasTranscurridos?: number;
   diasRestantes?: number;
+  fechaLimiteRetiro?: string;
   cuentaRegresivaFinalizada?: boolean;
   paqueteVencido?: boolean;
   flujoActual?: 'NORMAL' | 'ALTERNO';
@@ -163,6 +165,13 @@ export interface TrackingResolveResponse {
   master?: TrackingMasterResponse | null;
 }
 
+export interface TrackingExampleItem {
+  codigo: string;
+  titulo: string;
+  descripcion: string;
+  tipo: TrackingTipo;
+}
+
 /** Construye la URL absoluta del endpoint de tracking unificado. */
 function getTrackingV1Url(): string {
   const base = resolveApiBaseUrl().replace(/\/+$/, '');
@@ -174,6 +183,10 @@ function getTrackingV1Url(): string {
     return new URL(pathFromBase, window.location.origin).toString();
   }
   return pathFromBase;
+}
+
+function getTrackingExamplesUrl(): string {
+  return `${getTrackingV1Url().replace(/\/+$/, '')}/examples`;
 }
 
 async function parseError(res: Response, fallback: string): Promise<Error> {
@@ -226,6 +239,36 @@ export async function getTrackingByCodigo(
   });
   if (!res.ok) {
     throw await parseError(res, 'No pudimos cargar el rastreo.');
+  }
+  return res.json();
+}
+
+export async function getTrackingExamples(
+  options?: { signal?: AbortSignal }
+): Promise<TrackingExampleItem[]> {
+  const res = await fetch(getTrackingExamplesUrl(), {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    signal: options?.signal,
+  });
+  if (!res.ok) {
+    throw await parseError(res, 'No pudimos cargar los ejemplos de rastreo.');
+  }
+  return res.json();
+}
+
+export async function getTrackingExampleByCodigo(
+  codigo: string,
+  options?: { signal?: AbortSignal }
+): Promise<TrackingResolveResponse> {
+  const url = `${getTrackingExamplesUrl()}/${encodeURIComponent(codigo.trim())}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    signal: options?.signal,
+  });
+  if (!res.ok) {
+    throw await parseError(res, 'No pudimos cargar el ejemplo de rastreo.');
   }
   return res.json();
 }
