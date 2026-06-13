@@ -11,6 +11,7 @@ import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosPreviewDTO;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosResponse;
+import com.ecubox.ecubox_backend.dto.TransicionOperativaConsolidadoDTO;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.AvanceOperativoConsolidadosPreviewDTO;
@@ -226,6 +227,14 @@ public class EnvioConsolidadoController {
             description = "Obtiene estados activos compatibles con el flujo de consolidados")
     public ResponseEntity<List<EstadoRastreoDTO>> estadosDestinoSecuencia() {
         return ResponseEntity.ok(envioConsolidadoService.listarDestinosAvanceEstados());
+    }
+
+    @GetMapping("/transiciones-operativas")
+    @PreAuthorize("hasAuthority('ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Listar transiciones operativas de consolidados",
+            description = "Devuelve el catálogo canónico y su estado de rastreo configurado")
+    public ResponseEntity<List<TransicionOperativaConsolidadoDTO>> transicionesOperativas() {
+        return ResponseEntity.ok(envioConsolidadoService.listarTransicionesOperativas());
     }
 
     @GetMapping("/candidatos-avance-estados")

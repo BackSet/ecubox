@@ -11,11 +11,11 @@ import {
   enviarDesdeUsaEnvioConsolidado,
   getElegiblesParaEstadoRastreo,
   getEstadosAplicablesConsolidados,
-  getEstadosDestinoSecuenciaConsolidados,
   getDestinosAvanceOperativo,
   getCandidatosAvanceOperativo,
   previewAvanceOperativoConsolidados,
   aplicarAvanceOperativoConsolidados,
+  getTransicionesOperativasConsolidados,
   listarEnviosConsolidados,
   listarCandidatosAvanceEstados,
   listarTodosEnviosConsolidados,
@@ -186,10 +186,10 @@ export function useEstadosAplicablesConsolidados(enabled = true) {
   });
 }
 
-export function useEstadosDestinoSecuenciaConsolidados(enabled = true) {
+export function useTransicionesOperativasConsolidados(enabled = true) {
   return useQuery({
-    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'estados-destino-secuencia'],
-    queryFn: getEstadosDestinoSecuenciaConsolidados,
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'transiciones-operativas'],
+    queryFn: getTransicionesOperativasConsolidados,
     enabled,
   });
 }

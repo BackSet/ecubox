@@ -32,6 +32,7 @@ import { getApiErrorMessage, getApiStatus } from '@/lib/api/error-message';
 import type {
   AvanceEstadosConsolidadosPayload,
   AvanceEstadosConsolidadosPreview,
+  TransicionOperativaConsolidado,
 } from '@/lib/api/envios-consolidados.service';
 import { localDateTimeInputToApi } from '@/lib/datetime-local';
 import {
@@ -40,18 +41,17 @@ import {
 } from '@/hooks/useEnviosConsolidados';
 import { cn } from '@/lib/utils';
 import type { EnvioConsolidado } from '@/types/envio-consolidado';
-import type { EstadoRastreo } from '@/types/estado-rastreo';
 import { EnvioConsolidadoBadge, ENVIO_CONSOLIDADO_ESTADO_UI } from './EnvioConsolidadoBadge';
 
 interface AvanceEstadosConsolidadosDialogProps {
   open: boolean;
   consolidados: EnvioConsolidado[];
   seleccionInicial: number[];
-  estadosDestino: EstadoRastreo[];
+  transiciones: TransicionOperativaConsolidado[];
   consolidadosLoading: boolean;
   consolidadosError: boolean;
-  estadosLoading: boolean;
-  estadosError: boolean;
+  transicionesLoading: boolean;
+  transicionesError: boolean;
   /** Selector de modo opcional, para presentar el avance como parte del mismo flujo. */
   headerExtra?: ReactNode;
   onOpenChange: (open: boolean) => void;
@@ -67,45 +67,18 @@ function fechaInput(value: string): string {
   return value.slice(0, 16);
 }
 
-/**
- * Traduce los errores de agrupación del backend a un mensaje accionable.
- * La causa más común es confundir el estado OPERATIVO (el badge) con el
- * estado de RASTREO de los paquetes, que es por el que agrupa el avance.
- */
 function mensajeAvanceLegible(err: unknown, fallback: string): string {
-  const apiMsg = getApiErrorMessage(err);
-  if (!apiMsg) return fallback;
-  const lower = apiMsg.toLowerCase();
-  if (lower.includes('mismo estado inicial')) {
-    return (
-      'Los consolidados seleccionados tienen sus paquetes en estados de rastreo distintos. ' +
-      'El avance aplica una sola secuencia, así que todos deben partir del mismo estado de rastreo ' +
-      '(ojo: no es el estado operativo del badge). Avánzalos en grupos que compartan ese estado, ' +
-      'o usa «Estado de rastreo» para igualarlos primero.'
-    );
-  }
-  if (lower.includes('estados mixtos')) {
-    return `${apiMsg} Sus paquetes deben estar todos en el mismo estado de rastreo antes de avanzar.`;
-  }
-  if (lower.includes('sin estado de rastreo')) {
-    return `${apiMsg} Asigna un estado de rastreo a esos paquetes antes de avanzar.`;
-  }
-  return apiMsg;
+  return getApiErrorMessage(err) ?? fallback;
 }
 
-const ESTADOS_VALIDOS_AVANCE = new Set([
-  'EN_PREPARACION',
-  'CERRADO',
-  'ENVIADO_DESDE_USA',
-  'ARRIBADO_ECUADOR',
-  'RECIBIDO_EN_BODEGA',
-]);
-
-export function esCandidatoAvanceEstados(envio: EnvioConsolidado): boolean {
+export function esCandidatoAvanceEstados(
+  envio: EnvioConsolidado,
+): boolean {
   return (
     (envio.totalPaquetes ?? 0) > 0 &&
-    envio.estadoOperativo != null &&
-    ESTADOS_VALIDOS_AVANCE.has(envio.estadoOperativo)
+    (envio.estadoOperativo === 'EN_PREPARACION' ||
+      envio.estadoOperativo === 'CERRADO' ||
+      envio.estadoOperativo === 'ENVIADO_DESDE_USA')
   );
 }
 
@@ -113,18 +86,18 @@ export function AvanceEstadosConsolidadosDialog({
   open,
   consolidados,
   seleccionInicial,
-  estadosDestino,
+  transiciones,
   consolidadosLoading,
   consolidadosError,
-  estadosLoading,
-  estadosError,
+  transicionesLoading,
+  transicionesError,
   headerExtra,
   onOpenChange,
 }: AvanceEstadosConsolidadosDialogProps) {
   const [seleccionados, setSeleccionados] = useState<number[]>([]);
-  const [estadoFinalId, setEstadoFinalId] = useState<number | null>(null);
+  const [transicionFinal, setTransicionFinal] = useState<string | null>(null);
   const [fechaPrincipal, setFechaPrincipal] = useState(ahoraLocalInput);
-  const [fechasPorEstado, setFechasPorEstado] = useState<Record<number, string>>({});
+  const [fechasPorTransicion, setFechasPorTransicion] = useState<Record<string, string>>({});
   const [busqueda, setBusqueda] = useState('');
   const [preview, setPreview] = useState<AvanceEstadosConsolidadosPreview | null>(null);
   const [previewVigente, setPreviewVigente] = useState(false);
@@ -134,18 +107,41 @@ export function AvanceEstadosConsolidadosDialog({
 
   useEffect(() => {
     if (!open) return;
-    setSeleccionados(seleccionInicial);
-    setEstadoFinalId(null);
+    const primerEstado = consolidados.find((envio) => seleccionInicial.includes(envio.id))
+      ?.estadoOperativo;
+    setSeleccionados(
+      seleccionInicial.filter(
+        (id) =>
+          consolidados.find((envio) => envio.id === id)?.estadoOperativo === primerEstado,
+      ),
+    );
+    setTransicionFinal(null);
     setFechaPrincipal(ahoraLocalInput());
-    setFechasPorEstado({});
+    setFechasPorTransicion({});
     setBusqueda('');
     setPreview(null);
     setPreviewVigente(false);
     setError(null);
     previewMutation.reset();
     aplicarMutation.reset();
-  }, [open, seleccionInicial]);
+  }, [open, seleccionInicial, consolidados]);
 
+  const transicionesOperativas = useMemo(
+    () => transiciones.filter((transicion) => transicion.orden != null),
+    [transiciones],
+  );
+  const estadoOperativoSeleccionado = consolidados.find(
+    (envio) => envio.id === seleccionados[0],
+  )?.estadoOperativo;
+  const transicionInicialDerivada = transicionesOperativas.find(
+    (transicion) => transicion.estadoPrevioRequerido === estadoOperativoSeleccionado,
+  );
+  const transicionesHasta = transicionInicialDerivada
+    ? transicionesOperativas.filter(
+        (transicion) =>
+          (transicion.orden ?? 0) >= (transicionInicialDerivada.orden ?? 0),
+      )
+    : [];
   const visibles = useMemo(() => {
     const query = busqueda.trim().toLowerCase();
     return consolidados.filter(
@@ -154,9 +150,15 @@ export function AvanceEstadosConsolidadosDialog({
         (!query || envio.codigo.toLowerCase().includes(query)),
     );
   }, [busqueda, consolidados]);
+  const visiblesElegibles = visibles.filter(
+    (envio) =>
+      estadoOperativoSeleccionado == null ||
+      envio.estadoOperativo === estadoOperativoSeleccionado,
+  );
   const seleccion = useMemo(() => new Set(seleccionados), [seleccionados]);
   const todosVisibles =
-    visibles.length > 0 && visibles.every((envio) => seleccion.has(envio.id));
+    visiblesElegibles.length > 0 &&
+    visiblesElegibles.every((envio) => seleccion.has(envio.id));
 
   function invalidarPreview() {
     setPreviewVigente(false);
@@ -164,38 +166,52 @@ export function AvanceEstadosConsolidadosDialog({
   }
 
   function toggle(id: number) {
+    const envio = consolidados.find((item) => item.id === id);
+    if (
+      !seleccionados.includes(id) &&
+      estadoOperativoSeleccionado != null &&
+      envio?.estadoOperativo !== estadoOperativoSeleccionado
+    ) {
+      return;
+    }
     setSeleccionados((actuales) =>
       actuales.includes(id) ? actuales.filter((item) => item !== id) : [...actuales, id],
     );
+    setTransicionFinal(null);
+    setFechasPorTransicion({});
     invalidarPreview();
   }
 
   function toggleVisibles() {
     if (todosVisibles) {
-      const idsVisibles = new Set(visibles.map((envio) => envio.id));
+      const idsVisibles = new Set(visiblesElegibles.map((envio) => envio.id));
       setSeleccionados((actuales) => actuales.filter((id) => !idsVisibles.has(id)));
     } else {
       setSeleccionados((actuales) =>
-        Array.from(new Set([...actuales, ...visibles.map((envio) => envio.id)])),
+        Array.from(new Set([...actuales, ...visiblesElegibles.map((envio) => envio.id)])),
       );
     }
+    setTransicionFinal(null);
+    setFechasPorTransicion({});
     invalidarPreview();
   }
 
   function construirPayload(previewToken?: string): AvanceEstadosConsolidadosPayload | null {
-    if (!estadoFinalId || seleccionados.length === 0 || !fechaPrincipal) return null;
+    if (!transicionFinal || seleccionados.length === 0 || !fechaPrincipal) {
+      return null;
+    }
     const fechaApi = localDateTimeInputToApi(fechaPrincipal);
     if (!fechaApi) return null;
     const fechas = Object.fromEntries(
-      Object.entries(fechasPorEstado)
+      Object.entries(fechasPorTransicion)
         .filter(([, value]) => Boolean(value))
-        .map(([id, value]) => [Number(id), localDateTimeInputToApi(value) as string]),
+        .map(([codigo, value]) => [codigo, localDateTimeInputToApi(value) as string]),
     );
     return {
       consolidadoIds: seleccionados,
-      estadoFinalId,
+      transicionFinalCodigo: transicionFinal,
       fechaPrincipal: fechaApi,
-      fechasPorEstado: Object.keys(fechas).length > 0 ? fechas : undefined,
+      fechasPorTransicion: Object.keys(fechas).length > 0 ? fechas : undefined,
       previewToken,
     };
   }
@@ -203,7 +219,7 @@ export function AvanceEstadosConsolidadosDialog({
   async function generarPreview() {
     const payload = construirPayload();
     if (!payload) {
-      setError('Selecciona al menos un consolidado, un estado final y una fecha principal.');
+      setError('Selecciona consolidados, una transición final y una fecha principal.');
       return;
     }
     setError(null);
@@ -211,10 +227,12 @@ export function AvanceEstadosConsolidadosDialog({
       const resultado = await previewMutation.mutateAsync(payload);
       setPreview(resultado);
       setPreviewVigente(true);
-      setFechasPorEstado((actuales) => {
+      setFechasPorTransicion((actuales) => {
         const siguientes = { ...actuales };
         for (const paso of resultado.pasos) {
-          if (!siguientes[paso.estadoId]) siguientes[paso.estadoId] = fechaInput(paso.fecha);
+          if (!siguientes[paso.transicionCodigo]) {
+            siguientes[paso.transicionCodigo] = fechaInput(paso.fecha);
+          }
         }
         return siguientes;
       });
@@ -233,19 +251,17 @@ export function AvanceEstadosConsolidadosDialog({
     try {
       const resultado = await aplicarMutation.mutateAsync(payload);
       toast.success(
-        `${resultado.estadoFinalNombre} aplicado a ${resultado.consolidadosProcesados} consolidado(s) y ${resultado.paquetesProcesados} paquete(s).`,
+        `${resultado.transicionesAplicadas} transición(es) aplicada(s) a ${resultado.consolidadosProcesados} consolidado(s) y ${resultado.paquetesProcesados} paquete(s).`,
       );
       onOpenChange(false);
     } catch (err: unknown) {
       const apiMsg = getApiErrorMessage(err) ?? '';
-      const esAgrupacion = /estado inicial|estados mixtos|sin estado de rastreo/i.test(apiMsg);
       if (getApiStatus(err) === 409) {
         setPreviewVigente(false);
-        // Un 409 sin pista de agrupación es el caso de preview desactualizada.
-        if (!esAgrupacion) {
-          setError('Los datos cambiaron. Genera nuevamente la vista previa antes de aplicar.');
-          return;
-        }
+        setError(
+          apiMsg || 'Los datos cambiaron. Genera nuevamente la vista previa antes de aplicar.',
+        );
+        return;
       }
       setError(mensajeAvanceLegible(err, 'No se pudo aplicar la secuencia de estados.'));
     }
@@ -255,12 +271,12 @@ export function AvanceEstadosConsolidadosDialog({
     if (!preview) return false;
     let anterior = '';
     for (const paso of preview.pasos) {
-      const fecha = fechasPorEstado[paso.estadoId] || fechaPrincipal;
+      const fecha = fechasPorTransicion[paso.transicionCodigo] || fechaPrincipal;
       if (!fecha || fecha > ahoraLocalInput() || (anterior && fecha < anterior)) return true;
       anterior = fecha;
     }
     return false;
-  }, [fechaPrincipal, fechasPorEstado, preview]);
+  }, [fechaPrincipal, fechasPorTransicion, preview]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -271,23 +287,21 @@ export function AvanceEstadosConsolidadosDialog({
             Avanzar estados de consolidados
           </DialogTitle>
           <DialogDescription>
-            Calcula y aplica todos los estados activos intermedios a los paquetes, junto con
-            sus efectos operativos en el consolidado.
+            Calcula y aplica el rango completo usando el estado operativo de cada consolidado.
           </DialogDescription>
         </DialogHeader>
 
         {headerExtra}
 
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Cómo funciona el avance</AlertTitle>
-          <AlertDescription>
-            Todos los consolidados seleccionados deben tener sus paquetes en el mismo{' '}
-            <strong>estado de rastreo</strong> (no es el estado operativo del badge): el avance
-            aplica una única secuencia a partir de ese punto. Es atómico: si falla un paso, no se
-            guarda ningún cambio.
-          </AlertDescription>
-        </Alert>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Cómo funciona el avance</AlertTitle>
+            <AlertDescription>
+              Se muestran los consolidados que aún pueden avanzar: En preparación, Cerrado y
+              Enviado desde USA. El primer consolidado seleccionado fija el estado inicial del
+              grupo. El avance llega como máximo a Arribado a Ecuador.
+            </AlertDescription>
+          </Alert>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.9fr)]">
           <section className="space-y-3">
@@ -305,7 +319,13 @@ export function AvanceEstadosConsolidadosDialog({
                   className="pl-8"
                 />
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={toggleVisibles}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={toggleVisibles}
+                disabled={estadoOperativoSeleccionado == null || visiblesElegibles.length === 0}
+              >
                 {todosVisibles ? (
                   <Square className="mr-2 h-4 w-4" />
                 ) : (
@@ -326,7 +346,7 @@ export function AvanceEstadosConsolidadosDialog({
                 </p>
               ) : visibles.length === 0 ? (
                 <p className="p-5 text-center text-sm text-muted-foreground">
-                  No hay consolidados que coincidan con la búsqueda.
+                  No hay consolidados elegibles que coincidan con la búsqueda.
                 </p>
               ) : (
                 <ul className="divide-y">
@@ -336,10 +356,17 @@ export function AvanceEstadosConsolidadosDialog({
                         className={cn(
                           'flex cursor-pointer items-center gap-3 px-3 py-2.5',
                           seleccion.has(envio.id) && 'bg-primary/5',
+                          estadoOperativoSeleccionado != null &&
+                            envio.estadoOperativo !== estadoOperativoSeleccionado &&
+                            'cursor-not-allowed opacity-50',
                         )}
                       >
                         <Checkbox
                           checked={seleccion.has(envio.id)}
+                          disabled={
+                            estadoOperativoSeleccionado != null &&
+                            envio.estadoOperativo !== estadoOperativoSeleccionado
+                          }
                           onCheckedChange={() => toggle(envio.id)}
                         />
                         <span className="min-w-0 flex-1">
@@ -353,6 +380,13 @@ export function AvanceEstadosConsolidadosDialog({
                           estadoOperativo={envio.estadoOperativo}
                         />
                       </label>
+                      {estadoOperativoSeleccionado != null &&
+                        envio.estadoOperativo !== estadoOperativoSeleccionado && (
+                          <p className="px-3 pb-2 pl-11 text-[11px] text-muted-foreground">
+                            Selecciona consolidados en{' '}
+                            {ENVIO_CONSOLIDADO_ESTADO_UI[estadoOperativoSeleccionado].label}.
+                          </p>
+                        )}
                     </li>
                   ))}
                 </ul>
@@ -365,31 +399,50 @@ export function AvanceEstadosConsolidadosDialog({
 
           <section className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="estado-final-secuencia">Avanzar hasta</Label>
+              <Label htmlFor="transicion-final-secuencia">Hasta</Label>
               <Select
-                value={estadoFinalId ? String(estadoFinalId) : ''}
+                value={transicionFinal ?? ''}
                 onValueChange={(value) => {
-                  setEstadoFinalId(Number(value));
-                  setFechasPorEstado({});
+                  setTransicionFinal(value);
+                  setFechasPorTransicion({});
                   invalidarPreview();
                 }}
-                disabled={estadosLoading || estadosError}
+                disabled={
+                  seleccionados.length === 0 || transicionesLoading || transicionesError
+                }
               >
-                <SelectTrigger id="estado-final-secuencia">
-                  <SelectValue
-                    placeholder={estadosLoading ? 'Cargando estados...' : 'Selecciona un estado'}
-                  />
+                <SelectTrigger id="transicion-final-secuencia">
+                  <SelectValue placeholder="Selecciona una transición" />
                 </SelectTrigger>
                 <SelectContent>
-                  {estadosDestino.map((estado) => (
-                    <SelectItem key={estado.id} value={String(estado.id)}>
-                      {estado.nombre}
+                  {transicionesHasta.map((transicion) => (
+                    <SelectItem
+                      key={transicion.codigo}
+                      value={transicion.codigo}
+                      disabled={
+                        !transicionesOperativas
+                          .filter(
+                            (paso) =>
+                              (paso.orden ?? 0) >= (transicionInicialDerivada?.orden ?? 0) &&
+                              (paso.orden ?? 0) <= (transicion.orden ?? 0),
+                          )
+                          .every((paso) => paso.disponible)
+                      }
+                    >
+                      {transicion.etiqueta}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {estadosError && (
-                <p className="text-xs text-destructive">No se pudieron cargar los estados.</p>
+              {seleccionados.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Selecciona un consolidado para determinar el estado inicial.
+                </p>
+              )}
+              {transicionesError && (
+                <p className="text-xs text-destructive">
+                  No se pudieron cargar las transiciones.
+                </p>
               )}
             </div>
 
@@ -402,7 +455,7 @@ export function AvanceEstadosConsolidadosDialog({
                 max={ahoraLocalInput()}
                 onChange={(event) => {
                   setFechaPrincipal(event.target.value);
-                  setFechasPorEstado({});
+                  setFechasPorTransicion({});
                   invalidarPreview();
                 }}
               />
@@ -418,7 +471,7 @@ export function AvanceEstadosConsolidadosDialog({
               onClick={generarPreview}
               disabled={
                 previewMutation.isPending ||
-                estadosLoading ||
+                transicionesLoading ||
                 consolidadosLoading ||
                 consolidadosError
               }
@@ -433,7 +486,7 @@ export function AvanceEstadosConsolidadosDialog({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold">
-                  {preview.estadoInicial.nombre} → {preview.estadoFinal.nombre}
+                  {preview.transicionInicial.etiqueta} → {preview.transicionFinal.etiqueta}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {preview.resumen.totalConsolidados} consolidado(s),{' '}
@@ -448,23 +501,23 @@ export function AvanceEstadosConsolidadosDialog({
             <div className="space-y-2">
               {preview.pasos.map((paso, index) => (
                 <div
-                  key={paso.estadoId}
+                  key={paso.transicionCodigo}
                   className="flex items-center gap-3 rounded-md border bg-background px-3 py-2"
                 >
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                     {index + 1}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{paso.estadoNombre}</p>
+                    <p className="truncate text-sm font-medium">{paso.transicionEtiqueta}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Consolidado: {ENVIO_CONSOLIDADO_ESTADO_UI[paso.estadoResultante].label}
+                      {' · '}Paquetes: {paso.estadoAplicadoPaquetes.nombre}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(paso.fecha).toLocaleString()}
                     </p>
                   </div>
-                  <Badge variant="outline">
-                    {paso.efectoOperativo
-                      ? ENVIO_CONSOLIDADO_ESTADO_UI[paso.efectoOperativo].label
-                      : 'Paso obligatorio'}
-                  </Badge>
+                  <Badge variant="outline">{paso.tipo === 'RECOMENDADA' ? 'Recomendada' : 'Requerida'}</Badge>
                 </div>
               ))}
             </div>
@@ -474,25 +527,25 @@ export function AvanceEstadosConsolidadosDialog({
                 <AccordionTrigger className="py-2">
                   <span className="flex items-center gap-2">
                     <Clock3 className="h-4 w-4" />
-                    Personalizar fechas por estado
+                    Personalizar fechas por transición
                   </span>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {preview.pasos.map((paso) => (
-                      <div key={paso.estadoId} className="space-y-1.5">
-                        <Label htmlFor={`fecha-paso-${paso.estadoId}`}>
-                          {paso.estadoNombre}
+                      <div key={paso.transicionCodigo} className="space-y-1.5">
+                        <Label htmlFor={`fecha-paso-${paso.transicionCodigo}`}>
+                          {paso.transicionEtiqueta}
                         </Label>
                         <Input
-                          id={`fecha-paso-${paso.estadoId}`}
+                          id={`fecha-paso-${paso.transicionCodigo}`}
                           type="datetime-local"
                           max={ahoraLocalInput()}
-                          value={fechasPorEstado[paso.estadoId] ?? fechaPrincipal}
+                          value={fechasPorTransicion[paso.transicionCodigo] ?? fechaPrincipal}
                           onChange={(event) => {
-                            setFechasPorEstado((actuales) => ({
+                            setFechasPorTransicion((actuales) => ({
                               ...actuales,
-                              [paso.estadoId]: event.target.value,
+                              [paso.transicionCodigo]: event.target.value,
                             }));
                             invalidarPreview();
                           }}

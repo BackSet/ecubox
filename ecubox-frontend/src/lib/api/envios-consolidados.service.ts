@@ -238,30 +238,46 @@ export async function getEstadosAplicablesConsolidados(): Promise<EstadoRastreo[
 
 export interface AvanceEstadosConsolidadosPayload {
   consolidadoIds: number[];
-  estadoFinalId: number;
+  transicionFinalCodigo: string;
   fechaPrincipal: string;
-  fechasPorEstado?: Record<number, string>;
+  fechasPorTransicion?: Record<string, string>;
   previewToken?: string;
 }
 
-export interface EstadoPasoConsolidado {
-  id: number;
-  nombre: string;
-  orden: number;
+export interface TransicionOperativaConsolidado {
+  id: string;
+  codigo: string;
+  etiqueta: string;
+  orden: number | null;
+  estadoPrevioRequerido: EstadoEnvioConsolidadoOperativo;
+  estadoResultante: EstadoEnvioConsolidadoOperativo;
+  estadoAplicadoPaquetes: {
+    id: number;
+    codigo: string;
+    nombre: string;
+    orden: number;
+  } | null;
+  disponible: boolean;
+  tipo: 'REQUERIDA' | 'RECOMENDADA';
+  requisitos: string[];
+  permiso: string;
+  problemaConfiguracion?: string | null;
 }
 
 export interface PasoAvanceConsolidado {
-  estadoId: number;
-  estadoNombre: string;
+  transicionCodigo: string;
+  transicionEtiqueta: string;
   orden: number;
   fecha: string;
-  efectoOperativo?: EstadoEnvioConsolidadoOperativo | null;
+  estadoResultante: EstadoEnvioConsolidadoOperativo;
+  estadoAplicadoPaquetes: NonNullable<TransicionOperativaConsolidado['estadoAplicadoPaquetes']>;
+  tipo: 'REQUERIDA' | 'RECOMENDADA';
 }
 
 export interface AvanceEstadosConsolidadosPreview {
   previewToken: string;
-  estadoInicial: EstadoPasoConsolidado;
-  estadoFinal: EstadoPasoConsolidado;
+  transicionInicial: TransicionOperativaConsolidado;
+  transicionFinal: TransicionOperativaConsolidado;
   pasos: PasoAvanceConsolidado[];
   resumen: {
     totalConsolidados: number;
@@ -276,23 +292,29 @@ export interface AvanceEstadosConsolidadosPreview {
     estadoOperativoActual: EstadoEnvioConsolidadoOperativo;
     estadoOperativoFinal: EstadoEnvioConsolidadoOperativo;
     version: number;
+    bloqueos: string[];
   }>;
   bloqueos: string[];
   advertencias: string[];
+  valida: boolean;
 }
 
 export interface AvanceEstadosConsolidadosResponse {
   consolidadosProcesados: number;
   paquetesProcesados: number;
-  pasosAplicados: number;
+  transicionesAplicadas: number;
   eventosCreados: number;
-  estadoFinalId: number;
-  estadoFinalNombre: string;
+  transicionFinalCodigo: string;
+  consolidados: Array<{
+    id: number;
+    codigo: string;
+    estadoFinal: EstadoEnvioConsolidadoOperativo;
+  }>;
 }
 
-export async function getEstadosDestinoSecuenciaConsolidados(): Promise<EstadoRastreo[]> {
-  const { data } = await apiClient.get<EstadoRastreo[]>(
-    `${BASE}/estados-destino-secuencia`,
+export async function getTransicionesOperativasConsolidados(): Promise<TransicionOperativaConsolidado[]> {
+  const { data } = await apiClient.get<TransicionOperativaConsolidado[]>(
+    `${BASE}/transiciones-operativas`,
   );
   return data;
 }

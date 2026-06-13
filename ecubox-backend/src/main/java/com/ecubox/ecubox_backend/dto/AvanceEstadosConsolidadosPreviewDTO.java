@@ -15,28 +15,24 @@ import java.util.List;
 @Builder
 public class AvanceEstadosConsolidadosPreviewDTO {
     private String previewToken;
-    private EstadoPaso estadoInicial;
-    private EstadoPaso estadoFinal;
+    private TransicionOperativaConsolidadoDTO transicionInicial;
+    private TransicionOperativaConsolidadoDTO transicionFinal;
     private List<Paso> pasos;
     private Resumen resumen;
     private List<Consolidado> consolidados;
     private List<String> bloqueos;
     private List<String> advertencias;
-
-    @Data @NoArgsConstructor @AllArgsConstructor @Builder
-    public static class EstadoPaso {
-        private Long id;
-        private String nombre;
-        private Integer orden;
-    }
+    private boolean valida;
 
     @Data @NoArgsConstructor @AllArgsConstructor @Builder
     public static class Paso {
-        private Long estadoId;
-        private String estadoNombre;
+        private String transicionCodigo;
+        private String transicionEtiqueta;
         private Integer orden;
         private LocalDateTime fecha;
-        private EstadoEnvioConsolidadoOperativo efectoOperativo;
+        private EstadoEnvioConsolidadoOperativo estadoResultante;
+        private TransicionOperativaConsolidadoDTO.EstadoPaquete estadoAplicadoPaquetes;
+        private String tipo;
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor @Builder
@@ -55,5 +51,6 @@ public class AvanceEstadosConsolidadosPreviewDTO {
         private EstadoEnvioConsolidadoOperativo estadoOperativoActual;
         private EstadoEnvioConsolidadoOperativo estadoOperativoFinal;
         private Long version;
+        private List<String> bloqueos;
     }
 }
