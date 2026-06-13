@@ -5,7 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
@@ -17,6 +16,14 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpecificationExecutor<Paquete> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Paquete p WHERE p.id = :id")
+    Optional<Paquete> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Paquete p WHERE p.id IN :ids ORDER BY p.id")
+    List<Paquete> findAllByIdForUpdate(@Param("ids") Collection<Long> ids);
+
     Optional<Paquete> findByNumeroGuiaIgnoreCase(String numeroGuia);
 
     /** Piezas (en algún despacho) cuyo consignatario pertenece al usuario dado. Para la vista de cliente. */

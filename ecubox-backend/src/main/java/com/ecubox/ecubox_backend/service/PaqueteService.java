@@ -24,6 +24,8 @@ import com.ecubox.ecubox_backend.entity.GuiaMaster;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.entity.PaqueteEstadoEvento;
 import com.ecubox.ecubox_backend.entity.Saca;
+import com.ecubox.ecubox_backend.entity.RevisionPaquete;
+import com.ecubox.ecubox_backend.enums.EstadoRevisionPaquete;
 import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import com.ecubox.ecubox_backend.enums.TrackingEventType;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
@@ -37,13 +39,16 @@ import com.ecubox.ecubox_backend.repository.OutboxEventRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.SacaRepository;
+import com.ecubox.ecubox_backend.repository.RevisionPaqueteRepository;
 import com.ecubox.ecubox_backend.service.validation.OwnershipValidator;
+import com.ecubox.ecubox_backend.service.validation.PaqueteOperacionValidator;
 import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.Strings;
 import com.ecubox.ecubox_backend.util.WeightUtil;
 import com.ecubox.ecubox_backend.util.Pageables;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -87,6 +92,9 @@ public class PaqueteService {
     private final CodigoSecuenciaService codigoSecuenciaService;
     private final EnvioConsolidadoService envioConsolidadoService;
     private final EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver;
+    private final RevisionPaqueteRepository revisionPaqueteRepository;
+    private final RevisionPaqueteService revisionPaqueteService;
+    private final PaqueteOperacionValidator paqueteOperacionValidator;
     private final boolean useEventTimeline;
 
     public PaqueteService(PaqueteRepository paqueteRepository,
@@ -103,8 +111,37 @@ public class PaqueteService {
                           OwnershipValidator ownershipValidator,
                           SacaEnDespachoValidator sacaEnDespachoValidator,
                           CodigoSecuenciaService codigoSecuenciaService,
+                          EnvioConsolidadoService envioConsolidadoService,
+                          EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver,
+                          boolean useEventTimeline) {
+        this(paqueteRepository, consignatarioRepository, sacaRepository, loteRecepcionGuiaRepository,
+                paqueteEstadoEventoRepository, outboxEventRepository, parametroSistemaService,
+                estadoRastreoService, trackingEventService, guiaMasterRepository, guiaMasterService,
+                ownershipValidator, sacaEnDespachoValidator, codigoSecuenciaService,
+                envioConsolidadoService, estadoConsolidadoOperativoResolver, null, null,
+                new PaqueteOperacionValidator(null), useEventTimeline);
+    }
+
+    @Autowired
+    public PaqueteService(PaqueteRepository paqueteRepository,
+                          ConsignatarioRepository consignatarioRepository,
+                          SacaRepository sacaRepository,
+                          LoteRecepcionGuiaRepository loteRecepcionGuiaRepository,
+                          PaqueteEstadoEventoRepository paqueteEstadoEventoRepository,
+                          OutboxEventRepository outboxEventRepository,
+                          ParametroSistemaService parametroSistemaService,
+                          EstadoRastreoService estadoRastreoService,
+                          TrackingEventService trackingEventService,
+                          GuiaMasterRepository guiaMasterRepository,
+                          GuiaMasterService guiaMasterService,
+                          OwnershipValidator ownershipValidator,
+                          SacaEnDespachoValidator sacaEnDespachoValidator,
+                          CodigoSecuenciaService codigoSecuenciaService,
                           @Lazy EnvioConsolidadoService envioConsolidadoService,
                           EstadoConsolidadoOperativoResolver estadoConsolidadoOperativoResolver,
+                          RevisionPaqueteRepository revisionPaqueteRepository,
+                          RevisionPaqueteService revisionPaqueteService,
+                          PaqueteOperacionValidator paqueteOperacionValidator,
                           @Value("${tracking.timeline.use-events:true}") boolean useEventTimeline) {
         this.paqueteRepository = paqueteRepository;
         this.consignatarioRepository = consignatarioRepository;
@@ -122,6 +159,9 @@ public class PaqueteService {
         this.codigoSecuenciaService = codigoSecuenciaService;
         this.envioConsolidadoService = envioConsolidadoService;
         this.estadoConsolidadoOperativoResolver = estadoConsolidadoOperativoResolver;
+        this.revisionPaqueteRepository = revisionPaqueteRepository;
+        this.revisionPaqueteService = revisionPaqueteService;
+        this.paqueteOperacionValidator = paqueteOperacionValidator;
         this.useEventTimeline = useEventTimeline;
     }
 
@@ -135,6 +175,16 @@ public class PaqueteService {
     private Long envioConsolidadoId(Paquete paquete) {
         EnvioConsolidado envio = paquete != null ? paquete.getEnvioConsolidado() : null;
         return envio != null ? envio.getId() : null;
+    }
+
+    private Optional<Paquete> cargarPaqueteParaOperacion(Long paqueteId) {
+        Optional<Paquete> bloqueado = paqueteRepository.findByIdForUpdate(paqueteId);
+        return bloqueado.isPresent() ? bloqueado : paqueteRepository.findById(paqueteId);
+    }
+
+    private List<Paquete> cargarPaquetesParaOperacion(List<Long> paqueteIds) {
+        List<Paquete> bloqueados = paqueteRepository.findAllByIdForUpdate(paqueteIds);
+        return bloqueados.isEmpty() ? paqueteRepository.findAllById(paqueteIds) : bloqueados;
     }
 
     private void sincronizarTotalesEnvio(Long envioId) {
@@ -162,10 +212,17 @@ public class PaqueteService {
             String envioCodigo,
             Long guiaMasterId,
             /** "sin_peso" | "con_peso" | "sin_guia_master" | "vencidos" | null */
-            String chip
+            String chip,
+            /** "todos" | "operativos" | "en_revision" */
+            String bandeja
     ) {
+        public PaqueteListFilters(String estadoCodigo, Long consignatarioId, String envioCodigo,
+                                  Long guiaMasterId, String chip) {
+            this(estadoCodigo, consignatarioId, envioCodigo, guiaMasterId, chip, "todos");
+        }
+
         public static PaqueteListFilters empty() {
-            return new PaqueteListFilters(null, null, null, null, null);
+            return new PaqueteListFilters(null, null, null, null, null, "todos");
         }
     }
 
@@ -221,17 +278,18 @@ public class PaqueteService {
                 cb.isNotNull(root.get("fechaLimiteRetiro")),
                 cb.lessThanOrEqualTo(root.get("fechaLimiteRetiro"), ahora));
 
-        // KPIs del universo visible (solo ownership, sin filtros activos).
-        Specification<Paquete> universe = ownership;
+        // KPIs del universo visible: ownership + bandeja, sin búsqueda ni filtros secundarios.
+        PaqueteListFilters f = filters == null ? PaqueteListFilters.empty() : filters;
+        Specification<Paquete> universe = ownership.and(buildSpec(null,
+                new PaqueteListFilters(null, null, null, null, null, f.bandeja())));
         long total = paqueteRepository.count(universe);
         long conPeso = paqueteRepository.count(universe.and(pesoNotNull));
         long vencidos = paqueteRepository.count(universe.and(vencido));
         long consignatariosDistintos = paqueteRepository.countDistinctConsignatarios(usuarioIdOrNull);
 
         // Conteos por chip respetando los filtros estructurales (sin chip).
-        PaqueteListFilters f = filters == null ? PaqueteListFilters.empty() : filters;
         PaqueteListFilters estructurales = new PaqueteListFilters(
-                f.estadoCodigo(), f.consignatarioId(), f.envioCodigo(), f.guiaMasterId(), null);
+                f.estadoCodigo(), f.consignatarioId(), f.envioCodigo(), f.guiaMasterId(), null, f.bandeja());
         Specification<Paquete> base = universe.and(buildSpec(q, estructurales));
         long chipTodos = paqueteRepository.count(base);
         long chipSinPeso = paqueteRepository.count(base.and(pesoNull));
@@ -305,6 +363,23 @@ public class PaqueteService {
         }
         if (f.guiaMasterId() != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("guiaMaster").get("id"), f.guiaMasterId()));
+        }
+        String bandeja = f.bandeja() == null ? "todos" : f.bandeja().trim().toLowerCase();
+        if (!"todos".equals(bandeja)) {
+            Specification<Paquete> conRevisionActiva = (root, query, cb) -> {
+                var subquery = query.subquery(Long.class);
+                var revision = subquery.from(RevisionPaquete.class);
+                subquery.select(cb.literal(1L)).where(
+                        cb.equal(revision.get("paquete").get("id"), root.get("id")),
+                        cb.equal(revision.get("estado"), EstadoRevisionPaquete.EN_REVISION));
+                return cb.exists(subquery);
+            };
+            spec = switch (bandeja) {
+                case "operativos" -> spec.and(Specification.not(conRevisionActiva));
+                case "en_revision" -> spec.and(conRevisionActiva);
+                default -> throw new BadRequestException(
+                        "Bandeja de paquetes inválida. Usa todos, operativos o en_revision.");
+            };
         }
         if (f.chip() != null && !f.chip().isBlank()) {
             String chip = f.chip().toLowerCase();
@@ -422,12 +497,14 @@ public class PaqueteService {
         List<Paquete> list = sinPeso
                 ? paqueteRepository.findByPesoLbsIsNullOrderByEstadoRastreo_OrdenAscIdAsc()
                 : paqueteRepository.findAll(Sort.by(Sort.Direction.ASC, "estadoRastreo.orden").and(Sort.by(Sort.Direction.ASC, "id")));
-        return list.stream().map(this::toDTO).toList();
+        return paqueteOperacionValidator.filtrarOperativos(list).stream().map(this::toDTO).toList();
     }
 
     @Transactional(readOnly = true)
     public List<PaqueteDTO> listarVencidosParaOperario() {
-        return paqueteRepository.findAll(Sort.by(Sort.Direction.ASC, "estadoRastreo.orden").and(Sort.by(Sort.Direction.ASC, "id"))).stream()
+        return paqueteOperacionValidator.filtrarOperativos(
+                paqueteRepository.findAll(Sort.by(Sort.Direction.ASC, "estadoRastreo.orden")
+                        .and(Sort.by(Sort.Direction.ASC, "id")))).stream()
                 .map(this::toDTO)
                 .filter(dto -> Boolean.TRUE.equals(dto.getPaqueteVencido()))
                 .sorted(
@@ -444,7 +521,8 @@ public class PaqueteService {
 
     @Transactional(readOnly = true)
     public List<PaqueteDTO> listarSinSaca() {
-        return paqueteRepository.findBySacaIsNullOrderByIdAsc().stream().map(this::toDTO).toList();
+        return paqueteOperacionValidator.filtrarOperativos(
+                paqueteRepository.findBySacaIsNullOrderByIdAsc()).stream().map(this::toDTO).toList();
     }
 
     /**
@@ -488,13 +566,15 @@ public class PaqueteService {
         if (guias.isEmpty()) {
             return List.of();
         }
-        return paqueteRepository.findByNumeroGuiaIn(guias).stream().map(this::toDTO).toList();
+        return paqueteOperacionValidator.filtrarOperativos(
+                paqueteRepository.findByNumeroGuiaIn(guias)).stream().map(this::toDTO).toList();
     }
 
     @Transactional
     public PaqueteDTO asignarSaca(Long paqueteId, Long sacaId) {
-        Paquete p = paqueteRepository.findById(paqueteId)
+        Paquete p = cargarPaqueteParaOperacion(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
+        paqueteOperacionValidator.requireOperativo(p);
         if (sacaId != null) {
             Saca saca = sacaRepository.findById(sacaId)
                     .orElseThrow(() -> new ResourceNotFoundException("Saca", sacaId));
@@ -520,12 +600,13 @@ public class PaqueteService {
         if (paqueteIds == null || paqueteIds.isEmpty()) {
             return List.of();
         }
-        List<Paquete> paquetes = paqueteRepository.findAllById(paqueteIds);
+        List<Paquete> paquetes = cargarPaquetesParaOperacion(paqueteIds);
         if (paquetes.size() != paqueteIds.size()) {
             Set<Long> encontrados = paquetes.stream().map(Paquete::getId).collect(Collectors.toSet());
             Long faltante = paqueteIds.stream().filter(id -> !encontrados.contains(id)).findFirst().orElse(null);
             throw new ResourceNotFoundException("Paquete", faltante);
         }
+        paqueteOperacionValidator.requireOperativos(paquetes);
         Set<Long> guiasAfectadas = new HashSet<>();
         for (Paquete p : paquetes) {
             p.setSaca(saca);
@@ -808,8 +889,9 @@ public class PaqueteService {
         if (paqueteIds == null || paqueteIds.isEmpty()) return;
         LocalDateTime fechaEfectiva = fechaEfectivaOrNull != null ? fechaEfectivaOrNull : LocalDateTime.now(ZONA_ECUADOR);
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoDestinoId);
-        List<Paquete> paquetes = paqueteRepository.findAllById(paqueteIds);
+        List<Paquete> paquetes = cargarPaquetesParaOperacion(paqueteIds);
         if (paquetes.isEmpty()) return;
+        paqueteOperacionValidator.requireOperativos(paquetes);
         Set<Long> guiasAfectadas = new HashSet<>();
         List<TrackingEventService.PendingTransicion> pendientes = new ArrayList<>(paquetes.size());
         for (Paquete p : paquetes) {
@@ -848,10 +930,11 @@ public class PaqueteService {
             if (paqueteId == null) {
                 continue;
             }
-            Paquete paquete = paqueteRepository.findById(paqueteId).orElse(null);
+            Paquete paquete = cargarPaqueteParaOperacion(paqueteId).orElse(null);
             if (paquete == null) {
                 continue;
             }
+            paqueteOperacionValidator.requireOperativo(paquete);
             var ultimoEventoOpt = paqueteEstadoEventoRepository.findTopByPaqueteIdOrderByOccurredAtDescIdDesc(paqueteId);
             if (ultimoEventoOpt.isEmpty()) {
                 continue;
@@ -938,7 +1021,7 @@ public class PaqueteService {
 
     @Transactional
     public PaqueteDTO update(Long paqueteId, Long currentUsuarioId, boolean canManageAny, boolean canEditPeso, PaqueteUpdateRequest request) {
-        Paquete p = paqueteRepository.findById(paqueteId)
+        Paquete p = cargarPaqueteParaOperacion(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
         ownershipValidator.requirePaqueteOwnership(p, currentUsuarioId, canManageAny);
         Long newDestId = request.getConsignatarioId();
@@ -1005,6 +1088,7 @@ public class PaqueteService {
             }
             if (request.getGuiaMasterId() != null
                     && (p.getGuiaMaster() == null || !p.getGuiaMaster().getId().equals(request.getGuiaMasterId()))) {
+                paqueteOperacionValidator.requireOperativo(p);
                 Long previaId = p.getGuiaMaster() != null ? p.getGuiaMaster().getId() : null;
                 reasignarPiezaAGuiaMaster(p, request.getGuiaMasterId(), request.getPiezaNumero());
                 String nuevoNumeroGuia = GuiaMasterService.componerNumeroGuia(p.getGuiaMaster(), p.getPiezaNumero());
@@ -1054,8 +1138,10 @@ public class PaqueteService {
 
     @Transactional
     public void delete(Long paqueteId, Long currentUsuarioId, boolean canManageAny) {
-        Paquete p = paqueteRepository.findById(paqueteId)
+        Paquete p = cargarPaqueteParaOperacion(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
+        paqueteOperacionValidator.requireOperativo(p);
+        requireSinHistorialRevisionParaEliminar(p);
         ownershipValidator.requirePaqueteOwnership(p, currentUsuarioId, canManageAny);
         Long envioId = envioConsolidadoId(p);
         paqueteEstadoEventoRepository.deleteByPaqueteId(paqueteId);
@@ -1079,6 +1165,7 @@ public class PaqueteService {
         if (paquetes.isEmpty()) {
             return 0;
         }
+        paquetes.forEach(this::requireSinHistorialRevisionParaEliminar);
         for (Paquete p : paquetes) {
             Long pid = p.getId();
             paqueteEstadoEventoRepository.deleteByPaqueteId(pid);
@@ -1086,6 +1173,16 @@ public class PaqueteService {
         }
         paqueteRepository.deleteAll(paquetes);
         return paquetes.size();
+    }
+
+    private void requireSinHistorialRevisionParaEliminar(Paquete paquete) {
+        if (revisionPaqueteRepository != null
+                && revisionPaqueteRepository.existsByPaqueteId(paquete.getId())) {
+            throw new ConflictException(
+                    "No se puede eliminar el paquete " + paquete.getNumeroGuia()
+                            + " porque tiene historial de revisión administrativa. "
+                            + "El historial auditable debe conservarse.");
+        }
     }
 
     private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
@@ -1548,8 +1645,9 @@ public class PaqueteService {
     @Transactional
     public PaqueteDTO cambiarEstadoRastreo(Long paqueteId, Long estadoRastreoId, String motivoAlterno) {
         validarEstadoNoReservadoParaPuntosOperativos(estadoRastreoId);
-        Paquete p = paqueteRepository.findById(paqueteId)
+        Paquete p = cargarPaqueteParaOperacion(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
+        paqueteOperacionValidator.requireOperativo(p);
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoRastreoId);
         EstadoRastreo origen = p.getEstadoRastreo();
         validarEsSiguienteInmediato(origen, estado);
@@ -1584,7 +1682,7 @@ public class PaqueteService {
         List<CambiarEstadoRastreoBulkResponse.RechazoBulk> rechazados = new ArrayList<>();
         Set<Long> guiasAfectadas = new HashSet<>();
         int actualizados = 0;
-        List<Paquete> cargados = paqueteRepository.findAllById(paqueteIds);
+        List<Paquete> cargados = cargarPaquetesParaOperacion(paqueteIds);
         Map<Long, Paquete> porId = new LinkedHashMap<>();
         for (Paquete p : cargados) porId.put(p.getId(), p);
         List<Paquete> paraGuardar = new ArrayList<>();
@@ -1592,6 +1690,11 @@ public class PaqueteService {
             Paquete p = porId.get(paqueteId);
             if (p == null) {
                 rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(paqueteId, "Paquete no encontrado"));
+                continue;
+            }
+            if (paqueteOperacionValidator.estaEnRevision(paqueteId)) {
+                rechazados.add(new CambiarEstadoRastreoBulkResponse.RechazoBulk(
+                        paqueteId, "El paquete tiene una revisión administrativa activa"));
                 continue;
             }
             if (p.getSaca() != null) {
@@ -1679,6 +1782,7 @@ public class PaqueteService {
                                                    LocalDateTime fechaEvento,
                                                    String operacionId) {
         if (paquetes == null || paquetes.isEmpty()) return;
+        paqueteOperacionValidator.requireOperativos(paquetes);
         Set<Long> guiasAfectadas = new HashSet<>();
         List<TrackingEventService.PendingTransicion> pendientes = new ArrayList<>(paquetes.size());
         for (Paquete paquete : paquetes) {
@@ -1718,8 +1822,9 @@ public class PaqueteService {
 
     @Transactional
     public PaqueteDTO asignarAGuiaMaster(Long paqueteId, Long guiaMasterId, Integer piezaNumero) {
-        Paquete p = paqueteRepository.findById(paqueteId)
+        Paquete p = cargarPaqueteParaOperacion(paqueteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
+        paqueteOperacionValidator.requireOperativo(p);
         if (guiaMasterId == null) {
             throw new BadRequestException(
                     "No se puede asignar la pieza porque no se indicó la guía master. "
@@ -1751,8 +1856,9 @@ public class PaqueteService {
         Set<Long> guiasAfectadas = new HashSet<>();
         guiasAfectadas.add(guiaMasterId);
         for (Long paqueteId : paqueteIds) {
-            Paquete p = paqueteRepository.findById(paqueteId)
+            Paquete p = cargarPaqueteParaOperacion(paqueteId)
                     .orElseThrow(() -> new ResourceNotFoundException("Paquete", paqueteId));
+            paqueteOperacionValidator.requireOperativo(p);
             Long previaId = p.getGuiaMaster() != null ? p.getGuiaMaster().getId() : null;
             if (previaId != null) guiasAfectadas.add(previaId);
             reasignarPiezaAGuiaMaster(p, guiaMasterId, null);
@@ -1793,6 +1899,10 @@ public class PaqueteService {
     @Transactional(readOnly = true)
     public List<EstadoRastreoDTO> estadosDestinoPermitidos(List<Long> paqueteIds) {
         if (paqueteIds == null || paqueteIds.isEmpty()) {
+            return List.of();
+        }
+        if (revisionPaqueteRepository != null && !revisionPaqueteRepository.findPaqueteIdsByEstado(
+                paqueteIds, EstadoRevisionPaquete.EN_REVISION).isEmpty()) {
             return List.of();
         }
         List<Paquete> paquetes = paqueteIds.stream()
@@ -1971,6 +2081,9 @@ public class PaqueteService {
             long totalEnConsolidado = paqueteRepository.countByEnvioConsolidadoId(ec.getId());
             estadoOperativoConsolidado = estadoConsolidadoOperativoResolver.resolve(ec, totalEnConsolidado);
         }
+        RevisionPaquete revisionActiva = revisionPaqueteRepository != null
+                ? revisionPaqueteRepository.findActiva(p.getId(), EstadoRevisionPaquete.EN_REVISION).orElse(null)
+                : null;
         return PaqueteDTO.builder()
                 .id(p.getId())
                 .numeroGuia(p.getNumeroGuia())
@@ -2011,6 +2124,8 @@ public class PaqueteService {
                 .enFlujoAlterno(p.getEnFlujoAlterno())
                 .motivoAlterno(p.getMotivoAlterno())
                 .bloqueado(p.getBloqueado())
+                .revisionActiva(revisionActiva != null && revisionPaqueteService != null
+                        ? revisionPaqueteService.toDTO(revisionActiva) : null)
                 .createdAt(p.getCreatedAt())
                 .build();
     }

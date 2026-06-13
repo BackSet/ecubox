@@ -48,6 +48,7 @@ public class PaqueteController {
         List<PaqueteDTO> list = canManageAny
                 ? paqueteService.findAll()
                 : paqueteService.findAllByUsuarioId(usuarioId);
+        ocultarRevisionSinPermiso(list);
         return ResponseEntity.ok(list);
     }
 
@@ -67,15 +68,18 @@ public class PaqueteController {
             @Parameter(description = "Filtro por tipo de envío") @RequestParam(required = false) String envio,
             @Parameter(description = "ID de guía master") @RequestParam(required = false) Long guiaMasterId,
             @Parameter(description = "Filtro por chip del frontend") @RequestParam(required = false) String chip,
+            @Parameter(description = "Bandeja: todos, operativos o en_revision")
+            @RequestParam(defaultValue = "todos") String bandeja,
             @Parameter(description = "Número de página (base cero)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Cantidad de elementos por página") @RequestParam(defaultValue = "25") int size) {
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
         boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
         var filters = new PaqueteService.PaqueteListFilters(
-                estado, consignatarioId, envio, guiaMasterId, chip);
+                estado, consignatarioId, envio, guiaMasterId, chip, bandeja);
         var pageResult = canManageAny
                 ? paqueteService.findAllPaginated(q, filters, page, size)
                 : paqueteService.findAllByUsuarioIdPaginated(usuarioId, q, filters, page, size);
+        ocultarRevisionSinPermiso(pageResult.getContent());
         return ResponseEntity.ok(PageResponse.of(pageResult));
     }
 
@@ -94,10 +98,13 @@ public class PaqueteController {
             @Parameter(description = "Filtro por estado") @RequestParam(required = false) String estado,
             @Parameter(description = "ID de consignatario") @RequestParam(required = false) Long consignatarioId,
             @Parameter(description = "Filtro por tipo de envío") @RequestParam(required = false) String envio,
-            @Parameter(description = "ID de guía master") @RequestParam(required = false) Long guiaMasterId) {
+            @Parameter(description = "ID de guía master") @RequestParam(required = false) Long guiaMasterId,
+            @Parameter(description = "Bandeja: todos, operativos o en_revision")
+            @RequestParam(defaultValue = "todos") String bandeja) {
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
         boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
-        var filters = new PaqueteService.PaqueteListFilters(estado, consignatarioId, envio, guiaMasterId, null);
+        var filters = new PaqueteService.PaqueteListFilters(
+                estado, consignatarioId, envio, guiaMasterId, null, bandeja);
         var resumen = paqueteService.resumen(canManageAny ? null : usuarioId, q, filters);
         return ResponseEntity.ok(resumen);
     }
@@ -147,5 +154,11 @@ public class PaqueteController {
         boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
         paqueteService.delete(id, usuario.getId(), canManageAny);
         return ResponseEntity.noContent().build();
+    }
+
+    private void ocultarRevisionSinPermiso(List<PaqueteDTO> paquetes) {
+        if (!currentUserService.hasAuthority("PAQUETES_REVISION_READ")) {
+            paquetes.forEach(paquete -> paquete.setRevisionActiva(null));
+        }
     }
 }

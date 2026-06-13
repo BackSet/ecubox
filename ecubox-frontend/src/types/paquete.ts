@@ -32,6 +32,7 @@ export interface Paquete {
   enFlujoAlterno?: boolean;
   motivoAlterno?: string;
   bloqueado?: boolean;
+  revisionActiva?: RevisionPaquete;
   createdAt?: string;
   // Información de la guía master (carrier) a la que pertenece esta pieza
   guiaMasterId?: number;
@@ -47,6 +48,32 @@ export interface Paquete {
   envioConsolidadoCerrado?: boolean;
   /** Estado operativo derivado del envío consolidado; null si no tiene consolidado. */
   envioConsolidadoEstadoOperativo?: EstadoEnvioConsolidadoOperativo | null;
+}
+
+export type BandejaPaquete = 'todos' | 'operativos' | 'en_revision';
+export type EstadoRevisionPaquete = 'EN_REVISION' | 'RESUELTA';
+export type MotivoRevisionPaquete =
+  | 'DATOS_INCONSISTENTES'
+  | 'PESO_O_DIMENSIONES'
+  | 'CONSIGNATARIO_INCORRECTO'
+  | 'GUIA_INCORRECTA'
+  | 'CONTENIDO_RESTRINGIDO'
+  | 'OTRO';
+
+export interface RevisionPaquete {
+  id: number;
+  paqueteId: number;
+  motivo: MotivoRevisionPaquete;
+  estado: EstadoRevisionPaquete;
+  observacionInicio?: string;
+  fechaInicio: string;
+  iniciadoPorUsuarioId: number;
+  iniciadoPorUsername?: string;
+  fechaResolucion?: string;
+  resueltoPorUsuarioId?: number;
+  resueltoPorUsername?: string;
+  observacionResolucion?: string;
+  version: number;
 }
 
 export interface PaqueteCreateRequest {

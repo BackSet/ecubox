@@ -13,7 +13,7 @@
 | Enlaces de acceso | `/enlaces-acceso`, `/acceso`; `useAccesoEnlaces` | `/api/acceso-enlaces`, `/api/auth/acceso-enlace`; `AccesoEnlaceController`, `AuthController` | `AccesoEnlaceService/Repository`, `AccesoSessionResolver`, `CodigoSecuenciaService`; `acceso_enlace` (incluye `codigo` ACC-NNNNNN, identificador de negocio visible/único, no autentica), relación con consignatarios | `ACCESO_ENLACES_MANAGE` y permisos `ACCESO_ENLACE_*` | `AccesoEnlaceServiceTest`, `EnlacesAccesoPage.test.tsx` |
 | Consignatarios/destinatarios | `/consignatarios`; `useConsignatarios` | `/api/mis-consignatarios`, `/api/operario/consignatarios` | `ConsignatarioService`, versionado SCD2 y repositorios; `consignatario`, `consignatario_version` | `CONSIGNATARIOS_*`, `CONSIGNATARIOS_OPERARIO`, acceso por enlace | Cubierto indirectamente en servicios de guías/paquetes |
 | Guías master y Mis guías | `/guias-master`, `/guias-master/$id`, `/mis-guias`, `/mis-guias/$id`; hooks `useGuiasMaster`, `useMisGuias`; diálogos masivos de selección, motivo y resultado | `/api/guias-master`, `POST /api/guias-master/aplicar-accion`, `/api/mis-guias`; `GuiaMasterController`, `MisGuiasController` | `GuiaMasterService`, DTOs `AplicarAccionGuiasMaster*`, historial/repositories; `guia_master`, `guia_master_estado_historial` | `GUIAS_MASTER_*`, `MIS_GUIAS_*`, `ACCESO_ENLACE_GUIAS_READ`; el bulk usa `GUIAS_MASTER_UPDATE` | `GuiaMasterServiceTest`, `PaqueteServiceOp3Test`, `guiaAdmiteRegistroDePiezas.test.ts`, `AplicarEstadoMasivoDialog.test.tsx`, `ResultadoBulkDialog.test.tsx` |
-| Paquetes, piezas, pesaje y vencidos | `/paquetes`, `/pesaje`, `/paquetes-vencidos`; hooks `usePaquetes`, `usePaquetesOperario` | `/api/paquetes`, `/api/operario/paquetes`; `PaqueteController`, `OperarioPaqueteController` | `PaqueteService`, repositories/eventos; `paquete`, `paquete_estado_evento`, vista de rastreo | `PAQUETES_*`, `PAQUETES_OPERARIO`, `PAQUETES_PESO_WRITE` | `PaqueteTest`, suites `PaqueteService*`, `paquetes.service.test.ts`, utilidades de peso |
+| Paquetes, revisión administrativa, pesaje y vencidos | `/paquetes` con bandejas `Todos`, `Operativos`, `En revisión`; `/pesaje`, `/paquetes-vencidos`; hooks `usePaquetes`, `usePaquetesOperario`; `RevisionPaqueteDialog` | `/api/mis-paquetes`, `/api/mis-paquetes/{id}/revisiones`, `/api/operario/paquetes`; `PaqueteController`, `RevisionPaqueteController`, `OperarioPaqueteController` | `PaqueteService`, `RevisionPaqueteService`, `PaqueteOperacionValidator`; `paquete`, `revision_paquete`, `paquete_estado_evento`, vista de rastreo | `PAQUETES_*`, `PAQUETES_OPERARIO`, `PAQUETES_PESO_WRITE`, `PAQUETES_REVISION_READ`, `PAQUETES_REVISION_CREATE`, `PAQUETES_REVISION_RESOLVE` | `PaqueteTest`, suites `PaqueteService*`, `RevisionPaqueteServiceTest`, `PaqueteOperacionValidatorTest`, `paquetes.service.test.ts`, utilidades de peso |
 | Estados de rastreo | sección `/parametros-sistema/estados` y `/por-punto`; `useEstadosRastreo` | `/api/operario/estados-rastreo`, `/api/operario/config/estados-rastreo-por-punto` | `EstadoRastreoService`, resolver y repository; `estado_rastreo`, `estado_rastreo_transicion`, parámetros | `ESTADOS_RASTREO_*` | `EstadoRastreoServiceTest`, `ParametroSistemaServiceEstadosManualesTest`, diálogo de leyenda |
 | Envíos consolidados | `/envios-consolidados`, detalle; `useEnviosConsolidados`, `AplicarEstadoConsolidadosMenuDialog`, `AvanceEstadosConsolidadosDialog` | `/api/envios-consolidados`; catálogo en `/transiciones-operativas`, preview en `/preview-secuencia-estados` y aplicación en `/aplicar-secuencia-estados`; se conservan los contratos operativos anteriores `/destinos-avance-operativo`, `/preview-avance-operativo` y `/aplicar-avance-operativo`; `EnvioConsolidadoController` | `EnvioConsolidadoService` compone el catálogo canónico desde el enum operativo y los estados por punto; `PaqueteService` registra eventos por transición; `envio_consolidado`, `paquete`, `paquete_estado_evento` | `ENVIOS_CONSOLIDADOS_*`; catálogo, preview y avance usan `ENVIOS_CONSOLIDADOS_UPDATE` | `EnvioConsolidadoServiceTest`, `AvanceEstadosConsolidadosDialog.test.tsx`, `EstadoConsolidadoOperativoResolverTest` |
 | Lotes de recepción | `/lotes-recepcion`, nuevo y detalle; `useLotesRecepcion`, `useEnviosDisponiblesParaRecepcion` | `/api/operario/lotes-recepcion`; `OperarioLoteRecepcionController`; disponibles vía `/api/envios-consolidados/disponibles-recepcion` (solo `ARRIBADO_ECUADOR`) | `LoteRecepcionService` (admite solo `ARRIBADO_ECUADOR`, marca `RECIBIDO_EN_BODEGA`), `EnvioConsolidadoRepository.findDisponiblesParaRecepcion`; `lote_recepcion`, `lote_recepcion_guia` | `LOTES_RECEPCION_READ/CREATE/DELETE` | `LoteRecepcionServiceTest` |
@@ -46,6 +46,7 @@
 - Enlaces de acceso crean sesiones limitadas para Mis guías, Mis entregas, consignatarios y casillero.
 - Una guía master agrupa piezas persistidas como `Paquete` y se vincula a un consignatario.
 - Paquetes y guías master alimentan envíos consolidados.
+- `RevisionPaquete` conserva el historial administrativo sin modificar el estado de rastreo. Solo puede existir una fila `EN_REVISION` por paquete.
 - El lote de recepción registra llegada y actualiza el avance de consolidado, guía y rastreo.
 - Despachos agrupan paquetes directamente o mediante sacas y dependen de la red de entrega.
 - Manifiestos agrupan despachos; los manifiestos de envío consolidado se generan también desde el módulo de consolidados.
@@ -99,6 +100,27 @@
 4. En edición solo se valida esta regla para sacas nuevas; las ya asociadas no se rechazan si sus paquetes avanzaron.
 5. El cliente o una sesión por enlace consulta `/mis-entregas`.
 6. La entrega se confirma con `MIS_ENTREGAS_CONFIRM` y genera cambios de estado/eventos/notificaciones según el servicio.
+
+### Revisión administrativa de paquetes
+
+1. `POST /api/mis-paquetes/{id}/revisiones` inicia una revisión con motivo estructurado; `OTRO` exige observación.
+2. `POST /api/mis-paquetes/{id}/revisiones/activa/resolver` registra usuario, fecha y observación. Ninguna operación altera `Paquete.estadoRastreo`.
+3. `GET /api/mis-paquetes/{id}/revisiones` consulta el historial y `/activa` consulta la revisión vigente.
+4. `/page` y `/resumen` aceptan `bandeja=todos|operativos|en_revision`; el filtro se aplica en SQL antes de paginar y contar.
+5. `PaqueteOperacionValidator` bloquea asignación a saca/guía, consolidación, despacho, lote y cambios de estado manuales, automáticos o masivos. Las correcciones permanecen disponibles.
+6. Selectores de operario, paquetes sin saca, búsqueda por guías, destinos de estado y sacas elegibles excluyen revisiones activas desde backend.
+7. La concurrencia se protege con lock de paquete, `@Version` e índice único parcial `uq_revision_paquete_activa`.
+
+### Inventario de bandejas candidatas
+
+| Módulo | Condición canónica | Tarea especializada | Beneficio | Recomendación |
+|---|---|---|---|---|
+| Guías master | `PENDIENTE_VERIFICACION`, `EN_REVISION` | Aprobar, corregir o salir de revisión | Separa operación normal de control administrativo | Mantener el patrón actual; no ampliarlo aquí porque ya tiene pestañas y reglas propias |
+| Envíos consolidados | `CERRADO`, `ENVIADO_DESDE_USA`, `ARRIBADO_ECUADOR` y previews obsoletos | Avance operativo y resolución de conflictos | Reduce mezcla entre preparación y tránsito | Diseñar con métricas reales; sus estados forman una secuencia, no una revisión |
+| Lotes de recepción | Consolidado `ARRIBADO_ECUADOR` aún no recibido | Recepción física | Prioriza trabajo pendiente de ingreso | Candidato fuerte, pero faltan SLA, asignación y reglas de recepción parcial |
+| Despachos | Preparación, salida y entrega pendiente | Armado, despacho y seguimiento | Clarifica colas por hito | Esperar estados canónicos propios; hoy varias condiciones se derivan de paquetes |
+| Liquidaciones | No pagada, pagada o con referencias bloqueadas | Revisión financiera y cobro | Separa cuentas accionables del histórico | Requiere catálogo financiero y responsables confirmados |
+| Manifiestos | Borrador/incompleto/listo, si se confirma | Completar y cerrar | Hace visible trabajo incompleto | Auditar primero el modelo; no crear estados por inferencia |
 
 ### Rastreo público
 

@@ -16,6 +16,7 @@ import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.repository.*;
 import com.ecubox.ecubox_backend.security.CurrentUserService;
 import com.ecubox.ecubox_backend.service.validation.SacaEnDespachoValidator;
+import com.ecubox.ecubox_backend.service.validation.PaqueteOperacionValidator;
 import com.ecubox.ecubox_backend.util.SearchSpecifications;
 import com.ecubox.ecubox_backend.util.WeightUtil;
 import com.ecubox.ecubox_backend.util.Pageables;
@@ -24,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -65,6 +67,7 @@ public class DespachoService {
     private final AgenciaVersionService agenciaVersionService;
     private final AgenciaCourierEntregaVersionService agenciaCourierEntregaVersionService;
     private final CodigoSecuenciaService codigoSecuenciaService;
+    private final PaqueteOperacionValidator paqueteOperacionValidator;
 
     public DespachoService(DespachoRepository despachoRepository,
                           CourierEntregaRepository courierEntregaRepository,
@@ -84,6 +87,34 @@ public class DespachoService {
                           AgenciaVersionService agenciaVersionService,
                           AgenciaCourierEntregaVersionService agenciaCourierEntregaVersionService,
                           CodigoSecuenciaService codigoSecuenciaService) {
+        this(despachoRepository, courierEntregaRepository, consignatarioRepository, agenciaRepository,
+                sacaRepository, sacaService, currentUserService, paqueteService, paqueteRepository,
+                parametroSistemaService, agenciaCourierEntregaService, sacaEnDespachoValidator,
+                estadoRastreoService, guiaMasterService, consignatarioVersionService,
+                agenciaVersionService, agenciaCourierEntregaVersionService, codigoSecuenciaService,
+                new PaqueteOperacionValidator(null));
+    }
+
+    @Autowired
+    public DespachoService(DespachoRepository despachoRepository,
+                          CourierEntregaRepository courierEntregaRepository,
+                          ConsignatarioRepository consignatarioRepository,
+                          AgenciaRepository agenciaRepository,
+                          SacaRepository sacaRepository,
+                          SacaService sacaService,
+                          CurrentUserService currentUserService,
+                          PaqueteService paqueteService,
+                          PaqueteRepository paqueteRepository,
+                          ParametroSistemaService parametroSistemaService,
+                          AgenciaCourierEntregaService agenciaCourierEntregaService,
+                          SacaEnDespachoValidator sacaEnDespachoValidator,
+                          EstadoRastreoService estadoRastreoService,
+                          GuiaMasterService guiaMasterService,
+                          ConsignatarioVersionService consignatarioVersionService,
+                          AgenciaVersionService agenciaVersionService,
+                          AgenciaCourierEntregaVersionService agenciaCourierEntregaVersionService,
+                          CodigoSecuenciaService codigoSecuenciaService,
+                          PaqueteOperacionValidator paqueteOperacionValidator) {
         this.despachoRepository = despachoRepository;
         this.courierEntregaRepository = courierEntregaRepository;
         this.consignatarioRepository = consignatarioRepository;
@@ -102,6 +133,7 @@ public class DespachoService {
         this.agenciaVersionService = agenciaVersionService;
         this.agenciaCourierEntregaVersionService = agenciaCourierEntregaVersionService;
         this.codigoSecuenciaService = codigoSecuenciaService;
+        this.paqueteOperacionValidator = paqueteOperacionValidator;
     }
 
     /**
@@ -434,6 +466,8 @@ public class DespachoService {
         Map<Long, List<Paquete>> paquetesPorSaca = agruparPaquetes(
                 paqueteRepository.findBySacaIdInWithEstado(ids));
         List<SacaDTO> elegibles = candidatas.stream()
+                .filter(saca -> paqueteOperacionValidator.todosOperativos(
+                        paquetesPorSaca.getOrDefault(saca.getId(), List.of())))
                 .filter(saca -> paquetesCumplenEstado(
                         paquetesPorSaca.getOrDefault(saca.getId(), List.of()),
                         transicion.anterior().getId()))
@@ -485,6 +519,7 @@ public class DespachoService {
                 ? paqueteRepository.findBySacaIdInWithEstadoForUpdate(idsUnicos)
                 : paqueteRepository.findBySacaIdInWithEstado(idsUnicos);
         Map<Long, List<Paquete>> paquetesPorSaca = agruparPaquetes(paquetes);
+        paqueteOperacionValidator.requireOperativos(paquetes);
         for (Saca saca : sacas) {
             if (!paquetesCumplenEstado(
                     paquetesPorSaca.getOrDefault(saca.getId(), List.of()),

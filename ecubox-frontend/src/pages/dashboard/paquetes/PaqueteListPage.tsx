@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import {
   usePaqueteResumen,
@@ -26,6 +27,7 @@ import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu, type RowActionEntry } from '@/components/RowActionsMenu';
 import { Button } from '@/components/ui/button';
 import { StatusBadge, getRastreoStatusTone } from '@/components/ui/StatusBadge';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { EnvioConsolidadoBadge } from '@/pages/dashboard/envios-consolidados/EnvioConsolidadoBadge';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -38,12 +40,30 @@ import {
   Plus,
   Trash2,
   Weight,
+  ShieldAlert,
+  CircleCheck,
+  History,
 } from 'lucide-react';
-import type { Paquete } from '@/types/paquete';
+import type { BandejaPaquete, Paquete } from '@/types/paquete';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import { GuiaMasterPiezaCell, ConsignatarioCell } from './PaqueteCells';
+import {
+  RevisionPaqueteDialog,
+  motivoRevisionLabel,
+  type RevisionDialogMode,
+} from './RevisionPaqueteDialog';
 
 export function PaqueteListPage() {
+  const navigate = useNavigate();
+  const bandejaUrl = useRouterState({
+    select: (state) => (state.location.search as { bandeja?: string }).bandeja,
+  });
+  const hasRevisionRead = useAuthStore((s) => s.hasPermission('PAQUETES_REVISION_READ'));
+  const bandeja: BandejaPaquete =
+    bandejaUrl === 'operativos' || (bandejaUrl === 'en_revision' && hasRevisionRead)
+      ? bandejaUrl
+      : 'todos';
+  const enRevision = bandeja === 'en_revision';
   const hasPaquetesCreate = useAuthStore((s) => s.hasPermission('PAQUETES_CREATE'));
   const hasPaquetesUpdate = useAuthStore((s) => s.hasPermission('PAQUETES_UPDATE'));
   const hasPaquetesDelete = useAuthStore((s) => s.hasPermission('PAQUETES_DELETE'));
@@ -51,6 +71,8 @@ export function PaqueteListPage() {
   const hasGuiasMasterUpdate = useAuthStore((s) =>
     s.hasPermission('GUIAS_MASTER_UPDATE'),
   );
+  const hasRevisionCreate = useAuthStore((s) => s.hasPermission('PAQUETES_REVISION_CREATE'));
+  const hasRevisionResolve = useAuthStore((s) => s.hasPermission('PAQUETES_REVISION_RESOLVE'));
   const deletePaquete = useDeletePaquete();
   const [createOpen, setCreateOpen] = useState(false);
   const [editingPaquete, setEditingPaquete] = useState<Paquete | null>(null);
@@ -58,6 +80,10 @@ export function PaqueteListPage() {
   const [editandoPiezasGuiaId, setEditandoPiezasGuiaId] = useState<number | null>(
     null,
   );
+  const [revisionDialog, setRevisionDialog] = useState<{
+    paquete: Paquete;
+    mode: RevisionDialogMode;
+  } | null>(null);
 
   const { q, page, size, setQ, setPage, setSize, resetPage } = useSearchPagination({
     initialSize: 25,
@@ -90,6 +116,7 @@ export function PaqueteListPage() {
     consignatarioId: consignatarioFiltro,
     envio: envioFiltro,
     guiaMasterId: guiaMasterFiltro,
+    bandeja,
   });
 
   // La tabla se sirve siempre paginada desde el servidor (incluido el chip
@@ -103,6 +130,7 @@ export function PaqueteListPage() {
     chip: chipActivo === 'todos' ? undefined : chipActivo,
     page,
     size,
+    bandeja,
   });
 
   // Opciones de filtro y conteos provienen del resumen (universo visible).
@@ -188,6 +216,20 @@ export function PaqueteListPage() {
     },
     [resetPage],
   );
+  const cambiarBandeja = useCallback(
+    (value: BandejaPaquete) => {
+      resetPage();
+      navigate({
+        to: '/paquetes',
+        search: ((previous: Record<string, unknown>) => ({
+          ...previous,
+          bandeja: value === 'todos' ? undefined : value,
+        })) as never,
+        replace: true,
+      });
+    },
+    [navigate, resetPage],
+  );
 
   const pageError = pageQuery.error;
   const pageHasData = (pageQuery.data?.content?.length ?? 0) > 0;
@@ -235,6 +277,28 @@ export function PaqueteListPage() {
           </div>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <SegmentedControl<BandejaPaquete>
+          value={bandeja}
+          onValueChange={cambiarBandeja}
+          size="md"
+          options={[
+            { value: 'todos', label: 'Todos' },
+            { value: 'operativos', label: 'Operativos' },
+            ...(hasRevisionRead
+              ? [{ value: 'en_revision' as const, label: 'En revisión' }]
+              : []),
+          ]}
+        />
+        <p className="text-xs text-muted-foreground">
+          {bandeja === 'todos'
+            ? 'Consulta global, incluidos los paquetes con revisión activa.'
+            : bandeja === 'operativos'
+              ? 'Paquetes disponibles para operaciones logísticas normales.'
+              : 'Atención administrativa especializada. El estado logístico se conserva.'}
+        </p>
+      </div>
 
       {(showResumenBanner || showPageBanner) && (
         <InlineErrorBanner
@@ -448,13 +512,26 @@ export function PaqueteListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Guía master / Pieza</TableHead>
+                {enRevision ? (
+                  <>
+                    <TableHead>Consignatario</TableHead>
+                    <TableHead>Estado logístico</TableHead>
+                    <TableHead>Motivo</TableHead>
+                    <TableHead>Inicio</TableHead>
+                    <TableHead>Iniciado por</TableHead>
+                  </>
+                ) : (
+                  <>
                 <TableHead>Ref</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Consignatario</TableHead>
                 {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
                 <TableHead>Contenido</TableHead>
                 <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
-                {(hasPaquetesUpdate || hasPaquetesDelete || hasGuiasMasterUpdate) && (
+                  </>
+                )}
+                {(hasPaquetesUpdate || hasPaquetesDelete || hasGuiasMasterUpdate ||
+                  hasRevisionRead || hasRevisionCreate || hasRevisionResolve) && (
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 )}
               </TableRow>
@@ -462,11 +539,12 @@ export function PaqueteListPage() {
             <TableBody>
               <TableRowsSkeleton
                 columns={
-                  4 +
+                  (enRevision ? 6 : 4) +
                   (hasPesoWrite ? 1 : 0) +
                   1 /* contenido */ +
                   1 /* peso */ +
-                  (hasPaquetesUpdate || hasPaquetesDelete || hasGuiasMasterUpdate ? 1 : 0)
+                  (hasPaquetesUpdate || hasPaquetesDelete || hasGuiasMasterUpdate ||
+                  hasRevisionRead || hasRevisionCreate || hasRevisionResolve ? 1 : 0)
                 }
               />
             </TableBody>
@@ -475,9 +553,19 @@ export function PaqueteListPage() {
       ) : list.length === 0 ? (
         <EmptyState
           icon={Package}
-          title={!hasAnyPaquetes ? 'No hay paquetes' : 'Sin resultados'}
+          title={
+            enRevision
+              ? 'No hay paquetes en revisión'
+              : bandeja === 'operativos'
+                ? 'No hay paquetes operativos'
+                : !hasAnyPaquetes ? 'No hay paquetes' : 'Sin resultados'
+          }
           description={
-            !hasAnyPaquetes
+            enRevision
+              ? 'Cuando se inicie una revisión administrativa aparecerá aquí, sin alterar su estado logístico.'
+              : bandeja === 'operativos'
+                ? 'Los paquetes con revisión activa no aparecen en esta bandeja.'
+                : !hasAnyPaquetes
               ? 'Registra un paquete con su número de guía y consignatario para hacer rastreo.'
               : tieneFiltros
                 ? 'No hay paquetes que coincidan con los filtros aplicados.'
@@ -508,15 +596,30 @@ export function PaqueteListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Guía master / Pieza</TableHead>
+                  {enRevision ? (
+                    <>
+                      <TableHead>Consignatario</TableHead>
+                      <TableHead>Estado logístico</TableHead>
+                      <TableHead>Motivo</TableHead>
+                      <TableHead>Inicio</TableHead>
+                      <TableHead>Iniciado por</TableHead>
+                    </>
+                  ) : (
+                    <>
                   <TableHead>Ref</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Consignatario</TableHead>
                   {hasPesoWrite && <TableHead>Guía de envío</TableHead>}
                   <TableHead>Contenido</TableHead>
                   <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
+                    </>
+                  )}
                   {(hasPaquetesUpdate ||
                     hasPaquetesDelete ||
-                    hasGuiasMasterUpdate) && (
+                    hasGuiasMasterUpdate ||
+                    hasRevisionRead ||
+                    hasRevisionCreate ||
+                    hasRevisionResolve) && (
                     <TableHead className="w-12 text-right" aria-label="Acciones" />
                   )}
                 </TableRow>
@@ -527,6 +630,38 @@ export function PaqueteListPage() {
                     <TableCell className="max-w-[14rem] min-w-0 align-top">
                       <GuiaMasterPiezaCell paquete={p} />
                     </TableCell>
+                    {enRevision ? (
+                      <>
+                        <TableCell className="min-w-[12rem] max-w-[18rem] align-top">
+                          <ConsignatarioCell paquete={p} />
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <StatusBadge tone={getRastreoStatusTone(p.estadoRastreoTipoFlujo)}>
+                            {p.estadoRastreoNombre ?? p.estadoRastreoCodigo ?? '—'}
+                          </StatusBadge>
+                        </TableCell>
+                        <TableCell className="max-w-[14rem]">
+                          <div className="font-medium">{motivoRevisionLabel(p.revisionActiva?.motivo)}</div>
+                          {p.revisionActiva?.observacionInicio && (
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                              {p.revisionActiva.observacionInicio}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                          {p.revisionActiva?.fechaInicio
+                            ? new Intl.DateTimeFormat('es-EC', {
+                                dateStyle: 'short',
+                                timeStyle: 'short',
+                              }).format(new Date(p.revisionActiva.fechaInicio))
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {p.revisionActiva?.iniciadoPorUsername ?? '—'}
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
                     <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
                       {p.ref ?? '—'}
                     </TableCell>
@@ -564,9 +699,14 @@ export function PaqueteListPage() {
                     <TableCell className={PESO_TABLE_CELL_CLASS}>
                       <PesoCell pesoLbs={p.pesoLbs} pesoKg={p.pesoKg} />
                     </TableCell>
+                      </>
+                    )}
                     {(hasPaquetesUpdate ||
                       hasPaquetesDelete ||
-                      hasGuiasMasterUpdate) && (
+                      hasGuiasMasterUpdate ||
+                      hasRevisionRead ||
+                      hasRevisionCreate ||
+                      hasRevisionResolve) && (
                       <TableCell className="text-right">
                         <RowActionsMenu
                           items={[
@@ -585,7 +725,26 @@ export function PaqueteListPage() {
                                 }
                               },
                               hidden:
-                                !hasGuiasMasterUpdate || p.guiaMasterId == null,
+                                !hasGuiasMasterUpdate || p.guiaMasterId == null ||
+                                p.revisionActiva != null,
+                            },
+                            {
+                              label: 'Iniciar revisión',
+                              icon: ShieldAlert,
+                              onSelect: () => setRevisionDialog({ paquete: p, mode: 'iniciar' }),
+                              hidden: !hasRevisionCreate || p.revisionActiva != null,
+                            },
+                            {
+                              label: 'Resolver revisión',
+                              icon: CircleCheck,
+                              onSelect: () => setRevisionDialog({ paquete: p, mode: 'resolver' }),
+                              hidden: !hasRevisionResolve || p.revisionActiva == null,
+                            },
+                            {
+                              label: 'Ver historial',
+                              icon: History,
+                              onSelect: () => setRevisionDialog({ paquete: p, mode: 'historial' }),
+                              hidden: !hasRevisionRead,
                             },
                             { type: 'separator' },
                             {
@@ -593,7 +752,7 @@ export function PaqueteListPage() {
                               icon: Trash2,
                               destructive: true,
                               onSelect: () => setDeleteConfirmId(p.id),
-                              hidden: !hasPaquetesDelete,
+                              hidden: !hasPaquetesDelete || p.revisionActiva != null,
                             },
                           ] satisfies RowActionEntry[]}
                         />
@@ -658,6 +817,13 @@ export function PaqueteListPage() {
           }
         }}
       />
+      {revisionDialog && (
+        <RevisionPaqueteDialog
+          paquete={revisionDialog.paquete}
+          mode={revisionDialog.mode}
+          onClose={() => setRevisionDialog(null)}
+        />
+      )}
     </div>
   );
 }

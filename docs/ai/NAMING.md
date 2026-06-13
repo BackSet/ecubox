@@ -79,7 +79,8 @@
 |---|---|---|---|---|
 | Guía master | `GuiaMaster` | `guia_master` | `/api/guias-master` | `/guias-master` |
 | Guía del cliente | `GuiaMaster` + DTOs `MiGuia*` | `guia_master` | `/api/mis-guias` | `/mis-guias` |
-| Paquete/pieza | `Paquete` | `paquete` | `/api/paquetes`, `/api/operario/paquetes` | `/paquetes`, `/pesaje` |
+| Paquete/pieza | `Paquete` | `paquete` | `/api/mis-paquetes`, `/api/operario/paquetes` | `/paquetes`, `/pesaje` |
+| Revisión administrativa de paquete | `RevisionPaquete`, `EstadoRevisionPaquete`, `MotivoRevisionPaquete` | `revision_paquete` | `/api/mis-paquetes/{id}/revisiones` | `/paquetes?bandeja=en_revision` |
 | Consignatario | `Consignatario` | `consignatario` | `/api/mis-consignatarios`, `/api/operario/consignatarios` | `/consignatarios` |
 | Courier de entrega | `CourierEntrega` | `courier_entrega` | `/api/couriers-entrega` | `/couriers-entrega` |
 | Punto de entrega | `AgenciaCourierEntrega` | `agencia_courier_entrega` | `/api/puntos-entrega` | `/puntos-entrega` |
@@ -108,6 +109,7 @@
 
 - Administración: `USUARIOS_*`, `ROLES_*`, `PERMISOS_READ`, `ACCESO_ENLACES_MANAGE`.
 - Operación: `CONSIGNATARIOS_*`, `GUIAS_MASTER_*`, `PAQUETES_*`, `PAQUETES_OPERARIO`, `PAQUETES_PESO_WRITE`.
+- Revisión de paquetes: `PAQUETES_REVISION_READ`, `PAQUETES_REVISION_CREATE`, `PAQUETES_REVISION_RESOLVE`.
 - Logística: `ENVIOS_CONSOLIDADOS_*`, `LOTES_RECEPCION_*`, `DESPACHOS_WRITE`, `MANIFIESTOS_*`.
 - Cliente/acceso: `MIS_GUIAS_*`, `MIS_ENTREGAS_*`, `ACCESO_ENLACE_*`, `CASILLERO_READ`.
 - Catálogos: `COURIERS_ENTREGA_*`, `AGENCIAS_*`, `PUNTOS_ENTREGA_*`.
@@ -136,6 +138,16 @@ No asumir que existe una operación por el sufijo `*`; usar solo códigos presen
 - Rastreo resoluble: `PIEZA`, `GUIA_MASTER`.
 - Flujo de estado: `NORMAL`, `ALTERNO`.
 - Outbox: `PENDING`, `SENT`, `FAILED`.
+- Revisión de paquete: `EN_REVISION`, `RESUELTA`.
+- Motivo de revisión de paquete: `DATOS_INCONSISTENTES`, `PESO_O_DIMENSIONES`, `CONSIGNATARIO_INCORRECTO`, `GUIA_INCORRECTA`, `CONTENIDO_RESTRINGIDO`, `OTRO`.
+
+### Revisión y bandejas
+
+- **Revisión administrativa de paquete**: proceso histórico e independiente del estado logístico.
+- **Revisión activa**: revisión `EN_REVISION`; bloquea operaciones logísticas normales, no consulta ni corrección.
+- **Revisión resuelta**: registro histórico `RESUELTA`; no reconstruye ni cambia el estado logístico.
+- **Bandeja de trabajo**: separación entre consulta global, operación normal y atención especializada.
+- En `/paquetes`, los nombres visibles son **Todos**, **Operativos** y **En revisión**; sus valores API son `todos`, `operativos`, `en_revision`.
 
 ## 5. Nombres históricos que no deben reaparecer
 
