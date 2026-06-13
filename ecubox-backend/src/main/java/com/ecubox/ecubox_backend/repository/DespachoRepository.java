@@ -33,8 +33,8 @@ public interface DespachoRepository extends JpaRepository<Despacho, Long>,
             LEFT JOIN paquete p ON p.saca_id = s.id
             WHERE d.fecha_hora >= :desde
               AND d.fecha_hora < :hasta
-            GROUP BY date_trunc(:trunc, d.fecha_hora)
-            ORDER BY periodo
+            GROUP BY 1
+            ORDER BY 1
             """, nativeQuery = true)
     List<Object[]> aggregateByPeriodo(@Param("trunc") String trunc,
                                       @Param("desde") LocalDateTime desde,

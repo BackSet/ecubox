@@ -120,8 +120,8 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
             FROM paquete p
             WHERE p.created_at >= :desde
               AND p.created_at < :hasta
-            GROUP BY date_trunc(:trunc, p.created_at)
-            ORDER BY periodo
+            GROUP BY 1
+            ORDER BY 1
             """, nativeQuery = true)
     List<Object[]> aggregateRegistradosByPeriodo(@Param("trunc") String trunc,
                                                  @Param("desde") LocalDateTime desde,
