@@ -444,7 +444,7 @@ function PermisosCountCell({ asignados, total }: { asignados: number; total: num
       <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
         <div
           className={cn(
-            'h-full transition-all',
+            'h-full transition-[width,background-color] [transition-duration:var(--motion-slow)] [transition-timing-function:var(--motion-ease-standard)]',
             asignados === 0
               ? 'bg-[var(--color-warning)]'
               : pct >= 75

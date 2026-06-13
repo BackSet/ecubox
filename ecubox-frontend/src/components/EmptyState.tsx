@@ -20,7 +20,7 @@ export function EmptyState({
     <div
       className={cn(
         'flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/30 py-12 px-6 text-center',
-        'animate-in fade-in slide-in-from-bottom-2 duration-300',
+        'ui-motion-slide-up',
         className
       )}
     >

@@ -35,6 +35,7 @@
 | Seguridad | Backend `config/SecurityConfig.java`, filtros JWT/rate limit, `security/`; frontend `authStore.ts`, guards del router |
 | Errores | Backend `exception/`; frontend `lib/api/error-message.ts`, interceptor Axios, estados de error de página |
 | Paginación/búsqueda | `PageResponse`, `Pageables`, `SearchSpecifications`, `useSearchPagination`, `createCrudQueryHooks` |
+| Diseño y movimiento | Frontend `src/index.css` (tokens de color/radio/**motion** + utilidades `.ui-transition`, `.ui-interactive`, `.ui-surface-hover`, `.ui-motion-*`, todas con `prefers-reduced-motion`); guía `ecubox-frontend/UI_GUIDELINES.md`; consumidas por `Button`, `Input`, `Switch`, `Table`, `ChipFiltro`, `KpiCard` y demás componentes compartidos |
 | Exportación | Frontend `lib/pdf`, `lib/xlsx`, `lib/exporters`; backend exportadores de consolidado/liquidación |
 | Observabilidad | Health, Micrometer, logs, health del proyector, ETag |
 | PWA | `vite.config.ts`, `src/sw.ts`, hooks PWA/Web Push, manifest e iconos |

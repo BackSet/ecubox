@@ -43,6 +43,93 @@ Todos los colores, radios, sombras y tipografías se exponen como variables CSS:
 
 ---
 
+## 1.5 Sistema de movimiento (motion)
+
+El movimiento es funcional: confirma acciones, preserva continuidad espacial y
+evita cambios bruscos. Nunca decorativo ni constante.
+
+### Tokens (`src/index.css`, en `:root`)
+
+| Token | Valor | Uso |
+| --- | --- | --- |
+| `--motion-instant` | `0ms` | sin animación (acciones de teclado) |
+| `--motion-fast` | `120ms` | feedback de botón, color/hover, controles |
+| `--motion-normal` | `180ms` | dropdowns, selects, popovers, entradas |
+| `--motion-slow` | `240ms` | superficies, expansión de filtros, highlight |
+| `--motion-emphasis` | `300ms` | diálogos, drawers |
+| `--motion-ease-standard` | `cubic-bezier(0.4,0,0.2,1)` | color/hover |
+| `--motion-ease-enter` | `cubic-bezier(0.23,1,0.32,1)` | entradas (ease-out fuerte) |
+| `--motion-ease-exit` | `cubic-bezier(0.4,0,1,1)` | salidas (rápidas) |
+| `--motion-ease-emphasized` | `cubic-bezier(0.77,0,0.175,1)` | movimiento/morph en pantalla |
+
+> **Regla**: no uses `transition-all` ni duraciones literales (`duration-200`,
+> `300ms`) dispersas. Usa los tokens o las utilidades de abajo.
+
+### Utilidades semánticas
+
+| Clase | Efecto |
+| --- | --- |
+| `.ui-transition` | transición canónica de controles (color + presión), `--motion-fast` |
+| `.ui-interactive` | feedback de presión `scale(0.97)` en `:active` |
+| `.ui-surface-hover` | hover lift de superficies clicables (borde + translateY + sombra) |
+| `.ui-motion-enter` / `.ui-motion-slide-up` | entrada con desplazamiento sutil |
+| `.ui-motion-fade` | entrada con fade |
+| `.ui-motion-scale` | entrada con escala desde `scale(0.96)` (respeta `--transform-origin`) |
+| `.ui-motion-highlight` | resalta **una vez** una fila/KPI recién actualizado |
+
+`Button`, `Input`, `Switch`, filas de `Table`, `ChipFiltro`, `SegmentedControl`,
+`KpiCard` (variante enlazada), `PesoInput`/`PesoInputPair` y `EmptyState` (entrada
+con `.ui-motion-slide-up`) ya consumen estas utilidades/tokens; no reimplementes
+transiciones a mano. Los controles accionables llevan feedback de presión
+(`active:scale-[0.97]`). Las barras de progreso que animan ancho usan
+`transition-[width,background-color]` con tokens, no `transition-all`.
+
+### Animaciones permitidas
+
+Entradas sutiles; fade/scale de diálogos; popovers y menús (origen en el
+disparador vía variables de Radix); indicador de tabs; feedback de botones;
+expansión de filtros; highlight de fila/KPI actualizado; animación breve de
+gráficos.
+
+### Animaciones prohibidas
+
+Rebotes/elastic decorativos; animación constante; animar **cada** fila de tablas
+extensas; `layout shift`; números contando desde cero en cada render; elevación
+en elementos no interactivos; transiciones lentas (>300ms en UI); ocultar
+latencia con movimiento; animar cada refetch; `ease-in` en UI.
+
+### Reducción de movimiento
+
+Todo el sistema respeta `@media (prefers-reduced-motion: reduce)`. Además existe
+una **red de seguridad global** al final de `src/index.css` que reduce a casi
+cero toda `animation`/`transition` (incluidas las utilidades `animate-in/out` de
+`tw-animate-css` que usan los overlays Radix —dropdown, dialog, sheet, select—,
+que de otro modo **no** respetan la preferencia). Se usa `0.01ms` (no `0`) para
+que `animationend` siga disparándose y Radix desmonte los overlays. Cualquier
+animación nueva queda cubierta automáticamente; en JS, usar además
+`useReducedMotion`/`matchMedia` cuando la animación sea programática.
+
+### Patrones de interacción
+
+- Acciones de teclado de alta frecuencia: **sin animación**.
+- Entrar → `--motion-ease-enter`; mover/morph → `--motion-ease-emphasized`;
+  color/hover → `--motion-ease-standard`.
+- Solo animar `transform`/`opacity` (y color/borde baratos). Nunca `width`/`height`
+  de contenido grande.
+- Popovers/menús escalan desde su disparador; los diálogos quedan centrados.
+
+### Ejemplo canónico
+
+```tsx
+// Control interactivo: transición + presión por utilidad, sin transition-all
+<button className="ui-transition active:scale-[0.97] …">Guardar</button>
+
+// Fila/KPI recién actualizado (una sola vez)
+<tr className={recienActualizado ? 'ui-motion-highlight' : undefined}>…</tr>
+```
+
+---
+
 ## 2. Layout
 
 - **Dashboard**: las páginas se renderizan dentro de `MainLayout` que ya provee
@@ -53,6 +140,16 @@ Todos los colores, radios, sombras y tipografías se exponen como variables CSS:
   - `<SiteHeader variant="default">` para landing.
   - `<SiteHeader variant="auth">` para login/registro.
   - `<SiteHeader variant="tool">` para tracking/calculadora.
+
+### Accesibilidad del shell y navegación
+
+- Tanto `MainLayout` (dashboard) como `PublicPageLayout` exponen un **skip link**
+  («Saltar al contenido») que enfoca `#main-content`. Conservarlo al tocar el shell.
+- El `<main>` del dashboard tiene `id="main-content"` y `tabIndex={-1}` como destino
+  del skip link.
+- Navegación: el enlace activo lleva `aria-current="page"`; los grupos colapsables
+  del `Sidebar` exponen `aria-expanded`. No depender solo del color para el estado
+  activo (hay indicador de barra + peso de fuente).
 
 ---
 
@@ -346,6 +443,12 @@ Reglas transversales para todos los formularios del panel operario y admin:
 | Grid operativo (pesaje) | `validateBulkPeso()` + borde/tooltip por fila inválida |
 | Submit fallido por regla de negocio | `form.setError()` o banner inline, **no** `toast.error` |
 | Error de red / API | `toast.error` o `notify.error` en `catch` |
+
+**Accesibilidad de validación**: el error de `LabeledField` se anuncia con
+`role="alert"`; el de `FormMessage` (RHF) ya queda enlazado al control vía
+`aria-describedby` + `aria-invalid`. Ambos entran con `.ui-motion-fade`
+(respeta `prefers-reduced-motion`). No dependas solo del color rojo para señalar
+el error: mantén el ícono/su texto.
 
 ### Utilidades frecuentes
 

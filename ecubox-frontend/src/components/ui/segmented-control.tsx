@@ -38,7 +38,7 @@ export function SegmentedControl<T extends string>({
             onClick={() => onValueChange(option.value)}
             aria-pressed={active}
             className={cn(
-              'rounded font-medium transition-colors',
+              'ui-transition rounded font-medium active:scale-[0.97]',
               size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm',
               active
                 ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'

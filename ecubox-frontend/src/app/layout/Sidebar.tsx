@@ -64,7 +64,7 @@ export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'group relative flex h-full flex-col border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar-background)] transition-[width] duration-200 ease-out motion-reduce:transition-none',
+        'group relative flex h-full flex-col border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar-background)] transition-[width] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none',
         effectiveCollapsed ? 'w-[56px]' : 'w-[240px]',
         mobile && 'w-full max-w-[320px]'
       )}
@@ -124,6 +124,7 @@ export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
                               setExpanded((prev) => ({ ...prev, [to]: !isOpen }));
                             }
                           }}
+                          aria-expanded={effectiveCollapsed ? false : isOpen}
                           title={label}
                           className={cn(
                             'group/item relative flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-[13px] transition-colors text-left',

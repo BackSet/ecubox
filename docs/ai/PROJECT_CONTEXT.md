@@ -77,6 +77,7 @@ Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.js
 - `src/types/` define contratos TypeScript; `src/lib/schemas/` contiene validación Zod.
 - `src/stores/authStore.ts` y `themeStore.ts` manejan estado de cliente con Zustand.
 - La autorización de navegación se comprueba con permisos antes de cargar rutas; esto mejora UX, pero el backend sigue siendo la autoridad de seguridad.
+- **Sistema de diseño y movimiento**: `src/index.css` define tokens globales de color/radio y de **movimiento** (`--motion-fast|normal|slow|emphasis`, curvas `--motion-ease-standard|enter|exit|emphasized`) más utilidades semánticas (`.ui-transition`, `.ui-interactive`, `.ui-surface-hover`, `.ui-motion-*`). Todo respeta `prefers-reduced-motion`. La referencia operativa es `ecubox-frontend/UI_GUIDELINES.md`. Regla global: no `transition-all` ni duraciones/curvas literales dispersas.
 
 ### Backend
 

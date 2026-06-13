@@ -58,6 +58,7 @@ Etiquetas:
 - Usa DTOs, services, repositories, hooks y servicios API según los límites existentes.
 - Backend: el patrón predominante es Controller -> Service -> Repository; conserva autorización con `@PreAuthorize`.
 - Frontend: conserva TanStack Router/Query, servicios Axios, stores Zustand y esquemas Zod existentes.
+- Frontend (diseño/movimiento): usa los tokens y utilidades de movimiento de `src/index.css` (`--motion-*`, `.ui-transition`, `.ui-interactive`, `.ui-surface-hover`, `.ui-motion-*`); no introduzcas `transition-all`, duraciones/curvas literales ni colores literales. Toda animación debe respetar `prefers-reduced-motion`. Sigue `ecubox-frontend/UI_GUIDELINES.md`.
 - Base de datos: Flyway gobierna el esquema; todo cambio futuro requiere migración nueva.
 - Nomenclatura: consulta `docs/ai/NAMING.md` y `docs/nomenclatura.md`; ejecuta el lint de nomenclatura cuando cambie copy.
 - No cambies contratos API, nombres canónicos o permisos sin revisar frontend, backend, migraciones, tests y documentación.

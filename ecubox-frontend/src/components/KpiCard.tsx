@@ -65,7 +65,7 @@ export function KpiCard({
     'h-full p-4',
     showAccent && TONE_ACCENT_WIDTH,
     showAccent && TONE_ACCENT[tone],
-    to && 'transition-all duration-200 hover:border-[var(--color-foreground)]/25 hover:-translate-y-0.5',
+    to && 'ui-surface-hover',
     className
   );
 

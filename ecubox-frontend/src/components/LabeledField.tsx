@@ -37,8 +37,11 @@ export function LabeledField({
       </Label>
       {children}
       {error ? (
-        <p className="flex items-center gap-1 text-xs text-[var(--color-destructive)]">
-          <AlertCircle className="h-3 w-3" />
+        <p
+          role="alert"
+          className="ui-motion-fade flex items-center gap-1 text-xs text-[var(--color-destructive)]"
+        >
+          <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
           {error}
         </p>
       ) : hint ? (
