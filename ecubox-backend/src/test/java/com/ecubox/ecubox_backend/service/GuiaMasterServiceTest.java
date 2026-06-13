@@ -179,6 +179,24 @@ class GuiaMasterServiceTest {
     }
 
     @Test
+    void validarYAsignarPieza_bloqueaSiGuiaPendienteVerificacion() {
+        GuiaMaster gm = GuiaMaster.builder().id(10L).totalPiezasEsperadas(3)
+                .estadoGlobal(EstadoGuiaMaster.PENDIENTE_VERIFICACION).build();
+        var ex = assertThrows(ConflictException.class, () -> service.validarYAsignarPieza(gm, 1));
+        assertTrue(ex.getMessage().contains("PENDIENTE_VERIFICACION"));
+        assertTrue(ex.getMessage().contains("pendiente de aprobación"));
+    }
+
+    @Test
+    void validarYAsignarPieza_bloqueaSiGuiaEnRevision() {
+        GuiaMaster gm = GuiaMaster.builder().id(10L).totalPiezasEsperadas(3)
+                .estadoGlobal(EstadoGuiaMaster.EN_REVISION).build();
+        var ex = assertThrows(ConflictException.class, () -> service.validarYAsignarPieza(gm, 1));
+        assertTrue(ex.getMessage().contains("EN_REVISION"));
+        assertTrue(ex.getMessage().contains("en revisión"));
+    }
+
+    @Test
     void update_totalMenorQuePiezasRegistradas_mensajeIndicaReglaYDatos() {
         GuiaMaster gm = GuiaMaster.builder().id(10L).trackingBase("TB-1")
                 .totalPiezasEsperadas(5).build();

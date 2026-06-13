@@ -54,6 +54,7 @@ import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import {
@@ -83,6 +84,7 @@ import {
   Loader2,
   Ban,
   Check,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   GUIA_MASTER_ESTADO_ICONS,
@@ -116,6 +118,19 @@ const ESTADOS_GUIA_TERMINALES: ReadonlySet<EstadoGuiaMaster> = new Set<EstadoGui
   'DESPACHO_COMPLETADO',
   'CANCELADA',
 ]);
+
+/**
+ * Estados que componen el "universo operativo" de la guía: todos menos
+ * PENDIENTE_VERIFICACION, que vive en la pestaña de aprobación. La vista
+ * operativa envía esta lista explícita al backend para excluir las pendientes
+ * del listado por defecto (el filtro del backend es por inclusión de estados).
+ */
+const ESTADOS_OPERATIVOS: EstadoGuiaMaster[] = GUIA_MASTER_ESTADO_ORDEN.filter(
+  (e) => e !== 'PENDIENTE_VERIFICACION'
+);
+
+/** Vista (pestaña) del módulo de guías master. */
+type VistaGuias = 'operativas' | 'pendientes';
 
 /** Acciones de ciclo de vida aplicables en lote a las guías master. */
 const ACCIONES_GUIA: readonly AplicarEstadoOption[] = [
@@ -193,6 +208,8 @@ export function GuiasMasterPage() {
   const [estadosFiltro, setEstadosFiltro] = useState<Set<EstadoGuiaMaster>>(
     () => new Set()
   );
+  const [vista, setVista] = useState<VistaGuias>('operativas');
+  const enPendientes = vista === 'pendientes';
 
   const hasUpdate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_UPDATE'));
   const hasDelete = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_DELETE'));
@@ -215,9 +232,18 @@ export function GuiasMasterPage() {
     [estadosFiltro]
   );
 
+  // Estados enviados al backend según la pestaña activa:
+  //  - Pendientes de aprobación: solo PENDIENTE_VERIFICACION.
+  //  - Operativas: los chips seleccionados, o todo el universo operativo
+  //    (excluye PENDIENTE_VERIFICACION) cuando no hay filtro de chips.
+  const estadosEfectivos = useMemo<EstadoGuiaMaster[]>(() => {
+    if (enPendientes) return ['PENDIENTE_VERIFICACION'];
+    return estadosArray.length > 0 ? estadosArray : ESTADOS_OPERATIVOS;
+  }, [enPendientes, estadosArray]);
+
   const pageQuery = useGuiasMasterPaginadas({
     q: q.trim() || undefined,
-    estados: estadosArray.length > 0 ? estadosArray : undefined,
+    estados: estadosEfectivos,
     page,
     size,
   });
@@ -238,10 +264,11 @@ export function GuiasMasterPage() {
   // para que el operario tenga un resumen accionable de un vistazo.
   const stats = useMemo(() => {
     const c = conteosPorEstado;
+    // No incluye PENDIENTE_VERIFICACION: esas guías viven en la pestaña de
+    // aprobación, fuera del universo operativo que resumen estos KPIs.
     const enEspera =
       (c.SIN_PAQUETES_REGISTRADOS ?? 0) +
-      (c.CON_PAQUETES_REGISTRADOS ?? 0) +
-      (c.PENDIENTE_VERIFICACION ?? 0);
+      (c.CON_PAQUETES_REGISTRADOS ?? 0);
     const enRecepcion =
       (c.ENVIO_PARCIAL ?? 0) +
       (c.ENVIO_COMPLETO ?? 0) +
@@ -259,6 +286,17 @@ export function GuiasMasterPage() {
       cerradas,
     };
   }, [conteosPorEstado, totalGuias]);
+
+  const pendientesCount = conteosPorEstado.PENDIENTE_VERIFICACION ?? 0;
+
+  function cambiarVista(next: VistaGuias) {
+    if (next === vista) return;
+    setVista(next);
+    // Los chips de estado solo aplican al universo operativo; al cambiar de
+    // pestaña limpiamos el filtro y volvemos a la primera página.
+    setEstadosFiltro(new Set());
+    resetPage();
+  }
 
   // Búsqueda y filtros se aplican en servidor; usamos el resultado tal cual.
   const filtered = guias;
@@ -362,7 +400,40 @@ export function GuiasMasterPage() {
         }
       />
 
-      {totalGuias > 0 && (
+      <div className="flex flex-wrap items-center gap-2">
+        <SegmentedControl<VistaGuias>
+          value={vista}
+          onValueChange={cambiarVista}
+          size="md"
+          options={[
+            { value: 'operativas', label: 'Operativas' },
+            {
+              value: 'pendientes',
+              label: (
+                <span className="inline-flex items-center gap-1.5">
+                  Pendientes de aprobación
+                  {pendientesCount > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="border-[var(--color-warning)] text-[11px] text-[var(--color-warning)]"
+                    >
+                      {pendientesCount}
+                    </Badge>
+                  )}
+                </span>
+              ),
+            },
+          ]}
+        />
+        {enPendientes && (
+          <p className="text-xs text-muted-foreground">
+            Guías registradas por clientes a la espera de aprobación. No aparecen en el listado
+            operativo ni admiten registro de piezas hasta aprobarse.
+          </p>
+        )}
+      </div>
+
+      {!enPendientes && totalGuias > 0 && (
         <KpiCardsGrid>
           <KpiCard
             icon={<Clock className="h-5 w-5" />}
@@ -388,7 +459,7 @@ export function GuiasMasterPage() {
         </KpiCardsGrid>
       )}
 
-      {totalGuias > 0 && (
+      {!enPendientes && totalGuias > 0 && (
         <FiltrosBar
           hayFiltrosActivos={estadosFiltro.size > 0}
           onLimpiar={() => {
@@ -399,7 +470,7 @@ export function GuiasMasterPage() {
             <>
               <ChipFiltro
                 label="Todas"
-                count={totalGuias}
+                count={totalGuias - pendientesCount}
                 active={estadosFiltro.size === 0}
                 onClick={() => {
                   setEstadosFiltro(new Set());
@@ -407,9 +478,12 @@ export function GuiasMasterPage() {
                 }}
               />
               {GUIA_MASTER_ESTADO_ORDEN.map((estado) => {
+                // PENDIENTE_VERIFICACION vive en la pestaña de aprobación, no en
+                // los filtros operativos.
+                if (estado === 'PENDIENTE_VERIFICACION') return null;
                 const count = conteosPorEstado[estado] ?? 0;
                 const active = estadosFiltro.has(estado);
-                if (count === 0 && !active && estado !== 'PENDIENTE_VERIFICACION') return null;
+                if (count === 0 && !active) return null;
                 const Icon = GUIA_MASTER_ESTADO_ICONS[estado];
                 return (
                   <ChipFiltro
@@ -459,9 +533,27 @@ export function GuiasMasterPage() {
         //     y tampoco hay búsqueda/filtros aplicados.
         //   - "Sin resultados": sí hay guías pero la búsqueda/filtro no
         //     encuentra coincidencias.
+        enPendientes ? (
+          <EmptyState
+            icon={Check}
+            title={q.trim() !== '' ? 'Sin resultados' : 'No hay guías pendientes de aprobación'}
+            description={
+              q.trim() !== ''
+                ? `No encontramos guías pendientes que coincidan con "${q.trim()}".`
+                : 'Las guías registradas por clientes aparecerán aquí para su aprobación.'
+            }
+            action={
+              q.trim() !== '' ? (
+                <Button variant="outline" onClick={() => setQ('')}>
+                  Limpiar búsqueda
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
         (() => {
           const tieneFiltros = q.trim() !== '' || estadosFiltro.size > 0;
-          const sinDatos = totalGuias === 0 && !tieneFiltros;
+          const sinDatos = totalGuias - pendientesCount === 0 && !tieneFiltros;
           return (
             <EmptyState
               icon={Boxes}
@@ -492,8 +584,19 @@ export function GuiasMasterPage() {
             />
           );
         })()
+        )
       ) : (
         <>
+        {enPendientes && filtered.some((g) => (g.piezasRegistradas ?? 0) > 0) && (
+          <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)] bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] px-3 py-2 text-xs text-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
+            <span>
+              Hay guías pendientes con piezas ya registradas. Es una inconsistencia administrativa
+              (no debería ocurrir bajo el flujo actual). Revísalas antes de aprobar; los datos
+              históricos no se modifican automáticamente.
+            </span>
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">
           {totalElements} guía{totalElements === 1 ? '' : 's'}
           {pageQuery.isFetching ? ' · cargando...' : ''}
@@ -572,6 +675,17 @@ export function GuiasMasterPage() {
                     </TableCell>
                     <TableCell className="align-top">
                       <GuiaMasterEstadoBadge estado={g.estadoGlobal} />
+                      {enPendientes && (g.piezasRegistradas ?? 0) > 0 && (
+                        <span
+                          className="mt-1 flex items-center gap-1 text-[11px] text-[var(--color-warning)]"
+                          title="Esta guía pendiente ya tiene piezas registradas. Es una inconsistencia administrativa: revísala antes de aprobar. No se corrige automáticamente."
+                        >
+                          <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
+                          Inconsistencia: {g.piezasRegistradas} pieza
+                          {g.piezasRegistradas === 1 ? '' : 's'} registrada
+                          {g.piezasRegistradas === 1 ? '' : 's'}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="align-top">
                       <PiezasProgressCell guia={g} />

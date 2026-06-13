@@ -81,11 +81,26 @@ public enum EstadoGuiaMaster {
         return s;
     }
 
+    /**
+     * Estados en los que la guía no acepta operaciones nuevas (en particular, agregar
+     * piezas/paquetes). PENDIENTE_VERIFICACION requiere aprobación previa del admin/operario
+     * y EN_REVISION es una pausa administrativa explícita: en ambos la guía está fuera del
+     * universo operativo hasta que se apruebe o se salga de revisión.
+     */
+    public static Set<EstadoGuiaMaster> bloqueanOperacionesNuevas() {
+        return EnumSet.of(PENDIENTE_VERIFICACION, EN_REVISION);
+    }
+
     public boolean esTerminal() {
         return terminales().contains(this);
     }
 
     public boolean estaCongeladoParaRecalculo() {
         return congeladosParaRecalculo().contains(this);
+    }
+
+    /** {@code true} si la guía no debe aceptar operaciones nuevas (p. ej. agregar piezas). */
+    public boolean bloqueaOperacionesNuevas() {
+        return bloqueanOperacionesNuevas().contains(this);
     }
 }

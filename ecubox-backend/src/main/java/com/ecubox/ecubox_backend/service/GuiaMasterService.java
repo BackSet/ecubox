@@ -732,6 +732,15 @@ public class GuiaMasterService {
      */
     @Transactional
     public int[] validarYAsignarPieza(GuiaMaster gm, Integer piezaNumero) {
+        EstadoGuiaMaster estado = gm.getEstadoGlobal();
+        if (estado != null && estado.bloqueaOperacionesNuevas()) {
+            String detalle = estado == EstadoGuiaMaster.PENDIENTE_VERIFICACION
+                    ? "La guía está pendiente de aprobación; apruébala antes de agregar piezas."
+                    : "La guía está en revisión; sácala de revisión antes de agregar piezas.";
+            throw new ConflictException(
+                    "No se puede agregar la pieza porque la guía master no admite operaciones nuevas en su estado actual ("
+                            + estado + "). " + detalle);
+        }
         int total = Optional.ofNullable(gm.getTotalPiezasEsperadas()).orElse(0);
         if (total < 1) {
             throw new BadRequestException(

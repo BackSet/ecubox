@@ -13,8 +13,10 @@ import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.entity.PaqueteEstadoEvento;
 import com.ecubox.ecubox_backend.entity.Saca;
 import com.ecubox.ecubox_backend.entity.Usuario;
+import com.ecubox.ecubox_backend.enums.EstadoGuiaMaster;
 import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
+import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.repository.ConsignatarioRepository;
 import com.ecubox.ecubox_backend.repository.GuiaMasterRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
@@ -38,8 +40,10 @@ import java.time.LocalDateTime;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -449,6 +453,38 @@ class PaqueteServiceOp3Test {
                 "Crear paquete no debe asignar envio consolidado; eso lo hace el flujo de EnvioConsolidado");
         assertEquals("1Z52159R0379385035 2/3", dto.getNumeroGuia());
         assertNull(dto.getEnvioConsolidadoCodigo());
+    }
+
+    @Test
+    void create_propagaBloqueoCuandoGuiaNoAdmiteOperacionesNuevas() {
+        PaqueteService paqueteService = createPaqueteService(false);
+        Usuario usuario = Usuario.builder().id(7L).build();
+        Consignatario destinatario = Consignatario.builder()
+                .id(50L).codigo("D50").usuario(usuario).build();
+        GuiaMaster gm = GuiaMaster.builder()
+                .id(99L).trackingBase("1Z52159R0379385035").totalPiezasEsperadas(3)
+                .estadoGlobal(EstadoGuiaMaster.PENDIENTE_VERIFICACION).build();
+
+        EstadoRastreo registrado = EstadoRastreo.builder().id(1L).codigo("REGISTRADO").orden(1).build();
+        when(consignatarioRepository.findById(50L)).thenReturn(Optional.of(destinatario));
+        when(codigoSecuenciaService.nextRefPaquete(50L, "D50")).thenReturn("D50-1");
+        when(parametroSistemaService.getEstadosRastreoPorPunto())
+                .thenReturn(EstadosRastreoPorPuntoDTO.builder().estadoRastreoRegistroPaqueteId(1L).build());
+        when(estadoRastreoService.findEntityById(1L)).thenReturn(registrado);
+        when(guiaMasterRepository.findById(99L)).thenReturn(Optional.of(gm));
+        // La regla central vive en validarYAsignarPieza: aquí verificamos que create la respeta.
+        when(guiaMasterService.validarYAsignarPieza(gm, 2))
+                .thenThrow(new ConflictException("La guía está pendiente de aprobación"));
+
+        PaqueteCreateRequest req = PaqueteCreateRequest.builder()
+                .consignatarioId(50L)
+                .guiaMasterId(99L)
+                .piezaNumero(2)
+                .contenido("Ropa")
+                .build();
+
+        assertThrows(ConflictException.class, () -> paqueteService.create(7L, false, false, req));
+        verify(paqueteRepository, never()).save(any(Paquete.class));
     }
 
     @Test
