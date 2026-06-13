@@ -78,8 +78,8 @@ export const TrackingExportContent = forwardRef<HTMLDivElement, TrackingExportCo
                 onSelectPieza={onSelectPieza}
                 titulo={
                   piezaDisplay.pieza.master?.trackingBase
-                    ? `Otras piezas de la guía ${piezaDisplay.pieza.master.trackingBase}`
-                    : 'Otras piezas de esta guía'
+                    ? `Otros paquetes de la guía ${piezaDisplay.pieza.master.trackingBase}`
+                    : 'Otros paquetes de esta guía'
                 }
               />
             ) : null}

@@ -18,14 +18,14 @@ export interface UseTrackingExportOptions {
 function buildExportFilename(resolved: TrackingResolveResponse, extension: string): string {
   const baseRaw =
     resolved.tipo === 'GUIA_MASTER'
-      ? resolved.master?.trackingBase ?? 'tracking-master'
+      ? resolved.master?.trackingBase ?? 'guia'
       : resolved.pieza?.numeroGuia ?? 'tracking';
   const base = baseRaw.replace(/[^A-Za-z0-9._-]+/g, '_');
   const date = new Date();
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
-  const prefix = resolved.tipo === 'GUIA_MASTER' ? 'consolidado' : 'tracking';
+  const prefix = resolved.tipo === 'GUIA_MASTER' ? 'guia' : 'tracking';
   return `${prefix}-${base}-${yyyy}${mm}${dd}.${extension}`;
 }
 

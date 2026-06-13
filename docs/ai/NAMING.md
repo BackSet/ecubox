@@ -55,6 +55,7 @@
 - Mostrar pesos con `lbs`.
 - **Movimiento (motion)**: tokens canónicos de duración `--motion-instant|fast|normal|slow|emphasis` y de curva `--motion-ease-standard|enter|exit|emphasized`; utilidades `.ui-transition`, `.ui-interactive`, `.ui-surface-hover`, `.ui-motion-enter`, `.ui-motion-fade`, `.ui-motion-scale`, `.ui-motion-slide-up`, `.ui-motion-highlight`. Prohibido `transition-all` y duraciones/curvas literales en componentes. Toda animación respeta `prefers-reduced-motion`. Referencia: `ecubox-frontend/UI_GUIDELINES.md`.
 - **Estadísticas**: usar **«Periodo»** para el rango consultado (`[desde, hastaExclusivo)`, `hasta` exclusivo en el API; `hastaInclusivo` solo para mostrar). **«Preset»** es la selección rápida; **«Rango personalizado»** el modo manual; **«Granularidad»** la agregación temporal (diaria/semanal/mensual/trimestral). **«Periodo anterior equivalente»** es el rango contra el que se compara; **«Período en curso»** etiqueta un periodo parcial. **«Resultados del periodo»** (histórico, comparable) se separa de **«Estado operativo actual»** (fotografía, sin comparación histórica).
+- **Separación de lenguaje por audiencia (estados de guía)**: el vocabulario interno (operación/back-office) se separa del visible para el cliente. Cliente ve **Guía** (no «Guía master»), **Número de guía**, **Mis guías**, **Paquete** (no «Pieza»), **Envío** (nunca «Envío consolidado»/«consolidado»). El cliente no ve «Guía master», «Envío consolidado/consolidado», «Lote de recepción», «estado derivado», «recálculo automático» ni «admin/operario». Fuente única en código: `ecubox-frontend/src/lib/estados/guiaMasterEstados.ts` (catálogo `EstadoGuiaMaster` con etiqueta/descr. interna y de cliente; `describirEstadoCliente` expresa la parcialidad por cantidades, sin la palabra «parcial»). Las equivalencias se consultan en modo lectura en `/parametros-sistema/estados` («Equivalencias de estados para clientes»). El lenguaje interno se conserva intacto en paneles administrativos.
 - Ejecutar `npm run lint:nomenclatura` al modificar copy del frontend.
 
 ### API/backend
@@ -131,6 +132,25 @@ No asumir que existe una operación por el sufijo `*`; usar solo códigos presen
 `SIN_PAQUETES_REGISTRADOS`, `CON_PAQUETES_REGISTRADOS`, `ENVIO_PARCIAL`,
 `ENVIO_COMPLETO`, `RECEPCION_PARCIAL`, `RECEPCION_COMPLETA`,
 `DESPACHO_PARCIAL`, `DESPACHO_COMPLETADO`, `CANCELADA`.
+
+#### Etiquetas internas vs. etiquetas de cliente (estados de guía master)
+
+Sinonimia canónica (parcial y completo comparten etiqueta de cliente; la diferencia se expresa por cantidades de paquetes). Fuente única: `src/lib/estados/guiaMasterEstados.ts`.
+
+| Estado técnico | Etiqueta interna | Etiqueta cliente |
+|---|---|---|
+| `PENDIENTE_VERIFICACION` | Pendiente de verificación | Pendiente de verificación |
+| `VERIFICADA` | Verificada | Guía verificada |
+| `EN_REVISION` | En revisión | En revisión |
+| `SIN_PAQUETES_REGISTRADOS` | Sin paquetes registrados | Sin paquetes registrados |
+| `CON_PAQUETES_REGISTRADOS` | Con paquetes registrados | En preparación |
+| `ENVIO_PARCIAL` | Envío parcial | En camino a Ecuador |
+| `ENVIO_COMPLETO` | Envío completo | En camino a Ecuador |
+| `RECEPCION_PARCIAL` | Recepción parcial | En bodega |
+| `RECEPCION_COMPLETA` | Recepción completa | En bodega |
+| `DESPACHO_PARCIAL` | Despacho parcial | En camino al destino |
+| `DESPACHO_COMPLETADO` | Despacho completado | Entregada |
+| `CANCELADA` | Cancelada | Cancelada |
 
 ### Estados del envío consolidado
 

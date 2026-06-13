@@ -13,21 +13,10 @@ import {
   type DocumentBadgeVariant,
   type DocumentTimelineItem,
 } from '@/lib/pdf/builders/trackingPdfDocument';
+import { MI_GUIA_ESTADO_LABELS } from '@/lib/estados/guiaMasterEstados';
 
-const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
-  SIN_PAQUETES_REGISTRADOS: 'Sin paquetes registrados',
-  CON_PAQUETES_REGISTRADOS: 'En espera de envío',
-  PENDIENTE_VERIFICACION: 'Pendiente de verificación',
-  VERIFICADA: 'Verificada',
-  ENVIO_PARCIAL: 'En camino a Ecuador (parcial)',
-  ENVIO_COMPLETO: 'En camino a Ecuador',
-  RECEPCION_PARCIAL: 'Recepción parcial',
-  RECEPCION_COMPLETA: 'Recepción completa',
-  DESPACHO_PARCIAL: 'En despacho parcial',
-  DESPACHO_COMPLETADO: 'Despacho completado',
-  CANCELADA: 'Cancelada',
-  EN_REVISION: 'En revisión',
-};
+// Comprobante visible para el cliente: usa las etiquetas del catálogo compartido.
+const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = MI_GUIA_ESTADO_LABELS;
 
 function variantFromEstado(estado?: EstadoGuiaMaster): DocumentBadgeVariant {
   switch (estado) {
@@ -68,8 +57,8 @@ function buildActivityTimeline(events: TrackingMasterEventoItem[]): DocumentTime
   return ordered.map((ev) => {
     const piezaLbl =
       ev.piezaNumero != null
-        ? `Pieza ${ev.piezaNumero}${ev.piezaTotal ? `/${ev.piezaTotal}` : ''}`
-        : 'Pieza';
+        ? `Paquete ${ev.piezaNumero}${ev.piezaTotal ? `/${ev.piezaTotal}` : ''}`
+        : 'Paquete';
     const title = ev.estadoNombre ? `${piezaLbl} · ${ev.estadoNombre}` : piezaLbl;
     return {
       title,
@@ -93,7 +82,7 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
   const pctRec = total > 0 ? Math.min(100, (recibidas / total) * 100) : 0;
 
   renderer.drawHero({
-    docType: 'Comprobante de guía consolidada',
+    docType: 'Comprobante de guía',
     reference: pdfSafe(data.trackingBase),
     statusLabel: estadoLabel,
     statusVariant: variantFromEstado(data.estadoGlobal),
@@ -104,7 +93,7 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
     progressCaption:
       total > 0
         ? `Recepción ${recibidas}/${total} (${Math.round(pctRec)}%) · Despacho ${despachadas}/${total} (${Math.round(total > 0 ? (despachadas / total) * 100 : 0)}%)`
-        : 'Total de piezas esperadas aún no definido',
+        : 'Total de paquetes esperados aún no definido',
     stats: [
       { label: 'Esperadas', value: String(total) },
       { label: 'Registradas', value: String(registradas) },
@@ -116,14 +105,14 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
   if (total === 0) {
     renderer.drawCallout(
       'info',
-      'Consolidado en preparación',
-      'Aún no se ha definido el total de piezas esperadas para esta guía.'
+      'En preparación',
+      'Aún no se ha definido el total de paquetes esperados para esta guía.'
     );
   }
 
   renderer.drawSectionTitle(
     'Fechas clave',
-    'Hitos operativos del consolidado.'
+    'Hitos de tu guía.'
   );
   renderer.drawKeyValueGrid([
     [
@@ -160,16 +149,16 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
 
   const piezas = data.piezas ?? [];
   if (piezas.length === 0) {
-    renderer.drawSectionTitle('Piezas de la guía');
-    renderer.drawCallout('info', 'Sin piezas registradas', 'Aún no se han registrado piezas de esta guía.');
+    renderer.drawSectionTitle('Paquetes de la guía');
+    renderer.drawCallout('info', 'Sin paquetes registrados', 'Aún no se han registrado paquetes de esta guía.');
   } else {
     renderer.drawSectionTitle(
-      `Piezas de la guía (${piezas.length})`,
-      'Listado de piezas y su estado actual.'
+      `Paquetes de la guía (${piezas.length})`,
+      'Listado de paquetes y su estado actual.'
     );
     renderer.drawTable(
       [
-        { key: 'pieza', label: 'Pieza', widthRatio: 0.14 },
+        { key: 'pieza', label: 'Paquete', widthRatio: 0.14 },
         { key: 'guia', label: 'Número de guía', widthRatio: 0.42 },
         { key: 'estado', label: 'Estado actual', widthRatio: 0.44 },
       ],
@@ -188,7 +177,7 @@ export function buildTrackingMasterPdf(data: TrackingMasterResponse): jsPDF {
   if (timeline.length > 0) {
     renderer.drawTimeline(buildActivityTimeline(timeline), 14, {
       title: 'Actividad reciente',
-      description: 'Últimos eventos registrados en las piezas de esta guía.',
+      description: 'Últimos eventos registrados en los paquetes de esta guía.',
     });
   }
 

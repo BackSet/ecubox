@@ -10,7 +10,7 @@ import { usePublicCanalesDisponibles } from '@/hooks/useCanalesComunicacion';
 const FAQ_ITEMS = [
   {
     q: '¿Cómo rastreo mi paquete?',
-    a: 'Ingresa tu número de guía o el código del consolidador en la página de rastreo y verás en tiempo real el estado de tu envío y de cada pieza asociada.',
+    a: 'Ingresa tu número de guía o el número de tu paquete en la página de rastreo y verás en tiempo real el estado de tu envío y de cada paquete asociado.',
   },
   {
     q: '¿Necesito tarjeta o pagar mensualidad?',

@@ -228,7 +228,7 @@ export function MisEntregasPage() {
             label="Despachos"
             value={despachos.length}
             tone="primary"
-            hint="Despachos asociados a tus piezas"
+            hint="Despachos asociados a tus paquetes"
           />
           <KpiCard
             icon={<CheckCircle2 className="h-5 w-5" />}
@@ -316,7 +316,7 @@ export function MisEntregasPage() {
                 <TableHead>Despacho</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">Piezas</TableHead>
+                <TableHead className="text-right">Paquetes</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-[260px] text-right">Acciones</TableHead>
               </TableRow>
@@ -345,7 +345,7 @@ export function MisEntregasPage() {
                   <TableHead>Despacho</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead className="text-right">Piezas</TableHead>
+                  <TableHead className="text-right">Paquetes</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-[260px] text-right">Acciones</TableHead>
                 </TableRow>

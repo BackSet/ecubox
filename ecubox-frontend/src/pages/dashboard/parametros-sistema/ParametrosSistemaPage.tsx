@@ -146,6 +146,7 @@ import type {
 } from '@/types/estado-rastreo';
 import type { EstadoGuiaMaster } from '@/types/guia-master';
 import type { EstadoEnvioConsolidadoOperativo } from '@/types/envio-consolidado';
+import { EquivalenciasEstadosClientePanel } from './EquivalenciasEstadosClientePanel';
 
 
 // ============================================================================
@@ -580,7 +581,12 @@ export function ParametrosSistemaPage() {
 
           {opcionActiva === 'tarifa-distribucion' && <TarifaDistribucionPanel />}
 
-          {opcionActiva === 'estados-rastreo' && <EstadosRastreoView />}
+          {opcionActiva === 'estados-rastreo' && (
+            <div className="space-y-6">
+              <EstadosRastreoView />
+              <EquivalenciasEstadosClientePanel />
+            </div>
+          )}
 
           {opcionActiva === 'estados-rastreo-por-punto' && <EstadosRastreoPorPuntoView />}
       </main>

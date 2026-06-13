@@ -56,8 +56,8 @@ export function TrackingPiezasList({
   totalEsperadas,
   numeroGuiaActual,
   onSelectPieza,
-  titulo = 'Piezas de esta guía',
-  emptyMessage = 'Todavía no hay piezas registradas en esta guía.',
+  titulo = 'Paquetes de esta guía',
+  emptyMessage = 'Todavía no hay paquetes registrados en esta guía.',
 }: TrackingPiezasListProps) {
   const piezasOrdenadas = useMemo(
     () =>
@@ -74,7 +74,7 @@ export function TrackingPiezasList({
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-semibold text-[var(--color-foreground)]">{titulo}</h3>
         <span className="text-xs text-[var(--color-muted-foreground)]">
-          {piezasOrdenadas.length} {piezasOrdenadas.length === 1 ? 'pieza' : 'piezas'}
+          {piezasOrdenadas.length} {piezasOrdenadas.length === 1 ? 'paquete' : 'paquetes'}
         </span>
       </div>
 
@@ -109,8 +109,8 @@ function PiezaRow({ pieza, totalEsperadas, esActual, onSelectPieza }: PiezaRowPr
   const piezaTotal = pieza.piezaTotal ?? totalEsperadas ?? 0;
   const piezaLabel =
     pieza.piezaNumero != null && piezaTotal > 0
-      ? `Pieza ${pieza.piezaNumero}/${piezaTotal}`
-      : 'Pieza';
+      ? `Paquete ${pieza.piezaNumero}/${piezaTotal}`
+      : 'Paquete';
   const href = buildTrackingUrl(pieza.numeroGuia);
 
   function handleClick(event: MouseEvent<HTMLAnchorElement>) {

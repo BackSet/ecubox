@@ -21,26 +21,19 @@ import type {
 import { getDomainStatusTone } from '@/components/ui/StatusBadge';
 import { PiezasProgress } from '@/components/PiezasProgress';
 import { TrackingPiezasList } from '@/pages/tracking/components/TrackingPiezasList';
+import {
+  MI_GUIA_ESTADO_LABELS,
+  describirEstadoCliente,
+} from '@/lib/estados/guiaMasterEstados';
 
 interface TrackingMasterViewProps {
   master: TrackingMasterResponse;
-  onSelectPieza: (numeroGuia: string) => void;
+  onSelectPieza: (numeroPaquete: string) => void;
 }
 
-const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = {
-  SIN_PAQUETES_REGISTRADOS: 'Sin paquetes registrados',
-  CON_PAQUETES_REGISTRADOS: 'En espera de envío',
-  PENDIENTE_VERIFICACION: 'Pendiente de verificación',
-  VERIFICADA: 'Verificada',
-  ENVIO_PARCIAL: 'En camino a Ecuador (parcial)',
-  ENVIO_COMPLETO: 'En camino a Ecuador',
-  RECEPCION_PARCIAL: 'Recepción parcial',
-  RECEPCION_COMPLETA: 'Recepción completa',
-  DESPACHO_PARCIAL: 'En despacho parcial',
-  DESPACHO_COMPLETADO: 'Despacho completado',
-  CANCELADA: 'Cancelada',
-  EN_REVISION: 'En revisión',
-};
+// Etiquetas visibles para el cliente, desde el catálogo compartido. La vista
+// pública de rastreo nunca expone la jerga interna («Guía master», «parcial»…).
+const ESTADO_LABELS: Record<EstadoGuiaMaster, string> = MI_GUIA_ESTADO_LABELS;
 
 type HeroTone = 'info' | 'success' | 'warning' | 'danger' | 'neutral';
 
@@ -159,11 +152,21 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
             </span>
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
-                Guía consolidada
+                Guía
               </p>
               <h2 className="text-2xl font-bold leading-tight tracking-tight text-[var(--color-foreground)] sm:text-[1.75rem]">
                 {estadoLabel}
               </h2>
+              {master.estadoGlobal ? (
+                <p className="text-sm text-[var(--color-muted-foreground)]">
+                  {describirEstadoCliente(master.estadoGlobal, {
+                    totalEsperado: total,
+                    registrados: registradas,
+                    recibidos: recibidas,
+                    despachados: despachadas,
+                  })}
+                </p>
+              ) : null}
               {consignatarioNombre ? (
                 <p className="text-sm text-[var(--color-muted-foreground)]">
                   Consignatario:{' '}
@@ -179,7 +182,7 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
             <div className="mt-5 space-y-2.5">
               <div className="flex items-baseline justify-between gap-2">
                 <p className="text-sm font-medium text-[var(--color-foreground)]">
-                  {despachadas} de {total} piezas despachadas
+                  {despachadas} de {total} paquetes despachados
                 </p>
                 <p className={`text-sm font-bold tabular-nums ${styles.percent}`}>
                   {pctDespachadasRedondeado}%
@@ -198,7 +201,7 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
           ) : (
             <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-dashed border-[var(--color-border)] p-3 text-xs text-[var(--color-muted-foreground)]">
               <AlertCircle className="h-4 w-4" />
-              Aún no se ha definido el total de piezas esperadas para esta guía.
+              Aún no se ha definido el total de paquetes esperados para esta guía.
             </div>
           )}
         </div>
@@ -252,7 +255,7 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
             />
           </div>
           <p className="text-xs text-[var(--color-muted-foreground)]">
-            Esta información corresponde a los datos disponibles del consolidado en ECUBOX.
+            Esta información corresponde a los datos disponibles de tu guía en ECUBOX.
             Por privacidad no se exponen teléfonos ni direcciones exactas.
           </p>
         </div>
@@ -262,7 +265,7 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
         piezas={piezas}
         totalEsperadas={total}
         onSelectPieza={onSelectPieza}
-        titulo="Piezas de esta guía"
+        titulo="Paquetes de esta guía"
       />
 
       {timeline.length > 0 ? (
@@ -277,8 +280,8 @@ export function TrackingMasterView({ master, onSelectPieza }: TrackingMasterView
             {timeline.map((ev, idx) => {
               const piezaLabel =
                 ev.piezaNumero != null
-                  ? `Pieza ${ev.piezaNumero}${ev.piezaTotal ? `/${ev.piezaTotal}` : ''}`
-                  : 'Pieza';
+                  ? `Paquete ${ev.piezaNumero}${ev.piezaTotal ? `/${ev.piezaTotal}` : ''}`
+                  : 'Paquete';
               return (
                 <li
                   key={`${ev.numeroGuia}-${ev.occurredAt ?? idx}`}
