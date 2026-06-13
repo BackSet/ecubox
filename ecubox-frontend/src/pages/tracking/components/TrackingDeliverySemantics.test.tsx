@@ -54,7 +54,7 @@ describe('semántica pública de entrega', () => {
           numeroGuia: 'DEMO-DOMICILIO',
           operadorEntrega: {
             tipoEntrega: 'DOMICILIO',
-            courierNombre: 'Courier Uno',
+            courierEntregaNombre: 'Courier Uno',
           },
         }}
       />,
@@ -67,13 +67,13 @@ describe('semántica pública de entrega', () => {
         result={{
           numeroGuia: 'DEMO-COURIER',
           operadorEntrega: {
-            tipoEntrega: 'AGENCIA_COURIER',
-            courierNombre: 'Courier Uno',
+            tipoEntrega: 'AGENCIA_COURIER_ENTREGA',
+            courierEntregaNombre: 'Courier Uno',
           },
         }}
       />,
     );
 
-    expect(screen.getByText('Punto de retiro del courier')).toBeInTheDocument();
+    expect(screen.getAllByText('Punto de retiro del courier')).toHaveLength(2);
   });
 });

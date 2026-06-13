@@ -39,6 +39,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -62,6 +63,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class EnvioConsolidadoServiceTest {
+
+    private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
 
     @Mock private EnvioConsolidadoRepository envioRepository;
     @Mock private PaqueteRepository paqueteRepository;
@@ -569,7 +572,7 @@ class EnvioConsolidadoServiceTest {
                 AvanceEstadosConsolidadosRequest.builder()
                         .consolidadoIds(List.of(1L))
                         .transicionFinalCodigo("ENVIADO_DESDE_USA")
-                        .fechaPrincipal(LocalDateTime.now().minusHours(1))
+                        .fechaPrincipal(LocalDateTime.now(ZONA_ECUADOR).minusHours(1))
                         .build());
 
         assertEquals(List.of("CERRADO", "ENVIADO_DESDE_USA"),
@@ -616,7 +619,7 @@ class EnvioConsolidadoServiceTest {
                 AvanceEstadosConsolidadosRequest.builder()
                         .consolidadoIds(List.of(1L))
                         .transicionFinalCodigo("CERRADO")
-                        .fechaPrincipal(LocalDateTime.now().minusHours(1))
+                        .fechaPrincipal(LocalDateTime.now(ZONA_ECUADOR).minusHours(1))
                         .build()));
         assertTrue(ex.getMessage().contains("anterior"));
     }
@@ -665,7 +668,7 @@ class EnvioConsolidadoServiceTest {
         when(envioRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(envio));
         when(paqueteRepository.findByEnvioConsolidadoIdInWithEstadoForUpdate(List.of(1L)))
                 .thenReturn(List.of(paquete));
-        LocalDateTime fecha = LocalDateTime.now().minusHours(1);
+        LocalDateTime fecha = LocalDateTime.now(ZONA_ECUADOR).minusHours(1);
         AvanceEstadosConsolidadosRequest request = AvanceEstadosConsolidadosRequest.builder()
                 .consolidadoIds(List.of(1L))
                 .transicionFinalCodigo("ENVIADO_DESDE_USA")
@@ -710,7 +713,7 @@ class EnvioConsolidadoServiceTest {
                 AvanceEstadosConsolidadosRequest.builder()
                         .consolidadoIds(List.of(1L, 2L))
                         .transicionFinalCodigo("CERRADO")
-                        .fechaPrincipal(LocalDateTime.now().minusHours(1))
+                        .fechaPrincipal(LocalDateTime.now(ZONA_ECUADOR).minusHours(1))
                         .build());
 
         assertEquals(2, preview.getResumen().getTotalConsolidados());
@@ -821,7 +824,7 @@ class EnvioConsolidadoServiceTest {
         var preview = service.previewAvanceEstados(AvanceEstadosConsolidadosRequest.builder()
                 .consolidadoIds(List.of(1L))
                 .transicionFinalCodigo("CERRADO")
-                .fechaPrincipal(LocalDateTime.now().minusHours(1))
+                .fechaPrincipal(LocalDateTime.now(ZONA_ECUADOR).minusHours(1))
                 .build());
 
         assertEquals(1, preview.getPasos().size());
@@ -847,7 +850,7 @@ class EnvioConsolidadoServiceTest {
         when(envioRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(a, b));
         when(paqueteRepository.findByEnvioConsolidadoIdInWithEstado(List.of(1L, 2L)))
                 .thenReturn(List.of(a1, a2, b1, b2));
-        LocalDateTime fecha = LocalDateTime.now().minusHours(1);
+        LocalDateTime fecha = LocalDateTime.now(ZONA_ECUADOR).minusHours(1);
         AvanceEstadosConsolidadosRequest request = AvanceEstadosConsolidadosRequest.builder()
                 .consolidadoIds(List.of(1L, 2L))
                 .transicionFinalCodigo("CERRADO")

@@ -14,6 +14,7 @@ describe('TrackingTimeline', () => {
             nombre: 'Recibido',
             orden: 1,
             tipoFlujo: 'NORMAL',
+            leyenda: null,
             esActual: false,
           },
           {
@@ -33,6 +34,7 @@ describe('TrackingTimeline', () => {
             nombre: 'Listo',
             orden: 3,
             tipoFlujo: 'NORMAL',
+            leyenda: null,
             esActual: false,
           },
         ]}
