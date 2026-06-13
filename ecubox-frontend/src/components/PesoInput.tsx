@@ -78,7 +78,7 @@ export function PesoInput({
   return (
     <div
       className={cn(
-        'group/peso flex min-w-[6.5rem] items-stretch overflow-hidden rounded-md border border-border bg-background shadow-sm transition-[border-color,box-shadow]',
+        'group/peso flex min-w-[6.5rem] items-stretch overflow-hidden rounded-md border border-border bg-background shadow-sm transition-[border-color,box-shadow] [transition-duration:var(--motion-fast)] [transition-timing-function:var(--motion-ease-standard)]',
         'focus-within:border-[var(--color-primary)]/50 focus-within:ring-2 focus-within:ring-[var(--color-primary)]/15',
         highlight && 'border-[var(--color-success)]/40 bg-[var(--color-success)]/[0.03]',
         invalid && 'border-[var(--color-destructive)] focus-within:ring-[var(--color-destructive)]/20',
@@ -202,7 +202,7 @@ export function PesoInputPair({
     <div className={cn('space-y-1', className)}>
       <div
         className={cn(
-          'group/peso-pair flex overflow-hidden border border-border bg-background transition-[border-color,box-shadow]',
+          'group/peso-pair flex overflow-hidden border border-border bg-background transition-[border-color,box-shadow] [transition-duration:var(--motion-fast)] [transition-timing-function:var(--motion-ease-standard)]',
           pair.wrap,
           size === 'sm' ? 'shadow-none focus-within:ring-1' : 'shadow-sm focus-within:ring-2',
           'focus-within:border-[var(--color-primary)]/50 focus-within:ring-[var(--color-primary)]/15',

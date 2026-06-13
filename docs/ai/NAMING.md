@@ -49,6 +49,8 @@
 - **«Estados por punto»**: estados de rastreo de paquetes configurables por hito en `/parametros-sistema/por-punto` (`EstadosRastreoPorPuntoDTO`: asociar a consolidado, lote de recepción, en despacho, etc.). El código nunca hardcodea estos estados; los resuelve por configuración.
 - **«Estado anterior inmediato»**: regla de admisión por la que una entidad solo entra a un flujo si está EXACTAMENTE en el estado previo requerido. Para paquetes se resuelve con `EstadoRastreoService.resolverTransicionInmediata`; para consolidados, la recepción en bodega exige `ARRIBADO_ECUADOR` y los deja en `RECIBIDO_EN_BODEGA`.
 - Mostrar pesos con `lbs`.
+- **Movimiento (motion)**: tokens canónicos de duración `--motion-instant|fast|normal|slow|emphasis` y de curva `--motion-ease-standard|enter|exit|emphasized`; utilidades `.ui-transition`, `.ui-interactive`, `.ui-surface-hover`, `.ui-motion-enter`, `.ui-motion-fade`, `.ui-motion-scale`, `.ui-motion-slide-up`, `.ui-motion-highlight`. Prohibido `transition-all` y duraciones/curvas literales en componentes. Toda animación respeta `prefers-reduced-motion`. Referencia: `ecubox-frontend/UI_GUIDELINES.md`.
+- **Estadísticas**: usar **«Periodo»** para el rango consultado (`[desde, hastaExclusivo)`, `hasta` exclusivo en el API; `hastaInclusivo` solo para mostrar). **«Preset»** es la selección rápida; **«Rango personalizado»** el modo manual; **«Granularidad»** la agregación temporal (diaria/semanal/mensual/trimestral). **«Periodo anterior equivalente»** es el rango contra el que se compara; **«Período en curso»** etiqueta un periodo parcial. **«Resultados del periodo»** (histórico, comparable) se separa de **«Estado operativo actual»** (fotografía, sin comparación histórica).
 - Ejecutar `npm run lint:nomenclatura` al modificar copy del frontend.
 
 ### API/backend
@@ -93,6 +95,7 @@
 | Liquidación | `Liquidacion` | `liquidacion` | `/api/liquidaciones` | `/liquidaciones` |
 | Estado de rastreo | `EstadoRastreo` | `estado_rastreo` | `/api/operario/estados-rastreo` | `/parametros-sistema/estados` |
 | Rastreo público | `TrackingResolveResponse` | vistas/eventos de rastreo | `/api/tracking` | `/tracking` |
+| Estadísticas | `EstadisticasDashboardDTO` (`resultados`/`estadoActual`, `MetricaComparable`, `SeriePunto`); `EstadisticasConsulta`, `PeriodoEstadisticasResolver`; enums `GranularidadEstadisticas`, `PresetPeriodoEstadisticas` | agregaciones sobre `despacho`/`paquete` (sin tabla propia) | `/api/estadisticas` | `/estadisticas` |
 | Enlace de acceso | `AccesoEnlace`, `TipoAccesoEnlace`; código de negocio visible `codigo` con formato canónico `ACC-000001` (no editable, no reemplaza al token) | `acceso_enlace` | `/api/acceso-enlaces`, `/api/auth/acceso-enlace` | `/enlaces-acceso`, `/acceso` |
 | Casillero | Sin entidad propia confirmada | Datos de usuario/parámetros | Configuración pública/perfil | `/casillero` |
 
@@ -138,6 +141,8 @@ No asumir que existe una operación por el sufijo `*`; usar solo códigos presen
 - Rastreo resoluble: `PIEZA`, `GUIA_MASTER`.
 - Flujo de estado: `NORMAL`, `ALTERNO`.
 - Outbox: `PENDING`, `SENT`, `FAILED`.
+- Granularidad de estadísticas (`GranularidadEstadisticas`): `DIARIA`, `SEMANAL`, `MENSUAL`, `TRIMESTRAL`.
+- Preset de periodo de estadísticas (`PresetPeriodoEstadisticas`): `ESTE_MES`, `MES_ANTERIOR`, `MES_ESPECIFICO`, `ULTIMOS_3_MESES`, `ULTIMOS_6_MESES`, `ULTIMOS_12_MESES`, `ULTIMOS_24_MESES`, `ESTE_ANIO`, `ANIO_ANTERIOR`, `RANGO_PERSONALIZADO`.
 - Revisión de paquete: `EN_REVISION`, `RESUELTA`.
 - Motivo de revisión de paquete: `DATOS_INCONSISTENTES`, `PESO_O_DIMENSIONES`, `CONSIGNATARIO_INCORRECTO`, `GUIA_INCORRECTA`, `CONTENIDO_RESTRINGIDO`, `OTRO`.
 

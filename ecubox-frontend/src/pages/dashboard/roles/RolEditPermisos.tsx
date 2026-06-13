@@ -414,7 +414,7 @@ export function RolEditPermisos({ rolId, onClose, onSuccess }: RolEditPermisosPr
             <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
               <div
                 className={cn(
-                  'h-full transition-all',
+                  'h-full transition-[width,background-color] [transition-duration:var(--motion-slow)] [transition-timing-function:var(--motion-ease-standard)]',
                   totalSeleccionados === 0
                     ? 'bg-[var(--color-warning)]'
                     : pct >= 75

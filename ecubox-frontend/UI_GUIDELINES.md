@@ -43,6 +43,101 @@ Todos los colores, radios, sombras y tipografías se exponen como variables CSS:
 
 ---
 
+## 1.5 Sistema de movimiento (motion)
+
+El movimiento es funcional: confirma acciones, preserva continuidad espacial y
+evita cambios bruscos. Nunca decorativo ni constante.
+
+### Tokens (`src/index.css`, en `:root`)
+
+| Token | Valor | Uso |
+| --- | --- | --- |
+| `--motion-instant` | `0ms` | sin animación (acciones de teclado) |
+| `--motion-fast` | `120ms` | feedback de botón, color/hover, controles |
+| `--motion-normal` | `180ms` | dropdowns, selects, popovers, entradas |
+| `--motion-slow` | `240ms` | superficies, expansión de filtros, highlight |
+| `--motion-emphasis` | `300ms` | diálogos, drawers |
+| `--motion-ease-standard` | `cubic-bezier(0.4,0,0.2,1)` | color/hover |
+| `--motion-ease-enter` | `cubic-bezier(0.23,1,0.32,1)` | entradas (ease-out fuerte) |
+| `--motion-ease-exit` | `cubic-bezier(0.4,0,1,1)` | salidas (rápidas) |
+| `--motion-ease-emphasized` | `cubic-bezier(0.77,0,0.175,1)` | movimiento/morph en pantalla |
+
+> **Regla**: no uses `transition-all` ni duraciones literales (`duration-200`,
+> `300ms`) dispersas. Usa los tokens o las utilidades de abajo.
+
+### Utilidades semánticas
+
+| Clase | Efecto |
+| --- | --- |
+| `.ui-transition` | transición canónica de controles (color + presión), `--motion-fast` |
+| `.ui-interactive` | feedback de presión `scale(0.97)` en `:active` |
+| `.ui-surface-hover` | hover lift de superficies clicables (borde + translateY + sombra) |
+| `.ui-motion-enter` / `.ui-motion-slide-up` | entrada con desplazamiento sutil |
+| `.ui-motion-fade` | entrada con fade |
+| `.ui-motion-scale` | entrada con escala desde `scale(0.96)` (respeta `--transform-origin`) |
+| `.ui-motion-highlight` | resalta **una vez** una fila/KPI recién actualizado |
+
+`Button`, `Input`, `Switch`, filas de `Table`, `ChipFiltro`, `SegmentedControl`,
+`KpiCard` (variante enlazada), `PesoInput`/`PesoInputPair` y `EmptyState` (entrada
+con `.ui-motion-slide-up`) ya consumen estas utilidades/tokens; no reimplementes
+transiciones a mano. Los controles accionables llevan feedback de presión
+(`active:scale-[0.97]`). Las barras de progreso y los gráficos (`SeriesChart`,
+`StatusDistributionChart`) que animan dimensión usan `transition-[width|height]`
+con tokens + `motion-reduce:transition-none` (solo animan al cambiar datos, no en
+cada render), nunca `transition-all`.
+
+> **`transition-all` está erradicado** de `src/` (dashboard y público). Para
+> superficies con hover-lift, listar propiedades explícitas
+> (`transition-[transform,box-shadow,border-color,...]`) con tokens, o usar
+> `.ui-surface-hover`. Nunca animes propiedades de layout (`width`/`height`) salvo
+> barras finas de progreso/gráficos.
+
+### Animaciones permitidas
+
+Entradas sutiles; fade/scale de diálogos; popovers y menús (origen en el
+disparador vía variables de Radix); indicador de tabs; feedback de botones;
+expansión de filtros; highlight de fila/KPI actualizado; animación breve de
+gráficos.
+
+### Animaciones prohibidas
+
+Rebotes/elastic decorativos; animación constante; animar **cada** fila de tablas
+extensas; `layout shift`; números contando desde cero en cada render; elevación
+en elementos no interactivos; transiciones lentas (>300ms en UI); ocultar
+latencia con movimiento; animar cada refetch; `ease-in` en UI.
+
+### Reducción de movimiento
+
+Todo el sistema respeta `@media (prefers-reduced-motion: reduce)`. Además existe
+una **red de seguridad global** al final de `src/index.css` que reduce a casi
+cero toda `animation`/`transition` (incluidas las utilidades `animate-in/out` de
+`tw-animate-css` que usan los overlays Radix —dropdown, dialog, sheet, select—,
+que de otro modo **no** respetan la preferencia). Se usa `0.01ms` (no `0`) para
+que `animationend` siga disparándose y Radix desmonte los overlays. Cualquier
+animación nueva queda cubierta automáticamente; en JS, usar además
+`useReducedMotion`/`matchMedia` cuando la animación sea programática.
+
+### Patrones de interacción
+
+- Acciones de teclado de alta frecuencia: **sin animación**.
+- Entrar → `--motion-ease-enter`; mover/morph → `--motion-ease-emphasized`;
+  color/hover → `--motion-ease-standard`.
+- Solo animar `transform`/`opacity` (y color/borde baratos). Nunca `width`/`height`
+  de contenido grande.
+- Popovers/menús escalan desde su disparador; los diálogos quedan centrados.
+
+### Ejemplo canónico
+
+```tsx
+// Control interactivo: transición + presión por utilidad, sin transition-all
+<button className="ui-transition active:scale-[0.97] …">Guardar</button>
+
+// Fila/KPI recién actualizado (una sola vez)
+<tr className={recienActualizado ? 'ui-motion-highlight' : undefined}>…</tr>
+```
+
+---
+
 ## 2. Layout
 
 - **Dashboard**: las páginas se renderizan dentro de `MainLayout` que ya provee
@@ -53,6 +148,16 @@ Todos los colores, radios, sombras y tipografías se exponen como variables CSS:
   - `<SiteHeader variant="default">` para landing.
   - `<SiteHeader variant="auth">` para login/registro.
   - `<SiteHeader variant="tool">` para tracking/calculadora.
+
+### Accesibilidad del shell y navegación
+
+- Tanto `MainLayout` (dashboard) como `PublicPageLayout` exponen un **skip link**
+  («Saltar al contenido») que enfoca `#main-content`. Conservarlo al tocar el shell.
+- El `<main>` del dashboard tiene `id="main-content"` y `tabIndex={-1}` como destino
+  del skip link.
+- Navegación: el enlace activo lleva `aria-current="page"`; los grupos colapsables
+  del `Sidebar` exponen `aria-expanded`. No depender solo del color para el estado
+  activo (hay indicador de barra + peso de fuente).
 
 ---
 
@@ -347,6 +452,12 @@ Reglas transversales para todos los formularios del panel operario y admin:
 | Submit fallido por regla de negocio | `form.setError()` o banner inline, **no** `toast.error` |
 | Error de red / API | `toast.error` o `notify.error` en `catch` |
 
+**Accesibilidad de validación**: el error de `LabeledField` se anuncia con
+`role="alert"`; el de `FormMessage` (RHF) ya queda enlazado al control vía
+`aria-describedby` + `aria-invalid`. Ambos entran con `.ui-motion-fade`
+(respeta `prefers-reduced-motion`). No dependas solo del color rojo para señalar
+el error: mantén el ícono/su texto.
+
 ### Utilidades frecuentes
 
 ```tsx
@@ -394,6 +505,55 @@ Las páginas públicas comparten el lenguaje "landing":
 
 ---
 
+## 5.5 Responsive (estándar canónico)
+
+### Viewports canónicos
+
+Verificar en: **320, 360, 390, 430, 768, 1024, 1280, 1440, 1720 px**, además de
+zoom 200%, texto aumentado, orientación horizontal y datos con nombres extensos.
+Regla dura: a 320 px **ninguna** página debe producir scroll horizontal
+(`document.documentElement.scrollWidth <= clientWidth`).
+
+### Reglas
+
+1. **`min-w-0` en hijos flexibles que deban encoger.** Un hijo flex/grid tiene
+   `min-width: auto` por defecto: su contenido (texto `nowrap`, valor de un
+   `Select`) fija un ancho mínimo que **propaga overflow hacia arriba**. Añade
+   `min-w-0` al hijo (y a contenedores intermedios) para permitir `truncate`/
+   `line-clamp`. Causa raíz del fallo histórico en `/parametros-sistema/por-punto`.
+2. **Controles a `w-full max-w-full` en móvil**; el ancho limitado se activa desde
+   un breakpoint (`sm:w-[220px]`), nunca como ancho base fijo.
+3. **`truncate`/`line-clamp` solo funcionan con `min-w-0`** en la cadena flex.
+   Define por cada texto largo si **envuelve, trunca o rompe** (`break-words`).
+4. **Acciones apiladas en móvil** (`flex-col gap-… sm:flex-row`); ver `PageHeader`,
+   `TablePagination`.
+5. **Tablas**: envolver en `ListTableShell` (`.table-responsive` con
+   `overflow-x:auto`). La **tabla** desplaza su contenedor, **no la página**.
+6. **Popovers / dialogs no superan el viewport**: `Select` (`max-w-[calc(100vw-2rem)]`),
+   `SearchableCombobox` (`minWidth: min(max(trigger,16rem), calc(100vw-16px))`),
+   `Dialog` (`w-[calc(100%-1.5rem)] max-w-lg`). Radix porta el contenido fuera del
+   `overflow` del contenedor.
+7. **Prohibido** ocultar defectos con `overflow-x-hidden` global en `body`/shell;
+   corrige el nodo que desborda. No reducir tipografía globalmente.
+8. No depender de hover; targets táctiles ≥ ~32–36 px de alto.
+
+### Controles compartidos ya endurecidos
+
+`SelectTrigger` (`min-w-0 max-w-full`, valor `min-w-0` truncable, icono `shrink-0`),
+`SelectContent` (`max-w-[calc(100vw-2rem)]`, scroll vertical, items multilínea),
+`SearchableCombobox` (trigger `min-w-0`, valor `min-w-0 flex-1 truncate`, popover
+acotado al viewport). Reutilízalos; no reimplementes triggers a mano.
+
+### Pruebas responsive
+
+JSDOM no mide píxeles: en Vitest se prueba **estructura** (clases `min-w-0`/
+`max-w-full`, variantes, teclado, apertura/selección). Para regresión visual real
+se recomienda Playwright (proyectos 320/390/768/1280) aseverando
+`scrollWidth <= clientWidth`; aún no incorporado (requiere autorización de
+dependencia). Mientras tanto, checklist manual con DevTools device toolbar.
+
+---
+
 ## 6. Checklist al crear una página nueva
 
 - [ ] Root: `<div className="page-stack">` (dashboard) o `landing-shell` (público)
@@ -407,3 +567,5 @@ Las páginas públicas comparten el lenguaje "landing":
 - [ ] Badges de estado: `StatusBadge` o `DomainStatusBadge`
 - [ ] Sin colores Tailwind crudos
 - [ ] Sin `<h1>`/`<h2>` ad-hoc — usa `PageHeader`/`FormSection`
+- [ ] Responsive: `min-w-0` en hijos flex que truncan; controles `w-full` en móvil;
+      sin scroll horizontal a 320 px (ver §5.5)

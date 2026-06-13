@@ -1,17 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { MonthlyChart, StatusDistributionChart } from './EstadisticasCharts';
+import { SeriesChart, StatusDistributionChart } from './EstadisticasCharts';
 
 describe('EstadisticasCharts', () => {
-  it('renders monthly operational series with an accessible description', () => {
+  it('renders a monthly series with an accessible description', () => {
     render(
-      <MonthlyChart
-        despachos={[
-          { periodo: '2026-06', etiqueta: 'Jun 26', total: 8, paquetes: 20, pesoLbs: 40 },
-        ]}
-        registros={[
-          { periodo: '2026-06', etiqueta: 'Jun 26', total: 12, paquetes: 0, pesoLbs: 0 },
-        ]}
+      <SeriesChart
+        granularidad="MENSUAL"
+        despachos={[{ periodo: '2026-06', etiqueta: 'Jun 26', total: 8, paquetes: 20, pesoLbs: 40 }]}
+        registros={[{ periodo: '2026-06', etiqueta: 'Jun 26', total: 12, paquetes: 0, pesoLbs: 0 }]}
       />,
     );
 
@@ -22,6 +19,22 @@ describe('EstadisticasCharts', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Despachos')).toBeInTheDocument();
     expect(screen.getByText('Paquetes registrados')).toBeInTheDocument();
+  });
+
+  it('adapts the accessible label to the granularity', () => {
+    render(
+      <SeriesChart
+        granularidad="DIARIA"
+        despachos={[{ periodo: '2026-06-13', etiqueta: '13 jun', total: 3, paquetes: 5, pesoLbs: 9 }]}
+        registros={[{ periodo: '2026-06-13', etiqueta: '13 jun', total: 4, paquetes: 0, pesoLbs: 0 }]}
+      />,
+    );
+
+    expect(
+      screen.getByRole('img', {
+        name: 'Comparación diaria de despachos y paquetes registrados',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('shows package status totals and percentages', () => {

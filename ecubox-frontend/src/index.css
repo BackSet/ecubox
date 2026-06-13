@@ -50,6 +50,21 @@
   --sidebar-border: #E6E6E3;
   --sidebar-ring: #7B3FE4;
 
+  /* ── Sistema de movimiento (motion) ──
+     Duraciones y curvas semánticas. Reutilizar SIEMPRE estos tokens; no
+     introducir duraciones/curvas arbitrarias dispersas. Son independientes
+     del tema (no se redefinen en .dark). Filosofía: entradas con ease-out,
+     UI < 300ms, solo transform/opacity, respetar prefers-reduced-motion. */
+  --motion-instant: 0ms;
+  --motion-fast: 120ms;     /* feedback de botón, color/hover, controles */
+  --motion-normal: 180ms;   /* dropdowns, selects, popovers, entradas */
+  --motion-slow: 240ms;     /* superficies, expansión de filtros */
+  --motion-emphasis: 300ms; /* diálogos, drawers */
+  --motion-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);       /* color/hover */
+  --motion-ease-enter: cubic-bezier(0.23, 1, 0.32, 1);        /* entradas (ease-out fuerte) */
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);             /* salidas (rápidas) */
+  --motion-ease-emphasized: cubic-bezier(0.77, 0, 0.175, 1);  /* movimiento/morph en pantalla */
+
   /* --color-* para uso directo con var() */
   --color-background: #FBFBFA;
   --color-foreground: #1A1A1A;
@@ -662,7 +677,7 @@
     to   { opacity: 1; transform: translateY(0); }
   }
   .page-stack > * {
-    animation: page-in 0.18s ease-out both;
+    animation: page-in var(--motion-normal) var(--motion-ease-enter) both;
   }
   .page-stack > *:nth-child(2) { animation-delay: 35ms; }
   .page-stack > *:nth-child(3) { animation-delay: 70ms; }
@@ -692,12 +707,86 @@
 
   /* ── Cards interactivas con hover lift ── */
   .card-interactive {
-    transition: border-color 180ms ease, transform 200ms ease, box-shadow 200ms ease;
+    transition: border-color var(--motion-normal) var(--motion-ease-standard),
+                transform var(--motion-normal) var(--motion-ease-standard),
+                box-shadow var(--motion-normal) var(--motion-ease-standard);
   }
   .card-interactive:hover {
     border-color: color-mix(in oklab, var(--color-foreground) 18%, var(--color-border));
     transform: translateY(-1px);
     box-shadow: 0 4px 16px color-mix(in oklab, var(--color-foreground) 5%, transparent);
+  }
+
+  /* ────────────────────────────────────────────────────────
+     Utilidades semánticas de movimiento
+     Entradas sutiles, feedback de presión, hover de superficies y
+     resaltado de filas actualizadas. Todas respetan prefers-reduced-motion
+     (ver bloque global al final). No animar acciones de teclado ni cada fila
+     de tablas largas ni cada refetch. */
+  @keyframes ui-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ui-scale-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes ui-slide-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes ui-highlight {
+    from { background-color: color-mix(in oklab, var(--color-info) 18%, transparent); }
+    to   { background-color: transparent; }
+  }
+
+  .ui-motion-enter,
+  .ui-motion-slide-up { animation: ui-slide-up var(--motion-normal) var(--motion-ease-enter) both; }
+  .ui-motion-fade { animation: ui-fade-in var(--motion-normal) var(--motion-ease-enter) both; }
+  .ui-motion-scale {
+    animation: ui-scale-in var(--motion-normal) var(--motion-ease-enter) both;
+    transform-origin: var(--transform-origin, center);
+  }
+  /* Resalta una vez una fila/KPI recién actualizado (sin parpadeo continuo). */
+  .ui-motion-highlight { animation: ui-highlight var(--motion-slow) var(--motion-ease-standard) both; }
+
+  /* Transición canónica de controles interactivos (color + presión).
+     Reemplaza a `transition-all`: solo propiedades baratas, duración/curva por token. */
+  .ui-transition {
+    transition-property: color, background-color, border-color, box-shadow, transform;
+    transition-duration: var(--motion-fast);
+    transition-timing-function: var(--motion-ease-standard);
+  }
+
+  /* Feedback de presión para cualquier elemento accionable. */
+  .ui-interactive {
+    transition: transform var(--motion-fast) var(--motion-ease-standard);
+  }
+  .ui-interactive:active { transform: scale(0.97); }
+
+  /* Hover lift para superficies clicables (alias semántico de card-interactive). */
+  .ui-surface-hover {
+    transition: border-color var(--motion-normal) var(--motion-ease-standard),
+                transform var(--motion-normal) var(--motion-ease-standard),
+                box-shadow var(--motion-normal) var(--motion-ease-standard);
+  }
+  .ui-surface-hover:hover {
+    border-color: color-mix(in oklab, var(--color-foreground) 18%, var(--color-border));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px color-mix(in oklab, var(--color-foreground) 5%, transparent);
+  }
+
+  /* Reducción de movimiento global para el sistema de motion: conserva
+     opacidad/comprensión, elimina desplazamiento, escala y lift. */
+  @media (prefers-reduced-motion: reduce) {
+    .ui-motion-enter,
+    .ui-motion-slide-up,
+    .ui-motion-scale,
+    .ui-motion-highlight { animation: ui-fade-in var(--motion-fast) var(--motion-ease-standard) both; }
+    .ui-transition,
+    .ui-interactive,
+    .ui-surface-hover { transition: none !important; }
+    .ui-interactive:active,
+    .ui-surface-hover:hover { transform: none !important; }
+    .card-interactive { transition: border-color var(--motion-fast) var(--motion-ease-standard); }
+    .card-interactive:hover { transform: none; box-shadow: none; }
   }
 
   /* ── Indicador visual de overflow horizontal en tablas ── */
@@ -735,7 +824,9 @@
     font-size: 0.875rem;
     color: var(--color-foreground);
     outline: none;
-    transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+    transition: border-color var(--motion-fast) var(--motion-ease-standard),
+                box-shadow var(--motion-fast) var(--motion-ease-standard),
+                background-color var(--motion-fast) var(--motion-ease-standard);
   }
   .input-clean:focus {
     border-color: var(--color-ring);
@@ -819,4 +910,24 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ────────────────────────────────────────────────────────
+   Reducción de movimiento — red de seguridad global
+   Garantiza que TODA animación/transición respete la preferencia del usuario,
+   incluidas las utilidades de `tw-animate-css` (animate-in/out de Radix:
+   dropdown, dialog, sheet, select) que de otro modo no la respetan. Se usa una
+   duración casi nula (no 0) para que `animationend` siga disparándose y Radix
+   desmonte correctamente los overlays. Conserva la comprensión eliminando el
+   movimiento, no la funcionalidad.
+   ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

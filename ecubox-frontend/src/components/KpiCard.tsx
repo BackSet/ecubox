@@ -65,7 +65,7 @@ export function KpiCard({
     'h-full p-4',
     showAccent && TONE_ACCENT_WIDTH,
     showAccent && TONE_ACCENT[tone],
-    to && 'transition-all duration-200 hover:border-[var(--color-foreground)]/25 hover:-translate-y-0.5',
+    to && 'ui-surface-hover',
     className
   );
 
@@ -76,7 +76,7 @@ export function KpiCard({
           <span
             className={cn(
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-md [&>svg]:h-5 [&>svg]:w-5',
-              'transition-transform duration-200',
+              'transition-transform [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)]',
               to && 'group-hover:scale-105',
               TONE_BADGE[tone]
             )}

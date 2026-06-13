@@ -131,7 +131,7 @@ function LinkRow({
   brand?: { bg: string; text: string; ring: string; hover: string };
 }) {
   const className = cn(
-    'group flex items-center gap-3.5 rounded-2xl px-4 py-3.5 ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+    'group flex items-center gap-3.5 rounded-2xl px-4 py-3.5 ring-1 transition-[transform,box-shadow,border-color,background-color,color] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] hover:-translate-y-0.5 hover:shadow-md',
     brand
       ? cn(brand.bg, brand.ring, brand.hover)
       : 'bg-[var(--color-landing-card)] ring-[var(--color-landing-border)] hover:bg-[var(--color-landing-card-muted)]',

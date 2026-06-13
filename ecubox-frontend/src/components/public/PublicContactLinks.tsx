@@ -82,7 +82,7 @@ function ContactRow({
     <a
       href={buildHref(canal, valor)}
       className={cn(
-        'group inline-flex min-w-0 items-center gap-3 rounded-xl ring-1 transition-all duration-200',
+        'group inline-flex min-w-0 items-center gap-3 rounded-xl ring-1 transition-[transform,box-shadow,border-color,background-color,color] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)]',
         style.bg,
         style.ring,
         style.hover,
@@ -140,7 +140,7 @@ function SocialButton({
       title={CANAL_LABELS[canal]}
       aria-label={CANAL_LABELS[canal]}
       className={cn(
-        'inline-flex items-center justify-center ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+        'inline-flex items-center justify-center ring-1 transition-[transform,box-shadow,border-color,background-color,color] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] hover:-translate-y-0.5 hover:shadow-md',
         sizeClass,
         style.bg,
         style.text,
@@ -170,7 +170,7 @@ function SocialCard({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        'group flex min-w-[9.5rem] flex-1 items-center gap-3 rounded-xl px-3.5 py-3 ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:min-w-[10.5rem]',
+        'group flex min-w-[9.5rem] flex-1 items-center gap-3 rounded-xl px-3.5 py-3 ring-1 transition-[transform,box-shadow,border-color,background-color,color] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] hover:-translate-y-0.5 hover:shadow-md sm:min-w-[10.5rem]',
         style.bg,
         style.ring,
         style.hover,
@@ -221,7 +221,7 @@ function SocialChip({
       href={buildHref(canal, valor)}
       {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       className={cn(
-        'group inline-flex items-center gap-2.5 rounded-full px-4 py-2 ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm',
+        'group inline-flex items-center gap-2.5 rounded-full px-4 py-2 ring-1 transition-[transform,box-shadow,border-color,background-color,color] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] hover:-translate-y-0.5 hover:shadow-sm',
         style.bg,
         style.ring,
         style.hover,
@@ -262,7 +262,7 @@ function SocialBandItem({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        'group flex flex-col items-center gap-2 rounded-2xl px-4 py-3 ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+        'group flex flex-col items-center gap-2 rounded-2xl px-4 py-3 ring-1 transition-[transform,box-shadow,border-color,background-color,color] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] hover:-translate-y-0.5 hover:shadow-md',
         style.bg,
         style.ring,
         style.hover,

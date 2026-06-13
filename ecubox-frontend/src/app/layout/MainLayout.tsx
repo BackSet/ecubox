@@ -55,6 +55,12 @@ export function MainLayout({ content }: { content?: ReactNode }) {
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-[var(--color-background)]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-[var(--color-primary)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[var(--color-primary-foreground)] focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Saltar al contenido
+      </a>
       <div className="hidden lg:block">
         <Sidebar />
       </div>
@@ -64,7 +70,11 @@ export function MainLayout({ content }: { content?: ReactNode }) {
           onOpenSidebar={() => setMobileSidebarOpen(true)}
           shortcutLabel={shortcutLabel}
         />
-        <main className="mobile-safe-inline min-h-0 flex-1 overflow-y-auto px-0 py-6 lg:py-10">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mobile-safe-inline min-h-0 flex-1 overflow-y-auto px-0 py-6 outline-none lg:py-10"
+        >
           <div className="page-shell">
             {isAcceso && !accessInviteDismissed ? (
               <AccessRegisterInvite
