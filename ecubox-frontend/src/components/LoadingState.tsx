@@ -17,7 +17,7 @@ export function LoadingState({
       <div
         className={cn(
           'flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]',
-          'animate-in fade-in duration-200',
+          'ui-motion-fade',
           className
         )}
       >
@@ -31,7 +31,7 @@ export function LoadingState({
     <div
       className={cn(
         'flex flex-col items-center justify-center gap-3 py-12',
-        'animate-in fade-in duration-300',
+        'ui-motion-fade',
         className
       )}
     >

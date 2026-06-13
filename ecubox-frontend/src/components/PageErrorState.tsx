@@ -31,7 +31,7 @@ export function PageErrorState({
         'flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed',
         'border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5',
         'px-6 py-14 text-center',
-        'animate-in fade-in duration-300',
+        'ui-motion-fade',
         className,
       )}
     >

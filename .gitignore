@@ -62,3 +62,6 @@ Desktop.ini
 *.bak
 *.tmp
 *.temp
+
+# Lighthouse / auditoría local
+**/reports/

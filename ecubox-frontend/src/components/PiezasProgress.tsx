@@ -162,7 +162,7 @@ export function PiezasProgress({
           <div
             key={s.key}
             className={cn(
-              'absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out',
+              'absolute inset-y-0 left-0 rounded-full transition-[width] [transition-duration:var(--motion-slow)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none',
               s.bar,
             )}
             style={{ width: `${pct(values[s.key], total)}%` }}
