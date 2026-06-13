@@ -38,15 +38,17 @@ export interface PeriodoEstadisticas {
 }
 
 export interface EstadisticasResultadosPeriodo {
-  despachos: MetricaComparable;
   paquetesDespachados: MetricaComparable;
   paquetesRegistrados: MetricaComparable;
   pesoDespachadoLbs: MetricaComparable;
   tiempoPromedioDespachoDias: MetricaComparable;
+  /** Estimación (no contable): peso registrado × tasas históricas de liquidación. */
   margenBruto: MetricaComparable;
+  /** Estimación (no contable): peso registrado × tasas históricas de liquidación. */
   costoDistribucion: MetricaComparable;
+  /** Estimación (no contable): margen estimado − costo estimado. */
   ingresoNeto: MetricaComparable;
-  despachosSerie: EstadisticaSeriePunto[];
+  paquetesDespachadosSerie: EstadisticaSeriePunto[];
   registrosSerie: EstadisticaSeriePunto[];
 }
 

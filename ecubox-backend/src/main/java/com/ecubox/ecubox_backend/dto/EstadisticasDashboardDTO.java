@@ -47,8 +47,17 @@ public record EstadisticasDashboardDTO(
     ) {
     }
 
+    /**
+     * Resultados históricos del periodo. Las métricas de despacho se basan en la
+     * primera transición auditable del paquete al estado de despacho
+     * (ver {@code PaqueteEstadoEventoRepository}), no en {@code despacho.fecha_hora}.
+     *
+     * Las métricas financieras ({@code margenBruto}, {@code costoDistribucion},
+     * {@code ingresoNeto}) son ESTIMACIONES calculadas con el peso de los paquetes
+     * registrados en el periodo y tasas históricas de liquidaciones; no son
+     * valores contables reales.
+     */
     public record ResultadosPeriodo(
-            MetricaComparable despachos,
             MetricaComparable paquetesDespachados,
             MetricaComparable paquetesRegistrados,
             MetricaComparable pesoDespachadoLbs,
@@ -56,7 +65,7 @@ public record EstadisticasDashboardDTO(
             MetricaComparable margenBruto,
             MetricaComparable costoDistribucion,
             MetricaComparable ingresoNeto,
-            List<SeriePunto> despachosSerie,
+            List<SeriePunto> paquetesDespachadosSerie,
             List<SeriePunto> registrosSerie
     ) {
     }

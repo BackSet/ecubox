@@ -15,7 +15,6 @@ import {
   Timer,
   TrendingDown,
   TrendingUp,
-  Truck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { notify } from '@/lib/notify';
@@ -110,12 +109,6 @@ export function EstadisticasPage() {
     void navigate({ to: '/estadisticas', search: next as never });
   }
 
-  const mejorPunto = useMemo(() => {
-    const serie = data?.resultados.despachosSerie ?? [];
-    if (!serie.length) return null;
-    return serie.reduce((best, item) => (item.total > best.total ? item : best));
-  }, [data]);
-
   async function handleExportPdf() {
     if (!data || exportando) return;
     setExportando(true);
@@ -183,7 +176,7 @@ export function EstadisticasPage() {
 
       {isLoading && !data ? (
         <>
-          <KpiCardsGridSkeleton count={8} />
+          <KpiCardsGridSkeleton count={7} />
           <SurfaceCardSkeleton />
           <div className="grid gap-4 xl:grid-cols-3">
             <SurfaceCardSkeleton className="xl:col-span-2" />
@@ -220,13 +213,6 @@ export function EstadisticasPage() {
               Resultados del periodo
             </h2>
             <KpiCardsGrid>
-              <KpiCard
-                icon={<Truck />}
-                label="Despachos"
-                value={formatNumber(resultados.despachos.actual)}
-                hint={comparaHint(resultados.despachos)}
-                tone={tono(resultados.despachos)}
-              />
               <KpiCard
                 icon={<PackageCheck />}
                 label="Paquetes despachados"
@@ -269,7 +255,7 @@ export function EstadisticasPage() {
               />
               <KpiCard
                 icon={<TrendingDown />}
-                label="Costo de distribución"
+                label="Costo de distribución estimado"
                 value={formatMoney(resultados.costoDistribucion.actual)}
                 hint={comparaHint(resultados.costoDistribucion)}
                 tone="warning"
@@ -277,7 +263,7 @@ export function EstadisticasPage() {
               />
               <KpiCard
                 icon={<DollarSign />}
-                label="Ingreso neto aproximado"
+                label="Ingreso neto estimado"
                 value={formatMoney(resultados.ingresoNeto.actual)}
                 hint={comparaHint(resultados.ingresoNeto)}
                 tone="success"
@@ -286,20 +272,21 @@ export function EstadisticasPage() {
             </KpiCardsGrid>
 
             <PageCard
-              title="Evolución del periodo"
-              description="Compara despachos realizados con nuevos paquetes registrados."
+              title="Movimiento de paquetes"
+              description="Compara los paquetes registrados con los que avanzaron a despacho durante el periodo."
             >
               <SeriesChart
-                despachos={resultados.despachosSerie}
+                paquetesDespachados={resultados.paquetesDespachadosSerie}
                 registros={resultados.registrosSerie}
                 granularidad={data.granularidad}
               />
-              {mejorPunto && (
-                <p className="mt-3 text-[12px] text-[var(--color-muted-foreground)]">
-                  Mayor actividad: {mejorPunto.etiqueta} ({formatNumber(mejorPunto.total)} despachos).
-                </p>
-              )}
             </PageCard>
+
+            <p className="text-[11px] text-[var(--color-muted-foreground)]">
+              Margen, costo de distribución e ingreso neto son <strong>estimaciones</strong>{' '}
+              calculadas con el peso de los paquetes registrados y tasas históricas de
+              liquidación; no son valores contables reales.
+            </p>
           </section>
 
           {/* ── Estado operativo actual (fotografía, sin comparación) ── */}

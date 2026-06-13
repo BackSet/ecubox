@@ -6,10 +6,10 @@ import com.ecubox.ecubox_backend.dto.EstadisticasDashboardDTO.MetricaComparable;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.enums.GranularidadEstadisticas;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
-import com.ecubox.ecubox_backend.repository.DespachoRepository;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
 import com.ecubox.ecubox_backend.repository.EstadisticasExcepcionRepository;
 import com.ecubox.ecubox_backend.repository.LiquidacionRepository;
+import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import com.ecubox.ecubox_backend.util.Pageables;
 import org.springframework.stereotype.Service;
@@ -42,23 +42,23 @@ public class EstadisticasService {
             DateTimeFormatter.ofPattern("MMM yy", LOCALE_EC);
     private static final BigDecimal CIEN = BigDecimal.valueOf(100);
 
-    private final DespachoRepository despachoRepository;
     private final PaqueteRepository paqueteRepository;
+    private final PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
     private final EstadoRastreoRepository estadoRastreoRepository;
     private final EstadisticasExcepcionRepository excepcionRepository;
     private final LiquidacionRepository liquidacionRepository;
     private final ParametroSistemaService parametroSistemaService;
     private final PeriodoEstadisticasResolver periodoResolver;
 
-    public EstadisticasService(DespachoRepository despachoRepository,
-                               PaqueteRepository paqueteRepository,
+    public EstadisticasService(PaqueteRepository paqueteRepository,
+                               PaqueteEstadoEventoRepository paqueteEstadoEventoRepository,
                                EstadoRastreoRepository estadoRastreoRepository,
                                EstadisticasExcepcionRepository excepcionRepository,
                                LiquidacionRepository liquidacionRepository,
                                ParametroSistemaService parametroSistemaService,
                                PeriodoEstadisticasResolver periodoResolver) {
-        this.despachoRepository = despachoRepository;
         this.paqueteRepository = paqueteRepository;
+        this.paqueteEstadoEventoRepository = paqueteEstadoEventoRepository;
         this.estadoRastreoRepository = estadoRastreoRepository;
         this.excepcionRepository = excepcionRepository;
         this.liquidacionRepository = liquidacionRepository;
@@ -84,9 +84,14 @@ public class EstadisticasService {
         LocalDateTime antDesde = periodo.anteriorDesde().atStartOfDay();
         LocalDateTime antHasta = periodo.anteriorHastaExclusivo().atStartOfDay();
 
+        // Estado configurado como "despacho": ancla de la fuente canónica.
+        Long estadoDespachoId = parametroSistemaService.getEstadosRastreoPorPunto()
+                .getEstadoRastreoEnDespachoId();
+
         // ── Resultados del periodo (histórico + comparación) ──
-        ResumenDespachos despActual = resumenDespachos(desde, hasta);
-        ResumenDespachos despAnterior = resumenDespachos(antDesde, antHasta);
+        // Paquetes despachados: primera transición auditable al estado de despacho.
+        ResumenDespachados despActual = resumenDespachados(estadoDespachoId, desde, hasta);
+        ResumenDespachados despAnterior = resumenDespachados(estadoDespachoId, antDesde, antHasta);
 
         long registradosActual = paqueteRepository.countRegistradosEntre(desde, hasta);
         long registradosAnterior = paqueteRepository.countRegistradosEntre(antDesde, antHasta);
@@ -94,9 +99,12 @@ public class EstadisticasService {
         BigDecimal pesoRegActual = paqueteRepository.sumPesoRegistradoEntre(desde, hasta);
         BigDecimal pesoRegAnterior = paqueteRepository.sumPesoRegistradoEntre(antDesde, antHasta);
 
-        Double avgActual = paqueteRepository.avgDiasDespachoEntre(desde, hasta);
-        Double avgAnterior = paqueteRepository.avgDiasDespachoEntre(antDesde, antHasta);
+        Double avgActual = estadoDespachoId == null ? null
+                : paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(estadoDespachoId, desde, hasta);
+        Double avgAnterior = estadoDespachoId == null ? null
+                : paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(estadoDespachoId, antDesde, antHasta);
 
+        // Estimaciones financieras (NO contables): peso REGISTRADO × tasas históricas.
         LiquidacionRepository.TasasEstimacionProjection tasas =
                 liquidacionRepository.findTasasEstimacionHistoricas();
         BigDecimal margenActual = estimarPorPeso(pesoRegActual, tasas.getMargenPorLibra());
@@ -106,10 +114,11 @@ public class EstadisticasService {
         BigDecimal ingresoActual = margenActual.subtract(costoActual).setScale(4, RoundingMode.HALF_UP);
         BigDecimal ingresoAnterior = margenAnterior.subtract(costoAnterior).setScale(4, RoundingMode.HALF_UP);
 
-        List<EstadisticasDashboardDTO.SeriePunto> despachosSerie = buildSerie(
-                granularidad, periodo.desde(), periodo.hastaExclusivo(),
-                despachoRepository.aggregateByPeriodo(granularidad.getTruncUnit(), desde, hasta),
-                true);
+        List<Object[]> filasDespachados = estadoDespachoId == null ? List.of()
+                : paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(
+                        granularidad.getTruncUnit(), estadoDespachoId, desde, hasta);
+        List<EstadisticasDashboardDTO.SeriePunto> paquetesDespachadosSerie = buildSerie(
+                granularidad, periodo.desde(), periodo.hastaExclusivo(), filasDespachados, true);
         List<EstadisticasDashboardDTO.SeriePunto> registrosSerie = buildSerie(
                 granularidad, periodo.desde(), periodo.hastaExclusivo(),
                 paqueteRepository.aggregateRegistradosByPeriodo(granularidad.getTruncUnit(), desde, hasta),
@@ -117,8 +126,6 @@ public class EstadisticasService {
 
         EstadisticasDashboardDTO.ResultadosPeriodo resultados =
                 new EstadisticasDashboardDTO.ResultadosPeriodo(
-                        comparable(BigDecimal.valueOf(despActual.despachos()),
-                                BigDecimal.valueOf(despAnterior.despachos())),
                         comparable(BigDecimal.valueOf(despActual.paquetes()),
                                 BigDecimal.valueOf(despAnterior.paquetes())),
                         comparable(BigDecimal.valueOf(registradosActual),
@@ -128,7 +135,7 @@ public class EstadisticasService {
                         comparable(margenActual, margenAnterior),
                         comparable(costoActual, costoAnterior),
                         comparable(ingresoActual, ingresoAnterior),
-                        despachosSerie,
+                        paquetesDespachadosSerie,
                         registrosSerie);
 
         // ── Estado operativo actual (fotografía, sin comparación histórica) ──
@@ -198,15 +205,23 @@ public class EstadisticasService {
 
     // ───────────────────────── Series por granularidad ─────────────────────────
 
-    private record ResumenDespachos(long despachos, long paquetes, BigDecimal peso) {
+    private record ResumenDespachados(long paquetes, BigDecimal peso) {
     }
 
-    private ResumenDespachos resumenDespachos(LocalDateTime desde, LocalDateTime hasta) {
-        Object[] row = despachoRepository.aggregateResumen(desde, hasta);
-        if (row == null || row.length < 3) {
-            return new ResumenDespachos(0, 0, BigDecimal.ZERO);
+    /**
+     * Resumen de paquetes despachados en el rango por su evento canónico de
+     * despacho. Cuenta paquetes únicos (no entidades despacho) y suma su peso.
+     */
+    private ResumenDespachados resumenDespachados(Long estadoDespachoId,
+                                                  LocalDateTime desde, LocalDateTime hasta) {
+        if (estadoDespachoId == null) {
+            return new ResumenDespachados(0, BigDecimal.ZERO);
         }
-        return new ResumenDespachos(longValue(row[0]), longValue(row[1]), decimal(row[2]));
+        Object[] row = paqueteEstadoEventoRepository.resumenDespachadosEntre(estadoDespachoId, desde, hasta);
+        if (row == null || row.length < 2) {
+            return new ResumenDespachados(0, BigDecimal.ZERO);
+        }
+        return new ResumenDespachados(longValue(row[0]), decimal(row[1]));
     }
 
     /**
@@ -216,7 +231,7 @@ public class EstadisticasService {
      */
     private static List<EstadisticasDashboardDTO.SeriePunto> buildSerie(
             GranularidadEstadisticas granularidad, LocalDate desde, LocalDate hastaExclusivo,
-            List<Object[]> filas, boolean conDespachos) {
+            List<Object[]> filas, boolean conPeso) {
         Map<String, EstadisticasDashboardDTO.SeriePunto> puntos = new LinkedHashMap<>();
         for (LocalDate inicio = truncar(desde, granularidad);
              inicio.isBefore(hastaExclusivo);
@@ -229,8 +244,9 @@ public class EstadisticasService {
             LocalDate inicio = toLocalDate(fila[0]);
             String clave = clave(inicio, granularidad);
             long total = longValue(fila[1]);
-            long paquetes = conDespachos && fila.length > 2 ? longValue(fila[2]) : 0;
-            BigDecimal peso = conDespachos && fila.length > 3 ? decimal(fila[3]) : BigDecimal.ZERO;
+            // Series de paquetes despachados: [periodo, total, peso]; total == paquetes.
+            long paquetes = conPeso ? total : 0;
+            BigDecimal peso = conPeso && fila.length > 2 ? decimal(fila[2]) : BigDecimal.ZERO;
             puntos.put(clave, new EstadisticasDashboardDTO.SeriePunto(
                     clave, etiqueta(inicio, granularidad), total, paquetes, peso));
         }

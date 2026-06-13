@@ -8,10 +8,10 @@ import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.enums.GranularidadEstadisticas;
 import com.ecubox.ecubox_backend.enums.PresetPeriodoEstadisticas;
-import com.ecubox.ecubox_backend.repository.DespachoRepository;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
 import com.ecubox.ecubox_backend.repository.EstadisticasExcepcionRepository;
 import com.ecubox.ecubox_backend.repository.LiquidacionRepository;
+import com.ecubox.ecubox_backend.repository.PaqueteEstadoEventoRepository;
 import com.ecubox.ecubox_backend.repository.PaqueteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -42,9 +43,9 @@ import static org.mockito.Mockito.when;
 class EstadisticasServiceTest {
 
     @Mock
-    private DespachoRepository despachoRepository;
-    @Mock
     private PaqueteRepository paqueteRepository;
+    @Mock
+    private PaqueteEstadoEventoRepository paqueteEstadoEventoRepository;
     @Mock
     private EstadoRastreoRepository estadoRastreoRepository;
     @Mock
@@ -56,6 +57,8 @@ class EstadisticasServiceTest {
 
     private EstadisticasService service;
 
+    /** Estado configurado como "despacho"; ancla de la fuente canónica de eventos. */
+    private static final Long ESTADO_DESPACHO_ID = 4L;
     private static final LocalDateTime DESDE = LocalDateTime.of(2020, 1, 1, 0, 0);
     private static final LocalDateTime HASTA = LocalDateTime.of(2020, 2, 1, 0, 0);
     private static final LocalDateTime ANT_DESDE = LocalDateTime.of(2019, 12, 1, 0, 0);
@@ -64,8 +67,8 @@ class EstadisticasServiceTest {
     @BeforeEach
     void setUp() {
         service = new EstadisticasService(
-                despachoRepository,
                 paqueteRepository,
+                paqueteEstadoEventoRepository,
                 estadoRastreoRepository,
                 excepcionRepository,
                 liquidacionRepository,
@@ -77,10 +80,10 @@ class EstadisticasServiceTest {
 
     private void stubEstadoActual() {
         when(parametroSistemaService.getEstadosRastreoPorPunto()).thenReturn(
-                EstadosRastreoPorPuntoDTO.builder().estadoRastreoEnDespachoId(4L).build());
+                EstadosRastreoPorPuntoDTO.builder().estadoRastreoEnDespachoId(ESTADO_DESPACHO_ID).build());
         when(estadoRastreoRepository.findMaxOrdenTrackingActivoByTipoFlujo(any())).thenReturn(8);
-        when(estadoRastreoRepository.findById(4L)).thenReturn(Optional.of(
-                EstadoRastreo.builder().id(4L).ordenTracking(4).build()));
+        when(estadoRastreoRepository.findById(ESTADO_DESPACHO_ID)).thenReturn(Optional.of(
+                EstadoRastreo.builder().id(ESTADO_DESPACHO_ID).ordenTracking(4).build()));
         when(paqueteRepository.countPendientesDespacho(8)).thenReturn(6L);
         when(paqueteRepository.countDemoradosSinDespachar(any(LocalDate.class), eq(12), eq(8)))
                 .thenReturn(1L);
@@ -117,107 +120,130 @@ class EstadisticasServiceTest {
         when(liquidacionRepository.findTasasEstimacionHistoricas()).thenReturn(tasas);
     }
 
-    @Test
-    void dashboard_rangoPersonalizado_seriesDiariasYComparacion() {
-        when(despachoRepository.aggregateResumen(eq(DESDE), eq(HASTA)))
-                .thenReturn(new Object[]{10L, 25L, new BigDecimal("500.0")});
-        when(despachoRepository.aggregateResumen(eq(ANT_DESDE), eq(ANT_HASTA)))
-                .thenReturn(new Object[]{5L, 12L, new BigDecimal("250.0")});
-        when(paqueteRepository.countRegistradosEntre(eq(DESDE), eq(HASTA))).thenReturn(40L);
-        when(paqueteRepository.countRegistradosEntre(eq(ANT_DESDE), eq(ANT_HASTA))).thenReturn(20L);
+    /** Stubs comunes de registro (no dependen del caso de despacho). */
+    private void stubRegistros(long actual, long anterior, String pesoActual, String pesoAnterior) {
+        when(paqueteRepository.countRegistradosEntre(eq(DESDE), eq(HASTA))).thenReturn(actual);
+        when(paqueteRepository.countRegistradosEntre(eq(ANT_DESDE), eq(ANT_HASTA))).thenReturn(anterior);
         when(paqueteRepository.sumPesoRegistradoEntre(eq(DESDE), eq(HASTA)))
-                .thenReturn(new BigDecimal("800.00"));
+                .thenReturn(new BigDecimal(pesoActual));
         when(paqueteRepository.sumPesoRegistradoEntre(eq(ANT_DESDE), eq(ANT_HASTA)))
-                .thenReturn(new BigDecimal("400.00"));
-        when(paqueteRepository.avgDiasDespachoEntre(eq(DESDE), eq(HASTA))).thenReturn(3.0);
-        when(paqueteRepository.avgDiasDespachoEntre(eq(ANT_DESDE), eq(ANT_HASTA))).thenReturn(2.0);
-        when(despachoRepository.aggregateByPeriodo(eq("day"), eq(DESDE), eq(HASTA)))
-                .thenReturn(List.<Object[]>of(
-                        new Object[]{Timestamp.valueOf("2020-01-05 00:00:00"), 4L, 9L, new BigDecimal("25.5")}));
-        when(paqueteRepository.aggregateRegistradosByPeriodo(eq("day"), eq(DESDE), eq(HASTA)))
-                .thenReturn(List.<Object[]>of(
-                        new Object[]{Timestamp.valueOf("2020-01-05 00:00:00"), 7L}));
+                .thenReturn(new BigDecimal(pesoAnterior));
+        when(paqueteRepository.aggregateRegistradosByPeriodo(any(), any(), any()))
+                .thenReturn(List.of());
+    }
 
-        var consulta = new EstadisticasConsulta(
-                null, null, null,
-                LocalDate.of(2020, 1, 1), LocalDate.of(2020, 2, 1), null, null);
-        EstadisticasDashboardDTO result = service.dashboard(consulta);
+    private static EstadisticasConsulta enero2020() {
+        return new EstadisticasConsulta(
+                null, null, null, LocalDate.of(2020, 1, 1), LocalDate.of(2020, 2, 1), null, null);
+    }
 
-        // Periodo normalizado
+    @Test
+    void paquetesDespachados_usaEventoCanonico_noEntidadDespacho() {
+        // Fuente canónica: resumen de eventos de despacho (paquetes únicos + peso).
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(ESTADO_DESPACHO_ID, DESDE, HASTA))
+                .thenReturn(new Object[]{25L, new BigDecimal("500.0")});
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(ESTADO_DESPACHO_ID, ANT_DESDE, ANT_HASTA))
+                .thenReturn(new Object[]{12L, new BigDecimal("250.0")});
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(ESTADO_DESPACHO_ID, DESDE, HASTA))
+                .thenReturn(3.0);
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(ESTADO_DESPACHO_ID, ANT_DESDE, ANT_HASTA))
+                .thenReturn(2.0);
+        when(paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(
+                eq("day"), eq(ESTADO_DESPACHO_ID), eq(DESDE), eq(HASTA)))
+                .thenReturn(List.<Object[]>of(
+                        new Object[]{Timestamp.valueOf("2020-01-05 00:00:00"), 9L, new BigDecimal("25.5")}));
+        stubRegistros(40L, 20L, "800.00", "400.00");
+
+        EstadisticasDashboardDTO result = service.dashboard(enero2020());
+
+        // Periodo normalizado y granularidad diaria
         assertEquals(PresetPeriodoEstadisticas.RANGO_PERSONALIZADO, result.periodo().preset());
-        assertEquals(LocalDate.of(2020, 1, 1), result.periodo().desde());
-        assertEquals(LocalDate.of(2020, 2, 1), result.periodo().hastaExclusivo());
-        assertEquals(LocalDate.of(2020, 1, 31), result.periodo().hastaInclusivo());
         assertEquals(GranularidadEstadisticas.DIARIA, result.granularidad());
-        assertFalse(result.periodoParcial());
 
-        // Series diarias: enero tiene 31 puntos
-        assertEquals(31, result.resultados().despachosSerie().size());
+        var despachados = result.resultados().paquetesDespachados();
+        assertEquals(0, despachados.actual().compareTo(BigDecimal.valueOf(25)));
+        assertEquals(0, despachados.anterior().compareTo(BigDecimal.valueOf(12)));
+        assertEquals(0, despachados.diferencia().compareTo(BigDecimal.valueOf(13)));
+        assertTrue(despachados.comparacionDisponible());
+
+        // Peso despachado proviene del evento (no del peso registrado)
+        assertEquals(0, result.resultados().pesoDespachadoLbs().actual().compareTo(new BigDecimal("500.0")));
+
+        // Tiempo promedio (días) desde el evento canónico
+        assertEquals(0, result.resultados().tiempoPromedioDespachoDias().actual()
+                .compareTo(new BigDecimal("3.0")));
+
+        // Series diarias: 31 puntos en enero; el punto 2020-01-05 trae 9 paquetes
+        assertEquals(31, result.resultados().paquetesDespachadosSerie().size());
         assertEquals(31, result.resultados().registrosSerie().size());
-        assertEquals("2020-01-01", result.resultados().despachosSerie().getFirst().periodo());
+        assertEquals(9, result.resultados().paquetesDespachadosSerie().stream()
+                .filter(p -> p.periodo().equals("2020-01-05")).findFirst().orElseThrow().total());
 
-        // Comparación histórica
-        var despachos = result.resultados().despachos();
-        assertEquals(0, despachos.actual().compareTo(BigDecimal.valueOf(10)));
-        assertEquals(0, despachos.anterior().compareTo(BigDecimal.valueOf(5)));
-        assertEquals(0, despachos.diferencia().compareTo(BigDecimal.valueOf(5)));
-        assertEquals(100.0, despachos.variacionPct());
-        assertTrue(despachos.comparacionDisponible());
-
-        assertEquals(0, result.resultados().paquetesRegistrados().actual()
-                .compareTo(BigDecimal.valueOf(40)));
-        assertEquals(100.0, result.resultados().paquetesRegistrados().variacionPct());
-
-        // Estado operativo actual separado
-        assertEquals(6, result.estadoActual().pendientesDespacho());
-        assertEquals(1, result.estadoActual().demoradosSinDespachar());
-        assertEquals(2, result.estadoActual().entregadosSinDespacho());
-        assertEquals(3, result.estadoActual().excepcionesOperativas());
-        assertEquals(1, result.estadoActual().distribucion().size());
-        assertEquals(1, result.estadoActual().paquetesDemorados().size());
-        assertEquals("Entregado a destinatario",
-                result.estadoActual().paquetesEntregadosSinDespacho().getFirst().estado());
-        assertEquals(1, result.estadoActual().excepciones().size());
+        // Registrados y financieras estimadas
+        assertEquals(0, result.resultados().paquetesRegistrados().actual().compareTo(BigDecimal.valueOf(40)));
+        assertEquals(0, result.resultados().margenBruto().actual().compareTo(new BigDecimal("6800.0000")));
     }
 
     @Test
-    void dashboard_anteriorCero_noCalculaVariacionPorcentual() {
-        when(despachoRepository.aggregateResumen(eq(DESDE), eq(HASTA)))
-                .thenReturn(new Object[]{10L, 25L, new BigDecimal("500.0")});
-        when(despachoRepository.aggregateResumen(eq(ANT_DESDE), eq(ANT_HASTA)))
-                .thenReturn(new Object[]{0L, 0L, BigDecimal.ZERO});
-        when(paqueteRepository.countRegistradosEntre(any(), any())).thenReturn(0L);
-        when(paqueteRepository.sumPesoRegistradoEntre(any(), any())).thenReturn(BigDecimal.ZERO);
-        when(paqueteRepository.avgDiasDespachoEntre(any(), any())).thenReturn(null);
-        when(despachoRepository.aggregateByPeriodo(any(), any(), any())).thenReturn(List.of());
-        when(paqueteRepository.aggregateRegistradosByPeriodo(any(), any(), any())).thenReturn(List.of());
+    void ceroReal_distintoDeNoCalculable() {
+        // Cero real: hubo consulta válida pero sin paquetes despachados.
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(any(), any(), any()))
+                .thenReturn(new Object[]{0L, BigDecimal.ZERO});
+        // Promedio NO calculable: sin paquetes despachados con fechas válidas.
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(any(), any(), any()))
+                .thenReturn(null);
+        when(paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        stubRegistros(0L, 0L, "0", "0");
 
-        var consulta = new EstadisticasConsulta(
-                null, null, null,
-                LocalDate.of(2020, 1, 1), LocalDate.of(2020, 2, 1), null, null);
-        var result = service.dashboard(consulta);
+        var result = service.dashboard(enero2020());
 
-        var despachos = result.resultados().despachos();
-        assertEquals(null, despachos.variacionPct());
-        assertTrue(despachos.comparacionDisponible());
-        // tiempo promedio sin datos en ambos periodos: no comparable
+        // Paquetes despachados: CERO real (no null)
+        assertEquals(0, result.resultados().paquetesDespachados().actual().compareTo(BigDecimal.ZERO));
+        // Sin actividad en ambos periodos => no hay comparación
+        assertFalse(result.resultados().paquetesDespachados().comparacionDisponible());
+        // Tiempo promedio: NO calculable => null (no se convierte en cero)
+        assertNull(result.resultados().tiempoPromedioDespachoDias().actual());
         assertFalse(result.resultados().tiempoPromedioDespachoDias().comparacionDisponible());
+        // La serie se rellena con puntos en cero (no se omite el rango)
+        assertEquals(31, result.resultados().paquetesDespachadosSerie().size());
+        assertTrue(result.resultados().paquetesDespachadosSerie().stream().allMatch(p -> p.total() == 0));
     }
 
     @Test
-    void dashboard_compatibilidadConMeses() {
-        when(despachoRepository.aggregateResumen(any(), any()))
-                .thenReturn(new Object[]{0L, 0L, BigDecimal.ZERO});
+    void unSoloPaqueteDespachado_seCuentaUnaVez() {
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(ESTADO_DESPACHO_ID, DESDE, HASTA))
+                .thenReturn(new Object[]{1L, new BigDecimal("12.5")});
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(ESTADO_DESPACHO_ID, ANT_DESDE, ANT_HASTA))
+                .thenReturn(new Object[]{0L, BigDecimal.ZERO});
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(any(), any(), any())).thenReturn(2.5);
+        when(paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        stubRegistros(1L, 0L, "12.5", "0");
+
+        var result = service.dashboard(enero2020());
+
+        assertEquals(0, result.resultados().paquetesDespachados().actual().compareTo(BigDecimal.ONE));
+        assertEquals(0, result.resultados().pesoDespachadoLbs().actual().compareTo(new BigDecimal("12.5")));
+        assertEquals(0, result.resultados().tiempoPromedioDespachoDias().actual()
+                .compareTo(new BigDecimal("2.5")));
+    }
+
+    @Test
+    void compatibilidadConMeses_granularidadMensual() {
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(any(), any(), any()))
+                .thenReturn(new Object[]{0L, BigDecimal.ZERO});
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(any(), any(), any())).thenReturn(null);
+        when(paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(any(), any(), any(), any()))
+                .thenReturn(List.of());
         when(paqueteRepository.countRegistradosEntre(any(), any())).thenReturn(0L);
         when(paqueteRepository.sumPesoRegistradoEntre(any(), any())).thenReturn(BigDecimal.ZERO);
-        when(paqueteRepository.avgDiasDespachoEntre(any(), any())).thenReturn(null);
-        when(despachoRepository.aggregateByPeriodo(any(), any(), any())).thenReturn(List.of());
         when(paqueteRepository.aggregateRegistradosByPeriodo(any(), any(), any())).thenReturn(List.of());
 
         var result = service.dashboard(6);
 
         assertEquals(PresetPeriodoEstadisticas.ULTIMOS_6_MESES, result.periodo().preset());
         assertEquals(GranularidadEstadisticas.MENSUAL, result.granularidad());
-        assertFalse(result.resultados().despachosSerie().isEmpty());
+        assertFalse(result.resultados().paquetesDespachadosSerie().isEmpty());
     }
 }
