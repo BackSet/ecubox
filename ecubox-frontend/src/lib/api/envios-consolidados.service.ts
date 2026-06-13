@@ -91,12 +91,13 @@ export interface ListarDisponiblesRecepcionParams {
 
 /**
  * Lista los envíos consolidados que pueden registrarse en un nuevo lote de
- * recepción. A diferencia del listado general, este endpoint es ortogonal a
- * la salida USA y el estado de pago: incluye envíos ya liquidados y pagados, porque
- * el flujo físico USA → Ecuador es independiente del flujo administrativo.
+ * recepción: SOLO los que están en `ARRIBADO_ECUADOR` (ya arribaron a Ecuador)
+ * y aún no fueron recibidos en bodega. La elegibilidad es ortogonal al estado
+ * de pago.
  *
- * El backend excluye automáticamente los envíos sin paquetes y los que ya
- * están en algún otro lote de recepción.
+ * El backend excluye automáticamente los envíos fuera de `ARRIBADO_ECUADOR`,
+ * los que no tienen paquetes y los que ya están en algún otro lote de
+ * recepción; al recibirlos quedan en `RECIBIDO_EN_BODEGA`.
  */
 export async function listarEnviosDisponiblesParaRecepcion(
   params: ListarDisponiblesRecepcionParams = {}

@@ -77,9 +77,10 @@ export function useEnvioConsolidadoResumen() {
 
 /**
  * Lista los envíos consolidados elegibles para crearse o agregarse a un lote
- * de recepción. Incluye envíos enviados desde USA y/o pagados (la recepción física es
- * ortogonal al estado administrativo). El backend excluye los que ya están
- * en otro lote y los que no tienen paquetes.
+ * de recepción: SOLO los que están en `ARRIBADO_ECUADOR` (ya arribaron a
+ * Ecuador) y todavía no fueron recibidos en bodega. El backend excluye además
+ * los que ya están en otro lote y los que no tienen paquetes; al recibirlos
+ * pasan a `RECIBIDO_EN_BODEGA`. La elegibilidad es ortogonal al estado de pago.
  */
 export function useEnviosDisponiblesParaRecepcion(
   params: ListarDisponiblesRecepcionParams = {},

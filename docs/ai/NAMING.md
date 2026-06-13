@@ -44,6 +44,8 @@
 - Diferenciar “Agencia” ECUBOX de “Punto de entrega” perteneciente a un courier.
 - Mostrar los nombres de estados de rastreo recibidos desde configuración/API; no convertir nombres visibles actuales en constantes de negocio.
 - En «Aplicar estado» de envíos consolidados, los tres modos son términos canónicos: **«Transición operativa»** (un solo paso operativo del consolidado), **«Avance automático»** (varios pasos operativos hasta un destino: `CERRADO`, `ENVIADO_DESDE_USA` o `ARRIBADO_ECUADOR`) y **«Estado de rastreo de paquetes»** (acción técnica sobre los paquetes). El «Avance automático» opera sobre el estado operativo del consolidado, no sobre estados de rastreo; no mezclar ambos vocabularios.
+- **«Estados por punto»**: estados de rastreo de paquetes configurables por hito en `/parametros-sistema/por-punto` (`EstadosRastreoPorPuntoDTO`: asociar a consolidado, lote de recepción, en despacho, etc.). El código nunca hardcodea estos estados; los resuelve por configuración.
+- **«Estado anterior inmediato»**: regla de admisión por la que una entidad solo entra a un flujo si está EXACTAMENTE en el estado previo requerido. Para paquetes se resuelve con `EstadoRastreoService.resolverTransicionInmediata`; para consolidados, la recepción en bodega exige `ARRIBADO_ECUADOR` y los deja en `RECIBIDO_EN_BODEGA`.
 - Mostrar pesos con `lbs`.
 - Ejecutar `npm run lint:nomenclatura` al modificar copy del frontend.
 

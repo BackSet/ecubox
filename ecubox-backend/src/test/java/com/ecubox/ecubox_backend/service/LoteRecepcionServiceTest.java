@@ -8,7 +8,9 @@ import com.ecubox.ecubox_backend.entity.LoteRecepcion;
 import com.ecubox.ecubox_backend.entity.LoteRecepcionGuia;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.entity.Usuario;
+import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
+import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionRepository;
@@ -27,6 +29,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -80,11 +83,20 @@ class LoteRecepcionServiceTest {
     }
 
     private EnvioConsolidado envio(long id, String codigo, boolean cerrado, EstadoPagoConsolidado pago) {
+        // Por defecto, los envíos de prueba se construyen ya ARRIBADO_ECUADOR
+        // (estado anterior requerido para recibirse en bodega).
+        return envio(id, codigo, cerrado, pago, EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR);
+    }
+
+    private EnvioConsolidado envio(long id, String codigo, boolean cerrado,
+                                   EstadoPagoConsolidado pago,
+                                   EstadoEnvioConsolidadoOperativo estadoOperativo) {
         return EnvioConsolidado.builder()
                 .id(id)
                 .codigo(codigo)
                 .fechaCerrado(cerrado ? LocalDateTime.now().minusDays(2) : null)
                 .estadoPago(pago)
+                .estadoOperativo(estadoOperativo)
                 .build();
     }
 
@@ -106,7 +118,7 @@ class LoteRecepcionServiceTest {
     }
 
     @Test
-    void create_admiteEnvioCerradoYPagado_yMarcaPaquetesEnLoteRecepcion() {
+    void create_admiteConsolidadoArribadoEcuador_loDejaRecibidoEnBodega() {
         EnvioConsolidado e = envio(10L, "ENV-1", true, EstadoPagoConsolidado.PAGADO);
         Paquete p = Paquete.builder().id(100L).numeroGuia("ABC 1/1").envioConsolidado(e).build();
         when(envioConsolidadoRepository.findByCodigoIgnoreCase("ENV-1"))
@@ -121,9 +133,33 @@ class LoteRecepcionServiceTest {
                 .build());
 
         assertNotNull(dto);
-        assertEquals(List.of("ENV-1"), dto.getNumeroGuiasEnvio(),
-                "el envio cerrado y pagado debe registrarse igual en el lote");
+        assertEquals(List.of("ENV-1"), dto.getNumeroGuiasEnvio());
+        // El consolidado admitido queda explícitamente en RECIBIDO_EN_BODEGA.
+        assertEquals(EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA, e.getEstadoOperativo());
+        verify(envioConsolidadoRepository).save(e);
         verify(paqueteService).aplicarEstadoEnLoteRecepcion(eq(List.of(100L)), any());
+    }
+
+    @Test
+    void create_rechazaConsolidadoNoArribado_yNoCambiaPaquetes() {
+        EnvioConsolidado e = envio(10L, "ENV-USA", true, EstadoPagoConsolidado.NO_PAGADO,
+                EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA);
+        Paquete p = Paquete.builder().id(100L).numeroGuia("ABC 1/1").envioConsolidado(e).build();
+        when(envioConsolidadoRepository.findByCodigoIgnoreCase("ENV-USA"))
+                .thenReturn(Optional.of(e));
+        when(paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(10L))
+                .thenReturn(List.of(p));
+        when(loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase("ENV-USA"))
+                .thenReturn(false);
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.create(LoteRecepcionCreateRequest.builder()
+                        .numeroGuiasEnvio(List.of("ENV-USA"))
+                        .build()));
+        assertTrue(ex.getMessage().contains("Arribado a Ecuador"));
+        assertEquals(EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA, e.getEstadoOperativo());
+        verify(paqueteService, never()).aplicarEstadoEnLoteRecepcion(anyList(), any());
+        verify(loteRecepcionGuiaRepository, never()).save(any());
     }
 
     @Test

@@ -117,15 +117,15 @@ public class EnvioConsolidadoService {
 
     /**
      * Lista los envios consolidados que pueden incluirse en un nuevo lote de
-     * recepcion. Ortogonal a la salida USA y al {@code estadoPago}:
-     * un consolidado liquidado y pagado sigue siendo recepcionable mientras
-     * no haya sido recibido fisicamente.
+     * recepcion: SOLO los que están en {@code ARRIBADO_ECUADOR} (ya arribaron a
+     * Ecuador) y aún no fueron recibidos en bodega. Ortogonal al {@code estadoPago}.
      */
     @Transactional(readOnly = true)
     public Page<EnvioConsolidado> findDisponiblesParaRecepcion(String q, int page, int size) {
         Pageable pageable = Pageables.bounded(page, size, 200);
         String search = Strings.trimOrNull(q);
         return envioConsolidadoRepository.findDisponiblesParaRecepcion(
+                EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR,
                 search != null ? search : "",
                 pageable);
     }
@@ -277,6 +277,7 @@ public class EnvioConsolidadoService {
             throw new ResourceNotFoundException("Paquete", "uno o más ids no encontrados");
         }
         List<Long> idsAsociados = new ArrayList<>();
+        List<Paquete> nuevos = new ArrayList<>();
         for (Paquete p : paquetes) {
             EnvioConsolidado actual = p.getEnvioConsolidado();
             if (actual != null && actual.getId() != null && !actual.getId().equals(envio.getId())
@@ -288,8 +289,15 @@ public class EnvioConsolidadoService {
                         + "Reabre ese envío primero si necesitas moverlo.");
             }
             if (actual == null || !envio.getId().equals(actual.getId())) {
+                nuevos.add(p);
                 idsAsociados.add(p.getId());
             }
+        }
+        // Admisión por estado anterior inmediato: un paquete solo puede asociarse
+        // a un consolidado si está EXACTAMENTE en el estado de rastreo previo al
+        // de "asociar a envío consolidado" (configurado por punto). No se hardcodea.
+        validarPaquetesEnEstadoAnteriorAsociacion(nuevos);
+        for (Paquete p : paquetes) {
             p.setEnvioConsolidado(envio);
         }
         paqueteRepository.saveAll(paquetes);
@@ -310,6 +318,39 @@ public class EnvioConsolidadoService {
             paqueteService.aplicarEstadoEnLoteRecepcion(new ArrayList<>(ids), fechaLote);
         }
         return guardado;
+    }
+
+    /**
+     * Exige que cada paquete recién asociado esté EXACTAMENTE en el estado de
+     * rastreo inmediatamente anterior al configurado para "asociar a envío
+     * consolidado" ({@code estadoRastreoAsociarEnvioConsolidadoId} en
+     * /parametros-sistema/por-punto). Reusa {@link EstadoRastreoService#resolverTransicionInmediata}.
+     */
+    private void validarPaquetesEnEstadoAnteriorAsociacion(List<Paquete> nuevos) {
+        if (nuevos == null || nuevos.isEmpty()) {
+            return;
+        }
+        Long asociarId = parametroSistemaService.getEstadosRastreoPorPunto()
+                .getEstadoRastreoAsociarEnvioConsolidadoId();
+        if (asociarId == null) {
+            throw new BadRequestException(
+                    "No se pueden asociar paquetes porque no hay un estado configurado para la "
+                            + "asociación a envío consolidado. Configúralo en /parametros-sistema/por-punto.");
+        }
+        EstadoRastreoService.TransicionInmediata transicion =
+                estadoRastreoService.resolverTransicionInmediata(asociarId);
+        EstadoRastreo requerido = transicion.anterior();
+        for (Paquete p : nuevos) {
+            EstadoRastreo actual = p.getEstadoRastreo();
+            if (actual == null || !requerido.getId().equals(actual.getId())) {
+                throw new BadRequestException(
+                        "No se puede agregar el paquete " + p.getNumeroGuia()
+                                + " al envío consolidado porque debe estar exactamente en el estado '"
+                                + requerido.getNombre() + "' para poder asociarse. "
+                                + "Estado actual: "
+                                + (actual != null ? actual.getNombre() : "sin estado") + ".");
+            }
+        }
     }
 
     @Transactional
