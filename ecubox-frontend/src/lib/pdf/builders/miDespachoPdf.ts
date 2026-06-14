@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import type { MiDespachoDetalle, MiDespachoPieza } from '@/types/mis-despacho';
+import { modalidadLabelDetalle } from '@/lib/entregas/modalidad';
 import {
   createDocCtx,
   drawDocFooter,
@@ -14,24 +15,19 @@ import {
   type ColumnDef,
 } from '@/lib/pdf/builders/internal-doc';
 
-const TIPO_LABELS: Record<string, string> = {
-  DOMICILIO: 'Domicilio',
-  AGENCIA: 'Agencia',
-  AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
-};
-
-/** Comprobante PDF del despacho desde la vista de cliente (solo sus piezas). */
+/** Comprobante PDF de la entrega desde la vista de cliente (solo sus paquetes). */
 export function buildMiDespachoPdf(d: MiDespachoDetalle): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const ctx = createDocCtx(doc);
-  const codigo = safeStr(d.numeroGuia, `#${d.despachoId}`);
+  const codigo = safeStr(d.numeroGuia, `Entrega #${d.despachoId}`);
+  const confirmacion = d.entregaConfirmada ? 'Recibida' : 'Pendiente';
 
   const header = () =>
     drawDocHeader(ctx, {
-      titulo: 'Comprobante de envío',
+      titulo: 'Comprobante de entrega',
       subtitulo: 'Mis entregas — ECUBOX',
       codigo,
-      meta: `Despacho ${d.despachoId} · ${fmtFechaHora(d.fecha)}`,
+      meta: `Entrega #${d.despachoId} · ${fmtFechaHora(d.fecha)}`,
     });
   ctx.onPageBreak = () => {
     header();
@@ -40,18 +36,19 @@ export function buildMiDespachoPdf(d: MiDespachoDetalle): jsPDF {
 
   drawMetaRow(ctx, [
     {
-      titulo: 'Envío',
+      titulo: 'Entrega',
       filas: [
-        { label: 'Guía', value: codigo, bold: true },
+        { label: 'Número de rastreo', value: codigo, bold: true },
         { label: 'Fecha', value: fmtFechaHora(d.fecha) },
-        { label: 'Precinto', value: safeStr(d.codigoPrecinto) },
+        { label: 'Confirmación', value: confirmacion },
       ],
     },
     {
-      titulo: 'Entrega',
+      titulo: 'Destino',
       filas: [
-        { label: 'Tipo', value: d.tipoEntrega ? TIPO_LABELS[d.tipoEntrega] ?? d.tipoEntrega : '-' },
+        { label: 'Modalidad', value: modalidadLabelDetalle(d) },
         { label: 'Destino', value: safeStr(d.destinoNombre) },
+        { label: 'Operador', value: safeStr(d.operadorEntregaNombre) },
         { label: 'Paquetes', value: String(d.totalPiezas) },
       ],
     },

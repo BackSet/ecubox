@@ -25,6 +25,8 @@ public class MiDespachoDetalleDTO {
     private LocalDateTime fecha;
     private String tipoEntrega;
     private String destinoNombre;
+    /** Operador u oficina que entrega: courier de entrega o agencia ECUBOX según la modalidad. */
+    private String operadorEntregaNombre;
     private String observaciones;
 
     private int totalPiezas;

@@ -1,42 +1,52 @@
 import ExcelJS from 'exceljs';
 import { downloadWorkbook } from '@/lib/xlsx/builders';
+import { modalidadLabelDetalle } from '@/lib/entregas/modalidad';
 import type { MiDespachoDetalle } from '@/types/mis-despacho';
 
-/** Exporta a Excel el despacho desde la vista de cliente (solo sus piezas). */
+/** Exporta a Excel la entrega desde la vista de cliente (solo sus paquetes). */
 export async function downloadMiDespachoXlsx(d: MiDespachoDetalle): Promise<void> {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Mis entregas');
-  ws.columns = [
-    { header: '#', key: 'n', width: 6 },
-    { header: 'Guía', key: 'guia', width: 24 },
-    { header: 'Ref', key: 'ref', width: 16 },
-    { header: 'Contenido', key: 'cont', width: 32 },
-    { header: 'Estado', key: 'estado', width: 24 },
-    { header: 'Lbs', key: 'lbs', width: 10 },
-    { header: 'Kg', key: 'kg', width: 10 },
+
+  // Anchos por columna (posicional: 1..7).
+  const widths = [6, 24, 16, 32, 24, 10, 10];
+  widths.forEach((w, i) => {
+    ws.getColumn(i + 1).width = w;
+  });
+
+  // Encabezado de la entrega (datos seguros del cliente, sin totales globales).
+  const meta: Array<[string, string]> = [
+    ['Número de rastreo', d.numeroGuia ?? `Entrega #${d.despachoId}`],
+    ['Entrega', `Entrega #${d.despachoId}`],
+    ['Modalidad', modalidadLabelDetalle(d)],
+    ['Destino', d.destinoNombre ?? '—'],
+    ['Operador', d.operadorEntregaNombre ?? '—'],
+    ['Confirmación', d.entregaConfirmada ? 'Recibida' : 'Pendiente'],
   ];
-  ws.getRow(1).font = { bold: true };
+  meta.forEach(([label, value]) => {
+    const row = ws.addRow([label, value]);
+    row.getCell(1).font = { bold: true };
+  });
+  ws.addRow([]);
+
+  const header = ws.addRow(['#', 'Guía', 'Ref', 'Contenido', 'Estado', 'Lbs', 'Kg']);
+  header.font = { bold: true };
 
   d.piezas.forEach((p, i) => {
-    ws.addRow({
-      n: i + 1,
-      guia: p.numeroGuia,
-      ref: p.ref ?? '',
-      cont: p.contenido ?? '',
-      estado: p.estadoNombre ?? p.estadoCodigo ?? '',
-      lbs: p.pesoLbs ?? 0,
-      kg: p.pesoKg ?? 0,
-    });
+    ws.addRow([
+      i + 1,
+      p.numeroGuia,
+      p.ref ?? '',
+      p.contenido ?? '',
+      p.estadoNombre ?? p.estadoCodigo ?? '',
+      p.pesoLbs ?? 0,
+      p.pesoKg ?? 0,
+    ]);
   });
 
-  ws.addRow({});
-  const total = ws.addRow({
-    cont: 'Total',
-    estado: `${d.totalPiezas} pieza(s)`,
-    lbs: d.pesoLbsTotal ?? 0,
-    kg: d.pesoKgTotal ?? 0,
-  });
+  ws.addRow([]);
+  const total = ws.addRow(['', '', '', 'Total', `${d.totalPiezas} paquete(s)`, d.pesoLbsTotal ?? 0, d.pesoKgTotal ?? 0]);
   total.font = { bold: true };
 
-  await downloadWorkbook(wb, `mis-entregas-despacho-${d.despachoId}.xlsx`);
+  await downloadWorkbook(wb, `mis-entregas-${d.numeroGuia ?? d.despachoId}.xlsx`);
 }

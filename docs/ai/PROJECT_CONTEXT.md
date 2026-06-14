@@ -193,6 +193,7 @@ Variables por nombre, sin valores:
 - No cambiar contratos, permisos, tablas ni nombres canónicos sin revisar todas las capas.
 - No editar migraciones históricas.
 - Mantener sincronizados estos cuatro archivos después de cada implementación.
+- **Proyecciones por audiencia**: las vistas de cliente no reutilizan el DTO administrativo. Exponen un DTO propio (`MiGuia*`, `MiDespacho*`) acotado al cliente o al scope de enlace —conteos, peso y estados se calculan solo sobre sus paquetes, nunca con totales globales— y omiten datos operativos sensibles (precinto, sacas, observaciones internas, liquidación, usuario creador). Cuando un dato tiene snapshot histórico (SCD2), la vista de cliente lo resuelve por la **misma fuente histórica** que el back-office (p. ej. el destino del despacho en `/mis-entregas`). El vocabulario visible se separa del interno (ver NAMING: estados de guía, entregas/despachos).
 - Las revisiones administrativas que suspenden operabilidad se modelan como historial independiente del estado logístico; la condición activa se protege en servicio, base de datos y validadores operativos.
 - Una bandeja de trabajo separa consulta global, operación normal y atención especializada; filtros, conteos y paginación se resuelven en servidor.
 - **Contradicción**: `docs/desarrollo/TECH-STACK.md` tiene versiones antiguas frente a manifiestos.

@@ -42,35 +42,11 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useConfirmarEntrega, useMiDespacho } from '@/hooks/useMisDespachos';
 import type { MiDespachoPieza } from '@/types/mis-despacho';
-
-const TIPO_LABELS: Record<string, string> = {
-  DOMICILIO: 'Domicilio',
-  AGENCIA: 'Agencia',
-  AGENCIA_COURIER_ENTREGA: 'Punto de entrega',
-};
-
-const TIPO_BADGE: Record<string, string> = {
-  DOMICILIO:
-    'border-[color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
-  AGENCIA:
-    'border-[color-mix(in_oklab,var(--color-info)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-info)_15%,transparent)] text-[color-mix(in_oklab,var(--color-info)_75%,var(--color-foreground))]',
-  AGENCIA_COURIER_ENTREGA:
-    'border-[color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
-};
-
-const TIPO_ICON_BG: Record<string, string> = {
-  DOMICILIO:
-    'bg-[color-mix(in_oklab,var(--color-success)_15%,transparent)] text-[color-mix(in_oklab,var(--color-success)_75%,var(--color-foreground))]',
-  AGENCIA:
-    'bg-[color-mix(in_oklab,var(--color-info)_15%,transparent)] text-[color-mix(in_oklab,var(--color-info)_75%,var(--color-foreground))]',
-  AGENCIA_COURIER_ENTREGA:
-    'bg-[color-mix(in_oklab,var(--color-primary)_15%,transparent)] text-[color-mix(in_oklab,var(--color-primary)_75%,var(--color-foreground))]',
-};
-
-function tipoLabel(tipo?: string | null): string {
-  if (!tipo) return 'Sin tipo';
-  return TIPO_LABELS[tipo] ?? tipo;
-}
+import {
+  modalidadBadgeClass,
+  modalidadIconBgClass,
+  modalidadLabel,
+} from './entregaPresentacion';
 
 function fmtFechaCompleta(s?: string | null): string {
   if (!s) return '-';
@@ -229,14 +205,14 @@ export function MiDespachoDetallePage() {
             <span
               className={cn(
                 'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md',
-                TIPO_ICON_BG[d.tipoEntrega ?? ''] ?? 'bg-[var(--color-muted)] text-muted-foreground',
+                modalidadIconBgClass(d.tipoEntrega),
               )}
             >
               <Truck className="h-6 w-6" />
             </span>
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Mi despacho · #{d.despachoId}
+                Mi entrega · Entrega #{d.despachoId}
               </p>
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
                 <h1
@@ -250,13 +226,13 @@ export function MiDespachoDetallePage() {
                 ) : null}
                 <Badge
                   variant="outline"
-                  className={cn(TIPO_BADGE[d.tipoEntrega ?? ''] ?? '', 'font-normal')}
+                  className={cn(modalidadBadgeClass(d.tipoEntrega), 'font-normal')}
                 >
-                  {tipoLabel(d.tipoEntrega)}
+                  {modalidadLabel(d.tipoEntrega)}
                 </Badge>
                 {d.entregaConfirmada ? (
                   <StatusBadge tone="success" icon={<CheckCircle2 className="h-3.5 w-3.5" />}>
-                    Entrega confirmada
+                    Recibida
                   </StatusBadge>
                 ) : null}
               </div>
@@ -346,7 +322,7 @@ export function MiDespachoDetallePage() {
           label="Mis paquetes"
           value={stats.piezas}
           tone="primary"
-          hint={`${stats.piezas} ${stats.piezas === 1 ? 'pieza incluida' : 'piezas incluidas'} en este despacho`}
+          hint={`${stats.piezas} ${stats.piezas === 1 ? 'paquete incluido' : 'paquetes incluidos'} en esta entrega`}
         />
         <KpiCard
           icon={<Scale className="h-5 w-5" />}
@@ -357,7 +333,7 @@ export function MiDespachoDetallePage() {
         />
         <KpiCard
           icon={<Calendar className="h-5 w-5" />}
-          label="Despachado"
+          label="Enviada"
           value={fmtFechaCorta(d.fecha)}
           tone="neutral"
           hint={relativeTime(d.fecha) ?? undefined}
@@ -365,11 +341,11 @@ export function MiDespachoDetallePage() {
         <KpiCard
           icon={<CheckCircle2 className="h-5 w-5" />}
           label="Entrega"
-          value={d.entregaConfirmada ? 'Confirmada' : 'Pendiente'}
+          value={d.entregaConfirmada ? 'Recibida' : 'Pendiente'}
           tone={d.entregaConfirmada ? 'success' : stats.confirmables > 0 ? 'info' : 'neutral'}
           hint={
             d.entregaConfirmada
-              ? `${stats.entregadas} pieza${stats.entregadas === 1 ? '' : 's'} confirmada${stats.entregadas === 1 ? '' : 's'}`
+              ? `${stats.entregadas} paquete${stats.entregadas === 1 ? '' : 's'} confirmado${stats.entregadas === 1 ? '' : 's'}`
               : stats.confirmables > 0
                 ? 'Lista para confirmar al recibirla'
                 : 'Aún no está disponible para confirmar'
@@ -378,29 +354,29 @@ export function MiDespachoDetallePage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <InfoCard title="Información del despacho" icon={<Truck className="h-4 w-4" />}>
-          <InfoRow label="Guía">
+        <InfoCard title="Información de la entrega" icon={<Truck className="h-4 w-4" />}>
+          <InfoRow label="Número de rastreo">
             {d.numeroGuia ? (
               <>
                 <span className="break-all font-mono text-sm font-medium">{d.numeroGuia}</span>
-                <MonoTrunc value={d.numeroGuia} iconOnly title="Copiar guía" />
+                <MonoTrunc value={d.numeroGuia} iconOnly title="Copiar número de rastreo" />
               </>
             ) : (
               <span className="text-sm text-muted-foreground">-</span>
             )}
           </InfoRow>
-          <InfoRow label="ID">
-            <span className="font-mono text-sm">#{d.despachoId}</span>
+          <InfoRow label="Entrega">
+            <span className="font-mono text-sm">Entrega #{d.despachoId}</span>
           </InfoRow>
           <InfoRow label="Fecha">
             <span className="text-sm">{fmtFechaCompleta(d.fecha)}</span>
           </InfoRow>
-          <InfoRow label="Tipo de entrega">
+          <InfoRow label="Modalidad">
             <Badge
               variant="outline"
-              className={cn(TIPO_BADGE[d.tipoEntrega ?? ''] ?? '', 'font-normal')}
+              className={cn(modalidadBadgeClass(d.tipoEntrega), 'font-normal')}
             >
-              {tipoLabel(d.tipoEntrega)}
+              {modalidadLabel(d.tipoEntrega)}
             </Badge>
           </InfoRow>
           {d.codigoPrecinto ? (
@@ -417,17 +393,22 @@ export function MiDespachoDetallePage() {
         </InfoCard>
 
         <InfoCard title="Destino" icon={<MapPin className="h-4 w-4" />}>
-          <InfoRow label="Tipo">
-            <span className="text-sm font-medium">{tipoLabel(d.tipoEntrega)}</span>
+          <InfoRow label="Modalidad">
+            <span className="text-sm font-medium">{modalidadLabel(d.tipoEntrega)}</span>
           </InfoRow>
           <InfoRow label="Lugar" multiline>
             <span className="text-sm">{d.destinoNombre ?? '-'}</span>
           </InfoRow>
+          {d.operadorEntregaNombre ? (
+            <InfoRow label="Operador">
+              <span className="text-sm">{d.operadorEntregaNombre}</span>
+            </InfoRow>
+          ) : null}
           <InfoRow label="Estado">
             {d.entregaConfirmada ? (
-              <StatusBadge tone="success">Entrega confirmada</StatusBadge>
+              <StatusBadge tone="success">Recibida</StatusBadge>
             ) : d.confirmable ? (
-              <StatusBadge tone="info">Pendiente de confirmación</StatusBadge>
+              <StatusBadge tone="info">Lista para confirmar</StatusBadge>
             ) : (
               <StatusBadge tone="neutral">En proceso</StatusBadge>
             )}
@@ -440,9 +421,9 @@ export function MiDespachoDetallePage() {
           <div>
             <h2 className="inline-flex items-center gap-2 text-base font-semibold">
               <Boxes className="h-4 w-4 text-[var(--color-primary)]" />
-              Piezas del despacho
+              Paquetes de la entrega
               <span className="rounded bg-[var(--color-muted)] px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-                {d.totalPiezas} pkt{d.totalPiezas === 1 ? '' : 's'}
+                {d.totalPiezas} paq{d.totalPiezas === 1 ? '' : 's'}
               </span>
             </h2>
             {search.trim() ? (
@@ -466,7 +447,7 @@ export function MiDespachoDetallePage() {
         {d.piezas.length === 0 ? (
           <EmptyState
             icon={PackageIcon}
-            title="Este despacho no tiene paquetes visibles"
+            title="Esta entrega no tiene paquetes visibles"
             description="Aquí aparecerán únicamente los paquetes asociados a tu cuenta."
           />
         ) : piezasFiltradas.length === 0 ? (

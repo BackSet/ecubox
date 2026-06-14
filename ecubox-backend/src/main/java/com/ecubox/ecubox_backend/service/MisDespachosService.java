@@ -4,9 +4,11 @@ import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
 import com.ecubox.ecubox_backend.dto.MiDespachoDTO;
 import com.ecubox.ecubox_backend.dto.MiDespachoDetalleDTO;
 import com.ecubox.ecubox_backend.dto.MiDespachoPiezaDTO;
+import com.ecubox.ecubox_backend.entity.AgenciaCourierEntregaVersion;
 import com.ecubox.ecubox_backend.entity.Despacho;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.enums.TipoEntrega;
 import com.ecubox.ecubox_backend.util.WeightUtil;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
@@ -127,11 +129,17 @@ public class MisDespachosService {
             boolean confirmable = piezasDTO.stream().anyMatch(MiDespachoPiezaDTO::isConfirmable);
             boolean entregaConfirmada = regla.entregaOrden() != null
                     && piezas.stream().allMatch(p -> ordenDe(p) != null && ordenDe(p) >= regla.entregaOrden());
+            BigDecimal pesoLbs = sumarPesoLbs(piezas);
             result.add(MiDespachoDTO.builder()
                     .despachoId(d.getId())
+                    .numeroGuia(d.getNumeroGuia())
                     .fecha(d.getFechaHora())
                     .tipoEntrega(d.getTipoEntrega() != null ? d.getTipoEntrega().name() : null)
+                    .destinoNombre(resolverDestino(d))
+                    .operadorEntregaNombre(resolverOperador(d))
                     .totalPiezas(piezas.size())
+                    .pesoLbsTotal(pesoLbs)
+                    .pesoKgTotal(WeightUtil.lbsToKg(pesoLbs))
                     .confirmable(confirmable)
                     .entregaConfirmada(entregaConfirmada)
                     .piezas(piezasDTO)
@@ -153,10 +161,7 @@ public class MisDespachosService {
         }
         Despacho d = piezas.get(0).getSaca().getDespacho();
         List<MiDespachoPiezaDTO> piezasDTO = piezas.stream().map(p -> piezaDTO(p, regla)).toList();
-        BigDecimal pesoLbs = piezas.stream()
-                .map(Paquete::getPesoLbs)
-                .filter(java.util.Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal pesoLbs = sumarPesoLbs(piezas);
         boolean confirmable = piezasDTO.stream().anyMatch(MiDespachoPiezaDTO::isConfirmable);
         boolean entregaConfirmada = regla.entregaOrden() != null
                 && piezas.stream().allMatch(p -> ordenDe(p) != null && ordenDe(p) >= regla.entregaOrden());
@@ -167,6 +172,7 @@ public class MisDespachosService {
                 .fecha(d.getFechaHora())
                 .tipoEntrega(d.getTipoEntrega() != null ? d.getTipoEntrega().name() : null)
                 .destinoNombre(resolverDestino(d))
+                .operadorEntregaNombre(resolverOperador(d))
                 .observaciones(d.getObservaciones())
                 .totalPiezas(piezas.size())
                 .pesoLbsTotal(pesoLbs)
@@ -177,14 +183,95 @@ public class MisDespachosService {
                 .build();
     }
 
+    /**
+     * Destino de la entrega del cliente según la modalidad. Usa la misma fuente
+     * histórica que el resto del módulo de despacho (snapshot SCD2 V67): si el
+     * despacho ya congeló su destino, se lee de la versión inmutable para no
+     * mostrar datos del maestro vivo que pudieron cambiar después.
+     *
+     * - DOMICILIO -> nombre del destinatario (consignatario)
+     * - AGENCIA -> nombre de la oficina/agencia ECUBOX
+     * - AGENCIA_COURIER_ENTREGA -> etiqueta del punto de entrega del courier
+     */
     private String resolverDestino(Despacho d) {
+        TipoEntrega tipo = d.getTipoEntrega();
+        if (tipo == null) {
+            return null;
+        }
+        return switch (tipo) {
+            case DOMICILIO -> nombreConsignatario(d);
+            case AGENCIA -> nombreAgencia(d);
+            case AGENCIA_COURIER_ENTREGA -> nombrePuntoEntrega(d);
+        };
+    }
+
+    /**
+     * Operador u oficina que realiza la entrega. En domicilio y punto de entrega
+     * es el courier de entrega; en retiro en oficina es la propia agencia ECUBOX.
+     * El courier de entrega no tiene snapshot SCD2 (igual que en el módulo admin,
+     * se lee del maestro vivo).
+     */
+    private String resolverOperador(Despacho d) {
         if (d.getCourierEntrega() != null && d.getCourierEntrega().getNombre() != null) {
             return d.getCourierEntrega().getNombre();
         }
-        if (d.getAgencia() != null && d.getAgencia().getNombre() != null) {
-            return d.getAgencia().getNombre();
+        if (d.getTipoEntrega() == TipoEntrega.AGENCIA) {
+            return nombreAgencia(d);
         }
         return null;
+    }
+
+    private String nombreConsignatario(Despacho d) {
+        if (d.getConsignatarioVersion() != null) {
+            return d.getConsignatarioVersion().getNombre();
+        }
+        return d.getConsignatario() != null ? d.getConsignatario().getNombre() : null;
+    }
+
+    private String nombreAgencia(Despacho d) {
+        if (d.getAgenciaVersion() != null) {
+            return d.getAgenciaVersion().getNombre();
+        }
+        return d.getAgencia() != null ? d.getAgencia().getNombre() : null;
+    }
+
+    private String nombrePuntoEntrega(Despacho d) {
+        if (d.getAgenciaCourierEntregaVersion() != null) {
+            return etiquetaDeVersion(d.getAgenciaCourierEntregaVersion());
+        }
+        if (d.getAgenciaCourierEntrega() != null) {
+            return AgenciaCourierEntregaService.etiquetaDe(d.getAgenciaCourierEntrega());
+        }
+        return null;
+    }
+
+    /**
+     * Reconstruye la etiqueta "Provincia, Canton (CODIGO)" desde un snapshot
+     * inmutable de punto de entrega, igual que {@code DespachoService} para
+     * mantener consistencia visual con el resto del módulo.
+     */
+    private static String etiquetaDeVersion(AgenciaCourierEntregaVersion a) {
+        if (a == null) {
+            return null;
+        }
+        String prov = a.getProvincia() != null ? a.getProvincia().trim() : "";
+        String cant = a.getCanton() != null ? a.getCanton().trim() : "";
+        String cod = a.getCodigo() != null ? a.getCodigo().trim() : "";
+        List<String> parts = new ArrayList<>();
+        if (!prov.isEmpty()) parts.add(prov);
+        if (!cant.isEmpty()) parts.add(cant);
+        String loc = String.join(", ", parts);
+        if (!loc.isEmpty()) {
+            return cod.isEmpty() ? loc : loc + " (" + cod + ")";
+        }
+        return cod.isEmpty() ? null : cod;
+    }
+
+    private static BigDecimal sumarPesoLbs(List<Paquete> piezas) {
+        return piezas.stream()
+                .map(Paquete::getPesoLbs)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private MiDespachoPiezaDTO piezaDTO(Paquete p, ReglaConfirmacion regla) {
