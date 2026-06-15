@@ -7,10 +7,8 @@ import {
   useActualizarGuiaMaster,
   useEliminarGuiaMaster,
   useCancelarGuiaMaster,
-  useMarcarGuiaMasterEnRevision,
   useSalirGuiaMasterDeRevision,
   useAllGuiasMaster,
-  useAprobarGuiaMaster,
   useAplicarAccionBulkGuiasMaster,
 } from '@/hooks/useGuiasMaster';
 import { MotivoBulkDialog } from '@/components/MotivoBulkDialog';
@@ -54,9 +52,13 @@ import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
-import { SegmentedControl } from '@/components/ui/segmented-control';
 import { MonoTrunc } from '@/components/MonoTrunc';
-import { RowActionsMenu } from '@/components/RowActionsMenu';
+import { RowActionsMenu, type RowActionEntry } from '@/components/RowActionsMenu';
+import { BandejaTabs } from './BandejaTabs';
+import { AprobarGuiaDialog } from './AprobarGuiaDialog';
+import { EnviarARevisionDialog } from './EnviarARevisionDialog';
+import { PendienteCard, RevisionCard, antiguedad } from './BandejaCards';
+import { parsearMotivoRevision } from './revisionMotivos';
 import {
   Table,
   TableBody,
@@ -119,31 +121,58 @@ const ESTADOS_GUIA_TERMINALES: ReadonlySet<EstadoGuiaMaster> = new Set<EstadoGui
   'CANCELADA',
 ]);
 
+/** Vista (bandeja) del módulo de guías master. */
+type VistaGuias = 'operativas' | 'pendientes' | 'revision';
+
 /**
  * Estados que componen el "universo operativo" de la guía: todos menos
- * PENDIENTE_VERIFICACION, que vive en la pestaña de aprobación. La vista
- * operativa envía esta lista explícita al backend para excluir las pendientes
- * del listado por defecto (el filtro del backend es por inclusión de estados).
+ * PENDIENTE_VERIFICACION (bandeja de aprobación) y EN_REVISION (bandeja de
+ * revisión). La vista operativa envía esta lista explícita al backend para
+ * excluir esas guías del listado por defecto.
  */
 const ESTADOS_OPERATIVOS: EstadoGuiaMaster[] = GUIA_MASTER_ESTADO_ORDEN.filter(
-  (e) => e !== 'PENDIENTE_VERIFICACION'
+  (e) => e !== 'PENDIENTE_VERIFICACION' && e !== 'EN_REVISION'
 );
 
-/** Vista (pestaña) del módulo de guías master. */
-type VistaGuias = 'operativas' | 'pendientes';
+/** Estados que el backend debe devolver para una bandeja (filtro por inclusión). */
+function estadosDeBandeja(vista: VistaGuias, chips: EstadoGuiaMaster[]): EstadoGuiaMaster[] {
+  if (vista === 'pendientes') return ['PENDIENTE_VERIFICACION'];
+  if (vista === 'revision') return ['EN_REVISION'];
+  return chips.length > 0 ? chips : ESTADOS_OPERATIVOS;
+}
+
+/**
+ * Defensa adicional: ¿el estado de la guía es compatible con la bandeja activa?
+ * Aunque el `placeholderData` ya evita conservar datos entre bandejas, filtramos
+ * las filas para NO renderizar nunca un estado que no pertenece a la bandeja.
+ */
+function estadoEnBandeja(estado: EstadoGuiaMaster, vista: VistaGuias): boolean {
+  if (vista === 'pendientes') return estado === 'PENDIENTE_VERIFICACION';
+  if (vista === 'revision') return estado === 'EN_REVISION';
+  return estado !== 'PENDIENTE_VERIFICACION' && estado !== 'EN_REVISION';
+}
 
 /** Acciones de ciclo de vida aplicables en lote a las guías master. */
 const ACCIONES_GUIA: readonly AplicarEstadoOption[] = [
   { value: 'APROBAR', label: 'Aprobar guía' },
   { value: 'RECALCULAR', label: 'Recalcular estado' },
-  { value: 'MARCAR_REVISION', label: 'Marcar en revisión' },
+  { value: 'MARCAR_REVISION', label: 'Enviar a revisión' },
   { value: 'SALIR_REVISION', label: 'Salir de revisión' },
   { value: 'CANCELAR', label: 'Cancelar guía' },
   { value: 'REABRIR', label: 'Reabrir guía' },
 ];
 
+/** Acciones masivas relevantes por bandeja (contextuales). */
+const ACCIONES_POR_BANDEJA: Record<VistaGuias, ReadonlySet<string>> = {
+  operativas: new Set(['RECALCULAR', 'MARCAR_REVISION', 'CANCELAR', 'REABRIR']),
+  pendientes: new Set(['APROBAR', 'MARCAR_REVISION', 'CANCELAR']),
+  revision: new Set(['APROBAR', 'SALIR_REVISION']),
+};
+
 /** Acciones que requieren un motivo obligatorio antes de aplicarse. */
-const ACCIONES_CON_MOTIVO: ReadonlySet<string> = new Set(['CANCELAR', 'REABRIR']);
+const ACCIONES_CON_MOTIVO: ReadonlySet<string> = new Set(['CANCELAR', 'REABRIR', 'MARCAR_REVISION']);
+
+type AccionConMotivo = 'CANCELAR' | 'REABRIR' | 'MARCAR_REVISION';
 
 /** Texto de ayuda por acción: explica qué guías se listan. */
 const AYUDA_ACCION: Record<string, string> = {
@@ -210,19 +239,24 @@ export function GuiasMasterPage() {
   );
   const [vista, setVista] = useState<VistaGuias>('operativas');
   const enPendientes = vista === 'pendientes';
+  const enRevision = vista === 'revision';
+
+  // Diálogos de aprobación / envío a revisión (por fila).
+  const [aprobandoGuia, setAprobandoGuia] = useState<GuiaMaster | null>(null);
+  const [revisandoGuia, setRevisandoGuia] = useState<GuiaMaster | null>(null);
 
   const hasUpdate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_UPDATE'));
   const hasDelete = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_DELETE'));
   const hasGuiasCreate = useAuthStore((s) => s.hasPermission('GUIAS_MASTER_CREATE'));
   const eliminar = useEliminarGuiaMaster();
 
-  // Estado del diálogo "Aplicar estado"
+  // Estado del diálogo "Aplicar acción" (masivo)
   const [aplicarEstadoOpen, setAplicarEstadoOpen] = useState(false);
   const [guiasSeleccionadas, setGuiasSeleccionadas] = useState<number[]>([]);
   const [accionSeleccionada, setAccionSeleccionada] = useState('');
   const [motivoBulkOpen, setMotivoBulkOpen] = useState(false);
   const [motivoBulk, setMotivoBulk] = useState('');
-  const [accionParaMotivo, setAccionParaMotivo] = useState<'CANCELAR' | 'REABRIR'>('CANCELAR');
+  const [accionParaMotivo, setAccionParaMotivo] = useState<AccionConMotivo>('CANCELAR');
 
   // Para chips y KPIs usamos el dashboard agregado, evitando cargar todas las guias.
   const { data: dashGM } = useDashboardGuiasMaster(5, true);
@@ -232,22 +266,24 @@ export function GuiasMasterPage() {
     [estadosFiltro]
   );
 
-  // Estados enviados al backend según la pestaña activa:
-  //  - Pendientes de aprobación: solo PENDIENTE_VERIFICACION.
-  //  - Operativas: los chips seleccionados, o todo el universo operativo
-  //    (excluye PENDIENTE_VERIFICACION) cuando no hay filtro de chips.
-  const estadosEfectivos = useMemo<EstadoGuiaMaster[]>(() => {
-    if (enPendientes) return ['PENDIENTE_VERIFICACION'];
-    return estadosArray.length > 0 ? estadosArray : ESTADOS_OPERATIVOS;
-  }, [enPendientes, estadosArray]);
+  // Estados enviados al backend según la bandeja activa.
+  const estadosEfectivos = useMemo<EstadoGuiaMaster[]>(
+    () => estadosDeBandeja(vista, estadosArray),
+    [vista, estadosArray],
+  );
 
   const pageQuery = useGuiasMasterPaginadas({
+    bandeja: vista,
     q: q.trim() || undefined,
     estados: estadosEfectivos,
     page,
     size,
   });
-  const guias = pageQuery.data?.content ?? [];
+  // Defensa: nunca renderizar filas cuyo estado no pertenece a la bandeja
+  // activa (p. ej. una guía que avanzó de estado entre cargas).
+  const guias = (pageQuery.data?.content ?? []).filter((g) =>
+    estadoEnBandeja(g.estadoGlobal, vista),
+  );
   const isLoading = pageQuery.isLoading;
   const error = pageQuery.error;
   const totalElements = pageQuery.data?.totalElements ?? 0;
@@ -274,7 +310,8 @@ export function GuiasMasterPage() {
       (c.ENVIO_COMPLETO ?? 0) +
       (c.RECEPCION_PARCIAL ?? 0) +
       (c.RECEPCION_COMPLETA ?? 0);
-    const enDespacho = (c.DESPACHO_PARCIAL ?? 0) + (c.EN_REVISION ?? 0);
+    // EN_REVISION NO se cuenta aquí: vive en su propia bandeja, no en "En despacho".
+    const enDespacho = c.DESPACHO_PARCIAL ?? 0;
     const cerradas =
       (c.DESPACHO_COMPLETADO ?? 0) +
       (c.CANCELADA ?? 0);
@@ -288,25 +325,34 @@ export function GuiasMasterPage() {
   }, [conteosPorEstado, totalGuias]);
 
   const pendientesCount = conteosPorEstado.PENDIENTE_VERIFICACION ?? 0;
+  const revisionCount = conteosPorEstado.EN_REVISION ?? 0;
+  const operativasCount = totalGuias - pendientesCount - revisionCount;
 
   function cambiarVista(next: VistaGuias) {
     if (next === vista) return;
     setVista(next);
-    // Los chips de estado solo aplican al universo operativo; al cambiar de
-    // pestaña limpiamos el filtro y volvemos a la primera página.
+    // Al cambiar de bandeja limpiamos lo que no aplica: chips, selección
+    // masiva, acción elegida, diálogo masivo y volvemos a la primera página.
     setEstadosFiltro(new Set());
+    setGuiasSeleccionadas([]);
+    setAccionSeleccionada('');
+    setAplicarEstadoOpen(false);
     resetPage();
   }
 
-  // Búsqueda y filtros se aplican en servidor; usamos el resultado tal cual.
+  // Búsqueda y filtros se aplican en servidor (la defensa de bandeja ya filtró
+  // estados incompatibles).
   const filtered = guias;
+  const pendientesConPiezas = useMemo(
+    () => filtered.filter((g) => (g.piezasRegistradas ?? 0) > 0).length,
+    [filtered],
+  );
+  const revisionConInconsistencias = pendientesConPiezas;
 
   // Hooks y lógica de "Aplicar acción" masiva. Las acciones por fila del
   // listado siguen usando los hooks individuales; el lote va por el endpoint bulk.
   const allGuiasQuery = useAllGuiasMaster(aplicarEstadoOpen);
-  const marcarRevision = useMarcarGuiaMasterEnRevision();
   const salirRevision = useSalirGuiaMasterDeRevision();
-  const aprobarBulk = useAprobarGuiaMaster();
   const aplicarAccionBulk = useAplicarAccionBulkGuiasMaster();
   const [resultadoBulk, setResultadoBulk] = useState<{
     accionLabel: string;
@@ -332,7 +378,7 @@ export function GuiasMasterPage() {
       return;
     }
     if (ACCIONES_CON_MOTIVO.has(accionSeleccionada)) {
-      setAccionParaMotivo(accionSeleccionada as 'CANCELAR' | 'REABRIR');
+      setAccionParaMotivo(accionSeleccionada as AccionConMotivo);
       setAplicarEstadoOpen(false);
       setMotivoBulkOpen(true);
       return;
@@ -374,66 +420,111 @@ export function GuiasMasterPage() {
     resetPage();
   }
 
+  const irADetalle = (id: number) =>
+    navigate({ to: '/guias-master/$id', params: { id: String(id) } });
+
+  const salirDeRevisionGuia = async (g: GuiaMaster) => {
+    try {
+      await salirRevision.mutateAsync({ id: g.id, body: {} });
+      notify.success('Revisión finalizada', `${g.trackingBase} · La guía vuelve al estado derivado de sus piezas.`);
+    } catch (err: unknown) {
+      notify.error('No se pudo salir de revisión', getApiErrorMessage(err) ?? g.trackingBase);
+    }
+  };
+
+  /** Menú de acciones por fila (bandeja operativas / genérico). */
+  const accionesDeFila = (g: GuiaMaster): RowActionEntry[] => {
+    const terminal = GUIA_MASTER_ESTADOS_TERMINALES.has(g.estadoGlobal);
+    const aprobable = g.estadoGlobal === 'PENDIENTE_VERIFICACION' || g.estadoGlobal === 'EN_REVISION';
+    return [
+      { label: 'Ver piezas', icon: Eye, onSelect: () => irADetalle(g.id) },
+      { label: 'Editar guía', icon: Pencil, onSelect: () => setEditingGuia(g), hidden: !hasUpdate },
+      { label: 'Aprobar guía', icon: Check, onSelect: () => setAprobandoGuia(g), hidden: !hasUpdate || !aprobable },
+      {
+        label: 'Enviar a revisión',
+        icon: Eye,
+        onSelect: () => setRevisandoGuia(g),
+        hidden: !hasUpdate || terminal || g.estadoGlobal === 'EN_REVISION',
+      },
+      {
+        label: 'Salir de revisión',
+        icon: EyeOff,
+        onSelect: () => salirDeRevisionGuia(g),
+        hidden: !hasUpdate || g.estadoGlobal !== 'EN_REVISION',
+      },
+      {
+        label: 'Cancelar guía',
+        icon: Ban,
+        onSelect: () => setCancelingGuia(g),
+        hidden: !hasUpdate || terminal || (g.piezasDespachadas ?? 0) > 0 || g.estadoGlobal === 'EN_REVISION',
+      },
+      { type: 'separator' },
+      { label: 'Eliminar', icon: Trash2, destructive: true, onSelect: () => setDeletingGuia(g), hidden: !hasDelete },
+    ];
+  };
+
   return (
     <div className="page-stack">
       <ListToolbar
         title="Guías master"
+        description={
+          enPendientes
+            ? 'Revisa la información del cliente antes de habilitar la guía. Mientras esté pendiente no admite nuevos paquetes.'
+            : enRevision
+              ? 'Guías pausadas temporalmente mientras se valida su información.'
+              : undefined
+        }
         searchPlaceholder="Buscar por número de guía, consignatario (nombre/código) o cliente (usuario/email)..."
         value={q}
         onSearchChange={setQ}
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            {hasUpdate && (
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setAplicarEstadoOpen(true)}
-              >
-                <Tag className="mr-2 h-4 w-4" />
-                Aplicar acción
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            {hasGuiasCreate && (
+              <Button className="flex-1 sm:flex-none" onClick={() => setCreateOpen(true)}>
+                Registrar guía
               </Button>
             )}
-            {hasGuiasCreate && (
-              <Button onClick={() => setCreateOpen(true)}>Registrar guía</Button>
+            {hasUpdate && (
+              <>
+                {/* Escritorio: botón visible. Móvil: dentro de "Más acciones". */}
+                <Button
+                  variant="outline"
+                  className="hidden sm:inline-flex"
+                  onClick={() => setAplicarEstadoOpen(true)}
+                >
+                  <Tag className="mr-2 h-4 w-4" />
+                  Aplicar acción
+                </Button>
+                <div className="sm:hidden">
+                  <RowActionsMenu
+                    ariaLabel="Más acciones"
+                    items={[
+                      {
+                        label: 'Aplicar acción a varias guías',
+                        icon: Tag,
+                        onSelect: () => setAplicarEstadoOpen(true),
+                      },
+                    ]}
+                  />
+                </div>
+              </>
             )}
           </div>
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <SegmentedControl<VistaGuias>
-          value={vista}
-          onValueChange={cambiarVista}
-          size="md"
-          options={[
-            { value: 'operativas', label: 'Operativas' },
-            {
-              value: 'pendientes',
-              label: (
-                <span className="inline-flex items-center gap-1.5">
-                  Pendientes de aprobación
-                  {pendientesCount > 0 && (
-                    <Badge
-                      variant="outline"
-                      className="border-transparent bg-[var(--color-warning)] px-1.5 text-[11px] font-semibold text-[var(--color-warning-foreground)]"
-                    >
-                      {pendientesCount}
-                    </Badge>
-                  )}
-                </span>
-              ),
-            },
-          ]}
-        />
-        {enPendientes && (
-          <p className="text-xs text-muted-foreground">
-            Guías registradas por clientes a la espera de aprobación. No aparecen en el listado
-            operativo ni admiten registro de piezas hasta aprobarse.
-          </p>
-        )}
-      </div>
+      <BandejaTabs<VistaGuias>
+        value={vista}
+        onChange={cambiarVista}
+        ariaLabel="Bandejas de guías master"
+        tabs={[
+          { value: 'operativas', label: 'Operativas', count: operativasCount, tone: 'neutral' },
+          { value: 'pendientes', label: 'Pendientes', count: pendientesCount, tone: 'warning' },
+          { value: 'revision', label: 'En revisión', count: revisionCount, tone: 'info' },
+        ]}
+      />
 
-      {!enPendientes && totalGuias > 0 && (
+      {vista === 'operativas' && totalGuias > 0 && (
         <KpiCardsGrid>
           <KpiCard
             icon={<Clock className="h-5 w-5" />}
@@ -454,12 +545,50 @@ export function GuiasMasterPage() {
             label="En despacho"
             value={stats.enDespacho}
             tone={stats.enDespacho > 0 ? 'primary' : 'neutral'}
-            hint="Parciales o en revisión"
+            hint="Despachos parciales"
           />
         </KpiCardsGrid>
       )}
 
-      {!enPendientes && totalGuias > 0 && (
+      {enPendientes && pendientesCount > 0 && (
+        <KpiCardsGrid>
+          <KpiCard
+            icon={<Clock className="h-5 w-5" />}
+            label="Pendientes"
+            value={pendientesCount}
+            tone="warning"
+            hint="A la espera de aprobación"
+          />
+          <KpiCard
+            icon={<AlertTriangle className="h-5 w-5" />}
+            label="Con paquetes registrados"
+            value={pendientesConPiezas}
+            tone={pendientesConPiezas > 0 ? 'warning' : 'neutral'}
+            hint="Inconsistencia en esta página"
+          />
+        </KpiCardsGrid>
+      )}
+
+      {enRevision && revisionCount > 0 && (
+        <KpiCardsGrid>
+          <KpiCard
+            icon={<Eye className="h-5 w-5" />}
+            label="En revisión"
+            value={revisionCount}
+            tone="info"
+            hint="Pausadas para validar"
+          />
+          <KpiCard
+            icon={<AlertTriangle className="h-5 w-5" />}
+            label="Con inconsistencias"
+            value={revisionConInconsistencias}
+            tone={revisionConInconsistencias > 0 ? 'warning' : 'neutral'}
+            hint="Con paquetes en esta página"
+          />
+        </KpiCardsGrid>
+      )}
+
+      {vista === 'operativas' && totalGuias > 0 && (
         <FiltrosBar
           hayFiltrosActivos={estadosFiltro.size > 0}
           onLimpiar={() => {
@@ -470,7 +599,7 @@ export function GuiasMasterPage() {
             <>
               <ChipFiltro
                 label="Todas"
-                count={totalGuias - pendientesCount}
+                count={operativasCount}
                 active={estadosFiltro.size === 0}
                 onClick={() => {
                   setEstadosFiltro(new Set());
@@ -478,9 +607,9 @@ export function GuiasMasterPage() {
                 }}
               />
               {GUIA_MASTER_ESTADO_ORDEN.map((estado) => {
-                // PENDIENTE_VERIFICACION vive en la pestaña de aprobación, no en
-                // los filtros operativos.
-                if (estado === 'PENDIENTE_VERIFICACION') return null;
+                // PENDIENTE_VERIFICACION y EN_REVISION viven en sus propias
+                // bandejas, no en los filtros operativos.
+                if (estado === 'PENDIENTE_VERIFICACION' || estado === 'EN_REVISION') return null;
                 const count = conteosPorEstado[estado] ?? 0;
                 const active = estadosFiltro.has(estado);
                 if (count === 0 && !active) return null;
@@ -504,10 +633,10 @@ export function GuiasMasterPage() {
 
       {/*
        * Mostramos el banner de error ENCIMA de la tabla en lugar de reemplazarla.
-       * Si TanStack Query mantiene los resultados previos (keepPreviousData),
-       * el usuario puede seguir viendo y operando con la última lista mientras
-       * el reintento está en curso. Sólo cuando no hay datos en cache mostramos
-       * el alerta grande.
+       * Dentro de la MISMA bandeja conservamos los resultados previos (ver
+       * `useGuiasMasterPaginadas`), así el usuario sigue viendo la última lista
+       * mientras el reintento está en curso. Solo cuando no hay datos en cache
+       * mostramos el alerta grande.
        */}
       {error && filtered.length > 0 && (
         <InlineErrorBanner
@@ -550,10 +679,27 @@ export function GuiasMasterPage() {
               ) : undefined
             }
           />
+        ) : enRevision ? (
+          <EmptyState
+            icon={Eye}
+            title={q.trim() !== '' ? 'Sin resultados' : 'No hay guías en revisión'}
+            description={
+              q.trim() !== ''
+                ? `No encontramos guías en revisión que coincidan con "${q.trim()}".`
+                : 'Las guías que envíes a revisión aparecerán aquí para validarlas.'
+            }
+            action={
+              q.trim() !== '' ? (
+                <Button variant="outline" onClick={() => setQ('')}>
+                  Limpiar búsqueda
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
         (() => {
           const tieneFiltros = q.trim() !== '' || estadosFiltro.size > 0;
-          const sinDatos = totalGuias - pendientesCount === 0 && !tieneFiltros;
+          const sinDatos = operativasCount === 0 && !tieneFiltros;
           return (
             <EmptyState
               icon={Boxes}
@@ -587,226 +733,130 @@ export function GuiasMasterPage() {
         )
       ) : (
         <>
-        {enPendientes && filtered.some((g) => (g.piezasRegistradas ?? 0) > 0) && (
-          <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)] bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] px-3 py-2 text-xs text-foreground">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
-            <span>
-              Hay guías pendientes con piezas ya registradas. Es una inconsistencia administrativa
-              (no debería ocurrir bajo el flujo actual). Revísalas antes de aprobar; los datos
-              históricos no se modifican automáticamente.
-            </span>
-          </div>
-        )}
         <p className="text-xs text-muted-foreground">
           {totalElements} guía{totalElements === 1 ? '' : 's'}
           {pageQuery.isFetching ? ' · cargando...' : ''}
         </p>
-        <ListTableShell>
-          <Table className="min-w-[760px] text-sm [&_td]:py-2.5">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[14rem]">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Boxes className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    Guía
-                  </span>
-                </TableHead>
-                <TableHead>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Activity className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    Estado
-                  </span>
-                </TableHead>
-                <TableHead className="min-w-[14rem]">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    Piezas
-                  </span>
-                </TableHead>
-                <TableHead>
-                  <span className="inline-flex items-center gap-1.5">
-                    <UserRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    Consignatario
-                  </span>
-                </TableHead>
-                <TableHead className="hidden md:table-cell">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    Cliente
-                  </span>
-                </TableHead>
-                <TableHead className="hidden xl:table-cell">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                    Creada
-                  </span>
-                </TableHead>
-                <TableHead className="w-12 text-right" aria-label="Acciones" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
-                <TableRowsSkeleton
-                  columns={7}
-                  columnClasses={{
-                    4: 'hidden md:table-cell',
-                    5: 'hidden xl:table-cell',
-                  }}
-                />
-              )}
-              {filtered.map((g) => {
-                const totalPendiente = g.totalPiezasEsperadas == null;
-                return (
-                  <TableRow
-                    key={g.id}
-                    className={`cursor-pointer transition-colors ${totalPendiente ? 'bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] hover:bg-[color-mix(in_oklab,var(--color-warning)_16%,transparent)]' : 'hover:bg-muted/40'}`}
-                    onClick={() =>
-                      navigate({
-                        to: '/guias-master/$id',
-                        params: { id: String(g.id) },
-                      })
-                    }
-                  >
-                    <TableCell className="max-w-[14rem] align-top">
-                      <MonoTrunc
-                        value={g.trackingBase}
-                        className="font-medium text-foreground"
-                      />
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <GuiaMasterEstadoBadge estado={g.estadoGlobal} />
-                      {enPendientes && (g.piezasRegistradas ?? 0) > 0 && (
-                        <span
-                          className="mt-1 flex items-center gap-1 text-[11px] text-[var(--color-warning)]"
-                          title="Esta guía pendiente ya tiene piezas registradas. Es una inconsistencia administrativa: revísala antes de aprobar. No se corrige automáticamente."
-                        >
-                          <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
-                          Inconsistencia: {g.piezasRegistradas} pieza
-                          {g.piezasRegistradas === 1 ? '' : 's'} registrada
-                          {g.piezasRegistradas === 1 ? '' : 's'}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <PiezasProgressCell guia={g} />
-                    </TableCell>
-                    <TableCell className="max-w-[18rem] align-top">
-                      <ConsignatarioInfo
-                        nombre={g.consignatarioNombre}
-                        telefono={g.consignatarioTelefono}
-                        direccion={g.consignatarioDireccion}
-                        provincia={g.consignatarioProvincia}
-                        canton={g.consignatarioCanton}
-                        emptyLabel="Sin asignar"
-                        emptyItalic
-                      />
-                    </TableCell>
-                    <TableCell className="hidden align-top md:table-cell">
-                      <PersonaCell
-                        nombre={g.clienteUsuarioNombre}
-                        icon={<Building2 className="h-3.5 w-3.5" />}
-                        emptyLabel="—"
-                      />
-                    </TableCell>
-                    <TableCell className="hidden align-top text-xs text-muted-foreground xl:table-cell">
-                      <FechaCreada createdAt={g.createdAt} />
-                    </TableCell>
-                    <TableCell
-                      className="text-right align-top"
-                      onClick={(e) => e.stopPropagation()}
+
+        {enPendientes ? (
+          <BandejaPendientes
+            guias={filtered}
+            hasUpdate={hasUpdate}
+            onAbrir={irADetalle}
+            onAprobar={setAprobandoGuia}
+            onEditar={setEditingGuia}
+          />
+        ) : enRevision ? (
+          <BandejaRevision
+            guias={filtered}
+            hasUpdate={hasUpdate}
+            onAbrir={irADetalle}
+            onAprobar={setAprobandoGuia}
+            onSalirRevision={salirDeRevisionGuia}
+          />
+        ) : (
+          <ListTableShell>
+            <Table className="min-w-[760px] text-sm [&_td]:py-2.5">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[14rem]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Boxes className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      Guía
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Activity className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      Estado
+                    </span>
+                  </TableHead>
+                  <TableHead className="min-w-[14rem]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Layers className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      Piezas
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1.5">
+                      <UserRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      Consignatario
+                    </span>
+                  </TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      Cliente
+                    </span>
+                  </TableHead>
+                  <TableHead className="hidden xl:table-cell">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      Creada
+                    </span>
+                  </TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRowsSkeleton
+                    columns={7}
+                    columnClasses={{
+                      4: 'hidden md:table-cell',
+                      5: 'hidden xl:table-cell',
+                    }}
+                  />
+                )}
+                {filtered.map((g) => {
+                  const totalPendiente = g.totalPiezasEsperadas == null;
+                  return (
+                    <TableRow
+                      key={g.id}
+                      className={`cursor-pointer transition-colors ${totalPendiente ? 'bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] hover:bg-[color-mix(in_oklab,var(--color-warning)_16%,transparent)]' : 'hover:bg-muted/40'}`}
+                      onClick={() => irADetalle(g.id)}
                     >
-                      <RowActionsMenu
-                        items={[
-                          {
-                            label: 'Ver piezas',
-                            icon: Eye,
-                            onSelect: () =>
-                              navigate({
-                                to: '/guias-master/$id',
-                                params: { id: String(g.id) },
-                              }),
-                          },
-                          {
-                            label: 'Editar guía',
-                            icon: Pencil,
-                            onSelect: () => setEditingGuia(g),
-                            hidden: !hasUpdate,
-                          },
-                          {
-                            label: 'Aprobar guía',
-                            icon: Check,
-                            onSelect: async () => {
-                              try {
-                                await aprobarBulk.mutateAsync(g.id);
-                                notify.success('Guía master aprobada', `${g.trackingBase} · El estado se recalculará según sus piezas.`);
-                              } catch (err: unknown) {
-                                notify.error('No se pudo aprobar la guía master', getApiErrorMessage(err) ?? g.trackingBase);
-                              }
-                            },
-                            hidden:
-                              !hasUpdate ||
-                              !(g.estadoGlobal === 'PENDIENTE_VERIFICACION' || g.estadoGlobal === 'EN_REVISION'),
-                          },
-                          {
-                            label: 'Mandar a revisión',
-                            icon: Eye,
-                            onSelect: async () => {
-                              try {
-                                await marcarRevision.mutateAsync({ id: g.id, body: {} });
-                                notify.success('Guía master en revisión', `${g.trackingBase} · El recálculo automático queda pausado hasta salir de revisión.`);
-                              } catch (err: unknown) {
-                                notify.error('No se pudo marcar en revisión', getApiErrorMessage(err) ?? g.trackingBase);
-                              }
-                            },
-                            hidden:
-                              !hasUpdate ||
-                              !(
-                                !GUIA_MASTER_ESTADOS_TERMINALES.has(g.estadoGlobal) &&
-                                g.estadoGlobal !== 'EN_REVISION'
-                              ),
-                          },
-                          {
-                            label: 'Salir de revisión',
-                            icon: EyeOff,
-                            onSelect: async () => {
-                              try {
-                                await salirRevision.mutateAsync({ id: g.id, body: {} });
-                                notify.success('Revisión finalizada', `${g.trackingBase} · La guía vuelve al estado derivado de sus piezas.`);
-                              } catch (err: unknown) {
-                                notify.error('No se pudo salir de revisión', getApiErrorMessage(err) ?? g.trackingBase);
-                              }
-                            },
-                            hidden: !hasUpdate || g.estadoGlobal !== 'EN_REVISION',
-                          },
-                          {
-                            label: 'Cancelar guía',
-                            icon: Ban,
-                            onSelect: () => setCancelingGuia(g),
-                            hidden:
-                              !hasUpdate ||
-                              !(
-                                !GUIA_MASTER_ESTADOS_TERMINALES.has(g.estadoGlobal) &&
-                                (g.piezasDespachadas ?? 0) === 0 &&
-                                g.estadoGlobal !== 'EN_REVISION'
-                              ),
-                          },
-                          { type: 'separator' },
-                          {
-                            label: 'Eliminar',
-                            icon: Trash2,
-                            destructive: true,
-                            onSelect: () => setDeletingGuia(g),
-                            hidden: !hasDelete,
-                          },
-                        ]}
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </ListTableShell>
+                      <TableCell className="max-w-[14rem] align-top">
+                        <MonoTrunc value={g.trackingBase} className="font-medium text-foreground" />
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <GuiaMasterEstadoBadge estado={g.estadoGlobal} />
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <PiezasProgressCell guia={g} />
+                      </TableCell>
+                      <TableCell className="max-w-[18rem] align-top">
+                        <ConsignatarioInfo
+                          nombre={g.consignatarioNombre}
+                          telefono={g.consignatarioTelefono}
+                          direccion={g.consignatarioDireccion}
+                          provincia={g.consignatarioProvincia}
+                          canton={g.consignatarioCanton}
+                          emptyLabel="Sin asignar"
+                          emptyItalic
+                        />
+                      </TableCell>
+                      <TableCell className="hidden align-top md:table-cell">
+                        <PersonaCell
+                          nombre={g.clienteUsuarioNombre}
+                          icon={<Building2 className="h-3.5 w-3.5" />}
+                          emptyLabel="—"
+                        />
+                      </TableCell>
+                      <TableCell className="hidden align-top text-xs text-muted-foreground xl:table-cell">
+                        <FechaCreada createdAt={g.createdAt} />
+                      </TableCell>
+                      <TableCell className="text-right align-top" onClick={(e) => e.stopPropagation()}>
+                        <RowActionsMenu items={accionesDeFila(g)} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ListTableShell>
+        )}
+
         <TablePagination
           page={page}
           size={size}
@@ -835,6 +885,24 @@ export function GuiasMasterPage() {
         <CancelarGuiaDialog
           guia={cancelingGuia}
           onClose={() => setCancelingGuia(null)}
+        />
+      )}
+
+      {aprobandoGuia && (
+        <AprobarGuiaDialog
+          guia={aprobandoGuia}
+          onClose={() => setAprobandoGuia(null)}
+          onEnviarRevision={(g) => {
+            setAprobandoGuia(null);
+            setRevisandoGuia(g);
+          }}
+        />
+      )}
+
+      {revisandoGuia && (
+        <EnviarARevisionDialog
+          guia={revisandoGuia}
+          onClose={() => setRevisandoGuia(null)}
         />
       )}
 
@@ -911,7 +979,7 @@ export function GuiasMasterPage() {
         }))}
         selectedIds={guiasSeleccionadas}
         onSelectedIdsChange={setGuiasSeleccionadas}
-        options={[...ACCIONES_GUIA]}
+        options={ACCIONES_GUIA.filter((a) => ACCIONES_POR_BANDEJA[vista].has(a.value))}
         selectedOption={accionSeleccionada}
         onSelectedOptionChange={(value) => {
           setAccionSeleccionada(value);
@@ -960,6 +1028,225 @@ export function GuiasMasterPage() {
       )}
 
     </div>
+  );
+}
+
+function ClienteConsignatarioCell({ guia }: { guia: GuiaMaster }) {
+  return (
+    <div className="min-w-0">
+      <ConsignatarioInfo
+        nombre={guia.consignatarioNombre}
+        telefono={guia.consignatarioTelefono}
+        direccion={guia.consignatarioDireccion}
+        provincia={guia.consignatarioProvincia}
+        canton={guia.consignatarioCanton}
+        emptyLabel="Sin asignar"
+        emptyItalic
+      />
+      {guia.clienteUsuarioNombre && (
+        <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={guia.clienteUsuarioNombre}>
+          <Building2 className="mr-1 inline h-3 w-3" aria-hidden />
+          {guia.clienteUsuarioNombre}
+        </p>
+      )}
+    </div>
+  );
+}
+
+interface BandejaPendientesProps {
+  guias: GuiaMaster[];
+  hasUpdate: boolean;
+  onAbrir: (id: number) => void;
+  onAprobar: (guia: GuiaMaster) => void;
+  onEditar: (guia: GuiaMaster) => void;
+}
+
+/** Bandeja "Pendientes de aprobación": tarjetas en móvil, tabla en escritorio. */
+function BandejaPendientes({ guias, hasUpdate, onAbrir, onAprobar, onEditar }: BandejaPendientesProps) {
+  return (
+    <>
+      <div className="flex flex-col gap-3 md:hidden">
+        {guias.map((g) => (
+          <PendienteCard
+            key={g.id}
+            guia={g}
+            hasUpdate={hasUpdate}
+            onAbrir={() => onAbrir(g.id)}
+            onAprobar={() => onAprobar(g)}
+            onEditar={() => onEditar(g)}
+          />
+        ))}
+      </div>
+
+      <ListTableShell className="hidden md:block">
+        <Table className="min-w-[680px] text-sm [&_td]:py-2.5">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[14rem]">Guía</TableHead>
+              <TableHead>Cliente / consignatario</TableHead>
+              <TableHead className="min-w-[12rem]">Paquetes</TableHead>
+              <TableHead className="hidden lg:table-cell">Registrada</TableHead>
+              <TableHead>Validación</TableHead>
+              <TableHead className="w-12 text-right" aria-label="Acciones" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {guias.map((g) => {
+              const registradas = g.piezasRegistradas ?? 0;
+              const inconsistente = registradas > 0;
+              return (
+                <TableRow
+                  key={g.id}
+                  className={`cursor-pointer transition-colors ${inconsistente ? 'bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] hover:bg-[color-mix(in_oklab,var(--color-warning)_16%,transparent)]' : 'hover:bg-muted/40'}`}
+                  onClick={() => onAbrir(g.id)}
+                >
+                  <TableCell className="max-w-[14rem] align-top">
+                    <MonoTrunc value={g.trackingBase} className="font-medium text-foreground" />
+                  </TableCell>
+                  <TableCell className="max-w-[16rem] align-top">
+                    <ClienteConsignatarioCell guia={g} />
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <PiezasProgressCell guia={g} />
+                  </TableCell>
+                  <TableCell className="hidden align-top text-xs text-muted-foreground lg:table-cell">
+                    <FechaCreada createdAt={g.createdAt} />
+                  </TableCell>
+                  <TableCell className="align-top">
+                    {inconsistente ? (
+                      <div className="flex flex-col gap-0.5 text-[11px]">
+                        <Badge
+                          variant="outline"
+                          className="w-fit gap-1 border-[var(--color-warning)] text-[var(--color-warning)]"
+                        >
+                          <AlertTriangle className="h-3 w-3" aria-hidden />
+                          Requiere revisión
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          {registradas} paquete{registradas === 1 ? '' : 's'} ya registrado{registradas === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Check className="h-3 w-3 text-[var(--color-success)]" aria-hidden />
+                        Lista para aprobar
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right align-top" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
+                      {hasUpdate && (
+                        <Button size="sm" onClick={() => onAprobar(g)}>
+                          <Check className="mr-1.5 h-4 w-4" />
+                          Aprobar
+                        </Button>
+                      )}
+                      <RowActionsMenu
+                        ariaLabel="Más acciones de la guía pendiente"
+                        items={[
+                          { label: 'Ver piezas', icon: Eye, onSelect: () => onAbrir(g.id) },
+                          { label: 'Editar guía', icon: Pencil, onSelect: () => onEditar(g), hidden: !hasUpdate },
+                        ]}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </ListTableShell>
+    </>
+  );
+}
+
+interface BandejaRevisionProps {
+  guias: GuiaMaster[];
+  hasUpdate: boolean;
+  onAbrir: (id: number) => void;
+  onAprobar: (guia: GuiaMaster) => void;
+  onSalirRevision: (guia: GuiaMaster) => void;
+}
+
+/** Bandeja "En revisión": tarjetas en móvil, tabla en escritorio. */
+function BandejaRevision({ guias, hasUpdate, onAbrir, onAprobar, onSalirRevision }: BandejaRevisionProps) {
+  return (
+    <>
+      <div className="flex flex-col gap-3 md:hidden">
+        {guias.map((g) => (
+          <RevisionCard
+            key={g.id}
+            guia={g}
+            hasUpdate={hasUpdate}
+            onAbrir={() => onAbrir(g.id)}
+            onAprobar={() => onAprobar(g)}
+            onSalirRevision={() => onSalirRevision(g)}
+          />
+        ))}
+      </div>
+
+      <ListTableShell className="hidden md:block">
+        <Table className="min-w-[720px] text-sm [&_td]:py-2.5">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[12rem]">Guía</TableHead>
+              <TableHead className="min-w-[14rem]">Motivo</TableHead>
+              <TableHead>Cliente / consignatario</TableHead>
+              <TableHead>En revisión desde</TableHead>
+              <TableHead className="min-w-[10rem]">Paquetes</TableHead>
+              <TableHead className="w-12 text-right" aria-label="Acciones" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {guias.map((g) => {
+              const motivo = parsearMotivoRevision(g.revisionMotivo);
+              return (
+                <TableRow
+                  key={g.id}
+                  className="cursor-pointer transition-colors hover:bg-muted/40"
+                  onClick={() => onAbrir(g.id)}
+                >
+                  <TableCell className="max-w-[12rem] align-top">
+                    <MonoTrunc value={g.trackingBase} className="font-medium text-foreground" />
+                  </TableCell>
+                  <TableCell className="max-w-[18rem] align-top">
+                    <span className="line-clamp-2 break-words text-xs text-foreground" title={motivo.label}>
+                      {motivo.label || 'Sin motivo registrado'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="max-w-[16rem] align-top">
+                    <ClienteConsignatarioCell guia={g} />
+                  </TableCell>
+                  <TableCell className="align-top text-xs text-muted-foreground">
+                    <span title={g.revisionEn ?? undefined}>{antiguedad(g.revisionEn)}</span>
+                    {g.revisionPorUsuarioNombre && (
+                      <p className="text-[11px] opacity-80">por {g.revisionPorUsuarioNombre}</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <PiezasProgressCell guia={g} />
+                  </TableCell>
+                  <TableCell className="text-right align-top" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" aria-label="Revisar" title="Revisar" onClick={() => onAbrir(g.id)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <RowActionsMenu
+                        ariaLabel="Más acciones de la guía en revisión"
+                        items={[
+                          { label: 'Aprobar', icon: Check, onSelect: () => onAprobar(g), hidden: !hasUpdate },
+                          { label: 'Salir de revisión', icon: EyeOff, onSelect: () => onSalirRevision(g), hidden: !hasUpdate },
+                        ]}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </ListTableShell>
+    </>
   );
 }
 

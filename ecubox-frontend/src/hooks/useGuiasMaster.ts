@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   listarGuiasMaster,
   listarGuiasMasterPaginado,
@@ -45,23 +45,40 @@ export function useGuiasMaster(
   });
 }
 
-/** Versión paginada con búsqueda libre + filtro por estados. */
-export function useGuiasMasterPaginadas(params: ListarGuiasMasterPageParams) {
+/**
+ * Versión paginada con búsqueda libre + filtro por estados, segmentada por
+ * BANDEJA (operativas / pendientes / revisión).
+ *
+ * La `bandeja` forma parte de la queryKey y se usa para acotar el
+ * `keepPreviousData`: dentro de la MISMA bandeja conservamos los datos
+ * anteriores para una paginación/búsqueda fluida, pero al CAMBIAR de bandeja
+ * NO se conservan (devolvemos `undefined`), evitando renderizar filas de la
+ * bandeja anterior (estados incompatibles) mientras carga la nueva.
+ */
+export function useGuiasMasterPaginadas(
+  params: ListarGuiasMasterPageParams & { bandeja: string },
+) {
   const estadosKey =
     params.estados && params.estados.length > 0
       ? [...params.estados].sort().join(',')
       : '';
+  const { bandeja } = params;
   return useQuery({
     queryKey: [
       ...GUIAS_MASTER_QUERY_KEY,
       'page',
+      bandeja,
       params.q ?? '',
       estadosKey,
       params.page ?? 0,
       params.size ?? 25,
     ] as const,
     queryFn: () => listarGuiasMasterPaginado(params),
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData, previousQuery) => {
+      const prevBandeja = previousQuery?.queryKey?.[2];
+      // Solo conservamos datos previos si la bandeja no cambió.
+      return prevBandeja === bandeja ? previousData : undefined;
+    },
   });
 }
 

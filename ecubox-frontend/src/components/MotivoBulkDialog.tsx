@@ -14,7 +14,7 @@ import { notify } from '@/lib/notify';
 import { guiaCancelarSchema, MAX_MOTIVO } from '@/lib/schemas';
 
 interface MotivoBulkDialogProps {
-  accion: 'CANCELAR' | 'REABRIR';
+  accion: 'CANCELAR' | 'REABRIR' | 'MARCAR_REVISION';
   count: number;
   motivo: string;
   loading: boolean;
@@ -37,6 +37,13 @@ const MOTIVO_BULK_UI = {
     placeholder: 'Ej: reactivación por nueva pieza / reapertura solicitada',
     submitVariant: 'default' as const,
     pendingLabel: 'Reabriendo...',
+  },
+  MARCAR_REVISION: {
+    title: 'Enviar a revisión',
+    nota: 'Solo se enviarán a revisión guías activas (no terminales) que no estén ya en revisión. El recálculo automático queda pausado.',
+    placeholder: 'Ej: datos inconsistentes / total de paquetes incorrecto',
+    submitVariant: 'default' as const,
+    pendingLabel: 'Enviando...',
   },
 };
 

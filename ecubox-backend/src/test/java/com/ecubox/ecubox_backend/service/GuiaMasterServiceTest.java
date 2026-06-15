@@ -1,8 +1,11 @@
 package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
+import com.ecubox.ecubox_backend.dto.GuiaMasterDTO;
 import com.ecubox.ecubox_backend.dto.GuiaMasterUpdateRequest;
 import com.ecubox.ecubox_backend.dto.MiInicioDashboardDTO;
+import com.ecubox.ecubox_backend.entity.GuiaMasterEstadoHistorial;
+import com.ecubox.ecubox_backend.enums.TipoCambioEstadoGuiaMaster;
 import com.ecubox.ecubox_backend.entity.Despacho;
 import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
@@ -878,5 +881,168 @@ class GuiaMasterServiceTest {
         assertEquals(1, res.getRechazados().size());
         assertTrue(res.getRechazados().get(0).getMotivo().contains("revisión"));
         verify(guiaMasterRepository, never()).save(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // Aprobación y revisión (bandejas de aprobación / en revisión)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void marcarEnRevision_conMotivo_cambiaEstadoYRegistraHistorialConActor() {
+        GuiaMaster gm = GuiaMaster.builder().id(1L).estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
+        Usuario actor = Usuario.builder().id(9L).username("op").build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+        when(usuarioRepository.findById(9L)).thenReturn(Optional.of(actor));
+        when(guiaMasterRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        GuiaMaster saved = service.marcarEnRevision(1L, "  DATOS_INCONSISTENTES: revisar  ", 9L);
+
+        assertEquals(EstadoGuiaMaster.EN_REVISION, saved.getEstadoGlobal());
+        ArgumentCaptor<GuiaMasterEstadoHistorial> cap = ArgumentCaptor.forClass(GuiaMasterEstadoHistorial.class);
+        verify(historialRepository).save(cap.capture());
+        GuiaMasterEstadoHistorial h = cap.getValue();
+        assertEquals(TipoCambioEstadoGuiaMaster.MARCAR_REVISION, h.getTipoCambio());
+        assertEquals("DATOS_INCONSISTENTES: revisar", h.getMotivo());
+        assertSame(actor, h.getCambiadoPorUsuario());
+    }
+
+    @Test
+    void marcarEnRevision_sinMotivo_fallaYNoGuarda() {
+        GuiaMaster gm = GuiaMaster.builder().id(1L).estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+
+        assertThrows(BadRequestException.class, () -> service.marcarEnRevision(1L, "   ", 9L));
+        verify(guiaMasterRepository, never()).save(any());
+    }
+
+    @Test
+    void marcarEnRevision_yaEnRevision_falla() {
+        GuiaMaster gm = GuiaMaster.builder().id(1L).estadoGlobal(EstadoGuiaMaster.EN_REVISION).build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+
+        assertThrows(BadRequestException.class, () -> service.marcarEnRevision(1L, "motivo", 9L));
+    }
+
+    @Test
+    void aprobar_pendienteSinPiezas_quedaSinPaquetesYRegistraAprobacion() {
+        stubConfigEstados();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).estadoGlobal(EstadoGuiaMaster.PENDIENTE_VERIFICACION).build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of());
+        when(guiaMasterRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        GuiaMaster saved = service.aprobar(1L, 9L);
+
+        assertEquals(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS, saved.getEstadoGlobal());
+        verify(historialRepository).save(argThat(h -> h.getTipoCambio() == TipoCambioEstadoGuiaMaster.APROBACION));
+    }
+
+    @Test
+    void aprobar_enRevision_recalculaEstadoDerivado() {
+        stubConfigEstados();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).estadoGlobal(EstadoGuiaMaster.EN_REVISION).build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of());
+        when(guiaMasterRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        GuiaMaster saved = service.aprobar(1L, null);
+
+        assertEquals(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS, saved.getEstadoGlobal());
+    }
+
+    @Test
+    void aprobar_estadoNoElegible_fallaYNoGuarda() {
+        GuiaMaster gm = GuiaMaster.builder().id(1L).estadoGlobal(EstadoGuiaMaster.RECEPCION_PARCIAL).build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+
+        assertThrows(BadRequestException.class, () -> service.aprobar(1L, null));
+        verify(guiaMasterRepository, never()).save(any());
+    }
+
+    @Test
+    void salirDeRevision_derivaEstadoYRegistraHistorial() {
+        stubConfigEstados();
+        GuiaMaster gm = GuiaMaster.builder().id(1L).estadoGlobal(EstadoGuiaMaster.EN_REVISION).build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of());
+        when(guiaMasterRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        GuiaMaster saved = service.salirDeRevision(1L, "validado", 9L);
+
+        assertEquals(EstadoGuiaMaster.SIN_PAQUETES_REGISTRADOS, saved.getEstadoGlobal());
+        verify(historialRepository).save(argThat(h -> h.getTipoCambio() == TipoCambioEstadoGuiaMaster.SALIR_REVISION));
+    }
+
+    @Test
+    void salirDeRevision_siNoEstaEnRevision_falla() {
+        GuiaMaster gm = GuiaMaster.builder().id(1L).estadoGlobal(EstadoGuiaMaster.VERIFICADA).build();
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(gm));
+
+        assertThrows(BadRequestException.class, () -> service.salirDeRevision(1L, null, 9L));
+    }
+
+    @Test
+    void aplicarAccionBulk_marcarRevisionSinMotivo_falla() {
+        assertThrows(BadRequestException.class,
+                () -> service.aplicarAccionBulk("MARCAR_REVISION", List.of(1L), null, 9L));
+        verify(guiaMasterRepository, never()).save(any());
+    }
+
+    @Test
+    void aplicarAccionBulk_aprobar_procesaElegibleYRechazaNoElegible() {
+        stubConfigEstados();
+        GuiaMaster pendiente = GuiaMaster.builder().id(1L).trackingBase("TB-1")
+                .estadoGlobal(EstadoGuiaMaster.PENDIENTE_VERIFICACION).build();
+        GuiaMaster operativa = GuiaMaster.builder().id(2L).trackingBase("TB-2")
+                .estadoGlobal(EstadoGuiaMaster.RECEPCION_PARCIAL).build();
+        when(guiaMasterRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(pendiente, operativa));
+        when(guiaMasterRepository.findById(1L)).thenReturn(Optional.of(pendiente));
+        when(guiaMasterRepository.findById(2L)).thenReturn(Optional.of(operativa));
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(1L)).thenReturn(List.of());
+        when(guiaMasterRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var res = service.aplicarAccionBulk("APROBAR", List.of(1L, 2L), null, 9L);
+
+        assertEquals(1, res.getProcesadas());
+        assertEquals(1, res.getRechazados().size());
+        assertEquals(2L, res.getRechazados().get(0).getGuiaMasterId());
+    }
+
+    @Test
+    void toDTO_enRevision_exponeMotivoActorYFechaDesdeHistorial() {
+        stubConfigEstados();
+        when(parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial()).thenReturn(2);
+        GuiaMaster gm = GuiaMaster.builder().id(5L).trackingBase("TB-5")
+                .estadoGlobal(EstadoGuiaMaster.EN_REVISION).build();
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(5L)).thenReturn(List.of());
+        Usuario revisor = Usuario.builder().id(3L).username("op2").build();
+        LocalDateTime cuando = LocalDateTime.now().minusHours(2);
+        GuiaMasterEstadoHistorial h = GuiaMasterEstadoHistorial.builder()
+                .id(50L).estadoNuevo("EN_REVISION").tipoCambio(TipoCambioEstadoGuiaMaster.MARCAR_REVISION)
+                .motivo("TOTAL_PAQUETES_INCORRECTO: faltan 2").cambiadoPorUsuario(revisor).cambiadoEn(cuando).build();
+        when(historialRepository.findFirstByGuiaMasterIdAndTipoCambioOrderByCambiadoEnDescIdDesc(
+                5L, TipoCambioEstadoGuiaMaster.MARCAR_REVISION)).thenReturn(Optional.of(h));
+
+        GuiaMasterDTO dto = service.toDTO(gm, List.of());
+
+        assertEquals("TOTAL_PAQUETES_INCORRECTO: faltan 2", dto.getRevisionMotivo());
+        assertEquals(cuando, dto.getRevisionEn());
+        assertEquals(3L, dto.getRevisionPorUsuarioId());
+        assertEquals("op2", dto.getRevisionPorUsuarioNombre());
+    }
+
+    @Test
+    void toDTO_noEnRevision_noConsultaHistorialDeRevision() {
+        stubConfigEstados();
+        when(parametroSistemaService.getGuiaMasterMinPiezasDespachoParcial()).thenReturn(2);
+        GuiaMaster gm = GuiaMaster.builder().id(6L).trackingBase("TB-6")
+                .estadoGlobal(EstadoGuiaMaster.CON_PAQUETES_REGISTRADOS).build();
+        when(paqueteRepository.findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(6L)).thenReturn(List.of());
+
+        GuiaMasterDTO dto = service.toDTO(gm, List.of());
+
+        assertEquals(null, dto.getRevisionMotivo());
+        verify(historialRepository, never())
+                .findFirstByGuiaMasterIdAndTipoCambioOrderByCambiadoEnDescIdDesc(anyLong(), any());
     }
 }

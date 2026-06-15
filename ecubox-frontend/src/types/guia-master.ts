@@ -87,6 +87,12 @@ export interface GuiaMaster {
   cerradaPorUsuarioNombre?: string | null;
   tipoCierre?: TipoCierreGuiaMaster | null;
   motivoCierre?: string | null;
+  /** Motivo de la última entrada a revisión (solo presente cuando estadoGlobal === EN_REVISION). */
+  revisionMotivo?: string | null;
+  /** Cuándo se marcó en revisión por última vez. */
+  revisionEn?: string | null;
+  revisionPorUsuarioId?: number | null;
+  revisionPorUsuarioNombre?: string | null;
   piezas?: Paquete[];
 }
 
