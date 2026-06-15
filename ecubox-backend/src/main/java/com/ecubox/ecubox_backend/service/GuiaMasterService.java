@@ -966,12 +966,21 @@ public class GuiaMasterService {
                     "No se puede marcar en revisión la guía master porque ya está cerrada. Estado actual: "
                             + anterior + ". Reábrela primero si necesitas revisarla.");
         }
+        // El motivo es obligatorio: la bandeja "En revisión" lo necesita para
+        // saber por qué se pausó la guía (auditoría/trazabilidad). El texto puede
+        // venir serializado como "MOTIVO_ESTRUCTURADO: observación" desde la UI.
+        String motivoLimpio = Strings.trimOrNull(motivo);
+        if (motivoLimpio == null) {
+            throw new BadRequestException(
+                    "No se puede marcar en revisión la guía master porque falta el motivo. "
+                            + "Indica el motivo de la revisión para continuar.");
+        }
         Usuario actor = resolverUsuario(actorUsuarioId);
         gm.setEstadoGlobal(EstadoGuiaMaster.EN_REVISION);
         GuiaMaster saved = guiaMasterRepository.save(gm);
         registrarHistorial(saved, anterior, EstadoGuiaMaster.EN_REVISION,
                 TipoCambioEstadoGuiaMaster.MARCAR_REVISION,
-                Strings.trimOrNull(motivo), actor);
+                motivoLimpio, actor);
         return saved;
     }
 
@@ -1096,11 +1105,13 @@ public class GuiaMasterService {
                             + "SALIR_REVISION, CANCELAR o REABRIR.");
         }
         String motivoLimpio = Strings.trimOrNull(motivo);
-        if ((accion == AccionBulkGuiaMaster.CANCELAR || accion == AccionBulkGuiaMaster.REABRIR)
+        if ((accion == AccionBulkGuiaMaster.CANCELAR
+                || accion == AccionBulkGuiaMaster.REABRIR
+                || accion == AccionBulkGuiaMaster.MARCAR_REVISION)
                 && motivoLimpio == null) {
             throw new BadRequestException(
                     "No se puede aplicar la acción porque falta el motivo. "
-                            + "Indica el motivo para cancelar o reabrir guías.");
+                            + "Indica el motivo para cancelar, reabrir o enviar a revisión guías.");
         }
         List<Long> ids = guiaIds == null ? List.of()
                 : guiaIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
@@ -1670,6 +1681,26 @@ public class GuiaMasterService {
         // como ultimo fallback, del destinatario de la primera pieza.
         DestinatarioView destView = resolveDestinatario(gm);
         ConsignatarioVersion destVer = gm.getConsignatarioVersion();
+        // Solo para guías EN_REVISION resolvemos el motivo/actor/fecha desde el
+        // historial (la última entrada MARCAR_REVISION). Para el resto de estados
+        // NO se consulta el historial, evitando N+1 en las bandejas operativas.
+        String revisionMotivo = null;
+        LocalDateTime revisionEn = null;
+        Long revisionPorUsuarioId = null;
+        String revisionPorUsuarioNombre = null;
+        if (gm.getEstadoGlobal() == EstadoGuiaMaster.EN_REVISION) {
+            var ultimaRevision = historialRepository
+                    .findFirstByGuiaMasterIdAndTipoCambioOrderByCambiadoEnDescIdDesc(
+                            gm.getId(), TipoCambioEstadoGuiaMaster.MARCAR_REVISION);
+            if (ultimaRevision.isPresent()) {
+                var h = ultimaRevision.get();
+                revisionMotivo = h.getMotivo();
+                revisionEn = h.getCambiadoEn();
+                Usuario revisor = h.getCambiadoPorUsuario();
+                revisionPorUsuarioId = revisor != null ? revisor.getId() : null;
+                revisionPorUsuarioNombre = revisor != null ? revisor.getUsername() : null;
+            }
+        }
         return GuiaMasterDTO.builder()
                 .id(gm.getId())
                 .trackingBase(gm.getTrackingBase())
@@ -1700,6 +1731,10 @@ public class GuiaMasterService {
                 .cerradaPorUsuarioNombre(cerro != null ? cerro.getUsername() : null)
                 .tipoCierre(gm.getTipoCierre() != null ? gm.getTipoCierre().name() : null)
                 .motivoCierre(gm.getMotivoCierre())
+                .revisionMotivo(revisionMotivo)
+                .revisionEn(revisionEn)
+                .revisionPorUsuarioId(revisionPorUsuarioId)
+                .revisionPorUsuarioNombre(revisionPorUsuarioNombre)
                 .piezas(piezasDTO)
                 .build();
     }

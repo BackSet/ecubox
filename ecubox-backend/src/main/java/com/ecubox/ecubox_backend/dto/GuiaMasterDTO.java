@@ -55,5 +55,19 @@ public class GuiaMasterDTO {
     private String tipoCierre;
     private String motivoCierre;
 
+    // ----------------------------------------------------------------------
+    // Revisión (derivado del historial, no persistido en la entidad).
+    // Solo se rellena cuando la guía está EN_REVISION, leyendo la última
+    // entrada MARCAR_REVISION del historial. La trazabilidad sigue viviendo en
+    // el historial; estos campos solo evitan un round-trip por fila en la
+    // bandeja "En revisión".
+    // ----------------------------------------------------------------------
+    /** Motivo de la última entrada a revisión (texto libre, puede serializar motivo+observación). */
+    private String revisionMotivo;
+    /** Cuándo se marcó en revisión por última vez. */
+    private LocalDateTime revisionEn;
+    private Long revisionPorUsuarioId;
+    private String revisionPorUsuarioNombre;
+
     private List<PaqueteDTO> piezas;
 }
