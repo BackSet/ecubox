@@ -61,10 +61,29 @@ function variacion(metrica: MetricaComparable): string {
   return `${arrow}${fmtNumero(Math.abs(metrica.variacionPct), 1)} %`;
 }
 
+const DISPONIBILIDAD_LABEL: Record<string, string> = {
+  PARCIAL: 'Cobertura parcial',
+  SIN_CONFIGURACION: 'Sin configuración',
+  SIN_HISTORIAL: 'Sin historial',
+  NO_CALCULABLE: 'No calculable',
+  COMPLETA: 'Completa',
+};
+
 export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const ctx = createDocCtx(doc);
   const { resultados, estadoActual } = data;
+
+  // Disponibilidad de las métricas de despacho: no usar 0 como "sin datos".
+  const disp = data.disponibilidadDespacho;
+  const despachoNoDisponible = disp != null
+    && (disp.estado === 'SIN_CONFIGURACION'
+        || disp.estado === 'SIN_HISTORIAL'
+        || disp.estado === 'NO_CALCULABLE');
+  const despachadosValue = despachoNoDisponible
+    ? '—' : fmtNumero(resultados.paquetesDespachados.actual ?? 0, 0);
+  const pesoDespValue = despachoNoDisponible
+    ? '—' : fmtNumero(resultados.pesoDespachadoLbs.actual ?? 0, 1);
 
   const periodo = `${fmtFechaCorta(data.periodo.desde)} – ${fmtFechaCorta(data.periodo.hastaInclusivo)}`;
   const periodoAnterior = `${fmtFechaCorta(data.periodoAnterior.desde)} – ${fmtFechaCorta(
@@ -97,13 +116,13 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
   drawKpiRow(ctx, [
     {
       label: 'Paquetes despachados',
-      value: fmtNumero(resultados.paquetesDespachados.actual ?? 0, 0),
+      value: despachadosValue,
     },
     {
       label: 'Paquetes registrados',
       value: fmtNumero(resultados.paquetesRegistrados.actual ?? 0, 0),
     },
-    { label: 'Peso desp. (lbs)', value: fmtNumero(resultados.pesoDespachadoLbs.actual ?? 0, 1) },
+    { label: 'Peso desp. (lbs)', value: pesoDespValue },
     {
       label: 'Tiempo prom. despacho',
       value:
@@ -125,12 +144,19 @@ export function buildEstadisticasPdf(data: EstadisticasDashboard): jsPDF {
     { label: 'Ingreso neto est.', value: fmtMoneda(resultados.ingresoNeto.actual ?? 0) },
   ]);
 
+  // Nota de disponibilidad cuando las métricas de despacho no son COMPLETA.
+  if (disp != null && disp.estado !== 'COMPLETA') {
+    drawInlineMetrics(ctx, 'Disponibilidad de despacho', [
+      { label: DISPONIBILIDAD_LABEL[disp.estado] ?? disp.estado, value: safeStr(disp.advertencia, '—') },
+    ]);
+  }
+
   // ── Movimiento de paquetes ──
   const puntos = combinarSeries(resultados.paquetesDespachadosSerie, resultados.registrosSerie);
   drawSectionTitle(ctx, 'Movimiento de paquetes');
   const puntoCols: ColumnDef<FilaPunto>[] = [
     { key: 'periodo', label: 'PERÍODO', weight: 0.28, align: 'left', render: (r) => r.etiqueta },
-    { key: 'paq', label: 'PAQUETES DESP.', weight: 0.26, align: 'right', render: (r) => fmtNumero(r.paquetesDespachados, 0) },
+    { key: 'paq', label: 'PAQUETES DESP.', weight: 0.26, align: 'right', render: (r) => despachoNoDisponible ? '—' : fmtNumero(r.paquetesDespachados, 0) },
     { key: 'reg', label: 'REGISTRADOS', weight: 0.24, align: 'right', render: (r) => fmtNumero(r.registrados, 0) },
     { key: 'peso', label: 'PESO DESP. (LBS)', weight: 0.22, align: 'right', render: (r) => fmtNumero(r.pesoLbs, 1) },
   ];

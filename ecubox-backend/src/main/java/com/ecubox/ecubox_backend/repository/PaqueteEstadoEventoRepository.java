@@ -43,14 +43,15 @@ public interface PaqueteEstadoEventoRepository extends JpaRepository<PaqueteEsta
 
     // ─────────────────── Estadísticas: paquetes despachados ───────────────────
     //
-    // Fuente canónica y auditable del momento "paquete despachado": la PRIMERA
-    // transición (MIN(occurred_at)) de cada paquete al estado configurado para
-    // despacho (estadoRastreoEnDespachoId). Al agrupar por paquete_id se cuenta
-    // cada paquete una sola vez, de modo que:
-    //   - eventos duplicados (mismo paquete, mismo estado) no inflan el conteo;
-    //   - reversiones / reingresos posteriores no vuelven a contar el paquete;
-    //   - correcciones o cambios de despacho son indiferentes (es nivel paquete);
-    // No depende de despacho.fecha_hora (que es nullable y editable).
+    // Fuente canónica, auditable y ESTABLE del momento "paquete despachado": la
+    // PRIMERA transición (MIN(occurred_at)) de cada paquete cuyo {@code event_type}
+    // es {@code ESTADO_APLICADO_DESPACHO} (semántica de "entrada a despacho"). Se
+    // ancla en el event_type, NO en {@code estado_destino_id}: el id del estado de
+    // despacho es un parámetro mutable del catálogo y puede cambiar, mientras que
+    // el event_type es estable y captura los eventos históricos cualquiera sea el
+    // id vigente entonces. Al agrupar por paquete_id se cuenta cada paquete una
+    // sola vez (eventos duplicados, reversiones o reingresos no lo vuelven a
+    // contar). No depende de {@code despacho.fecha_hora} (nullable y editable).
 
     /** Totales del periodo: {@code [paquetesDespachados, pesoLbs]} por fecha del evento canónico. */
     @Query(value = """
@@ -59,13 +60,13 @@ public interface PaqueteEstadoEventoRepository extends JpaRepository<PaqueteEsta
             FROM (
                 SELECT e.paquete_id AS paquete_id, MIN(e.occurred_at) AS despachado_en
                 FROM paquete_estado_evento e
-                WHERE e.estado_destino_id = :estadoDespachoId
+                WHERE e.event_type = :eventType
                 GROUP BY e.paquete_id
             ) d
             JOIN paquete p ON p.id = d.paquete_id
             WHERE d.despachado_en >= :desde AND d.despachado_en < :hasta
             """, nativeQuery = true)
-    Object[] resumenDespachadosEntre(@Param("estadoDespachoId") Long estadoDespachoId,
+    Object[] resumenDespachadosEntre(@Param("eventType") String eventType,
                                      @Param("desde") LocalDateTime desde,
                                      @Param("hasta") LocalDateTime hasta);
 
@@ -80,7 +81,7 @@ public interface PaqueteEstadoEventoRepository extends JpaRepository<PaqueteEsta
             FROM (
                 SELECT e.paquete_id AS paquete_id, MIN(e.occurred_at) AS despachado_en
                 FROM paquete_estado_evento e
-                WHERE e.estado_destino_id = :estadoDespachoId
+                WHERE e.event_type = :eventType
                 GROUP BY e.paquete_id
             ) d
             JOIN paquete p ON p.id = d.paquete_id
@@ -89,7 +90,7 @@ public interface PaqueteEstadoEventoRepository extends JpaRepository<PaqueteEsta
             ORDER BY 1
             """, nativeQuery = true)
     List<Object[]> aggregateDespachadosByPeriodo(@Param("trunc") String trunc,
-                                                 @Param("estadoDespachoId") Long estadoDespachoId,
+                                                 @Param("eventType") String eventType,
                                                  @Param("desde") LocalDateTime desde,
                                                  @Param("hasta") LocalDateTime hasta);
 
@@ -103,14 +104,32 @@ public interface PaqueteEstadoEventoRepository extends JpaRepository<PaqueteEsta
             FROM (
                 SELECT e.paquete_id AS paquete_id, MIN(e.occurred_at) AS despachado_en
                 FROM paquete_estado_evento e
-                WHERE e.estado_destino_id = :estadoDespachoId
+                WHERE e.event_type = :eventType
                 GROUP BY e.paquete_id
             ) d
             JOIN paquete p ON p.id = d.paquete_id
             WHERE d.despachado_en >= :desde AND d.despachado_en < :hasta
               AND d.despachado_en >= p.created_at
             """, nativeQuery = true)
-    Double avgDiasPrimerDespachoEntre(@Param("estadoDespachoId") Long estadoDespachoId,
+    Double avgDiasPrimerDespachoEntre(@Param("eventType") String eventType,
                                       @Param("desde") LocalDateTime desde,
                                       @Param("hasta") LocalDateTime hasta);
+
+    /**
+     * Cobertura global de la métrica de despacho (independiente de periodo):
+     * {@code [coberturaDesde, coberturaHasta, totalPaquetesConEvento]}. Permite
+     * distinguir "sin historial" de "cobertura parcial" sin convertir nulos en 0.
+     */
+    @Query(value = """
+            SELECT MIN(d.despachado_en) AS desde,
+                   MAX(d.despachado_en) AS hasta,
+                   COUNT(*) AS total
+            FROM (
+                SELECT e.paquete_id AS paquete_id, MIN(e.occurred_at) AS despachado_en
+                FROM paquete_estado_evento e
+                WHERE e.event_type = :eventType
+                GROUP BY e.paquete_id
+            ) d
+            """, nativeQuery = true)
+    Object[] coberturaDespachados(@Param("eventType") String eventType);
 }

@@ -4,8 +4,10 @@ import com.ecubox.ecubox_backend.dto.EstadisticasConsulta;
 import com.ecubox.ecubox_backend.dto.EstadisticasDashboardDTO;
 import com.ecubox.ecubox_backend.dto.EstadisticasDashboardDTO.MetricaComparable;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.enums.DisponibilidadMetrica;
 import com.ecubox.ecubox_backend.enums.GranularidadEstadisticas;
 import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
+import com.ecubox.ecubox_backend.enums.TrackingEventType;
 import com.ecubox.ecubox_backend.repository.EstadoRastreoRepository;
 import com.ecubox.ecubox_backend.repository.EstadisticasExcepcionRepository;
 import com.ecubox.ecubox_backend.repository.LiquidacionRepository;
@@ -40,6 +42,8 @@ public class EstadisticasService {
             DateTimeFormatter.ofPattern("d MMM", LOCALE_EC);
     private static final DateTimeFormatter ETIQUETA_MES =
             DateTimeFormatter.ofPattern("MMM yy", LOCALE_EC);
+    private static final DateTimeFormatter FMT_COBERTURA =
+            DateTimeFormatter.ofPattern("d MMM yyyy", LOCALE_EC);
     private static final BigDecimal CIEN = BigDecimal.valueOf(100);
 
     private final PaqueteRepository paqueteRepository;
@@ -84,14 +88,17 @@ public class EstadisticasService {
         LocalDateTime antDesde = periodo.anteriorDesde().atStartOfDay();
         LocalDateTime antHasta = periodo.anteriorHastaExclusivo().atStartOfDay();
 
-        // Estado configurado como "despacho": ancla de la fuente canónica.
+        // Estado configurado como "despacho": solo para distinguir SIN_CONFIGURACION
+        // y para el orden del estado operativo actual. La MÉTRICA de despacho se
+        // ancla en el event_type semántico estable, no en este id mutable.
         Long estadoDespachoId = parametroSistemaService.getEstadosRastreoPorPunto()
                 .getEstadoRastreoEnDespachoId();
+        final String eventoDespacho = TrackingEventType.ESTADO_APLICADO_DESPACHO.name();
 
         // ── Resultados del periodo (histórico + comparación) ──
-        // Paquetes despachados: primera transición auditable al estado de despacho.
-        ResumenDespachados despActual = resumenDespachados(estadoDespachoId, desde, hasta);
-        ResumenDespachados despAnterior = resumenDespachados(estadoDespachoId, antDesde, antHasta);
+        // Paquetes despachados: primera transición auditable al evento de despacho.
+        ResumenDespachados despActual = resumenDespachados(eventoDespacho, desde, hasta);
+        ResumenDespachados despAnterior = resumenDespachados(eventoDespacho, antDesde, antHasta);
 
         long registradosActual = paqueteRepository.countRegistradosEntre(desde, hasta);
         long registradosAnterior = paqueteRepository.countRegistradosEntre(antDesde, antHasta);
@@ -99,10 +106,8 @@ public class EstadisticasService {
         BigDecimal pesoRegActual = paqueteRepository.sumPesoRegistradoEntre(desde, hasta);
         BigDecimal pesoRegAnterior = paqueteRepository.sumPesoRegistradoEntre(antDesde, antHasta);
 
-        Double avgActual = estadoDespachoId == null ? null
-                : paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(estadoDespachoId, desde, hasta);
-        Double avgAnterior = estadoDespachoId == null ? null
-                : paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(estadoDespachoId, antDesde, antHasta);
+        Double avgActual = paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(eventoDespacho, desde, hasta);
+        Double avgAnterior = paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(eventoDespacho, antDesde, antHasta);
 
         // Estimaciones financieras (NO contables): peso REGISTRADO × tasas históricas.
         LiquidacionRepository.TasasEstimacionProjection tasas =
@@ -114,9 +119,8 @@ public class EstadisticasService {
         BigDecimal ingresoActual = margenActual.subtract(costoActual).setScale(4, RoundingMode.HALF_UP);
         BigDecimal ingresoAnterior = margenAnterior.subtract(costoAnterior).setScale(4, RoundingMode.HALF_UP);
 
-        List<Object[]> filasDespachados = estadoDespachoId == null ? List.of()
-                : paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(
-                        granularidad.getTruncUnit(), estadoDespachoId, desde, hasta);
+        List<Object[]> filasDespachados = paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(
+                granularidad.getTruncUnit(), eventoDespacho, desde, hasta);
         List<EstadisticasDashboardDTO.SeriePunto> paquetesDespachadosSerie = buildSerie(
                 granularidad, periodo.desde(), periodo.hastaExclusivo(), filasDespachados, true);
         List<EstadisticasDashboardDTO.SeriePunto> registrosSerie = buildSerie(
@@ -141,6 +145,11 @@ public class EstadisticasService {
         // ── Estado operativo actual (fotografía, sin comparación histórica) ──
         EstadisticasDashboardDTO.EstadoOperativoActual estadoActual = estadoActual();
 
+        // ── Disponibilidad de las métricas de despacho ──
+        Object[] coberturaRow = paqueteEstadoEventoRepository.coberturaDespachados(eventoDespacho);
+        EstadisticasDashboardDTO.DisponibilidadDespacho disponibilidad =
+                calcularDisponibilidadDespacho(coberturaRow, estadoDespachoId != null, desde);
+
         return new EstadisticasDashboardDTO(
                 LocalDateTime.now(ZONA_ECUADOR),
                 granularidad,
@@ -153,7 +162,8 @@ public class EstadisticasService {
                         periodo.anteriorHastaExclusivo().minusDays(1)),
                 DIAS_MAX_PROCESO_LABORABLES,
                 resultados,
-                estadoActual);
+                estadoActual,
+                disponibilidad);
     }
 
     // ───────────────────────── Estado operativo actual ─────────────────────────
@@ -163,9 +173,10 @@ public class EstadisticasService {
                 .findMaxOrdenTrackingActivoByTipoFlujo(TipoFlujoEstado.NORMAL);
         Long estadoDespachoId = parametroSistemaService.getEstadosRastreoPorPunto()
                 .getEstadoRastreoEnDespachoId();
-        int ordenDespacho = estadoRastreoRepository.findById(estadoDespachoId)
-                .map(estado -> estado.getOrdenTracking() != null ? estado.getOrdenTracking() : 0)
-                .orElse(0);
+        int ordenDespacho = estadoDespachoId == null ? 0
+                : estadoRastreoRepository.findById(estadoDespachoId)
+                        .map(estado -> estado.getOrdenTracking() != null ? estado.getOrdenTracking() : 0)
+                        .orElse(0);
         int diasMax = DIAS_MAX_PROCESO_LABORABLES;
         LocalDate hoyLocal = LocalDate.now(ZONA_ECUADOR);
 
@@ -212,16 +223,61 @@ public class EstadisticasService {
      * Resumen de paquetes despachados en el rango por su evento canónico de
      * despacho. Cuenta paquetes únicos (no entidades despacho) y suma su peso.
      */
-    private ResumenDespachados resumenDespachados(Long estadoDespachoId,
+    private ResumenDespachados resumenDespachados(String eventType,
                                                   LocalDateTime desde, LocalDateTime hasta) {
-        if (estadoDespachoId == null) {
-            return new ResumenDespachados(0, BigDecimal.ZERO);
-        }
-        Object[] row = paqueteEstadoEventoRepository.resumenDespachadosEntre(estadoDespachoId, desde, hasta);
+        Object[] row = paqueteEstadoEventoRepository.resumenDespachadosEntre(eventType, desde, hasta);
         if (row == null || row.length < 2) {
             return new ResumenDespachados(0, BigDecimal.ZERO);
         }
         return new ResumenDespachados(longValue(row[0]), decimal(row[1]));
+    }
+
+    /**
+     * Clasifica la disponibilidad de las métricas de despacho a partir de la
+     * cobertura global de eventos y de si el hito está configurado. No usa 0
+     * como sustituto de "sin datos": distingue cero real (COMPLETA, total 0),
+     * falta de configuración, falta de historial y cobertura parcial.
+     *
+     * @param coberturaRow {@code [coberturaDesde, coberturaHasta, totalConEvento]}
+     * @param configurado  si el hito de despacho está configurado
+     * @param periodoDesde inicio del periodo consultado (para detectar parcialidad)
+     */
+    private EstadisticasDashboardDTO.DisponibilidadDespacho calcularDisponibilidadDespacho(
+            Object[] coberturaRow, boolean configurado, LocalDateTime periodoDesde) {
+        LocalDateTime covDesde = coberturaRow != null && coberturaRow.length > 0
+                ? toLocalDateTime(coberturaRow[0]) : null;
+        LocalDateTime covHasta = coberturaRow != null && coberturaRow.length > 1
+                ? toLocalDateTime(coberturaRow[1]) : null;
+        long totalConEvento = coberturaRow != null && coberturaRow.length > 2 ? longValue(coberturaRow[2]) : 0L;
+
+        DisponibilidadMetrica estado;
+        String advertencia;
+        if (totalConEvento == 0 || covDesde == null) {
+            // Sin ningún evento de despacho: el hito no configurado tiene prioridad
+            // (hay que configurarlo); si está configurado, simplemente no hay historial.
+            if (!configurado) {
+                estado = DisponibilidadMetrica.SIN_CONFIGURACION;
+                advertencia = "Configura el hito de despacho para calcular esta métrica";
+            } else {
+                estado = DisponibilidadMetrica.SIN_HISTORIAL;
+                advertencia = "No hay historial suficiente para este periodo";
+            }
+        } else if (covDesde.isAfter(periodoDesde)) {
+            estado = DisponibilidadMetrica.PARCIAL;
+            advertencia = "Datos disponibles desde " + covDesde.format(FMT_COBERTURA);
+        } else {
+            estado = DisponibilidadMetrica.COMPLETA;
+            advertencia = null;
+        }
+        return new EstadisticasDashboardDTO.DisponibilidadDespacho(estado, covDesde, covHasta, advertencia);
+    }
+
+    private static LocalDateTime toLocalDateTime(Object value) {
+        if (value == null) return null;
+        if (value instanceof LocalDateTime ldt) return ldt;
+        if (value instanceof java.sql.Timestamp ts) return ts.toLocalDateTime();
+        if (value instanceof java.time.Instant ins) return LocalDateTime.ofInstant(ins, ZONA_ECUADOR);
+        return null;
     }
 
     /**

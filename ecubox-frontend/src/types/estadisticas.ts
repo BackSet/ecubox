@@ -97,6 +97,22 @@ export interface ExcepcionOperativa {
   ruta: string;
 }
 
+/** Estado de disponibilidad de una métrica (no usar 0 como sustituto de "sin datos"). */
+export type DisponibilidadMetrica =
+  | 'COMPLETA'
+  | 'PARCIAL'
+  | 'SIN_CONFIGURACION'
+  | 'SIN_HISTORIAL'
+  | 'NO_CALCULABLE';
+
+/** Disponibilidad de las métricas de despacho (paquetes y peso despachados). */
+export interface DisponibilidadDespacho {
+  estado: DisponibilidadMetrica;
+  coberturaDesde: string | null;
+  coberturaHasta: string | null;
+  advertencia: string | null;
+}
+
 /** Fotografía operativa actual; no se compara contra historia. */
 export interface EstadoOperativoActual {
   pendientesDespacho: number;
@@ -118,4 +134,6 @@ export interface EstadisticasDashboard {
   diasMaxSinDespachar: number;
   resultados: EstadisticasResultadosPeriodo;
   estadoActual: EstadoOperativoActual;
+  /** Disponibilidad de las métricas de despacho (paquetes y peso despachados). */
+  disponibilidadDespacho: DisponibilidadDespacho;
 }

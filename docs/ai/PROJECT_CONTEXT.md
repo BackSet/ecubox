@@ -90,6 +90,7 @@ Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.js
 - Búsquedas paginadas usan `PageResponse`, `Pageable`, Specifications y proyecciones según el módulo.
 - Procesos programados y event-driven viven en `scheduler/`, `event/`, `projection/` y servicios de outbox/rastreo.
 - **Fuente única del rastreo público**: el backend compone nombres, códigos, leyendas, visibilidad, orden (`ordenTracking` + `afterEstado`), flujo, cuenta regresiva y modalidad. `TrackingExampleService` genera ejemplos sintéticos desde ese catálogo/configuración y el frontend no mantiene una secuencia paralela de estados.
+- **Métricas históricas ancladas en `event_type` semántico estable** (regla global): las métricas auditables sobre el event store (`paquete_estado_evento`) se anclan en el **`event_type`** semántico (p. ej. `ESTADO_APLICADO_DESPACHO` para "Paquetes/Peso despachados"), **no** en ids mutables del catálogo (`estado_rastreo`) ni en fechas de entidad editables/nullables (`despacho.fecha_hora`). El evento se emite en el punto transaccional real (idempotente, una vez por paquete para la métrica). Los huecos históricos se rellenan con migraciones de **backfill versionadas e idempotentes**, con fecha fiable y eventos identificables (`event_source`/`metadata_json`/`idempotency_key`); nunca con la fecha de ejecución de la migración. La disponibilidad se expone explícitamente (COMPLETA/PARCIAL/SIN_CONFIGURACION/SIN_HISTORIAL/NO_CALCULABLE) en vez de devolver 0 como sustituto de "sin datos".
 
 ### Contratos API y errores
 

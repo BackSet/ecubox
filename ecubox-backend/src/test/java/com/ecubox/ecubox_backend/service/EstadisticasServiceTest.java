@@ -2,6 +2,7 @@ package com.ecubox.ecubox_backend.service;
 
 import com.ecubox.ecubox_backend.dto.EstadisticasConsulta;
 import com.ecubox.ecubox_backend.dto.EstadisticasDashboardDTO;
+import com.ecubox.ecubox_backend.enums.DisponibilidadMetrica;
 import com.ecubox.ecubox_backend.entity.Consignatario;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.Paquete;
@@ -31,6 +32,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,8 +59,10 @@ class EstadisticasServiceTest {
 
     private EstadisticasService service;
 
-    /** Estado configurado como "despacho"; ancla de la fuente canónica de eventos. */
+    /** Estado configurado como "despacho"; solo para SIN_CONFIGURACION y orden operativo. */
     private static final Long ESTADO_DESPACHO_ID = 4L;
+    /** Ancla canónica ESTABLE de la métrica: event_type semántico (no el id mutable). */
+    private static final String EVENTO = "ESTADO_APLICADO_DESPACHO";
     private static final LocalDateTime DESDE = LocalDateTime.of(2020, 1, 1, 0, 0);
     private static final LocalDateTime HASTA = LocalDateTime.of(2020, 2, 1, 0, 0);
     private static final LocalDateTime ANT_DESDE = LocalDateTime.of(2019, 12, 1, 0, 0);
@@ -76,6 +80,9 @@ class EstadisticasServiceTest {
                 new PeriodoEstadisticasResolver());
         stubEstadoActual();
         stubTasas();
+        // Cobertura por defecto: amplia (cubre el periodo de prueba) => COMPLETA.
+        when(paqueteEstadoEventoRepository.coberturaDespachados(any())).thenReturn(new Object[]{
+                Timestamp.valueOf("2019-01-01 00:00:00"), Timestamp.valueOf("2020-12-31 00:00:00"), 100L});
     }
 
     private void stubEstadoActual() {
@@ -140,16 +147,16 @@ class EstadisticasServiceTest {
     @Test
     void paquetesDespachados_usaEventoCanonico_noEntidadDespacho() {
         // Fuente canónica: resumen de eventos de despacho (paquetes únicos + peso).
-        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(ESTADO_DESPACHO_ID, DESDE, HASTA))
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(EVENTO, DESDE, HASTA))
                 .thenReturn(new Object[]{25L, new BigDecimal("500.0")});
-        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(ESTADO_DESPACHO_ID, ANT_DESDE, ANT_HASTA))
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(EVENTO, ANT_DESDE, ANT_HASTA))
                 .thenReturn(new Object[]{12L, new BigDecimal("250.0")});
-        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(ESTADO_DESPACHO_ID, DESDE, HASTA))
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(EVENTO, DESDE, HASTA))
                 .thenReturn(3.0);
-        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(ESTADO_DESPACHO_ID, ANT_DESDE, ANT_HASTA))
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(EVENTO, ANT_DESDE, ANT_HASTA))
                 .thenReturn(2.0);
         when(paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(
-                eq("day"), eq(ESTADO_DESPACHO_ID), eq(DESDE), eq(HASTA)))
+                eq("day"), eq(EVENTO), eq(DESDE), eq(HASTA)))
                 .thenReturn(List.<Object[]>of(
                         new Object[]{Timestamp.valueOf("2020-01-05 00:00:00"), 9L, new BigDecimal("25.5")}));
         stubRegistros(40L, 20L, "800.00", "400.00");
@@ -208,13 +215,66 @@ class EstadisticasServiceTest {
         // La serie se rellena con puntos en cero (no se omite el rango)
         assertEquals(31, result.resultados().paquetesDespachadosSerie().size());
         assertTrue(result.resultados().paquetesDespachadosSerie().stream().allMatch(p -> p.total() == 0));
+        // Cero REAL: disponibilidad COMPLETA (hay cobertura), no SIN_HISTORIAL.
+        assertEquals(DisponibilidadMetrica.COMPLETA, result.disponibilidadDespacho().estado());
+    }
+
+    @Test
+    void disponibilidad_sinConfiguracion_cuandoNoHayHitoNiEventos() {
+        when(parametroSistemaService.getEstadosRastreoPorPunto()).thenReturn(
+                EstadosRastreoPorPuntoDTO.builder().estadoRastreoEnDespachoId(null).build());
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(any(), any(), any()))
+                .thenReturn(new Object[]{0L, BigDecimal.ZERO});
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(any(), any(), any())).thenReturn(null);
+        when(paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        when(paqueteEstadoEventoRepository.coberturaDespachados(any()))
+                .thenReturn(new Object[]{null, null, 0L});
+        stubRegistros(0L, 0L, "0", "0");
+
+        var d = service.dashboard(enero2020()).disponibilidadDespacho();
+        assertEquals(DisponibilidadMetrica.SIN_CONFIGURACION, d.estado());
+        assertNotNull(d.advertencia());
+    }
+
+    @Test
+    void disponibilidad_sinHistorial_cuandoConfiguradoPeroSinEventos() {
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(any(), any(), any()))
+                .thenReturn(new Object[]{0L, BigDecimal.ZERO});
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(any(), any(), any())).thenReturn(null);
+        when(paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        when(paqueteEstadoEventoRepository.coberturaDespachados(any()))
+                .thenReturn(new Object[]{null, null, 0L});
+        stubRegistros(0L, 0L, "0", "0");
+
+        var d = service.dashboard(enero2020()).disponibilidadDespacho();
+        assertEquals(DisponibilidadMetrica.SIN_HISTORIAL, d.estado());
+    }
+
+    @Test
+    void disponibilidad_parcial_cuandoCoberturaEmpiezaDespuesDelInicio() {
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(any(), any(), any()))
+                .thenReturn(new Object[]{3L, new BigDecimal("30.0")});
+        when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(any(), any(), any())).thenReturn(1.0);
+        when(paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        // El primer evento (cobertura) es posterior al inicio del periodo (2020-01-01).
+        when(paqueteEstadoEventoRepository.coberturaDespachados(any())).thenReturn(new Object[]{
+                Timestamp.valueOf("2020-01-15 00:00:00"), Timestamp.valueOf("2020-01-20 00:00:00"), 3L});
+        stubRegistros(3L, 0L, "30", "0");
+
+        var d = service.dashboard(enero2020()).disponibilidadDespacho();
+        assertEquals(DisponibilidadMetrica.PARCIAL, d.estado());
+        assertTrue(d.advertencia().toLowerCase().contains("disponibles desde"));
+        assertNotNull(d.coberturaDesde());
     }
 
     @Test
     void unSoloPaqueteDespachado_seCuentaUnaVez() {
-        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(ESTADO_DESPACHO_ID, DESDE, HASTA))
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(EVENTO, DESDE, HASTA))
                 .thenReturn(new Object[]{1L, new BigDecimal("12.5")});
-        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(ESTADO_DESPACHO_ID, ANT_DESDE, ANT_HASTA))
+        when(paqueteEstadoEventoRepository.resumenDespachadosEntre(EVENTO, ANT_DESDE, ANT_HASTA))
                 .thenReturn(new Object[]{0L, BigDecimal.ZERO});
         when(paqueteEstadoEventoRepository.avgDiasPrimerDespachoEntre(any(), any(), any())).thenReturn(2.5);
         when(paqueteEstadoEventoRepository.aggregateDespachadosByPeriodo(any(), any(), any(), any()))
