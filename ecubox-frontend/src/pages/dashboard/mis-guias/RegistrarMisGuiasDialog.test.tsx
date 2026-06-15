@@ -37,7 +37,7 @@ function renderDialog() {
 }
 
 async function seleccionarDestinatario(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByLabelText(/destinatario/i));
+  await user.click(screen.getByLabelText(/quién recibirá/i));
   await user.click(await screen.findByText('Juan Pérez'));
 }
 

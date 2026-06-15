@@ -8,6 +8,9 @@ export interface Consignatario {
   codigo?: string;
   clienteUsuarioId?: number | null;
   clienteUsuarioNombre?: string | null;
+  /** Conteos de envíos (solo en listados de cliente/enlace "Mis destinatarios"). */
+  totalGuias?: number | null;
+  totalPaquetes?: number | null;
 }
 
 export interface ConsignatarioRequest {

@@ -1,5 +1,6 @@
 import type { MetaDescriptor } from '@tanstack/react-router';
 import type { CanalesComunicacionPublic } from '@/types/canales-comunicacion';
+import type { FaqItem } from '@/lib/faq-items';
 
 /**
  * URL pública del sitio (sin barra final) para canonical, Open Graph y JSON-LD.
@@ -26,7 +27,7 @@ export function absoluteUrl(path: string): string {
 
 export const SEO_DEFAULT_TITLE = 'ECUBOX | Casillero en USA y envíos a Ecuador con rastreo';
 export const SEO_DEFAULT_DESCRIPTION =
-  'Compra en Amazon, eBay o Shein y recíbelo en Ecuador. ECUBOX te da un casillero gratis en USA, envíos en 8–12 días, rastreo por pieza y tarifas transparentes.';
+  'Compra en Amazon, eBay o Shein y recíbelo en Ecuador. ECUBOX te da un casillero gratis en USA, envíos en 8–12 días, rastreo por pieza y tarifas transparentes. Con una sola cuenta gestionas varios destinatarios: personas, oficinas o sucursales.';
 
 /** Dimensiones reales de /og-image.png. Declararlas evita previsualizaciones rotas. */
 export const OG_IMAGE_WIDTH = 1376;
@@ -144,4 +145,26 @@ export function buildHomeJsonLd(
     { 'script:ld+json': org },
     { 'script:ld+json': website },
   ];
+}
+
+/**
+ * JSON-LD `FAQPage` para la home, construido desde la misma fuente de preguntas
+ * que el bloque visible ({@link FaqItem}); así el contenido estructurado nunca
+ * se desincroniza del visible.
+ */
+export function buildFaqJsonLd(items: FaqItem[]): MetaDescriptor {
+  return {
+    'script:ld+json': {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: items.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.a,
+        },
+      })),
+    },
+  };
 }

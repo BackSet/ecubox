@@ -25,6 +25,7 @@ vi.mock('@/stores/authStore', () => ({
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
+  useSearch: () => ({}),
 }));
 
 function renderPage() {

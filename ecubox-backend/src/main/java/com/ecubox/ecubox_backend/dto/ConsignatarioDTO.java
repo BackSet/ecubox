@@ -20,4 +20,13 @@ public class ConsignatarioDTO {
     private String codigo;
     private Long clienteUsuarioId;
     private String clienteUsuarioNombre;
+
+    /**
+     * Conteos de envíos asociados a este destinatario, resueltos por proyección
+     * de base de datos (sin descargar los datasets). Solo se rellenan en las
+     * vistas de listado del cliente/enlace ("Mis destinatarios"); en otras
+     * vistas pueden venir {@code null}.
+     */
+    private Long totalGuias;
+    private Long totalPaquetes;
 }

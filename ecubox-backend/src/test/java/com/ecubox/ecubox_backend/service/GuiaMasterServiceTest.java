@@ -152,6 +152,62 @@ class GuiaMasterServiceTest {
     }
 
     @Test
+    void findAllByCliente_sinFiltro_devuelveTodasLasDelCliente() {
+        Consignatario c1 = Consignatario.builder().id(5L).nombre("María").build();
+        Consignatario c2 = Consignatario.builder().id(6L).nombre("Oficina").build();
+        GuiaMaster g1 = GuiaMaster.builder().id(1L).consignatario(c1).build();
+        GuiaMaster g2 = GuiaMaster.builder().id(2L).consignatario(c2).build();
+        when(guiaMasterRepository.findByClienteUsuarioId(99L)).thenReturn(List.of(g1, g2));
+
+        List<GuiaMaster> todas = service.findAllByCliente(99L, null);
+
+        assertEquals(2, todas.size());
+    }
+
+    @Test
+    void findAllByCliente_conFiltro_devuelveSoloEseDestinatario() {
+        Consignatario c1 = Consignatario.builder().id(5L).nombre("María").build();
+        Consignatario c2 = Consignatario.builder().id(6L).nombre("Oficina").build();
+        GuiaMaster g1 = GuiaMaster.builder().id(1L).consignatario(c1).build();
+        GuiaMaster g2 = GuiaMaster.builder().id(2L).consignatario(c2).build();
+        when(guiaMasterRepository.findByClienteUsuarioId(99L)).thenReturn(List.of(g1, g2));
+
+        List<GuiaMaster> soloC1 = service.findAllByCliente(99L, 5L);
+
+        assertEquals(1, soloC1.size());
+        assertEquals(1L, soloC1.get(0).getId());
+    }
+
+    @Test
+    void findAllByCliente_destinatarioAjeno_noEnumeraGuiasDeOtros() {
+        Consignatario c1 = Consignatario.builder().id(5L).nombre("María").build();
+        GuiaMaster g1 = GuiaMaster.builder().id(1L).consignatario(c1).build();
+        when(guiaMasterRepository.findByClienteUsuarioId(99L)).thenReturn(List.of(g1));
+
+        // Un id que no pertenece al cliente no coincide con ninguna de sus guías.
+        assertTrue(service.findAllByCliente(99L, 777L).isEmpty());
+    }
+
+    @Test
+    void findAllByConsignatarioIds_idFueraDeScope_devuelveVacioSinConsultar() {
+        List<GuiaMaster> r = service.findAllByConsignatarioIds(List.of(5L, 6L), 999L);
+
+        assertTrue(r.isEmpty());
+        verify(guiaMasterRepository, never()).findByConsignatarioIdIn(any());
+    }
+
+    @Test
+    void findAllByConsignatarioIds_idEnScope_consultaSoloEseId() {
+        GuiaMaster g = GuiaMaster.builder().id(1L).build();
+        when(guiaMasterRepository.findByConsignatarioIdIn(List.of(5L))).thenReturn(List.of(g));
+
+        List<GuiaMaster> r = service.findAllByConsignatarioIds(List.of(5L, 6L), 5L);
+
+        assertEquals(1, r.size());
+        verify(guiaMasterRepository).findByConsignatarioIdIn(List.of(5L));
+    }
+
+    @Test
     void validarYAsignarPieza_asignaSiguienteCuandoPiezaNumeroEsNull() {
         GuiaMaster gm = GuiaMaster.builder().id(10L).totalPiezasEsperadas(3).build();
         Paquete p1 = Paquete.builder().id(1L).piezaNumero(1).build();

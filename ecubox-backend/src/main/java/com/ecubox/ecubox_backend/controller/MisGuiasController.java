@@ -84,12 +84,14 @@ public class MisGuiasController {
 
     @GetMapping
     @PreAuthorize("hasAnyAuthority('MIS_GUIAS_READ', 'ACCESO_ENLACE_GUIAS_READ')")
-    @Operation(summary = "Listar mis guías", description = "Devuelve la lista de guías asociadas al cliente autenticado")
+    @Operation(summary = "Listar mis guías", description = "Devuelve la lista de guías asociadas al cliente autenticado, opcionalmente acotadas a un destinatario")
     @ApiResponse(responseCode = "200", description = "Listado de guías")
-    public ResponseEntity<List<GuiaMasterDTO>> listar() {
+    public ResponseEntity<List<GuiaMasterDTO>> listar(
+            @Parameter(description = "Filtra las guías por el destinatario (consignatario) indicado; debe pertenecer al cliente o al scope del enlace")
+            @RequestParam(required = false) Long consignatarioId) {
         List<GuiaMaster> fuente = accesoSessionResolver.isEnlaceSession()
-                ? guiaMasterService.findAllByConsignatarioIds(accesoSessionResolver.consignatarioScope())
-                : guiaMasterService.findAllByCliente(currentUserService.getCurrentUsuario().getId());
+                ? guiaMasterService.findAllByConsignatarioIds(accesoSessionResolver.consignatarioScope(), consignatarioId)
+                : guiaMasterService.findAllByCliente(currentUserService.getCurrentUsuario().getId(), consignatarioId);
         List<GuiaMasterDTO> guias = fuente.stream()
                 .map(gm -> guiaMasterService.toDTO(gm, List.of()))
                 .toList();

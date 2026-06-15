@@ -6,33 +6,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { usePublicCanalesDisponibles } from '@/hooks/useCanalesComunicacion';
-
-const FAQ_ITEMS = [
-  {
-    q: '¿Cómo rastreo mi paquete?',
-    a: 'Ingresa tu número de guía o el número de tu paquete en la página de rastreo y verás en tiempo real el estado de tu envío y de cada paquete asociado.',
-  },
-  {
-    q: '¿Necesito tarjeta o pagar mensualidad?',
-    a: 'No. Crear tu casillero ECUBOX es 100% gratis. Solo pagas por los envíos que realices, según el peso real del paquete.',
-  },
-  {
-    q: '¿Qué artículos no puedo enviar?',
-    a: 'No se permiten explosivos, armas, dinero en efectivo, joyas de alto valor ni sustancias prohibidas. Si tienes dudas sobre un artículo específico, escríbenos antes de comprarlo.',
-  },
-  {
-    q: '¿Cuánto tarda en llegar mi compra?',
-    a: 'Desde USA suele tardar entre 8 y 12 días laborables una vez que tu paquete llega a nuestro almacén en New Jersey. Los tiempos pueden variar en temporada alta.',
-  },
-  {
-    q: '¿Cómo funcionan las tarifas?',
-    a: 'Cobramos por peso real según el tipo de servicio. Usa nuestra calculadora para obtener un costo aproximado antes de comprar y evita sorpresas al despacho.',
-  },
-  {
-    q: '¿Puedo retirar en agencia o solo a domicilio?',
-    a: 'Tenemos ambas opciones según tu provincia. Al crear tu envío puedes elegir retirar en una de nuestras agencias o en un punto de entrega aliado de un courier cercano a ti.',
-  },
-];
+import { FAQ_ITEMS } from '@/lib/faq-items';
 
 export function FAQ() {
   const { hasCanales } = usePublicCanalesDisponibles();

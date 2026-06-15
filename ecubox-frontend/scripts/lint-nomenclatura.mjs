@@ -48,6 +48,7 @@ const RULES = [
  *   - Nombres de campos que el backend aún expone con nomenclatura legacy.
  */
 const ALLOWLIST = [
+  /\.test\.(ts|tsx)$/,                    // tests verifican copy de ambas audiencias (cliente/back-office)
   /[\\/]types[\\/]/,                      // tipos espejo del backend con nombres legacy
   /[\\/]lib[\\/]api[\\/]/,                // services pueden mencionar campos legacy
   /[\\/]routes[\\/]router\.tsx$/,         // contiene redirects desde URLs legacy
@@ -62,6 +63,13 @@ const ALLOWLIST = [
   /[\\/]lib[\\/]pdf[\\/]builders[\\/]/,    // PDFs para clientes usan "Destinatario"
   /[\\/]pages[\\/]dashboard[\\/]enlaces-acceso[\\/]/, // enlaces públicos usan "Destinatario"
   /[\\/]pages[\\/]legal[\\/]/,            // páginas legales usan "Destinatario"
+  /[\\/]components[\\/]public[\\/]/,      // copy público (cliente final) usa "Destinatario"
+  /[\\/]components[\\/]ServicesGrid\.tsx$/, // tarjetas de la home (copy público)
+  /[\\/]components[\\/]HowItWorks\.tsx$/,   // pasos de la home (copy público)
+  /[\\/]components[\\/]FAQ\.tsx$/,          // preguntas frecuentes (copy público)
+  /[\\/]lib[\\/]faq-items\.ts$/,           // fuente única de las FAQ públicas
+  /[\\/]lib[\\/]seo\.ts$/,                 // meta/descripciones públicas (copy cliente)
+  /[\\/]pages[\\/]dashboard[\\/]consignatarios[\\/]/, // vista cliente usa "Destinatario" (operario sigue en "Consignatario")
 ];
 
 const EXCLUDED_DIRS = new Set(['node_modules', 'dist', 'build', '.git']);

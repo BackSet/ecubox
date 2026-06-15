@@ -159,6 +159,36 @@ animación nueva queda cubierta automáticamente; en JS, usar además
   del `Sidebar` exponen `aria-expanded`. No depender solo del color para el estado
   activo (hay indicador de barra + peso de fuente).
 
+### Navegación por audiencia (sidebar)
+
+Fuente única: `src/app/navigation/dashboardNav.ts`. **No** existe un único orden
+global filtrado solo por permisos; hay un **catálogo canónico de items** (`NAV`,
+cada ruta/icono/permiso definido una vez) y **composiciones por audiencia** que
+referencian esos items (sin duplicar rutas, iconos ni permisos):
+
+- **Cliente** (`CLIENTE_GROUPS`): `Principal` (Inicio) + `Mis envíos`
+  (**Mi casillero primero**, luego Destinatarios, Mis guías, Mis entregas). El
+  flujo del cliente empieza por su casillero.
+- **Operario** (`OPERARIO_GROUPS`): agrupado por tarea — `Inicio y seguimiento`,
+  `Gestión de clientes`, `Recepción y transporte`, `Entrega y cierre`,
+  `Red de entrega`.
+- **Administrador**: operario + `Accesos y seguridad` + `Configuración`.
+- **Usuario mixto** (permisos de operario **y** de cliente, sin ser admin): el
+  árbol operativo es el principal y se añade un grupo **`Mi cuenta`** al final
+  (Mi casillero, Mis guías, Mis entregas). No se mezclan items arbitrariamente.
+- **Acceso por enlace** (`onlyWithPermission`): composición de cliente mostrando
+  **solo items con permiso explícito** (sin Inicio ni Casillero salvo
+  autorización), con labels de cliente.
+
+La **audiencia se deriva de permisos**, nunca del nombre del rol
+(`PERMISOS_OPERARIO`/`PERMISOS_ADMIN`/`PERMISOS_CLIENTE` en `composeForAudience`).
+El rótulo por audiencia se resuelve con `NavItem.labelFor(hasPermission)` sobre la
+**misma ruta** (p. ej. `/consignatarios` → «Consignatarios» / «Destinatarios»).
+Los grupos sin items visibles se ocultan. La búsqueda global
+(`GlobalCommandPalette`) consume `getVisibleNavItems`, por lo que hereda los
+labels resueltos por audiencia. Se conservan modo colapsado, móvil, hijos,
+`aria-current`, `aria-expanded`, skip links y estado activo.
+
 ---
 
 ## 3. Componentes canónicos
@@ -216,6 +246,27 @@ import { LabeledField } from '@/components/LabeledField';
 - `LoadingState` (variantes `page` y `inline`).
 - `EmptyState` con icono, título y CTA.
 - Errores → bloque `ui-alert ui-alert-error` (no styles ad-hoc).
+
+### Listas con CTA estable (fila + card)
+
+Cuando una fila/card tiene una métrica con acción (p. ej. resumen de envíos por
+destinatario), la acción debe tener **posición estable**, no depender del
+wrapping ni posicionarse con hacks absolutos:
+
+- **Escritorio**: una **columna propia** para la métrica+CTA (no mezclar la
+  acción con nombre o ubicación). Ej.: `Destinatario | Ubicación | Envíos |
+  Acciones`, con la métrica y el CTA dentro de la celda «Envíos».
+- **Móvil**: **card** con el CTA **siempre en el pie** (`compact`), nombre/código
+  arriba y conteos/acciones en su propia franja. No reusar la tabla de escritorio
+  en teléfono.
+- **Una sola representación** de los conteos (`formatConteosEnvios`:
+  «N guías · N paquetes»); ninguna fila decide una distribución distinta.
+- Icono de navegación (flecha, no «ojo») para CTAs de tipo «Ver …».
+
+Componente canónico: `RecipientShipmentSummary` (`totalGuias`, `totalPaquetes`,
+`onViewShipments`, `compact`). El CTA «Ver envíos» navega a
+`/mis-guias?destinatarioId=<id>` (la vista destino muestra el destinatario
+activo, permite quitar el filtro, conserva la URL y valida el scope).
 
 ### Tablas
 

@@ -6,8 +6,10 @@ import type { Paquete } from '@/types/paquete';
 
 const BASE = API_ENDPOINTS.misGuias;
 
-export async function listarMisGuias(): Promise<GuiaMaster[]> {
-  const { data } = await apiClient.get<GuiaMaster[]>(BASE);
+export async function listarMisGuias(consignatarioId?: number): Promise<GuiaMaster[]> {
+  const { data } = await apiClient.get<GuiaMaster[]>(BASE, {
+    params: consignatarioId != null ? { consignatarioId } : undefined,
+  });
   return data;
 }
 

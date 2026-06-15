@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { toast } from 'sonner';
 import {
@@ -14,6 +15,7 @@ import {
   Trash2,
   UserCheck,
   UserRound,
+  Users,
   X,
 } from 'lucide-react';
 import { useConsignatarios, useDeleteConsignatario } from '@/hooks/useConsignatarios';
@@ -33,6 +35,8 @@ import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { RecipientShipmentSummary } from './RecipientShipmentSummary';
 import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
@@ -60,10 +64,52 @@ import {
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { Consignatario } from '@/types/consignatario';
 
+/**
+ * Copy por audiencia. El back-office (operario) sigue viendo "Consignatario(s)";
+ * el cliente y las sesiones por enlace ven "Destinatario(s)". La ruta y los
+ * endpoints técnicos no cambian (ver NAMING: separación de lenguaje por audiencia).
+ */
+const COPY_OPERARIO = {
+  titulo: 'Consignatarios',
+  descripcion: undefined as string | undefined,
+  nuevo: 'Nuevo consignatario',
+  kpiLabel: 'Consignatarios',
+  thNombre: 'Consignatario',
+  vacioTitulo: 'No hay consignatarios',
+  vacioDescripcion: 'Registra un consignatario para poder enviar paquetes a esa dirección.',
+  vacioAccion: 'Registrar consignatario',
+  eliminarTitulo: '¿Eliminar consignatario?',
+  eliminarDescripcion:
+    'Esta acción no se puede deshacer. Se eliminará el consignatario junto con todos sus paquetes asociados.',
+  eliminado: 'Consignatario eliminado',
+  errorEliminar: 'Error al eliminar el consignatario',
+};
+
+const COPY_CLIENTE = {
+  titulo: 'Mis destinatarios',
+  descripcion:
+    'Guarda las personas o ubicaciones que pueden recibir tus paquetes. Luego podrás elegir una al registrar cada guía.',
+  nuevo: 'Nuevo destinatario',
+  kpiLabel: 'Destinatarios',
+  thNombre: 'Destinatario',
+  vacioTitulo: 'Aún no tienes destinatarios guardados',
+  vacioDescripcion:
+    'Guarda una persona, oficina o sucursal para poder elegirla al registrar tus guías.',
+  vacioAccion: 'Agregar mi primer destinatario',
+  eliminarTitulo: '¿Eliminar destinatario?',
+  eliminarDescripcion:
+    'Esta acción no se puede deshacer. Se eliminará el destinatario junto con todos sus paquetes asociados.',
+  eliminado: 'Destinatario eliminado',
+  errorEliminar: 'No se pudo eliminar el destinatario',
+};
+
 export function ConsignatarioListPage() {
+  const navigate = useNavigate();
   const hasConsignatariosOperario = useAuthStore((s) =>
     s.hasPermission('CONSIGNATARIOS_OPERARIO'),
   );
+  const esCliente = !hasConsignatariosOperario;
+  const copy = esCliente ? COPY_CLIENTE : COPY_OPERARIO;
   const hasConsignatariosCreate = useAuthStore((s) => s.hasPermission('CONSIGNATARIOS_CREATE'));
   const hasConsignatariosUpdate = useAuthStore((s) => s.hasPermission('CONSIGNATARIOS_UPDATE'));
   const hasConsignatariosDelete = useAuthStore((s) => s.hasPermission('CONSIGNATARIOS_DELETE'));
@@ -275,6 +321,25 @@ export function ConsignatarioListPage() {
   const showClienteColumn = hasConsignatariosOperario;
   const canEdit = hasConsignatariosOperario || hasConsignatariosUpdate;
 
+  // Acciones de fila/card del destinatario (vista cliente): editar y eliminar.
+  // «Ver envíos» NO va aquí: es el CTA estable de la columna/pie de card.
+  const destinatarioActions = (d: Consignatario) => [
+    {
+      label: 'Editar destinatario',
+      icon: Pencil,
+      onSelect: () => setEditingId(d.id),
+      hidden: !canEdit,
+    },
+    { type: 'separator' as const },
+    {
+      label: 'Eliminar',
+      icon: Trash2,
+      destructive: true,
+      onSelect: () => setDeleteConfirmId(d.id),
+      hidden: !hasConsignatariosDelete,
+    },
+  ];
+
   return (
     <div className="page-stack">
       {error && (
@@ -287,7 +352,8 @@ export function ConsignatarioListPage() {
       )}
 
       <ListToolbar
-        title={hasConsignatariosOperario ? 'Consignatarios' : 'Mis consignatarios'}
+        title={copy.titulo}
+        description={copy.descripcion}
         searchPlaceholder="Buscar por nombre, código, teléfono o ubicación..."
         onSearchChange={setSearch}
         actions={
@@ -305,12 +371,25 @@ export function ConsignatarioListPage() {
             {hasConsignatariosCreate && (
               <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Nuevo consignatario
+                {copy.nuevo}
               </Button>
             )}
           </>
         }
       />
+
+      {esCliente && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 px-3.5 py-3 text-sm">
+          <Users className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]" aria-hidden />
+          <div className="min-w-0">
+            <p className="font-medium text-foreground">¿Cómo funcionan los destinatarios?</p>
+            <p className="mt-0.5 text-muted-foreground">
+              Puedes guardar varias personas, oficinas o sucursales en tu cuenta. Cada vez que
+              registres una guía, elige quién recibirá sus paquetes.
+            </p>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <KpiCardsGridSkeleton count={hasConsignatariosOperario ? 3 : 2} />
@@ -319,7 +398,7 @@ export function ConsignatarioListPage() {
         <KpiCardsGrid>
           <KpiCard
             icon={<UserRound className="h-5 w-5" />}
-            label="Consignatarios"
+            label={copy.kpiLabel}
             value={stats.total}
             tone="primary"
             hint="Universo total, sin filtros"
@@ -447,7 +526,8 @@ export function ConsignatarioListPage() {
 
       {list.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {list.length} consignatario{list.length === 1 ? '' : 's'}
+          {list.length} {esCliente ? 'destinatario' : 'consignatario'}
+          {list.length === 1 ? '' : 's'}
           {list.length !== allConsignatarios.length
             ? ` de ${allConsignatarios.length}`
             : ''}
@@ -455,45 +535,72 @@ export function ConsignatarioListPage() {
       )}
 
       {isLoading ? (
-        <ListTableShell>
-          <Table className={hasConsignatariosOperario ? 'min-w-[760px]' : 'min-w-[640px]'}>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[18rem]">Consignatario</TableHead>
-                {hasConsignatariosOperario && (
-                  <TableHead className="hidden md:table-cell">Cliente</TableHead>
-                )}
-                <TableHead className="min-w-[16rem]">Ubicación</TableHead>
-                <TableHead className="hidden md:table-cell">Contacto</TableHead>
-                <TableHead className="w-12 text-right" aria-label="Acciones" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRowsSkeleton
-                columns={hasConsignatariosOperario ? 5 : 4}
-                columnClasses={
-                  hasConsignatariosOperario
-                    ? { 1: 'hidden md:table-cell', 3: 'hidden md:table-cell' }
-                    : { 2: 'hidden md:table-cell' }
-                }
-              />
-            </TableBody>
-          </Table>
-        </ListTableShell>
+        esCliente ? (
+          <>
+            {/* Móvil: esqueletos de card que reflejan el layout real. */}
+            <div className="flex flex-col gap-3 md:hidden">
+              <DestinatarioCardSkeleton />
+              <DestinatarioCardSkeleton />
+              <DestinatarioCardSkeleton />
+            </div>
+            {/* Escritorio: mismas columnas que la tabla real (incl. Envíos). */}
+            <ListTableShell className="hidden md:block">
+              <Table className="min-w-[640px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[18rem]">Destinatario</TableHead>
+                    <TableHead className="min-w-[14rem]">Ubicación</TableHead>
+                    <TableHead className="w-[13rem]">Envíos</TableHead>
+                    <TableHead className="w-12 text-right" aria-label="Acciones" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRowsSkeleton columns={4} />
+                </TableBody>
+              </Table>
+            </ListTableShell>
+          </>
+        ) : (
+          <ListTableShell>
+            <Table className={hasConsignatariosOperario ? 'min-w-[760px]' : 'min-w-[640px]'}>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[18rem]">{copy.thNombre}</TableHead>
+                  {hasConsignatariosOperario && (
+                    <TableHead className="hidden md:table-cell">Cliente</TableHead>
+                  )}
+                  <TableHead className="min-w-[16rem]">Ubicación</TableHead>
+                  <TableHead className="hidden md:table-cell">Contacto</TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRowsSkeleton
+                  columns={hasConsignatariosOperario ? 5 : 4}
+                  columnClasses={
+                    hasConsignatariosOperario
+                      ? { 1: 'hidden md:table-cell', 3: 'hidden md:table-cell' }
+                      : { 2: 'hidden md:table-cell' }
+                  }
+                />
+              </TableBody>
+            </Table>
+          </ListTableShell>
+        )
       ) : list.length === 0 ? (
         <EmptyState
           icon={MapPin}
-          title={allConsignatarios.length === 0 ? 'No hay consignatarios' : 'Sin resultados'}
+          title={allConsignatarios.length === 0 ? copy.vacioTitulo : 'Sin resultados'}
           description={
             allConsignatarios.length === 0
-              ? 'Registra un consignatario para poder enviar paquetes a esa dirección.'
+              ? copy.vacioDescripcion
               : tieneFiltros
-                ? 'No hay consignatarios que coincidan con los filtros aplicados.'
-                : 'No se encontraron consignatarios con ese criterio.'
+                ? `No hay ${esCliente ? 'destinatarios' : 'consignatarios'} que coincidan con los filtros aplicados.`
+                : `No se encontraron ${esCliente ? 'destinatarios' : 'consignatarios'} con ese criterio.`
           }
           action={
             allConsignatarios.length === 0 && hasConsignatariosCreate ? (
-              <Button onClick={() => setCreateOpen(true)}>Registrar consignatario</Button>
+              <Button onClick={() => setCreateOpen(true)}>{copy.vacioAccion}</Button>
             ) : tieneFiltros ? (
               <Button variant="outline" onClick={limpiarFiltros}>
                 Limpiar filtros
@@ -501,12 +608,75 @@ export function ConsignatarioListPage() {
             ) : undefined
           }
         />
+      ) : esCliente ? (
+        <>
+          {/* Móvil: cards con CTA «Ver envíos» fijo en el pie. */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {pagedList.map((d) => (
+              <DestinatarioCard
+                key={d.id}
+                consignatario={d}
+                onVerEnvios={() =>
+                  navigate({ to: '/mis-guias', search: { destinatarioId: d.id } })
+                }
+                onEdit={canEdit ? () => setEditingId(d.id) : undefined}
+                onDelete={hasConsignatariosDelete ? () => setDeleteConfirmId(d.id) : undefined}
+              />
+            ))}
+          </div>
+          {/* Escritorio: Destinatario | Ubicación | Envíos | Acciones. */}
+          <ListTableShell className="hidden md:block">
+            <Table className="min-w-[640px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[18rem]">Destinatario</TableHead>
+                  <TableHead className="min-w-[14rem]">Ubicación</TableHead>
+                  <TableHead className="w-[13rem]">Envíos</TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pagedList.map((d) => (
+                  <TableRow key={d.id}>
+                    <TableCell className="max-w-[18rem] align-top">
+                      <NombreCodigoCell consignatario={d} />
+                      {d.telefono && (
+                        <div className="mt-1">
+                          <ContactoCell telefono={d.telefono} />
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[20rem] align-top">
+                      <UbicacionCell
+                        direccion={d.direccion}
+                        provincia={d.provincia}
+                        canton={d.canton}
+                      />
+                    </TableCell>
+                    <TableCell className="w-[13rem] align-top">
+                      <RecipientShipmentSummary
+                        totalGuias={d.totalGuias}
+                        totalPaquetes={d.totalPaquetes}
+                        onViewShipments={() =>
+                          navigate({ to: '/mis-guias', search: { destinatarioId: d.id } })
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-right align-top">
+                      <RowActionsMenu items={destinatarioActions(d)} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ListTableShell>
+        </>
       ) : (
         <ListTableShell>
           <Table className={showClienteColumn ? 'min-w-[760px]' : 'min-w-[640px]'}>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[18rem]">Consignatario</TableHead>
+                <TableHead className="w-[18rem]">{copy.thNombre}</TableHead>
                 {showClienteColumn && (
                   <TableHead className="hidden md:table-cell">Cliente</TableHead>
                 )}
@@ -794,8 +964,8 @@ export function ConsignatarioListPage() {
       <ConfirmDialog
         open={deleteConfirmId != null}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="¿Eliminar consignatario?"
-        description="Esta acción no se puede deshacer. Se eliminará el consignatario junto con todos sus paquetes asociados."
+        title={copy.eliminarTitulo}
+        description={copy.eliminarDescripcion}
         confirmLabel="Eliminar"
         variant="destructive"
         loading={deleteConsignatario.isPending || deleteConsignatarioOperario.isPending}
@@ -807,9 +977,9 @@ export function ConsignatarioListPage() {
             } else {
               await deleteConsignatario.mutateAsync(deleteConfirmId);
             }
-            toast.success('Consignatario eliminado');
+            toast.success(copy.eliminado);
           } catch (error: unknown) {
-            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el consignatario');
+            toast.error(getApiErrorMessage(error) ?? copy.errorEliminar);
             throw error;
           }
         }}
@@ -838,6 +1008,88 @@ function NombreCodigoCell({ consignatario }: { consignatario: Consignatario }) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Esqueleto de carga de la card móvil de destinatario (refleja su estructura). */
+function DestinatarioCardSkeleton() {
+  return (
+    <SurfaceCard className="flex flex-col gap-3 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="h-7 w-7 animate-pulse rounded bg-muted" />
+      </div>
+      <div className="border-t border-border pt-2">
+        <div className="h-3 w-1/2 animate-pulse rounded bg-muted/60" />
+      </div>
+      <div className="border-t border-border pt-3 space-y-2">
+        <div className="h-4 w-40 animate-pulse rounded bg-muted/60" />
+        <div className="h-7 w-full animate-pulse rounded bg-muted/60" />
+      </div>
+    </SurfaceCard>
+  );
+}
+
+/**
+ * Card móvil de un destinatario: nombre, código, ubicación, conteos y el CTA
+ * «Ver envíos» SIEMPRE en el pie (posición estable, sin depender del wrapping).
+ */
+function DestinatarioCard({
+  consignatario: d,
+  onVerEnvios,
+  onEdit,
+  onDelete,
+}: {
+  consignatario: Consignatario;
+  onVerEnvios: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <SurfaceCard className="flex flex-col gap-3 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <NombreCodigoCell consignatario={d} />
+        </div>
+        {(onEdit || onDelete) && (
+          <RowActionsMenu
+            items={[
+              { label: 'Editar destinatario', icon: Pencil, onSelect: () => onEdit?.(), hidden: !onEdit },
+              { type: 'separator', hidden: !onEdit || !onDelete },
+              {
+                label: 'Eliminar',
+                icon: Trash2,
+                destructive: true,
+                onSelect: () => onDelete?.(),
+                hidden: !onDelete,
+              },
+            ]}
+          />
+        )}
+      </div>
+
+      {d.telefono && (
+        <div className="border-t border-border pt-2">
+          <ContactoCell telefono={d.telefono} />
+        </div>
+      )}
+
+      <div className="border-t border-border pt-2">
+        <UbicacionCell direccion={d.direccion} provincia={d.provincia} canton={d.canton} />
+      </div>
+
+      <div className="border-t border-border pt-3">
+        <RecipientShipmentSummary
+          totalGuias={d.totalGuias}
+          totalPaquetes={d.totalPaquetes}
+          onViewShipments={onVerEnvios}
+          compact
+        />
+      </div>
+    </SurfaceCard>
   );
 }
 
