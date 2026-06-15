@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import {
   useDashboardGuiasMaster,
   useGuiasMasterPaginadas,
@@ -54,7 +54,7 @@ import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
 import { FiltrosBar } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu, type RowActionEntry } from '@/components/RowActionsMenu';
-import { BandejaTabs } from './BandejaTabs';
+import { BandejaTabs } from '@/components/BandejaTabs';
 import { AprobarGuiaDialog } from './AprobarGuiaDialog';
 import { EnviarARevisionDialog } from './EnviarARevisionDialog';
 import { PendienteCard, RevisionCard, antiguedad } from './BandejaCards';
@@ -237,7 +237,13 @@ export function GuiasMasterPage() {
   const [estadosFiltro, setEstadosFiltro] = useState<Set<EstadoGuiaMaster>>(
     () => new Set()
   );
-  const [vista, setVista] = useState<VistaGuias>('operativas');
+  // Bandeja persistida en la URL (?bandeja=). 'operativas' es el valor por
+  // defecto y se mantiene sin parámetro para no ensuciar la URL.
+  const bandejaUrl = useRouterState({
+    select: (state) => (state.location.search as { bandeja?: string }).bandeja,
+  });
+  const vista: VistaGuias =
+    bandejaUrl === 'pendientes' || bandejaUrl === 'revision' ? bandejaUrl : 'operativas';
   const enPendientes = vista === 'pendientes';
   const enRevision = vista === 'revision';
 
@@ -330,7 +336,6 @@ export function GuiasMasterPage() {
 
   function cambiarVista(next: VistaGuias) {
     if (next === vista) return;
-    setVista(next);
     // Al cambiar de bandeja limpiamos lo que no aplica: chips, selección
     // masiva, acción elegida, diálogo masivo y volvemos a la primera página.
     setEstadosFiltro(new Set());
@@ -338,6 +343,15 @@ export function GuiasMasterPage() {
     setAccionSeleccionada('');
     setAplicarEstadoOpen(false);
     resetPage();
+    // Persistimos la bandeja en la URL (operativas → sin parámetro).
+    navigate({
+      to: '/guias-master',
+      search: ((previous: Record<string, unknown>) => ({
+        ...previous,
+        bandeja: next === 'operativas' ? undefined : next,
+      })) as never,
+      replace: true,
+    });
   }
 
   // Búsqueda y filtros se aplican en servidor (la defensa de bandeja ya filtró
@@ -467,13 +481,6 @@ export function GuiasMasterPage() {
     <div className="page-stack">
       <ListToolbar
         title="Guías master"
-        description={
-          enPendientes
-            ? 'Revisa la información del cliente antes de habilitar la guía. Mientras esté pendiente no admite nuevos paquetes.'
-            : enRevision
-              ? 'Guías pausadas temporalmente mientras se valida su información.'
-              : undefined
-        }
         searchPlaceholder="Buscar por número de guía, consignatario (nombre/código) o cliente (usuario/email)..."
         value={q}
         onSearchChange={setQ}
@@ -515,9 +522,17 @@ export function GuiasMasterPage() {
 
       <BandejaTabs<VistaGuias>
         value={vista}
-        onChange={cambiarVista}
+        onValueChange={cambiarVista}
         ariaLabel="Bandejas de guías master"
-        tabs={[
+        description={
+          enPendientes
+            ? 'Revisa la información del cliente antes de habilitar la guía.'
+            : enRevision
+              ? 'Guías pausadas temporalmente mientras se valida su información.'
+              : undefined
+        }
+        help={enPendientes ? 'Mientras esté pendiente no admite nuevos paquetes.' : undefined}
+        options={[
           { value: 'operativas', label: 'Operativas', count: operativasCount, tone: 'neutral' },
           { value: 'pendientes', label: 'Pendientes', count: pendientesCount, tone: 'warning' },
           { value: 'revision', label: 'En revisión', count: revisionCount, tone: 'info' },

@@ -27,7 +27,7 @@ import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu, type RowActionEntry } from '@/components/RowActionsMenu';
 import { Button } from '@/components/ui/button';
 import { StatusBadge, getRastreoStatusTone } from '@/components/ui/StatusBadge';
-import { SegmentedControl } from '@/components/ui/segmented-control';
+import { BandejaTabs, type BandejaOption } from '@/components/BandejaTabs';
 import { EnvioConsolidadoBadge } from '@/pages/dashboard/envios-consolidados/EnvioConsolidadoBadge';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -59,10 +59,12 @@ export function PaqueteListPage() {
     select: (state) => (state.location.search as { bandeja?: string }).bandeja,
   });
   const hasRevisionRead = useAuthStore((s) => s.hasPermission('PAQUETES_REVISION_READ'));
+  // Bandeja por defecto: Operativos (vista de trabajo principal). 'todos' y
+  // 'en_revision' requieren parámetro explícito en la URL.
   const bandeja: BandejaPaquete =
-    bandejaUrl === 'operativos' || (bandejaUrl === 'en_revision' && hasRevisionRead)
+    bandejaUrl === 'todos' || (bandejaUrl === 'en_revision' && hasRevisionRead)
       ? bandejaUrl
-      : 'todos';
+      : 'operativos';
   const enRevision = bandeja === 'en_revision';
   const hasPaquetesCreate = useAuthStore((s) => s.hasPermission('PAQUETES_CREATE'));
   const hasPaquetesUpdate = useAuthStore((s) => s.hasPermission('PAQUETES_UPDATE'));
@@ -147,6 +149,40 @@ export function PaqueteListPage() {
     vencidos: 0,
   };
 
+  const bandejaCounts = resumen?.bandejas ?? { todos: 0, operativos: 0, enRevision: 0 };
+
+  // Opciones de bandeja (orden recomendado: Operativos, Todos, En revisión).
+  // "En revisión" solo se ofrece con PAQUETES_REVISION_READ.
+  const bandejaOptions: BandejaOption<BandejaPaquete>[] = [
+    { value: 'operativos', label: 'Operativos', count: bandejaCounts.operativos, icon: Package, tone: 'primary' },
+    { value: 'todos', label: 'Todos', count: bandejaCounts.todos, icon: Layers, tone: 'neutral' },
+    {
+      value: 'en_revision',
+      label: 'En revisión',
+      count: bandejaCounts.enRevision,
+      icon: ShieldAlert,
+      tone: 'warning',
+      hidden: !hasRevisionRead,
+    },
+  ];
+
+  const bandejaCopy: Record<BandejaPaquete, { title: string; description: string; help?: string }> = {
+    operativos: {
+      title: 'Paquetes operativos',
+      description: 'Paquetes disponibles para continuar los procesos logísticos.',
+    },
+    todos: {
+      title: 'Todos los paquetes',
+      description: 'Consulta general de los paquetes visibles en el sistema.',
+    },
+    en_revision: {
+      title: 'Paquetes en revisión',
+      description: 'Paquetes pausados temporalmente mientras se resuelve una validación.',
+      help: 'La revisión no modifica su estado logístico.',
+    },
+  };
+  const copyActivo = bandejaCopy[bandeja];
+
   const stats = {
     total: resumen?.total ?? 0,
     conPeso: resumen?.conPeso ?? 0,
@@ -218,12 +254,17 @@ export function PaqueteListPage() {
   );
   const cambiarBandeja = useCallback(
     (value: BandejaPaquete) => {
+      // Al cambiar de bandeja: primera página, limpiar el chip de carga (no
+      // aplica de forma estable entre bandejas) y cerrar diálogos dependientes.
       resetPage();
+      setChipActivo('todos');
+      setRevisionDialog(null);
       navigate({
         to: '/paquetes',
         search: ((previous: Record<string, unknown>) => ({
           ...previous,
-          bandeja: value === 'todos' ? undefined : value,
+          // Operativos es el valor por defecto y va sin parámetro.
+          bandeja: value === 'operativos' ? undefined : value,
         })) as never,
         replace: true,
       });
@@ -278,27 +319,15 @@ export function PaqueteListPage() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <SegmentedControl<BandejaPaquete>
-          value={bandeja}
-          onValueChange={cambiarBandeja}
-          size="md"
-          options={[
-            { value: 'todos', label: 'Todos' },
-            { value: 'operativos', label: 'Operativos' },
-            ...(hasRevisionRead
-              ? [{ value: 'en_revision' as const, label: 'En revisión' }]
-              : []),
-          ]}
-        />
-        <p className="text-xs text-muted-foreground">
-          {bandeja === 'todos'
-            ? 'Consulta global, incluidos los paquetes con revisión activa.'
-            : bandeja === 'operativos'
-              ? 'Paquetes disponibles para operaciones logísticas normales.'
-              : 'Atención administrativa especializada. El estado logístico se conserva.'}
-        </p>
-      </div>
+      <BandejaTabs<BandejaPaquete>
+        value={bandeja}
+        onValueChange={cambiarBandeja}
+        ariaLabel="Bandejas de paquetes"
+        options={bandejaOptions}
+        title={copyActivo.title}
+        description={copyActivo.description}
+        help={copyActivo.help}
+      />
 
       {(showResumenBanner || showPageBanner) && (
         <InlineErrorBanner

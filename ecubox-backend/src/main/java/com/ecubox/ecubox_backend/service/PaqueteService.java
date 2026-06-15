@@ -265,6 +265,17 @@ public class PaqueteService {
      */
     @Transactional(readOnly = true)
     public PaqueteResumenDTO resumen(Long usuarioIdOrNull, String q, PaqueteListFilters filters) {
+        return resumen(usuarioIdOrNull, q, filters, true);
+    }
+
+    /**
+     * @param canReadRevision si {@code false}, el contador de bandeja
+     *        "en revisión" no se expone (se devuelve 0): no se filtra a quien
+     *        carece de {@code PAQUETES_REVISION_READ}. Los contadores "todos" y
+     *        "operativos" se mantienen reales para que coincidan con sus listas.
+     */
+    public PaqueteResumenDTO resumen(Long usuarioIdOrNull, String q, PaqueteListFilters filters,
+                                     boolean canReadRevision) {
         LocalDateTime ahora = LocalDateTime.now(ZONA_ECUADOR);
         // En Spring Data JPA 4.0 Specification.where(null) lanza IllegalArgumentException
         // (antes se toleraba). Para la vista operario/admin no hay restriccion de
@@ -296,6 +307,16 @@ public class PaqueteService {
         long chipConPeso = paqueteRepository.count(base.and(pesoNotNull));
         long chipSinGuia = paqueteRepository.count(base.and(sinGuia));
         long chipVencidos = paqueteRepository.count(base.and(vencido));
+
+        // Conteos por BANDEJA sobre el universo (ownership), independientes de la
+        // bandeja activa y de los filtros secundarios, para alimentar las pestañas.
+        // "operativos" y "todos" siempre reales (sus badges deben coincidir con la
+        // lista); "en revisión" se omite (0) si el usuario no puede leer esa bandeja.
+        Specification<Paquete> conRevisionActiva = revisionActivaSpec();
+        long bandejaTodos = paqueteRepository.count(ownership);
+        long realEnRevision = paqueteRepository.count(ownership.and(conRevisionActiva));
+        long bandejaOperativos = bandejaTodos - realEnRevision;
+        long bandejaEnRevision = canReadRevision ? realEnRevision : 0;
 
         // Opciones distintas para los comboboxes (universo visible).
         List<PaqueteResumenDTO.EstadoOption> estados = paqueteRepository.findDistinctEstados(usuarioIdOrNull).stream()
@@ -334,11 +355,31 @@ public class PaqueteService {
                         .sinGuiaMaster(chipSinGuia)
                         .vencidos(chipVencidos)
                         .build())
+                .bandejas(PaqueteResumenDTO.BandejaCounts.builder()
+                        .todos(bandejaTodos)
+                        .operativos(bandejaOperativos)
+                        .enRevision(bandejaEnRevision)
+                        .build())
                 .estados(estados)
                 .consignatarios(consignatarios)
                 .codigosEnvio(codigosEnvio)
                 .guiasMaster(guiasMaster)
                 .build();
+    }
+
+    /**
+     * Paquetes con una revisión administrativa activa (EN_REVISION). Es el
+     * criterio que separa la bandeja "en_revision" de "operativos".
+     */
+    private Specification<Paquete> revisionActivaSpec() {
+        return (root, query, cb) -> {
+            var subquery = query.subquery(Long.class);
+            var revision = subquery.from(RevisionPaquete.class);
+            subquery.select(cb.literal(1L)).where(
+                    cb.equal(revision.get("paquete").get("id"), root.get("id")),
+                    cb.equal(revision.get("estado"), EstadoRevisionPaquete.EN_REVISION));
+            return cb.exists(subquery);
+        };
     }
 
     /** Construye la {@link Specification} compuesta para el listado paginado. */
@@ -366,14 +407,7 @@ public class PaqueteService {
         }
         String bandeja = f.bandeja() == null ? "todos" : f.bandeja().trim().toLowerCase();
         if (!"todos".equals(bandeja)) {
-            Specification<Paquete> conRevisionActiva = (root, query, cb) -> {
-                var subquery = query.subquery(Long.class);
-                var revision = subquery.from(RevisionPaquete.class);
-                subquery.select(cb.literal(1L)).where(
-                        cb.equal(revision.get("paquete").get("id"), root.get("id")),
-                        cb.equal(revision.get("estado"), EstadoRevisionPaquete.EN_REVISION));
-                return cb.exists(subquery);
-            };
+            Specification<Paquete> conRevisionActiva = revisionActivaSpec();
             spec = switch (bandeja) {
                 case "operativos" -> spec.and(Specification.not(conRevisionActiva));
                 case "en_revision" -> spec.and(conRevisionActiva);
