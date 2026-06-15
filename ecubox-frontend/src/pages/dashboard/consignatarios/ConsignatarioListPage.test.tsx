@@ -66,19 +66,36 @@ describe('ConsignatarioListPage · vista cliente (Mis destinatarios)', () => {
     expect(screen.getByText('¿Cómo funcionan los destinatarios?')).toBeInTheDocument();
   });
 
-  it('muestra los conteos de guías y paquetes', () => {
+  it('muestra los conteos en una sola representación "N guías · N paquetes"', () => {
     render(<ConsignatarioListPage />);
-    expect(screen.getByText('3 guías')).toBeInTheDocument();
-    expect(screen.getByText('7 paquetes')).toBeInTheDocument();
+    // Aparece en la card móvil y en la columna de escritorio (jsdom no aplica CSS).
+    expect(screen.getAllByText('3 guías · 7 paquetes').length).toBeGreaterThan(0);
   });
 
   it('"Ver envíos" navega a /mis-guias filtrado por el destinatario', async () => {
     const user = userEvent.setup();
     render(<ConsignatarioListPage />);
-    await user.click(screen.getByRole('button', { name: /ver envíos/i }));
+    const botones = screen.getAllByRole('button', { name: /ver envíos/i });
+    await user.click(botones[0]);
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/mis-guias',
       search: { destinatarioId: 5 },
     });
+  });
+
+  it('maneja 0 guías y nombres/ubicaciones largas sin romper el resumen', () => {
+    consignatariosCliente[0].totalGuias = 0;
+    consignatariosCliente[0].totalPaquetes = 0;
+    consignatariosCliente[0].nombre =
+      'Centro Logístico y de Distribución Internacional Sucursal Norte de la Ciudad';
+    consignatariosCliente[0].direccion =
+      'Av. de los Shyris N44-123 y Río Coca, Edificio Metropolitano Torre B, piso 14, oficina 1407, referencia frente al parque';
+    render(<ConsignatarioListPage />);
+    expect(screen.getAllByText('0 guías · 0 paquetes').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /ver envíos/i }).length).toBeGreaterThan(0);
+    // Restauramos para no afectar otros tests.
+    consignatariosCliente[0].totalGuias = 3;
+    consignatariosCliente[0].totalPaquetes = 7;
+    consignatariosCliente[0].nombre = 'María López';
   });
 });

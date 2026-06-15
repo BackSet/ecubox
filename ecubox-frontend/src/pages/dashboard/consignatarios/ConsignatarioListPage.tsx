@@ -3,15 +3,12 @@ import { useNavigate } from '@tanstack/react-router';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { toast } from 'sonner';
 import {
-  Boxes,
   Building2,
   Check,
   Copy,
-  Eye,
   Loader2,
   Map,
   MapPin,
-  Package,
   Pencil,
   Phone,
   Plus,
@@ -38,6 +35,8 @@ import { FiltrosBarSkeleton } from '@/components/skeletons/FiltrosBarSkeleton';
 import { InlineErrorBanner } from '@/components/InlineErrorBanner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListTableShell } from '@/components/ListTableShell';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { RecipientShipmentSummary } from './RecipientShipmentSummary';
 import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro } from '@/components/ChipFiltro';
@@ -322,6 +321,25 @@ export function ConsignatarioListPage() {
   const showClienteColumn = hasConsignatariosOperario;
   const canEdit = hasConsignatariosOperario || hasConsignatariosUpdate;
 
+  // Acciones de fila/card del destinatario (vista cliente): editar y eliminar.
+  // «Ver envíos» NO va aquí: es el CTA estable de la columna/pie de card.
+  const destinatarioActions = (d: Consignatario) => [
+    {
+      label: 'Editar destinatario',
+      icon: Pencil,
+      onSelect: () => setEditingId(d.id),
+      hidden: !canEdit,
+    },
+    { type: 'separator' as const },
+    {
+      label: 'Eliminar',
+      icon: Trash2,
+      destructive: true,
+      onSelect: () => setDeleteConfirmId(d.id),
+      hidden: !hasConsignatariosDelete,
+    },
+  ];
+
   return (
     <div className="page-stack">
       {error && (
@@ -517,31 +535,58 @@ export function ConsignatarioListPage() {
       )}
 
       {isLoading ? (
-        <ListTableShell>
-          <Table className={hasConsignatariosOperario ? 'min-w-[760px]' : 'min-w-[640px]'}>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[18rem]">{copy.thNombre}</TableHead>
-                {hasConsignatariosOperario && (
-                  <TableHead className="hidden md:table-cell">Cliente</TableHead>
-                )}
-                <TableHead className="min-w-[16rem]">Ubicación</TableHead>
-                <TableHead className="hidden md:table-cell">Contacto</TableHead>
-                <TableHead className="w-12 text-right" aria-label="Acciones" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRowsSkeleton
-                columns={hasConsignatariosOperario ? 5 : 4}
-                columnClasses={
-                  hasConsignatariosOperario
-                    ? { 1: 'hidden md:table-cell', 3: 'hidden md:table-cell' }
-                    : { 2: 'hidden md:table-cell' }
-                }
-              />
-            </TableBody>
-          </Table>
-        </ListTableShell>
+        esCliente ? (
+          <>
+            {/* Móvil: esqueletos de card que reflejan el layout real. */}
+            <div className="flex flex-col gap-3 md:hidden">
+              <DestinatarioCardSkeleton />
+              <DestinatarioCardSkeleton />
+              <DestinatarioCardSkeleton />
+            </div>
+            {/* Escritorio: mismas columnas que la tabla real (incl. Envíos). */}
+            <ListTableShell className="hidden md:block">
+              <Table className="min-w-[640px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[18rem]">Destinatario</TableHead>
+                    <TableHead className="min-w-[14rem]">Ubicación</TableHead>
+                    <TableHead className="w-[13rem]">Envíos</TableHead>
+                    <TableHead className="w-12 text-right" aria-label="Acciones" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRowsSkeleton columns={4} />
+                </TableBody>
+              </Table>
+            </ListTableShell>
+          </>
+        ) : (
+          <ListTableShell>
+            <Table className={hasConsignatariosOperario ? 'min-w-[760px]' : 'min-w-[640px]'}>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[18rem]">{copy.thNombre}</TableHead>
+                  {hasConsignatariosOperario && (
+                    <TableHead className="hidden md:table-cell">Cliente</TableHead>
+                  )}
+                  <TableHead className="min-w-[16rem]">Ubicación</TableHead>
+                  <TableHead className="hidden md:table-cell">Contacto</TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRowsSkeleton
+                  columns={hasConsignatariosOperario ? 5 : 4}
+                  columnClasses={
+                    hasConsignatariosOperario
+                      ? { 1: 'hidden md:table-cell', 3: 'hidden md:table-cell' }
+                      : { 2: 'hidden md:table-cell' }
+                  }
+                />
+              </TableBody>
+            </Table>
+          </ListTableShell>
+        )
       ) : list.length === 0 ? (
         <EmptyState
           icon={MapPin}
@@ -563,6 +608,69 @@ export function ConsignatarioListPage() {
             ) : undefined
           }
         />
+      ) : esCliente ? (
+        <>
+          {/* Móvil: cards con CTA «Ver envíos» fijo en el pie. */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {pagedList.map((d) => (
+              <DestinatarioCard
+                key={d.id}
+                consignatario={d}
+                onVerEnvios={() =>
+                  navigate({ to: '/mis-guias', search: { destinatarioId: d.id } })
+                }
+                onEdit={canEdit ? () => setEditingId(d.id) : undefined}
+                onDelete={hasConsignatariosDelete ? () => setDeleteConfirmId(d.id) : undefined}
+              />
+            ))}
+          </div>
+          {/* Escritorio: Destinatario | Ubicación | Envíos | Acciones. */}
+          <ListTableShell className="hidden md:block">
+            <Table className="min-w-[640px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[18rem]">Destinatario</TableHead>
+                  <TableHead className="min-w-[14rem]">Ubicación</TableHead>
+                  <TableHead className="w-[13rem]">Envíos</TableHead>
+                  <TableHead className="w-12 text-right" aria-label="Acciones" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pagedList.map((d) => (
+                  <TableRow key={d.id}>
+                    <TableCell className="max-w-[18rem] align-top">
+                      <NombreCodigoCell consignatario={d} />
+                      {d.telefono && (
+                        <div className="mt-1">
+                          <ContactoCell telefono={d.telefono} />
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[20rem] align-top">
+                      <UbicacionCell
+                        direccion={d.direccion}
+                        provincia={d.provincia}
+                        canton={d.canton}
+                      />
+                    </TableCell>
+                    <TableCell className="w-[13rem] align-top">
+                      <RecipientShipmentSummary
+                        totalGuias={d.totalGuias}
+                        totalPaquetes={d.totalPaquetes}
+                        onViewShipments={() =>
+                          navigate({ to: '/mis-guias', search: { destinatarioId: d.id } })
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-right align-top">
+                      <RowActionsMenu items={destinatarioActions(d)} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ListTableShell>
+        </>
       ) : (
         <ListTableShell>
           <Table className={showClienteColumn ? 'min-w-[760px]' : 'min-w-[640px]'}>
@@ -582,18 +690,6 @@ export function ConsignatarioListPage() {
                 <TableRow key={d.id}>
                   <TableCell className="max-w-[18rem] align-top">
                     <NombreCodigoCell consignatario={d} />
-                    {esCliente && (
-                      <ConteosEnvios
-                        totalGuias={d.totalGuias}
-                        totalPaquetes={d.totalPaquetes}
-                        onVerEnvios={() =>
-                          navigate({
-                            to: '/mis-guias',
-                            search: { destinatarioId: d.id },
-                          })
-                        }
-                      />
-                    )}
                     {d.telefono && (
                       <div className="mt-1 md:hidden">
                         <ContactoCell telefono={d.telefono} />
@@ -619,18 +715,7 @@ export function ConsignatarioListPage() {
                     <RowActionsMenu
                       items={[
                         {
-                          label: 'Ver envíos',
-                          icon: Eye,
-                          hidden: !esCliente,
-                          onSelect: () =>
-                            navigate({
-                              to: '/mis-guias',
-                              search: { destinatarioId: d.id },
-                            }),
-                        },
-                        { type: 'separator', hidden: !esCliente },
-                        {
-                          label: esCliente ? 'Editar destinatario' : 'Editar consignatario',
+                          label: 'Editar consignatario',
                           icon: Pencil,
                           onSelect: () => setEditingId(d.id),
                           hidden: !canEdit,
@@ -926,45 +1011,85 @@ function NombreCodigoCell({ consignatario }: { consignatario: Consignatario }) {
   );
 }
 
-/**
- * Resumen de envíos por destinatario ("3 guías · 7 paquetes") con acceso
- * directo a "Mis guías" filtrado. Los conteos vienen del backend por proyección.
- */
-function ConteosEnvios({
-  totalGuias,
-  totalPaquetes,
-  onVerEnvios,
-}: {
-  totalGuias?: number | null;
-  totalPaquetes?: number | null;
-  onVerEnvios: () => void;
-}) {
-  const guias = totalGuias ?? 0;
-  const paquetes = totalPaquetes ?? 0;
+/** Esqueleto de carga de la card móvil de destinatario (refleja su estructura). */
+function DestinatarioCardSkeleton() {
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      <span className="inline-flex items-center gap-1" title={`${guias} guías`}>
-        <Boxes className="h-3.5 w-3.5" aria-hidden />
-        {guias} guía{guias === 1 ? '' : 's'}
-      </span>
-      <span className="inline-flex items-center gap-1" title={`${paquetes} paquetes`}>
-        <Package className="h-3.5 w-3.5" aria-hidden />
-        {paquetes} paquete{paquetes === 1 ? '' : 's'}
-      </span>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-6 gap-1 px-2 text-xs text-primary hover:text-primary"
-        onClick={(e) => {
-          e.stopPropagation();
-          onVerEnvios();
-        }}
-      >
-        <Eye className="h-3.5 w-3.5" aria-hidden />
-        Ver envíos
-      </Button>
-    </div>
+    <SurfaceCard className="flex flex-col gap-3 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="h-7 w-7 animate-pulse rounded bg-muted" />
+      </div>
+      <div className="border-t border-border pt-2">
+        <div className="h-3 w-1/2 animate-pulse rounded bg-muted/60" />
+      </div>
+      <div className="border-t border-border pt-3 space-y-2">
+        <div className="h-4 w-40 animate-pulse rounded bg-muted/60" />
+        <div className="h-7 w-full animate-pulse rounded bg-muted/60" />
+      </div>
+    </SurfaceCard>
+  );
+}
+
+/**
+ * Card móvil de un destinatario: nombre, código, ubicación, conteos y el CTA
+ * «Ver envíos» SIEMPRE en el pie (posición estable, sin depender del wrapping).
+ */
+function DestinatarioCard({
+  consignatario: d,
+  onVerEnvios,
+  onEdit,
+  onDelete,
+}: {
+  consignatario: Consignatario;
+  onVerEnvios: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <SurfaceCard className="flex flex-col gap-3 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <NombreCodigoCell consignatario={d} />
+        </div>
+        {(onEdit || onDelete) && (
+          <RowActionsMenu
+            items={[
+              { label: 'Editar destinatario', icon: Pencil, onSelect: () => onEdit?.(), hidden: !onEdit },
+              { type: 'separator', hidden: !onEdit || !onDelete },
+              {
+                label: 'Eliminar',
+                icon: Trash2,
+                destructive: true,
+                onSelect: () => onDelete?.(),
+                hidden: !onDelete,
+              },
+            ]}
+          />
+        )}
+      </div>
+
+      {d.telefono && (
+        <div className="border-t border-border pt-2">
+          <ContactoCell telefono={d.telefono} />
+        </div>
+      )}
+
+      <div className="border-t border-border pt-2">
+        <UbicacionCell direccion={d.direccion} provincia={d.provincia} canton={d.canton} />
+      </div>
+
+      <div className="border-t border-border pt-3">
+        <RecipientShipmentSummary
+          totalGuias={d.totalGuias}
+          totalPaquetes={d.totalPaquetes}
+          onViewShipments={onVerEnvios}
+          compact
+        />
+      </div>
+    </SurfaceCard>
   );
 }
 
