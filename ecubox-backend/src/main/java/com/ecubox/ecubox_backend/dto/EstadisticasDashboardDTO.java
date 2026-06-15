@@ -25,8 +25,27 @@ public record EstadisticasDashboardDTO(
         Periodo periodoAnterior,
         int diasMaxSinDespachar,
         ResultadosPeriodo resultados,
-        EstadoOperativoActual estadoActual
+        EstadoOperativoActual estadoActual,
+        /** Disponibilidad de las métricas de despacho (paquetes y peso despachados). */
+        DisponibilidadDespacho disponibilidadDespacho
 ) {
+
+    /**
+     * Disponibilidad de las métricas que dependen del evento de despacho
+     * ({@code paquetesDespachados}, {@code pesoDespachadoLbs} y sus series).
+     * Distingue cero real, falta de configuración, falta de historial y
+     * cobertura parcial, en vez de mostrar siempre 0.
+     */
+    public record DisponibilidadDespacho(
+            com.ecubox.ecubox_backend.enums.DisponibilidadMetrica estado,
+            /** Primer evento de despacho registrado (global), o null si no hay. */
+            LocalDateTime coberturaDesde,
+            /** Último evento de despacho registrado (global), o null si no hay. */
+            LocalDateTime coberturaHasta,
+            /** Mensaje breve para la UI según el estado (o null si COMPLETA). */
+            String advertencia
+    ) {
+    }
 
     /** Rango normalizado {@code [desde, hastaExclusivo)}; {@code hastaInclusivo} se ofrece para UI. */
     public record Periodo(

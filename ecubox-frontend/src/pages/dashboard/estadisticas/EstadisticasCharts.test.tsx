@@ -54,6 +54,39 @@ describe('EstadisticasCharts', () => {
     expect(screen.queryByRole('img')).toBeNull();
   });
 
+  it('cuando los despachados no están disponibles no dibuja su serie y muestra la nota', () => {
+    render(
+      <SeriesChart
+        granularidad="MENSUAL"
+        despachadosDisponibles={false}
+        notaDespachados="No hay historial suficiente para este periodo"
+        paquetesDespachados={[{ periodo: '2026-06', etiqueta: 'Jun 26', total: 0, paquetes: 0, pesoLbs: 0 }]}
+        registros={[{ periodo: '2026-06', etiqueta: 'Jun 26', total: 12, paquetes: 0, pesoLbs: 0 }]}
+      />,
+    );
+    // No se renderiza la leyenda/serie de despachados (evita línea plana en cero).
+    expect(screen.queryByText('Paquetes despachados')).toBeNull();
+    expect(screen.getByText('Paquetes registrados')).toBeInTheDocument();
+    // Sí se muestra la nota de disponibilidad.
+    expect(
+      screen.getByText(/No hay historial suficiente para este periodo/),
+    ).toBeInTheDocument();
+  });
+
+  it('despachados no disponibles + registros en cero: estado vacío solo de registros', () => {
+    render(
+      <SeriesChart
+        granularidad="MENSUAL"
+        despachadosDisponibles={false}
+        notaDespachados="Configura el hito de despacho para calcular esta métrica"
+        paquetesDespachados={[{ periodo: '2026-06', etiqueta: 'Jun 26', total: 0, paquetes: 0, pesoLbs: 0 }]}
+        registros={[{ periodo: '2026-06', etiqueta: 'Jun 26', total: 0, paquetes: 0, pesoLbs: 0 }]}
+      />,
+    );
+    expect(screen.getByText('No hay paquetes registrados en este periodo.')).toBeInTheDocument();
+    expect(screen.getByText(/Configura el hito de despacho/)).toBeInTheDocument();
+  });
+
   it('shows package status totals and percentages', () => {
     render(
       <StatusDistributionChart

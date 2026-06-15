@@ -36,7 +36,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useEstadisticas } from '@/hooks/useEstadisticas';
-import type { MetricaComparable } from '@/types/estadisticas';
+import type {
+  MetricaComparable,
+  DisponibilidadDespacho,
+  DisponibilidadMetrica,
+} from '@/types/estadisticas';
 import { SeriesChart, StatusDistributionChart } from './EstadisticasCharts';
 import { PeriodSelector } from './PeriodSelector';
 import {
@@ -96,6 +100,40 @@ function tono(metrica: MetricaComparable): 'success' | 'danger' | 'neutral' {
   return 'neutral';
 }
 
+/** Estados de disponibilidad de despacho en los que NO hay valor numérico fiable. */
+const DESPACHO_NO_DISPONIBLE: ReadonlySet<DisponibilidadMetrica> = new Set([
+  'SIN_CONFIGURACION',
+  'SIN_HISTORIAL',
+  'NO_CALCULABLE',
+]);
+
+/**
+ * Resuelve valor/hint/tono de un KPI de despacho según su disponibilidad, sin
+ * usar 0 como sustituto de "sin datos":
+ *  - SIN_CONFIGURACION / SIN_HISTORIAL / NO_CALCULABLE → "—" + advertencia.
+ *  - PARCIAL → valor + "Datos disponibles desde …".
+ *  - COMPLETA con 0 y sin comparación → "0" + "Sin actividad registrada en el periodo".
+ *  - COMPLETA con actividad → valor + comparación.
+ */
+export function despachoKpi(
+  metrica: MetricaComparable,
+  disp: DisponibilidadDespacho | undefined,
+  fmt: (v: number | null | undefined) => string,
+): { value: string; hint: string; tone: 'success' | 'danger' | 'neutral' } {
+  const estado = disp?.estado ?? 'COMPLETA';
+  if (DESPACHO_NO_DISPONIBLE.has(estado)) {
+    return { value: '—', hint: disp?.advertencia ?? 'Dato no disponible', tone: 'neutral' };
+  }
+  const value = fmt(metrica.actual);
+  if (estado === 'PARCIAL') {
+    return { value, hint: disp?.advertencia ?? 'Cobertura parcial', tone: tono(metrica) };
+  }
+  if ((metrica.actual ?? 0) === 0 && !metrica.comparacionDisponible) {
+    return { value, hint: 'Sin actividad registrada en el periodo', tone: 'neutral' };
+  }
+  return { value, hint: comparaHint(metrica), tone: tono(metrica) };
+}
+
 export function EstadisticasPage() {
   const navigate = useNavigate();
   const rawSearch = useSearch({ strict: false });
@@ -140,6 +178,16 @@ export function EstadisticasPage() {
 
   const resultados = data?.resultados;
   const estadoActual = data?.estadoActual;
+  const disp = data?.disponibilidadDespacho;
+  const kpiDespachados = resultados
+    ? despachoKpi(resultados.paquetesDespachados, disp, (v) => formatNumber(v))
+    : null;
+  const kpiPeso = resultados
+    ? despachoKpi(resultados.pesoDespachadoLbs, disp, (v) =>
+        v == null ? '—' : `${formatNumber(v, 1)} lbs`)
+    : null;
+  const despachadosDisponibles = !DESPACHO_NO_DISPONIBLE.has(disp?.estado ?? 'COMPLETA');
+  const notaDespachados = disp && disp.estado !== 'COMPLETA' ? disp.advertencia : null;
 
   return (
     <div className="page-stack">
@@ -216,9 +264,9 @@ export function EstadisticasPage() {
               <KpiCard
                 icon={<PackageCheck />}
                 label="Paquetes despachados"
-                value={formatNumber(resultados.paquetesDespachados.actual)}
-                hint={comparaHint(resultados.paquetesDespachados)}
-                tone={tono(resultados.paquetesDespachados)}
+                value={kpiDespachados?.value ?? '—'}
+                hint={kpiDespachados?.hint}
+                tone={kpiDespachados?.tone ?? 'neutral'}
               />
               <KpiCard
                 icon={<Boxes />}
@@ -230,9 +278,9 @@ export function EstadisticasPage() {
               <KpiCard
                 icon={<Scale />}
                 label="Peso despachado"
-                value={`${formatNumber(resultados.pesoDespachadoLbs.actual, 1)} lbs`}
-                hint={comparaHint(resultados.pesoDespachadoLbs)}
-                tone={tono(resultados.pesoDespachadoLbs)}
+                value={kpiPeso?.value ?? '—'}
+                hint={kpiPeso?.hint}
+                tone={kpiPeso?.tone ?? 'neutral'}
               />
               <KpiCard
                 icon={<Timer />}
@@ -279,6 +327,8 @@ export function EstadisticasPage() {
                 paquetesDespachados={resultados.paquetesDespachadosSerie}
                 registros={resultados.registrosSerie}
                 granularidad={data.granularidad}
+                despachadosDisponibles={despachadosDisponibles}
+                notaDespachados={notaDespachados}
               />
             </PageCard>
 

@@ -15,24 +15,48 @@ interface SeriesChartProps {
   paquetesDespachados: EstadisticaSeriePunto[];
   registros: EstadisticaSeriePunto[];
   granularidad: GranularidadEstadisticas;
+  /**
+   * Cuando es false, la serie de despachados es DESCONOCIDA (sin configuración /
+   * sin historial): no se dibuja su línea (evita una serie plana en cero
+   * engañosa) y se muestra la nota correspondiente.
+   */
+  despachadosDisponibles?: boolean;
+  /** Nota sobre la disponibilidad de la serie de despachados (cobertura parcial, etc.). */
+  notaDespachados?: string | null;
 }
 
 /**
  * Gráfico de barras del movimiento de paquetes del periodo. No asume que las
  * etiquetas son meses: se adapta a granularidad diaria, semanal, mensual o
- * trimestral. Cuando ambas series están vacías o en cero muestra un estado
- * vacío explícito en vez de un gráfico engañoso.
+ * trimestral. Cuando las series sin datos están vacías o en cero muestra un
+ * estado vacío explícito en vez de un gráfico engañoso.
  */
-export function SeriesChart({ paquetesDespachados, registros, granularidad }: SeriesChartProps) {
-  const sinDatos =
-    paquetesDespachados.every((item) => item.total === 0) &&
-    registros.every((item) => item.total === 0);
+export function SeriesChart({
+  paquetesDespachados,
+  registros,
+  granularidad,
+  despachadosDisponibles = true,
+  notaDespachados,
+}: SeriesChartProps) {
+  const registrosCero = registros.every((item) => item.total === 0);
+  const despachadosCero = paquetesDespachados.every((item) => item.total === 0);
+  // Si los despachados son desconocidos, el "sin datos" depende solo de registros.
+  const sinDatos = despachadosDisponibles ? despachadosCero && registrosCero : registrosCero;
 
   if (sinDatos) {
     return (
-      <p className="flex h-32 items-center justify-center rounded-md border border-dashed border-[var(--color-border)] px-4 text-center text-[13px] text-[var(--color-muted-foreground)]">
-        No hubo paquetes registrados ni despachados en este periodo.
-      </p>
+      <div className="space-y-2">
+        <p className="flex h-32 items-center justify-center rounded-md border border-dashed border-[var(--color-border)] px-4 text-center text-[13px] text-[var(--color-muted-foreground)]">
+          {despachadosDisponibles
+            ? 'No hubo paquetes registrados ni despachados en este periodo.'
+            : 'No hay paquetes registrados en este periodo.'}
+        </p>
+        {!despachadosDisponibles && notaDespachados && (
+          <p className="text-[12px] text-[var(--color-muted-foreground)]">
+            Paquetes despachados: {notaDespachados}
+          </p>
+        )}
+      </div>
     );
   }
 
@@ -63,11 +87,13 @@ export function SeriesChart({ paquetesDespachados, registros, granularidad }: Se
               title={`${item.etiqueta}: ${item.total} paquetes despachados, ${registro} registrados`}
             >
               <div className="flex h-[calc(100%-2rem)] items-end justify-center gap-1">
-                <div
-                  className="w-2.5 rounded-t bg-[var(--color-primary)] transition-[height] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none"
-                  style={{ height: `${dispatchHeight}%` }}
-                  aria-hidden
-                />
+                {despachadosDisponibles && (
+                  <div
+                    className="w-2.5 rounded-t bg-[var(--color-primary)] transition-[height] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none"
+                    style={{ height: `${dispatchHeight}%` }}
+                    aria-hidden
+                  />
+                )}
                 <div
                   className="w-2.5 rounded-t bg-[var(--color-info)] transition-[height] [transition-duration:var(--motion-normal)] [transition-timing-function:var(--motion-ease-standard)] motion-reduce:transition-none"
                   style={{ height: `${registeredHeight}%` }}
@@ -86,15 +112,22 @@ export function SeriesChart({ paquetesDespachados, registros, granularidad }: Se
         })}
       </div>
       <figcaption className="mt-3 flex flex-wrap gap-4 text-[12px] text-[var(--color-muted-foreground)]">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-primary)]" />
-          Paquetes despachados
-        </span>
+        {despachadosDisponibles && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-primary)]" />
+            Paquetes despachados
+          </span>
+        )}
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-info)]" />
           Paquetes registrados
         </span>
       </figcaption>
+      {notaDespachados && (
+        <p className="mt-2 text-[12px] text-[var(--color-muted-foreground)]">
+          Paquetes despachados: {notaDespachados}
+        </p>
+      )}
     </figure>
   );
 }
