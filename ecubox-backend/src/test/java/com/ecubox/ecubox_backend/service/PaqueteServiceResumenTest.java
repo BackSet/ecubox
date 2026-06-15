@@ -21,6 +21,7 @@ import org.mockito.quality.Strictness;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -90,5 +91,24 @@ class PaqueteServiceResumenTest {
         PaqueteResumenDTO dto = assertDoesNotThrow(
                 () -> svc.resumen(7L, null, PaqueteService.PaqueteListFilters.empty()));
         assertNotNull(dto);
+    }
+
+    @Test
+    void resumen_gateRevision_ocultaContadorSinPermiso() {
+        PaqueteService svc = createService();
+        when(paqueteRepository.count(any(Specification.class))).thenReturn(5L);
+        when(paqueteRepository.countDistinctConsignatarios(any())).thenReturn(0L);
+        when(paqueteRepository.findDistinctEstados(any())).thenReturn(List.of());
+        when(paqueteRepository.findDistinctConsignatarios(any())).thenReturn(List.of());
+        when(paqueteRepository.findDistinctEnvioCodigos(any())).thenReturn(List.of());
+        when(paqueteRepository.findDistinctGuiasMaster(any())).thenReturn(List.of());
+
+        // Sin permiso de revisión: el contador "en revisión" se omite (0).
+        var sinPermiso = svc.resumen(null, null, PaqueteService.PaqueteListFilters.empty(), false);
+        assertEquals(0L, sinPermiso.getBandejas().getEnRevision());
+
+        // Con permiso: contador real.
+        var conPermiso = svc.resumen(null, null, PaqueteService.PaqueteListFilters.empty(), true);
+        assertEquals(5L, conPermiso.getBandejas().getEnRevision());
     }
 }

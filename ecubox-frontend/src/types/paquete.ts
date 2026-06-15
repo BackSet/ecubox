@@ -113,6 +113,12 @@ export interface PaqueteResumen {
     sinGuiaMaster: number;
     vencidos: number;
   };
+  /** Conteos por bandeja sobre el universo visible (para las pestañas). */
+  bandejas: {
+    todos: number;
+    operativos: number;
+    enRevision: number;
+  };
   estados: { codigo: string; nombre: string }[];
   consignatarios: { id: number; nombre: string }[];
   codigosEnvio: string[];

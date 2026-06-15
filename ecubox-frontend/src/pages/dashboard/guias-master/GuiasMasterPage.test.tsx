@@ -57,9 +57,34 @@ vi.mock('@/stores/authStore', () => ({
     selector({ hasPermission: (c: string) => authState.permisos.has(c) }),
 }));
 
-vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => vi.fn(),
-}));
+// Router mock URL-driven: `bandeja` vive en un store con suscripción para que
+// navigate() dispare re-render (permite probar el cambio de bandeja por click).
+const routerStore = vi.hoisted(() => {
+  const state = { bandeja: undefined as string | undefined };
+  const listeners = new Set<() => void>();
+  return {
+    get: () => state.bandeja,
+    set: (b?: string) => { state.bandeja = b; listeners.forEach((l) => l()); },
+    subscribe: (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; },
+  };
+});
+
+vi.mock('@tanstack/react-router', async () => {
+  const React = await import('react');
+  return {
+    useNavigate: () => (opts: { search?: unknown }) => {
+      const next = typeof opts?.search === 'function'
+        ? (opts.search as (p: Record<string, unknown>) => { bandeja?: string })({ bandeja: routerStore.get() })
+        : (opts?.search as { bandeja?: string } | undefined);
+      routerStore.set(next?.bandeja);
+    },
+    useRouterState: ({ select }: { select: (s: { location: { search: Record<string, unknown> } }) => unknown }) => {
+      const [, force] = React.useState(0);
+      React.useEffect(() => routerStore.subscribe(() => force((n) => n + 1)), []);
+      return select({ location: { search: { bandeja: routerStore.get() } } });
+    },
+  };
+});
 
 function renderPage() {
   return render(
@@ -89,6 +114,7 @@ beforeEach(() => {
     PENDIENTE_VERIFICACION: 4,
   };
   authState.permisos = new Set(['GUIAS_MASTER_READ', 'GUIAS_MASTER_CREATE', 'GUIAS_MASTER_UPDATE', 'GUIAS_MASTER_DELETE']);
+  routerStore.set(undefined);
 });
 afterEach(cleanup);
 

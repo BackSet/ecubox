@@ -25,6 +25,13 @@ public class PaqueteResumenDTO {
     /** Conteos por chip respetando los filtros estructurales (q/estado/consignatario/envío/guía master). */
     private ChipCounts chips;
 
+    /**
+     * Conteos por BANDEJA sobre el universo visible (ownership), independientes
+     * de la bandeja activa y de los filtros secundarios. Alimentan los
+     * contadores de las pestañas de bandeja. {@code operativos = todos - enRevision}.
+     */
+    private BandejaCounts bandejas;
+
     /** Opciones distintas para poblar los comboboxes de filtro. */
     private long sinPeso;
     private List<EstadoOption> estados;
@@ -40,6 +47,14 @@ public class PaqueteResumenDTO {
         private long conPeso;
         private long sinGuiaMaster;
         private long vencidos;
+    }
+
+    @Data
+    @Builder
+    public static class BandejaCounts {
+        private long todos;
+        private long operativos;
+        private long enRevision;
     }
 
     @Data

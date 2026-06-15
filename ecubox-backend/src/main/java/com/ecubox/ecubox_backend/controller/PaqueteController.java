@@ -103,9 +103,10 @@ public class PaqueteController {
             @RequestParam(defaultValue = "todos") String bandeja) {
         Long usuarioId = currentUserService.getCurrentUsuario().getId();
         boolean canManageAny = currentUserService.hasAuthority("PAQUETES_OPERARIO");
+        boolean canReadRevision = currentUserService.hasAuthority("PAQUETES_REVISION_READ");
         var filters = new PaqueteService.PaqueteListFilters(
                 estado, consignatarioId, envio, guiaMasterId, null, bandeja);
-        var resumen = paqueteService.resumen(canManageAny ? null : usuarioId, q, filters);
+        var resumen = paqueteService.resumen(canManageAny ? null : usuarioId, q, filters, canReadRevision);
         return ResponseEntity.ok(resumen);
     }
 

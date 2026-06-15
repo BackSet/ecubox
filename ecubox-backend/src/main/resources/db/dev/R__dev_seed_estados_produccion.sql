@@ -97,3 +97,36 @@ INSERT INTO parametro_sistema (clave, valor) VALUES
     ('estado_rastreo_entrega_confirmada_cliente', (SELECT id::text FROM estado_rastreo WHERE codigo = 'ENTREGADO')),
     ('estado_rastreo_aviso_confirmacion_entrega', (SELECT id::text FROM estado_rastreo WHERE codigo = 'EN_TRANSITO'))
 ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor;
+
+-- 9. Coherencia de estadísticas en dev: "Paquetes despachados" se ancla en el
+--    evento auditable de transición al estado de despacho (TRABAJO), no en la
+--    fila `despacho`. Los datos de prueba antiguos (despachados antes de que el
+--    flujo emitiera ese evento) carecían de él, y aparecían como 0 en el
+--    dashboard pese a tener despachos. Aquí emitimos el evento que falte para
+--    cada paquete que YA está en una saca despachada, anclado en la fecha del
+--    despacho. Es idempotente: solo inserta si el paquete no tiene ya un evento
+--    a TRABAJO. No afecta a producción (db/dev solo corre en el perfil dev).
+INSERT INTO paquete_estado_evento
+    (id, event_id, paquete_id, estado_origen_id, estado_destino_id, event_type, event_source,
+     actor_usuario_id, motivo_alterno, en_flujo_alterno, bloqueado, idempotency_key, metadata_json,
+     occurred_at, created_at)
+SELECT nextval('public.paquete_estado_evento_id_seq'),
+       gen_random_uuid(),
+       p.id,
+       p.estado_rastreo_id,
+       (SELECT id FROM estado_rastreo WHERE codigo = 'TRABAJO'),
+       'ESTADO_APLICADO_DESPACHO',
+       'DESPACHO_AUTO',
+       NULL, NULL, FALSE, FALSE,
+       'dev-seed-despacho-evento:' || p.id,
+       '{"seed":true,"motivo":"despacho-sin-evento"}',
+       d.fecha_hora,
+       now()
+FROM paquete p
+JOIN saca s ON p.saca_id = s.id
+JOIN despacho d ON d.id = s.despacho_id
+WHERE NOT EXISTS (
+    SELECT 1 FROM paquete_estado_evento e
+    WHERE e.paquete_id = p.id
+      AND e.estado_destino_id = (SELECT id FROM estado_rastreo WHERE codigo = 'TRABAJO')
+);

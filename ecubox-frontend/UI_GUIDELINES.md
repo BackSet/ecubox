@@ -322,6 +322,43 @@ import { ChipFiltro, ChipFiltroGroup } from '@/components/ChipFiltro';
 - Usar `ChipFiltroGroup` cuando los chips son condicionales (`hideWhenZero`) o pasar `chips={undefined}` si no hay chips visibles.
 - Skeleton: `FiltrosBarSkeleton` (`chips={0}` si no hay fila de chips).
 
+### Bandejas (universos de trabajo) — `BandejaTabs`
+
+Componente canónico: **`@/components/BandejaTabs`**. Consumidores actuales:
+`/paquetes` (Operativos · Todos · En revisión) y `/guias-master`
+(Operativas · Pendientes · En revisión).
+
+**Qué es una bandeja vs. qué no lo es** (no migrar lo que no sea bandeja):
+
+| Concepto | Definición | Control | Ejemplos |
+|---|---|---|---|
+| **Bandeja** | Divide el módulo en **universos de trabajo mutuamente excluyentes** (cambia el dataset base, su contador y su contexto). | `BandejaTabs` | Paquetes (operativos/todos/en revisión), Guías (operativas/pendientes/en revisión) |
+| **Filtro** | **Reduce** el universo activo; combinable. | `FiltrosBar`/`ChipFiltro`/combobox | sin peso, vencidos, consignatario, estado, envío, guía |
+| **Paso** | Etapa de **captura** dentro de un flujo. | stepper / `SegmentedControl` local | `DespachoStepperForm` (oficina/courier) |
+| **Modo** | Cambia **cómo** se ejecuta una herramienta local; no cambia el universo. | `SegmentedControl` / tablist local | `DistribucionSacasPanel` (manual/automática), `BulkGuiaInputPanel` (lista/individual), `Pesaje` (distribuir por…), `EnlacesAcceso` (tipo/unidad), `RoleSwitcher` del dashboard |
+
+Regla: **una bandeja nunca es un filtro, paso ni modo**. No conviertas filtros/pasos/modos en `BandejaTabs` ni al revés.
+
+**API**
+
+```tsx
+<BandejaTabs
+  value={value}
+  onValueChange={onValueChange}
+  options={[{ value, label, count?, icon?, tone?, hidden?, disabled?, accessibleLabel? }]}
+  title={tituloBandejaActiva}
+  description={descripcionBandejaActiva}
+  help={ayudaSecundaria}
+/>
+```
+
+- **Contadores**: vienen del **resumen del backend** (p. ej. `PaqueteResumenDTO.bandejas`, `GuiaMasterDashboard.conteosPorEstado`). **Nunca** se descarga el dataset para contar. Son **a nivel universo** (estables; no varían con la búsqueda) y consistentes entre módulos. El badge se oculta si el count es 0.
+- **Permisos**: una opción sin permiso usa `hidden` (no se renderiza). Además, el contador de una bandeja restringida se **omite en el backend** a quien no tiene su permiso (p. ej. `PaqueteResumenDTO.bandejas.enRevision = 0` sin `PAQUETES_REVISION_READ`); `todos`/`operativos` se mantienen reales para que el badge coincida con la lista.
+- **URL**: la bandeja activa se persiste como `?bandeja=`. El **valor por defecto es la bandeja principal de trabajo** (Operativos / Operativas) y va **sin** parámetro; `todos`/`pendientes`/`en_revision` requieren parámetro explícito. Se lee con `useRouterState` y se escribe con `navigate({ search, replace: true })`.
+- **Loading / sin datos obsoletos**: la `bandeja` forma parte de la **queryKey** del listado y del resumen; el `placeholderData` conserva datos **solo dentro de la misma bandeja** (paginación fluida) y **nunca entre bandejas distintas** (esqueleto limpio, sin filas de otra bandeja). Al cambiar de bandeja: resetear página, limpiar selección, cerrar diálogos dependientes y limpiar filtros no aplicables.
+- **Empty state**: por bandeja, con copy propio (no genérico).
+- **Responsive / a11y**: semántica `tablist`/`tab` + `aria-selected`, navegación por teclado (flechas/Home/End saltando deshabilitadas), foco gestionado, **scroll horizontal local** del contenedor (nunca overflow de página, ni `grid-cols-3` base, ni reducir fuente). Título/descripción/ayuda se renderizan integrados **debajo** de las pestañas.
+
 ### Diálogos de confirmación
 
 `ConfirmDialog` global (`@/components/ConfirmDialog`). No duplicar en cada

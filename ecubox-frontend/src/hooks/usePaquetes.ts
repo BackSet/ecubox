@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getPaquetes,
   getPaquetesPaginated,
@@ -25,6 +25,7 @@ export function usePaquetes() {
 
 /** Versión paginada con búsqueda servidor + filtros. Usar para tablas con muchas filas. */
 export function usePaquetesPaginated(params: PaqueteListParams) {
+  const bandeja = params.bandeja ?? 'todos';
   return useQuery({
     queryKey: [
       'paquetes',
@@ -35,12 +36,15 @@ export function usePaquetesPaginated(params: PaqueteListParams) {
       params.envio ?? '',
       params.guiaMasterId ?? '',
       params.chip ?? '',
-      params.bandeja ?? 'todos',
+      bandeja,
       params.page ?? 0,
       params.size ?? 25,
     ] as const,
     queryFn: () => getPaquetesPaginated(params),
-    placeholderData: keepPreviousData,
+    // Conserva datos previos dentro de la MISMA bandeja (paginación fluida),
+    // pero NO entre bandejas distintas (evita mostrar filas de otra bandeja).
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey?.[8] === bandeja ? previousData : undefined,
   });
 }
 
@@ -50,6 +54,7 @@ export function usePaquetesPaginated(params: PaqueteListParams) {
  * vista de listado de Paquetes.
  */
 export function usePaqueteResumen(params: PaqueteResumenParams) {
+  const bandeja = params.bandeja ?? 'todos';
   return useQuery({
     queryKey: [
       'paquetes',
@@ -59,10 +64,12 @@ export function usePaqueteResumen(params: PaqueteResumenParams) {
       params.consignatarioId ?? '',
       params.envio ?? '',
       params.guiaMasterId ?? '',
-      params.bandeja ?? 'todos',
+      bandeja,
     ] as const,
     queryFn: () => getPaqueteResumen(params),
-    placeholderData: keepPreviousData,
+    // Mismo criterio que la tabla: no conservar el resumen entre bandejas.
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey?.[7] === bandeja ? previousData : undefined,
   });
 }
 
