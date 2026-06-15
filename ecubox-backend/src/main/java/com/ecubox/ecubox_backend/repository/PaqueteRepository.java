@@ -79,6 +79,16 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
 
     long countByConsignatarioId(Long consignatarioId);
 
+    /**
+     * Conteo de paquetes por consignatario para un conjunto de ids, en una sola
+     * consulta agrupada (proyección [consignatarioId, total]); evita descargar
+     * los datasets para contar. Usado por "Mis destinatarios".
+     */
+    @Query("SELECT p.consignatario.id, COUNT(p) FROM Paquete p " +
+           "WHERE p.consignatario.id IN :consignatarioIds " +
+           "GROUP BY p.consignatario.id")
+    List<Object[]> countByConsignatarioIdInAgrupado(@Param("consignatarioIds") java.util.Collection<Long> consignatarioIds);
+
     long countBySacaId(Long sacaId);
 
     long countByEstadoRastreoId(Long estadoRastreoId);

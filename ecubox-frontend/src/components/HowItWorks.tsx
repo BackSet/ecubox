@@ -16,9 +16,9 @@ interface Step {
 const STEPS: Step[] = [
   {
     number: '01',
-    title: 'Compra en USA',
+    title: 'Compra y registra tu guía',
     description:
-      'Usa tu dirección personal de New Jersey para tus compras en Amazon, eBay, Shein y más.',
+      'Compra en Amazon, eBay, Shein y más con tu dirección de New Jersey. Registra tu guía y elige quién recibirá sus paquetes. Puedes guardar varios destinatarios en una sola cuenta.',
     icon: CreditCard,
   },
   {
@@ -30,9 +30,9 @@ const STEPS: Step[] = [
   },
   {
     number: '03',
-    title: 'Despachamos a Ecuador',
+    title: 'Enviamos a Ecuador',
     description:
-      'Consolidamos tus envíos y los enviamos en nuestros despachos frecuentes con rastreo.',
+      'Reunimos tus paquetes y los enviamos a Ecuador en salidas frecuentes, con rastreo en cada paso.',
     icon: Plane,
   },
   {

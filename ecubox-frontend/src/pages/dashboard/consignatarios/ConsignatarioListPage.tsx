@@ -1,19 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { TablePagination } from '@/components/ui/TablePagination';
 import { toast } from 'sonner';
 import {
+  Boxes,
   Building2,
   Check,
   Copy,
+  Eye,
   Loader2,
   Map,
   MapPin,
+  Package,
   Pencil,
   Phone,
   Plus,
   Trash2,
   UserCheck,
   UserRound,
+  Users,
   X,
 } from 'lucide-react';
 import { useConsignatarios, useDeleteConsignatario } from '@/hooks/useConsignatarios';
@@ -60,10 +65,52 @@ import {
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { Consignatario } from '@/types/consignatario';
 
+/**
+ * Copy por audiencia. El back-office (operario) sigue viendo "Consignatario(s)";
+ * el cliente y las sesiones por enlace ven "Destinatario(s)". La ruta y los
+ * endpoints técnicos no cambian (ver NAMING: separación de lenguaje por audiencia).
+ */
+const COPY_OPERARIO = {
+  titulo: 'Consignatarios',
+  descripcion: undefined as string | undefined,
+  nuevo: 'Nuevo consignatario',
+  kpiLabel: 'Consignatarios',
+  thNombre: 'Consignatario',
+  vacioTitulo: 'No hay consignatarios',
+  vacioDescripcion: 'Registra un consignatario para poder enviar paquetes a esa dirección.',
+  vacioAccion: 'Registrar consignatario',
+  eliminarTitulo: '¿Eliminar consignatario?',
+  eliminarDescripcion:
+    'Esta acción no se puede deshacer. Se eliminará el consignatario junto con todos sus paquetes asociados.',
+  eliminado: 'Consignatario eliminado',
+  errorEliminar: 'Error al eliminar el consignatario',
+};
+
+const COPY_CLIENTE = {
+  titulo: 'Mis destinatarios',
+  descripcion:
+    'Guarda las personas o ubicaciones que pueden recibir tus paquetes. Luego podrás elegir una al registrar cada guía.',
+  nuevo: 'Nuevo destinatario',
+  kpiLabel: 'Destinatarios',
+  thNombre: 'Destinatario',
+  vacioTitulo: 'Aún no tienes destinatarios guardados',
+  vacioDescripcion:
+    'Guarda una persona, oficina o sucursal para poder elegirla al registrar tus guías.',
+  vacioAccion: 'Agregar mi primer destinatario',
+  eliminarTitulo: '¿Eliminar destinatario?',
+  eliminarDescripcion:
+    'Esta acción no se puede deshacer. Se eliminará el destinatario junto con todos sus paquetes asociados.',
+  eliminado: 'Destinatario eliminado',
+  errorEliminar: 'No se pudo eliminar el destinatario',
+};
+
 export function ConsignatarioListPage() {
+  const navigate = useNavigate();
   const hasConsignatariosOperario = useAuthStore((s) =>
     s.hasPermission('CONSIGNATARIOS_OPERARIO'),
   );
+  const esCliente = !hasConsignatariosOperario;
+  const copy = esCliente ? COPY_CLIENTE : COPY_OPERARIO;
   const hasConsignatariosCreate = useAuthStore((s) => s.hasPermission('CONSIGNATARIOS_CREATE'));
   const hasConsignatariosUpdate = useAuthStore((s) => s.hasPermission('CONSIGNATARIOS_UPDATE'));
   const hasConsignatariosDelete = useAuthStore((s) => s.hasPermission('CONSIGNATARIOS_DELETE'));
@@ -287,7 +334,8 @@ export function ConsignatarioListPage() {
       )}
 
       <ListToolbar
-        title={hasConsignatariosOperario ? 'Consignatarios' : 'Mis consignatarios'}
+        title={copy.titulo}
+        description={copy.descripcion}
         searchPlaceholder="Buscar por nombre, código, teléfono o ubicación..."
         onSearchChange={setSearch}
         actions={
@@ -305,12 +353,25 @@ export function ConsignatarioListPage() {
             {hasConsignatariosCreate && (
               <Button className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Nuevo consignatario
+                {copy.nuevo}
               </Button>
             )}
           </>
         }
       />
+
+      {esCliente && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 px-3.5 py-3 text-sm">
+          <Users className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]" aria-hidden />
+          <div className="min-w-0">
+            <p className="font-medium text-foreground">¿Cómo funcionan los destinatarios?</p>
+            <p className="mt-0.5 text-muted-foreground">
+              Puedes guardar varias personas, oficinas o sucursales en tu cuenta. Cada vez que
+              registres una guía, elige quién recibirá sus paquetes.
+            </p>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <KpiCardsGridSkeleton count={hasConsignatariosOperario ? 3 : 2} />
@@ -319,7 +380,7 @@ export function ConsignatarioListPage() {
         <KpiCardsGrid>
           <KpiCard
             icon={<UserRound className="h-5 w-5" />}
-            label="Consignatarios"
+            label={copy.kpiLabel}
             value={stats.total}
             tone="primary"
             hint="Universo total, sin filtros"
@@ -447,7 +508,8 @@ export function ConsignatarioListPage() {
 
       {list.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {list.length} consignatario{list.length === 1 ? '' : 's'}
+          {list.length} {esCliente ? 'destinatario' : 'consignatario'}
+          {list.length === 1 ? '' : 's'}
           {list.length !== allConsignatarios.length
             ? ` de ${allConsignatarios.length}`
             : ''}
@@ -459,7 +521,7 @@ export function ConsignatarioListPage() {
           <Table className={hasConsignatariosOperario ? 'min-w-[760px]' : 'min-w-[640px]'}>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[18rem]">Consignatario</TableHead>
+                <TableHead className="w-[18rem]">{copy.thNombre}</TableHead>
                 {hasConsignatariosOperario && (
                   <TableHead className="hidden md:table-cell">Cliente</TableHead>
                 )}
@@ -483,17 +545,17 @@ export function ConsignatarioListPage() {
       ) : list.length === 0 ? (
         <EmptyState
           icon={MapPin}
-          title={allConsignatarios.length === 0 ? 'No hay consignatarios' : 'Sin resultados'}
+          title={allConsignatarios.length === 0 ? copy.vacioTitulo : 'Sin resultados'}
           description={
             allConsignatarios.length === 0
-              ? 'Registra un consignatario para poder enviar paquetes a esa dirección.'
+              ? copy.vacioDescripcion
               : tieneFiltros
-                ? 'No hay consignatarios que coincidan con los filtros aplicados.'
-                : 'No se encontraron consignatarios con ese criterio.'
+                ? `No hay ${esCliente ? 'destinatarios' : 'consignatarios'} que coincidan con los filtros aplicados.`
+                : `No se encontraron ${esCliente ? 'destinatarios' : 'consignatarios'} con ese criterio.`
           }
           action={
             allConsignatarios.length === 0 && hasConsignatariosCreate ? (
-              <Button onClick={() => setCreateOpen(true)}>Registrar consignatario</Button>
+              <Button onClick={() => setCreateOpen(true)}>{copy.vacioAccion}</Button>
             ) : tieneFiltros ? (
               <Button variant="outline" onClick={limpiarFiltros}>
                 Limpiar filtros
@@ -506,7 +568,7 @@ export function ConsignatarioListPage() {
           <Table className={showClienteColumn ? 'min-w-[760px]' : 'min-w-[640px]'}>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[18rem]">Consignatario</TableHead>
+                <TableHead className="w-[18rem]">{copy.thNombre}</TableHead>
                 {showClienteColumn && (
                   <TableHead className="hidden md:table-cell">Cliente</TableHead>
                 )}
@@ -520,6 +582,18 @@ export function ConsignatarioListPage() {
                 <TableRow key={d.id}>
                   <TableCell className="max-w-[18rem] align-top">
                     <NombreCodigoCell consignatario={d} />
+                    {esCliente && (
+                      <ConteosEnvios
+                        totalGuias={d.totalGuias}
+                        totalPaquetes={d.totalPaquetes}
+                        onVerEnvios={() =>
+                          navigate({
+                            to: '/mis-guias',
+                            search: { destinatarioId: d.id },
+                          })
+                        }
+                      />
+                    )}
                     {d.telefono && (
                       <div className="mt-1 md:hidden">
                         <ContactoCell telefono={d.telefono} />
@@ -545,7 +619,18 @@ export function ConsignatarioListPage() {
                     <RowActionsMenu
                       items={[
                         {
-                          label: 'Editar consignatario',
+                          label: 'Ver envíos',
+                          icon: Eye,
+                          hidden: !esCliente,
+                          onSelect: () =>
+                            navigate({
+                              to: '/mis-guias',
+                              search: { destinatarioId: d.id },
+                            }),
+                        },
+                        { type: 'separator', hidden: !esCliente },
+                        {
+                          label: esCliente ? 'Editar destinatario' : 'Editar consignatario',
                           icon: Pencil,
                           onSelect: () => setEditingId(d.id),
                           hidden: !canEdit,
@@ -794,8 +879,8 @@ export function ConsignatarioListPage() {
       <ConfirmDialog
         open={deleteConfirmId != null}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="¿Eliminar consignatario?"
-        description="Esta acción no se puede deshacer. Se eliminará el consignatario junto con todos sus paquetes asociados."
+        title={copy.eliminarTitulo}
+        description={copy.eliminarDescripcion}
         confirmLabel="Eliminar"
         variant="destructive"
         loading={deleteConsignatario.isPending || deleteConsignatarioOperario.isPending}
@@ -807,9 +892,9 @@ export function ConsignatarioListPage() {
             } else {
               await deleteConsignatario.mutateAsync(deleteConfirmId);
             }
-            toast.success('Consignatario eliminado');
+            toast.success(copy.eliminado);
           } catch (error: unknown) {
-            toast.error(getApiErrorMessage(error) ?? 'Error al eliminar el consignatario');
+            toast.error(getApiErrorMessage(error) ?? copy.errorEliminar);
             throw error;
           }
         }}
@@ -837,6 +922,48 @@ function NombreCodigoCell({ consignatario }: { consignatario: Consignatario }) {
           <span className="text-[11px] italic text-muted-foreground">Sin código</span>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Resumen de envíos por destinatario ("3 guías · 7 paquetes") con acceso
+ * directo a "Mis guías" filtrado. Los conteos vienen del backend por proyección.
+ */
+function ConteosEnvios({
+  totalGuias,
+  totalPaquetes,
+  onVerEnvios,
+}: {
+  totalGuias?: number | null;
+  totalPaquetes?: number | null;
+  onVerEnvios: () => void;
+}) {
+  const guias = totalGuias ?? 0;
+  const paquetes = totalPaquetes ?? 0;
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-1" title={`${guias} guías`}>
+        <Boxes className="h-3.5 w-3.5" aria-hidden />
+        {guias} guía{guias === 1 ? '' : 's'}
+      </span>
+      <span className="inline-flex items-center gap-1" title={`${paquetes} paquetes`}>
+        <Package className="h-3.5 w-3.5" aria-hidden />
+        {paquetes} paquete{paquetes === 1 ? '' : 's'}
+      </span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-6 gap-1 px-2 text-xs text-primary hover:text-primary"
+        onClick={(e) => {
+          e.stopPropagation();
+          onVerEnvios();
+        }}
+      >
+        <Eye className="h-3.5 w-3.5" aria-hidden />
+        Ver envíos
+      </Button>
     </div>
   );
 }

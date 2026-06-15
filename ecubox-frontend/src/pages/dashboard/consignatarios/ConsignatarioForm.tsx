@@ -46,7 +46,7 @@ import {
 } from '@/hooks/useOperarioDespachos';
 import { sugerirCodigo } from '@/lib/api/consignatarios.service';
 import { useAuthStore } from '@/stores/authStore';
-import type { ConsignatarioRequest } from '@/types/consignatario';
+import type { Consignatario, ConsignatarioRequest } from '@/types/consignatario';
 import { consignatarioFormSchema } from '@/lib/schemas/maestros';
 import { onKeyDownNumeric, sanitizeNumeric } from '@/lib/inputFilters';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
@@ -54,12 +54,20 @@ import { cn } from '@/lib/utils';
 
 type FormValues = z.infer<typeof consignatarioFormSchema>;
 
+function capitalizar(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 interface ConsignatarioFormProps {
   id?: number;
   /** Si true, usa API de operario (lista completa) para cargar y actualizar */
   useOperarioApi?: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  /**
+   * Se invoca tras crear/actualizar. Recibe el registro resultante para que el
+   * llamador (p. ej. el registro rápido de guías) pueda autoseleccionarlo.
+   */
+  onSuccess: (resultado?: Consignatario) => void;
 }
 
 export function ConsignatarioForm({
@@ -74,6 +82,9 @@ export function ConsignatarioForm({
   const hasConsignatariosOperarioPerm = useAuthStore((s) =>
     s.hasPermission('CONSIGNATARIOS_OPERARIO'),
   );
+  // Cliente / sesión por enlace ven "destinatario"; el back-office ve "consignatario".
+  const esCliente = !hasConsignatariosOperarioPerm;
+  const entidad = esCliente ? 'destinatario' : 'consignatario';
   const useOpApi = Boolean(useOperarioApi && hasConsignatariosOperarioPerm);
   const { data: consignatarioMis } = useConsignatario(id, !useOpApi);
   const { data: consignatarioOp } = useConsignatarioOperario(useOpApi && isEdit ? id : undefined);
@@ -182,22 +193,19 @@ export function ConsignatarioForm({
       body.clienteUsuarioId = values.clienteUsuarioId;
     }
     try {
+      let resultado: Consignatario;
       if (isEdit && id != null) {
-        if (useOpApi) {
-          await updateOperarioMutation.mutateAsync({ id, body });
-        } else {
-          await updateMutation.mutateAsync({ id, body });
-        }
-        toast.success('Consignatario actualizado');
+        resultado = useOpApi
+          ? await updateOperarioMutation.mutateAsync({ id, body })
+          : await updateMutation.mutateAsync({ id, body });
+        toast.success(`${capitalizar(entidad)} actualizado`);
       } else {
-        if (useOpApi) {
-          await createOperarioMutation.mutateAsync(body);
-        } else {
-          await createMutation.mutateAsync(body);
-        }
-        toast.success('Consignatario creado');
+        resultado = useOpApi
+          ? await createOperarioMutation.mutateAsync(body)
+          : await createMutation.mutateAsync(body);
+        toast.success(`${capitalizar(entidad)} creado`);
       }
-      onSuccess();
+      onSuccess(resultado);
     } catch {
       // Error ya manejado por toast en el interceptor o en la mutación
     }
@@ -229,12 +237,14 @@ export function ConsignatarioForm({
             </span>
             <div className="min-w-0 flex-1">
               <DialogTitle>
-                {isEdit ? 'Editar consignatario' : 'Nuevo consignatario'}
+                {isEdit ? `Editar ${entidad}` : `Nuevo ${entidad}`}
               </DialogTitle>
               <DialogDescription>
                 {isEdit
-                  ? 'Actualiza los datos de contacto y la ubicación del consignatario.'
-                  : 'Registra un consignatario para enviar paquetes a su dirección. El código se genera automáticamente.'}
+                  ? `Actualiza los datos de contacto y la ubicación del ${entidad}.`
+                  : esCliente
+                    ? 'Guarda una persona o ubicación que pueda recibir tus paquetes. El código se genera automáticamente.'
+                    : 'Registra un consignatario para enviar paquetes a su dirección. El código se genera automáticamente.'}
               </DialogDescription>
               {isEdit && consignatario?.codigo && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -301,23 +311,31 @@ export function ConsignatarioForm({
             </FormSection>
           )}
 
-          {/* Sección: Datos personales */}
+          {/* Sección: Datos del destinatario / consignatario */}
           <FormSection
             icon={<UserRound className="h-4 w-4" />}
-            title="Datos personales"
-            description="Nombre completo y teléfono de contacto del consignatario."
+            title={esCliente ? 'Datos del destinatario' : 'Datos personales'}
+            description={
+              esCliente
+                ? 'Nombre (persona o ubicación) y teléfono de contacto para la entrega.'
+                : 'Nombre completo y teléfono de contacto del consignatario.'
+            }
           >
             <div className="space-y-4">
               <FormField
-                label="Nombre completo"
+                label={esCliente ? 'Nombre del destinatario o ubicación' : 'Nombre completo'}
                 required
                 error={errors.nombre?.message}
-                hint="Tal como aparecerá en guías y comprobantes."
+                hint={
+                  esCliente
+                    ? 'Ej: María López, Oficina principal, Sucursal Cuenca o Bodega norte.'
+                    : 'Tal como aparecerá en guías y comprobantes.'
+                }
               >
                 <Input
                   {...form.register('nombre')}
                   variant="clean"
-                  placeholder="Ej: María Pérez González"
+                  placeholder={esCliente ? 'Ej: María López u Oficina principal' : 'Ej: María Pérez González'}
                   autoComplete="name"
                   aria-invalid={Boolean(errors.nombre)}
                 />
@@ -537,7 +555,7 @@ export function ConsignatarioForm({
               ) : isEdit ? (
                 'Guardar cambios'
               ) : (
-                'Crear consignatario'
+                `Crear ${entidad}`
               )}
             </Button>
           </DialogFooter>

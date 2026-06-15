@@ -28,6 +28,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
 import { useConsignatarios } from '@/hooks/useConsignatarios';
+import { useAuthStore } from '@/stores/authStore';
+import { ConsignatarioForm } from '@/pages/dashboard/consignatarios/ConsignatarioForm';
 import { MIS_GUIAS_QUERY_KEY } from '@/hooks/useMisGuias';
 import { registrarMiGuia } from '@/lib/api/mis-guias.service';
 import { miGuiasBulkSchema, MAX_MIS_GUIAS_BULK } from '@/lib/schemas/guia';
@@ -49,6 +51,8 @@ type FormValues = z.input<typeof miGuiasBulkSchema>;
 export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const { data: consignatarios = [], isLoading: loadingDest } = useConsignatarios();
+  const puedeCrearDestinatario = useAuthStore((s) => s.hasPermission('CONSIGNATARIOS_CREATE'));
+  const [nuevoDestOpen, setNuevoDestOpen] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(miGuiasBulkSchema),
@@ -250,8 +254,11 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
           <div>
             <Label htmlFor="mi-guias-consignatario" className="mb-1 flex items-center gap-1 text-sm">
               <UserRound className="h-3.5 w-3.5" />
-              Destinatario *
+              ¿Quién recibirá los paquetes de esta guía? *
             </Label>
+            <p className="mb-1.5 text-xs text-muted-foreground">
+              Selecciona un destinatario guardado o crea uno nuevo.
+            </p>
             <SearchableCombobox
               id="mi-guias-consignatario"
               value={consignatarioId}
@@ -297,8 +304,21 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
             )}
             {sinConsignatarios && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Aún no tienes destinatarios. Crea uno desde "Mis destinatarios".
+                Aún no tienes destinatarios. Crea el primero aquí mismo.
               </p>
+            )}
+            {puedeCrearDestinatario && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-1.5 h-8 gap-1.5 px-2 text-primary hover:text-primary"
+                onClick={() => setNuevoDestOpen(true)}
+                disabled={enviando}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Agregar nuevo destinatario
+              </Button>
             )}
           </div>
 
@@ -483,6 +503,30 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {/*
+       * Creación rápida de destinatario sin perder el formulario principal: el
+       * diálogo se monta como hijo (no se desmonta RegistrarMisGuiasDialog, así
+       * las filas de guías pegadas se conservan). Al crear, la mutación invalida
+       * la query de consignatarios; aquí autoseleccionamos el nuevo destinatario
+       * y cerramos el diálogo secundario.
+       */}
+      {nuevoDestOpen && (
+        <ConsignatarioForm
+          useOperarioApi={false}
+          onClose={() => setNuevoDestOpen(false)}
+          onSuccess={(creado) => {
+            setNuevoDestOpen(false);
+            if (creado?.id != null) {
+              qc.invalidateQueries({ queryKey: ['consignatarios'] });
+              setValue('consignatarioId', creado.id, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+            }
+          }}
+        />
+      )}
     </Dialog>
   );
 }

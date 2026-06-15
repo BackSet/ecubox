@@ -468,15 +468,50 @@ public class GuiaMasterService {
 
     @Transactional(readOnly = true)
     public List<GuiaMaster> findAllByCliente(Long clienteUsuarioId) {
+        return findAllByCliente(clienteUsuarioId, null);
+    }
+
+    /**
+     * Guías del cliente, opcionalmente acotadas a un destinatario. El filtro se
+     * aplica dentro del universo ya acotado al cliente, por lo que un
+     * {@code consignatarioId} ajeno simplemente no coincide (no se enumeran
+     * registros de otros).
+     */
+    @Transactional(readOnly = true)
+    public List<GuiaMaster> findAllByCliente(Long clienteUsuarioId, Long consignatarioId) {
         if (clienteUsuarioId == null) return List.of();
-        return guiaMasterRepository.findByClienteUsuarioId(clienteUsuarioId);
+        List<GuiaMaster> guias = guiaMasterRepository.findByClienteUsuarioId(clienteUsuarioId);
+        return filtrarPorConsignatario(guias, consignatarioId);
     }
 
     /** Guías de un conjunto de consignatarios (acceso por enlace, solo lectura). */
     @Transactional(readOnly = true)
     public List<GuiaMaster> findAllByConsignatarioIds(java.util.Collection<Long> consignatarioIds) {
+        return findAllByConsignatarioIds(consignatarioIds, null);
+    }
+
+    /**
+     * Igual que {@link #findAllByConsignatarioIds(java.util.Collection)} pero
+     * acotado a un único destinatario. Si el {@code consignatarioId} no está en
+     * el scope del enlace, no se consulta nada (no se exponen destinatarios
+     * fuera del scope).
+     */
+    @Transactional(readOnly = true)
+    public List<GuiaMaster> findAllByConsignatarioIds(java.util.Collection<Long> consignatarioIds, Long consignatarioId) {
         if (consignatarioIds == null || consignatarioIds.isEmpty()) return List.of();
-        return guiaMasterRepository.findByConsignatarioIdIn(consignatarioIds);
+        if (consignatarioId != null && !consignatarioIds.contains(consignatarioId)) return List.of();
+        java.util.Collection<Long> efectivos = consignatarioId != null
+                ? java.util.List.of(consignatarioId)
+                : consignatarioIds;
+        return guiaMasterRepository.findByConsignatarioIdIn(efectivos);
+    }
+
+    private List<GuiaMaster> filtrarPorConsignatario(List<GuiaMaster> guias, Long consignatarioId) {
+        if (consignatarioId == null) return guias;
+        return guias.stream()
+                .filter(gm -> gm.getConsignatario() != null
+                        && consignatarioId.equals(gm.getConsignatario().getId()))
+                .toList();
     }
 
     /**

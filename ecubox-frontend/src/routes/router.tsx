@@ -21,8 +21,10 @@ import {
   SEO_DEFAULT_DESCRIPTION,
   SEO_DEFAULT_TITLE,
   buildHomeJsonLd,
+  buildFaqJsonLd,
   buildPublicPageHead,
 } from '@/lib/seo';
+import { FAQ_ITEMS } from '@/lib/faq-items';
 
 const HomePage = lazyNamed(() => import('@/pages/home/HomePage'), 'HomePage');
 const LoginPage = lazyNamed(() => import('@/pages/login/LoginPage'), 'LoginPage');
@@ -283,12 +285,13 @@ const indexRoute = createRoute({
     const { meta, links } = buildPublicPageHead({
       title: 'ECUBOX | Casillero en USA y envíos a Ecuador con rastreo',
       description:
-        'Casillero en New Jersey sin mensualidad, envíos a Ecuador en 8-12 días laborables, rastreo por pieza y calculadora de tarifas. ECUBOX lleva tus compras de USA a casa.',
+        'Casillero en New Jersey sin mensualidad, envíos a Ecuador en 8-12 días laborables, rastreo por pieza y calculadora de tarifas. Gestiona varios destinatarios (personas, oficinas o sucursales) desde una sola cuenta.',
       path: '/',
     });
     const jsonLd = buildHomeJsonLd();
+    const faqJsonLd = buildFaqJsonLd(FAQ_ITEMS);
     return {
-      meta: [...meta, ...jsonLd],
+      meta: [...meta, ...jsonLd, faqJsonLd],
       links,
     } as RouteHeadResult;
   },
@@ -549,6 +552,11 @@ const guiasMasterDetailRoute = createRoute({
 const misGuiasRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/mis-guias',
+  validateSearch: (search: Record<string, unknown>): { destinatarioId?: number } => {
+    const raw = search.destinatarioId;
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) && n > 0 ? { destinatarioId: n } : {};
+  },
   beforeLoad: requireAnyPermission(['MIS_GUIAS_READ', 'ACCESO_ENLACE_GUIAS_READ']),
   component: withDashboardLayout(MisGuiasListPage),
 });

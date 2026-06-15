@@ -54,9 +54,37 @@ public class ConsignatarioService {
 
     @Transactional(readOnly = true)
     public List<ConsignatarioDTO> findAllByUsuarioId(Long usuarioId) {
-        return consignatarioRepository.findByUsuarioIdOrderByNombre(usuarioId).stream()
+        List<ConsignatarioDTO> dtos = consignatarioRepository.findByUsuarioIdOrderByNombre(usuarioId).stream()
                 .map(this::toDTO)
                 .toList();
+        return conConteos(dtos);
+    }
+
+    /**
+     * Rellena {@code totalGuias}/{@code totalPaquetes} de cada destinatario con
+     * dos consultas agrupadas (una por dimensión), sin descargar los datasets.
+     * Pensado para la vista de listado "Mis destinatarios".
+     */
+    private List<ConsignatarioDTO> conConteos(List<ConsignatarioDTO> dtos) {
+        if (dtos == null || dtos.isEmpty()) return dtos;
+        List<Long> ids = dtos.stream().map(ConsignatarioDTO::getId).filter(java.util.Objects::nonNull).toList();
+        if (ids.isEmpty()) return dtos;
+        java.util.Map<Long, Long> guiasPorId = toCountMap(guiaMasterRepository.countByConsignatarioIdInAgrupado(ids));
+        java.util.Map<Long, Long> paquetesPorId = toCountMap(paqueteRepository.countByConsignatarioIdInAgrupado(ids));
+        for (ConsignatarioDTO dto : dtos) {
+            dto.setTotalGuias(guiasPorId.getOrDefault(dto.getId(), 0L));
+            dto.setTotalPaquetes(paquetesPorId.getOrDefault(dto.getId(), 0L));
+        }
+        return dtos;
+    }
+
+    private java.util.Map<Long, Long> toCountMap(List<Object[]> filas) {
+        java.util.Map<Long, Long> map = new java.util.HashMap<>();
+        for (Object[] fila : filas) {
+            if (fila.length < 2 || fila[0] == null) continue;
+            map.put(((Number) fila[0]).longValue(), ((Number) fila[1]).longValue());
+        }
+        return map;
     }
 
     /** Para operario: listar todos los destinatarios; search opcional (nombre o código). */
@@ -95,11 +123,12 @@ public class ConsignatarioService {
     @Transactional(readOnly = true)
     public List<ConsignatarioDTO> findByIds(java.util.Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) return List.of();
-        return consignatarioRepository.findAllById(ids).stream()
+        List<ConsignatarioDTO> dtos = consignatarioRepository.findAllById(ids).stream()
                 .sorted(java.util.Comparator.comparing(
                         Consignatario::getNombre, String.CASE_INSENSITIVE_ORDER))
                 .map(this::toDTO)
                 .toList();
+        return conConteos(dtos);
     }
 
     /** Detalle de un consignatario solo si pertenece al conjunto autorizado. */

@@ -28,10 +28,10 @@ export function useEstadosRastreoMisGuias(enabled = true) {
   });
 }
 
-export function useMisGuias() {
+export function useMisGuias(consignatarioId?: number) {
   return useQuery({
-    queryKey: [...MIS_GUIAS_QUERY_KEY, 'list'],
-    queryFn: () => listarMisGuias(),
+    queryKey: [...MIS_GUIAS_QUERY_KEY, 'list', consignatarioId ?? null],
+    queryFn: () => listarMisGuias(consignatarioId),
   });
 }
 

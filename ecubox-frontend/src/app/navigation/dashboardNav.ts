@@ -37,6 +37,13 @@ export type NavItem = {
   permissionsAny?: string[];
   keywords?: string[];
   children?: NavItem[];
+  /**
+   * Resuelve la etiqueta visible según la audiencia (permisos del usuario), sin
+   * duplicar la ruta. Si se define, su resultado reemplaza a {@link label}.
+   * Se usa para mostrar "Consignatarios" al back-office y "Destinatarios" al
+   * cliente sobre la misma ruta `/consignatarios`.
+   */
+  labelFor?: (hasPermission: (permission: string) => boolean) => string;
 };
 
 /**
@@ -165,7 +172,11 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     items: [
       {
         to: '/consignatarios',
+        // Back-office: "Consignatarios"; cliente / sesión por enlace: "Destinatarios".
+        // La ruta es la misma; solo cambia el rótulo según la audiencia.
         label: 'Consignatarios',
+        labelFor: (hasPermission) =>
+          hasPermission('CONSIGNATARIOS_OPERARIO') ? 'Consignatarios' : 'Destinatarios',
         icon: Contact,
         permission: 'CONSIGNATARIOS_READ',
         permissionsAny: ['CONSIGNATARIOS_READ', 'ACCESO_ENLACE_CONSIGNATARIOS_READ'],
@@ -343,17 +354,22 @@ export function getVisibleNavGroups(
   // Para sesiones por enlace (onlyWithPermission) se ocultan los ítems sin
   // permiso explícito (Inicio, Mi casillero...), dejando solo los de cliente.
   const onlyWithPermission = opts?.onlyWithPermission ?? false;
+  const resolveLabel = (item: NavItem): NavItem =>
+    item.labelFor ? { ...item, label: item.labelFor(hasPermission) } : item;
   return DASHBOARD_NAV_GROUPS.map((group) => ({
     label: group.label,
     items: group.items
       .filter((item) => isItemVisible(item, hasPermission, onlyWithPermission))
+      .map(resolveLabel)
       .map((item) =>
         item.children
           ? {
               ...item,
-              children: item.children.filter((child) =>
-                isItemVisible(child, hasPermission, onlyWithPermission),
-              ),
+              children: item.children
+                .filter((child) =>
+                  isItemVisible(child, hasPermission, onlyWithPermission),
+                )
+                .map(resolveLabel),
             }
           : item,
       )

@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
+  Users,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -26,7 +27,7 @@ const FEATURES: Feature[] = [
   {
     title: 'Casillero USA',
     description:
-      'Recibe tus compras en nuestra dirección en New Jersey y consolida envíos para ahorrar en fletes.',
+      'Recibe tus compras en nuestra dirección en New Jersey y reúnelas en un mismo envío para ahorrar en flete.',
     icon: Package,
     href: '/registro',
     ctaLabel: 'Crear mi casillero',
@@ -35,6 +36,7 @@ const FEATURES: Feature[] = [
     bullets: [
       { icon: Sparkles, text: 'Sin mensualidad ni mínimos' },
       { icon: Truck, text: 'Compra en cualquier tienda online' },
+      { icon: Users, text: 'Una cuenta, varios destinatarios' },
     ],
   },
   {

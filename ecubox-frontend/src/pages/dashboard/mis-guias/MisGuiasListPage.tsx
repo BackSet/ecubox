@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TablePagination } from '@/components/ui/TablePagination';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import {
   Boxes,
   CalendarDays,
@@ -12,6 +12,7 @@ import {
   Trash2,
   Truck,
   UserRound,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +40,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useEliminarMiGuia, useMisGuias } from '@/hooks/useMisGuias';
+import { useConsignatarios } from '@/hooks/useConsignatarios';
 import { useAuthStore } from '@/stores/authStore';
 import { ConsignatarioInfo } from '@/pages/dashboard/paquetes/PaqueteCells';
 import type { StatusTone } from '@/components/ui/StatusBadge';
@@ -81,6 +83,7 @@ const TOOLTIP_NO_EDITABLE =
 
 export function MisGuiasListPage() {
   const navigate = useNavigate();
+  const { destinatarioId } = useSearch({ strict: false }) as { destinatarioId?: number };
   const [search, setSearchRaw] = useState('');
   const [estadoFiltro, setEstadoFiltroRaw] = useState<FiltroEstado>('TODAS');
   const [page, setPage] = useState(0);
@@ -91,7 +94,17 @@ export function MisGuiasListPage() {
   const [registrarOpen, setRegistrarOpen] = useState(false);
   const [editingGuia, setEditingGuia] = useState<GuiaMaster | null>(null);
   const [deletingGuia, setDeletingGuia] = useState<GuiaMaster | null>(null);
-  const { data: guias = [], isLoading, isFetching, error, refetch } = useMisGuias();
+  const { data: guias = [], isLoading, isFetching, error, refetch } = useMisGuias(destinatarioId);
+  // Nombre del destinatario para el chip de filtro: del catálogo del cliente, con
+  // respaldo en la propia guía si el catálogo aún no cargó.
+  const { data: destinatarios = [] } = useConsignatarios(destinatarioId != null);
+  const destinatarioNombre = useMemo(() => {
+    if (destinatarioId == null) return null;
+    const fromCatalogo = destinatarios.find((d) => d.id === destinatarioId)?.nombre;
+    return fromCatalogo ?? guias.find((g) => g.consignatarioNombre)?.consignatarioNombre ?? null;
+  }, [destinatarioId, destinatarios, guias]);
+  const limpiarDestinatario = () =>
+    navigate({ to: '/mis-guias', search: {} });
   // Acciones de escritura solo si el usuario puede crear/editar guías. Las
   // sesiones por enlace de acceso (solo lectura) no tienen este permiso.
   const canEditar = useAuthStore((s) => s.hasPermission('MIS_GUIAS_CREATE'));
@@ -184,6 +197,23 @@ export function MisGuiasListPage() {
           </>
         }
       />
+
+      {destinatarioId != null && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 py-1 pl-3 pr-1.5 text-sm text-foreground">
+            <UserRound className="h-3.5 w-3.5 text-primary" aria-hidden />
+            Destinatario: <strong className="font-semibold">{destinatarioNombre ?? 'Seleccionado'}</strong>
+            <button
+              type="button"
+              onClick={limpiarDestinatario}
+              aria-label="Quitar filtro de destinatario"
+              className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/20 hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        </div>
+      )}
 
       {!error && (
         <GuiaTrackingHelp variant={!isLoading && guias.length === 0 ? 'detalle' : 'resumen'} />

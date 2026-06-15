@@ -4,6 +4,7 @@ import { HowItWorks } from '@/components/HowItWorks';
 import { CallToActionBanner } from '@/components/CallToActionBanner';
 import { FAQ } from '@/components/FAQ';
 import { HomeJsonLdCanales } from '@/components/public/HomeJsonLdCanales';
+import { MultiDestinatariosSection } from '@/components/public/MultiDestinatariosSection';
 import { PublicContactBlock } from '@/components/public/PublicContactBlock';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
 import { PwaLandingPanel } from '@/components/public/PwaLandingPanel';
@@ -14,6 +15,7 @@ export function HomePage() {
       <Hero />
       <ServicesGrid />
       <HowItWorks />
+      <MultiDestinatariosSection />
       <CallToActionBanner />
       <PwaLandingPanel />
       <FAQ />

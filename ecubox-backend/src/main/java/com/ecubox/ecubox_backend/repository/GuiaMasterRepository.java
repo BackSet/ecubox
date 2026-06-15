@@ -53,6 +53,16 @@ public interface GuiaMasterRepository extends JpaRepository<GuiaMaster, Long>,
     /** Guías asociadas directamente a un consignatario. */
     List<GuiaMaster> findByConsignatarioId(Long consignatarioId);
 
+    /**
+     * Conteo de guías por consignatario para un conjunto de ids, en una sola
+     * consulta agrupada (proyección [consignatarioId, total]); evita descargar
+     * los datasets para contar. Usado por "Mis destinatarios".
+     */
+    @Query("SELECT gm.consignatario.id, COUNT(gm) FROM GuiaMaster gm " +
+           "WHERE gm.consignatario.id IN :consignatarioIds " +
+           "GROUP BY gm.consignatario.id")
+    List<Object[]> countByConsignatarioIdInAgrupado(@Param("consignatarioIds") Collection<Long> consignatarioIds);
+
     /** Guías de un conjunto de consignatarios (acceso por enlace), más recientes primero. */
     @Query("SELECT gm FROM GuiaMaster gm " +
            "WHERE gm.consignatario.id IN :consignatarioIds " +
