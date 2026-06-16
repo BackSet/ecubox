@@ -5,30 +5,55 @@
 **/.env
 **/.env.*
 !**/.env.example
+*.env.local
+*.env.*.local
 *.pem
 *.key
 *.p12
 *.jks
+*.crt
+*.cer
 
 # Build outputs and caches
 **/target/
 **/dist/
 **/dist-ssr/
+**/build/
 **/node_modules/
 **/coverage/
 **/.nyc_output/
 **/*.tsbuildinfo
 **/.vite/
+**/.vitest/
+**/.cache/
+**/.parcel-cache/
+**/.turbo/
+**/.eslintcache
+**/.stylelintcache
+**/.swc/
+**/.rollup.cache/
+
+# Maven / Spring Boot
+**/.mvn/timing.properties
+**/dependency-reduced-pom.xml
+**/release.properties
+**/flattened-pom.xml
+**/hs_err_pid*
+**/replay_pid*
+**/*.hprof
+**/spring.log
 
 # Logs and runtime files
 *.log
 **/logs/
+**/log/
 *.pid
 *.pid.lock
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 
 # Editors and local tools
 .idea/
@@ -41,6 +66,8 @@ yarn-error.log*
 *.swp
 *.swo
 *~
+.history/
+.ionide/
 
 # Java IDE metadata
 **/.classpath
@@ -54,14 +81,37 @@ yarn-error.log*
 
 # OS files
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
 Desktop.ini
+ehthumbs.db
 
 # Temporary and backup files
 *.orig
 *.bak
 *.tmp
 *.temp
+*.old
+*.rej
+
+# Local databases and generated data
+*.db
+*.sqlite
+*.sqlite3
+*.h2.db
+*.mv.db
+*.trace.db
+data/
+tmp/
+temp/
+
+# Docker / local deployment overrides
+docker-compose.override.yml
+compose.override.yml
 
 # Lighthouse / auditoría local
 **/reports/
+**/.lighthouseci/
+**/playwright-report/
+**/test-results/
