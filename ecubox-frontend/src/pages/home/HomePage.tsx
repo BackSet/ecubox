@@ -4,6 +4,7 @@ import { HowItWorks } from '@/components/HowItWorks';
 import { CallToActionBanner } from '@/components/CallToActionBanner';
 import { FAQ } from '@/components/FAQ';
 import { HomeJsonLdCanales } from '@/components/public/HomeJsonLdCanales';
+import { LandingFeaturedCampaign } from '@/components/public/FeaturedCampaignSection';
 import { MultiDestinatariosSection } from '@/components/public/MultiDestinatariosSection';
 import { PublicContactBlock } from '@/components/public/PublicContactBlock';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
@@ -13,6 +14,7 @@ export function HomePage() {
   return (
     <PublicPageLayout skipLink topSlot={<HomeJsonLdCanales />}>
       <Hero />
+      <LandingFeaturedCampaign />
       <ServicesGrid />
       <HowItWorks />
       <MultiDestinatariosSection />

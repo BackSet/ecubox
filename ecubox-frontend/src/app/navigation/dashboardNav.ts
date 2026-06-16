@@ -21,6 +21,7 @@ import {
   ChartNoAxesCombined,
   Link2,
   MessageCircle,
+  Megaphone,
   Share2,
   Sparkles,
   Calculator,
@@ -75,6 +76,12 @@ const PARAMETROS_SISTEMA_SECCIONES: NavItem[] = [
     label: 'Temporada',
     icon: Sparkles,
     permission: 'TEMA_TEMPORADA_READ',
+  },
+  {
+    to: '/parametros-sistema/contenido-destacado',
+    label: 'Contenido destacado',
+    icon: Megaphone,
+    permission: 'CONTENIDO_DESTACADO_LANDING_READ',
   },
   {
     to: '/parametros-sistema/tarifa',
