@@ -14,6 +14,7 @@ const consignatariosCliente = [
     provincia: 'Pichincha',
     canton: 'Quito',
     codigo: 'ECU-5',
+    etiqueta: 'Oficina',
     clienteUsuarioId: 1,
     totalGuias: 3,
     totalPaquetes: 7,
@@ -64,6 +65,12 @@ describe('ConsignatarioListPage · vista cliente (Mis destinatarios)', () => {
     render(<ConsignatarioListPage />);
     expect(screen.getByRole('heading', { name: 'Mis destinatarios' })).toBeInTheDocument();
     expect(screen.getByText('¿Cómo funcionan los destinatarios?')).toBeInTheDocument();
+  });
+
+  it('muestra la etiqueta como dato secundario (badge)', () => {
+    render(<ConsignatarioListPage />);
+    // Aparece en card móvil y fila de escritorio (jsdom no aplica CSS).
+    expect(screen.getAllByText('Oficina').length).toBeGreaterThan(0);
   });
 
   it('muestra los conteos en una sola representación "N guías · N paquetes"', () => {

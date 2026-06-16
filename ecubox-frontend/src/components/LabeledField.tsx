@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label';
 export interface LabeledFieldProps {
   label: ReactNode;
   required?: boolean;
+  /** Muestra una marca «Opcional» junto a la etiqueta. */
+  optional?: boolean;
   error?: string | null;
   hint?: ReactNode;
   icon?: ReactNode;
@@ -23,6 +25,7 @@ export interface LabeledFieldProps {
 export function LabeledField({
   label,
   required,
+  optional,
   error,
   hint,
   icon,
@@ -34,6 +37,11 @@ export function LabeledField({
         {icon && <span className="text-[var(--color-muted-foreground)]">{icon}</span>}
         <span>{label}</span>
         {required && <span className="text-[var(--color-destructive)]">*</span>}
+        {optional && (
+          <span className="font-normal text-[10px] uppercase tracking-wide text-[var(--color-muted-foreground)]">
+            Opcional
+          </span>
+        )}
       </Label>
       {children}
       {error ? (

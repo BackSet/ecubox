@@ -36,6 +36,8 @@ public class CodigoSecuenciaService {
     public static final String ENTITY_DESPACHO_RETIRO_AGENCIA = "DESPACHO_RETIRO_AGENCIA";
     /** Código de negocio visible de los enlaces de acceso (formato ACC-NNNNNN). */
     public static final String ENTITY_ACCESO_ENLACE = "ACCESO_ENLACE";
+    /** Código de negocio de las campañas de la landing (formato CAM-NNNNNN). */
+    public static final String ENTITY_CAMPANIA_LANDING = "CAMPANIA_LANDING";
 
     public static final String SCOPE_GLOBAL = "GLOBAL";
 
@@ -180,5 +182,14 @@ public class CodigoSecuenciaService {
     public String nextCodigoAccesoEnlace() {
         long n = siguiente(ENTITY_ACCESO_ENLACE, SCOPE_GLOBAL, 0L);
         return "ACC-" + String.format("%06d", n);
+    }
+
+    /**
+     * Genera el siguiente código único para una campaña de la landing.
+     * Formato: {@code CAM-<NNNNNN>} con padding a 6 dígitos.
+     */
+    public String nextCodigoCampaniaLanding() {
+        long n = siguiente(ENTITY_CAMPANIA_LANDING, SCOPE_GLOBAL, 0L);
+        return "CAM-" + String.format("%06d", n);
     }
 }

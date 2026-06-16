@@ -52,6 +52,14 @@ public class Consignatario {
     private String codigo;
 
     /**
+     * Etiqueta organizativa OPCIONAL (texto libre, máx. 60). Referencia para
+     * identificar el destinatario (p. ej. "Oficina", "Regalos"); NO sustituye al
+     * nombre ni se usa para generar código.
+     */
+    @Column(length = 60)
+    private String etiqueta;
+
+    /**
      * Soft-delete: si es NOT NULL el consignatario esta dado de baja.
      * Se aplica para no perder los snapshots historicos referenciados
      * desde guias/despachos.

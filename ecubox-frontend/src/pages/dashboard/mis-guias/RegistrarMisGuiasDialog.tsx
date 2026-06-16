@@ -272,7 +272,7 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
               getKey={(d) => d.id}
               getLabel={(d) => d.nombre}
               getSearchText={(d) =>
-                [d.nombre, d.codigo ?? '', d.canton ?? '', d.provincia ?? '', d.telefono ?? ''].join(' ')
+                [d.nombre, d.etiqueta ?? '', d.codigo ?? '', d.canton ?? '', d.provincia ?? '', d.telefono ?? ''].join(' ')
               }
               placeholder={
                 loadingDest
@@ -281,18 +281,19 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
                     ? 'Sin destinatarios'
                     : 'Selecciona un destinatario'
               }
-              searchPlaceholder="Buscar por nombre, código, cantón..."
+              searchPlaceholder="Buscar por nombre, etiqueta, código, cantón..."
               emptyMessage="Sin coincidencias"
               disabled={loadingDest || sinConsignatarios || enviando}
               clearable={false}
               renderOption={(d) => (
                 <div className="min-w-0">
+                  {/* El nombre es siempre el dato principal; la etiqueta es secundaria. */}
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <span className="font-medium">{d.nombre}</span>
                     {d.codigo && <span className="text-xs text-muted-foreground">· {d.codigo}</span>}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
-                    {[d.canton, d.provincia].filter(Boolean).join(', ') || ''}
+                    {[d.etiqueta, d.canton].filter(Boolean).join(' · ') || ''}
                   </div>
                 </div>
               )}

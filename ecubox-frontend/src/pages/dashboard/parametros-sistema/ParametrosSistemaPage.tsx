@@ -54,6 +54,7 @@ import {
   Search,
   Settings,
   Sparkles,
+  Megaphone,
   Strikethrough,
   Trash2,
   Truck,
@@ -125,6 +126,7 @@ import { TarifaCalculadoraForm } from '@/pages/dashboard/tarifa-calculadora/Tari
 import { TarifaDistribucionForm } from '@/pages/dashboard/parametros-sistema/TarifaDistribucionForm';
 import { CanalesComunicacionPanel } from '@/pages/dashboard/parametros-sistema/CanalesComunicacionPanel';
 import { TemaTemporadaPanel } from '@/pages/dashboard/parametros-sistema/TemaTemporadaPanel';
+import { ContenidoDestacadoPanel } from '@/pages/dashboard/parametros-sistema/ContenidoDestacadoPanel';
 import {
   useCanalesComunicacion,
   useUpdateCanalesComunicacion,
@@ -158,6 +160,7 @@ type OpcionActiva =
   | 'mensaje-agencia-eeuu'
   | 'canales-comunicacion'
   | 'tema-temporada'
+  | 'contenido-destacado'
   | 'tarifa-calculadora'
   | 'tarifa-distribucion'
   | 'estados-rastreo'
@@ -290,6 +293,7 @@ export function ParametrosSistemaPage() {
   const canSeeTarifaDistribucion = hasPermission('CONFIG_TARIFA_DISTRIBUCION_READ');
   const canSeeEstadosRastreo = hasPermission('ESTADOS_RASTREO_READ');
   const canSeeTemaTemporada = hasPermission('TEMA_TEMPORADA_READ');
+  const canSeeContenidoDestacado = hasPermission('CONTENIDO_DESTACADO_LANDING_READ');
 
   const tabs: TabMeta[] = useMemo(
     () => [
@@ -328,6 +332,15 @@ export function ParametrosSistemaPage() {
         description: 'Tematiza el sitio público según días festivos (Día de la Madre, Navidad…).',
         icon: Sparkles,
         visible: canSeeTemaTemporada,
+      },
+      {
+        key: 'contenido-destacado',
+        slug: 'contenido-destacado',
+        label: 'Contenido destacado',
+        shortLabel: 'Destacado',
+        description: 'Campañas configurables que aparecen en la landing tras el Hero.',
+        icon: Megaphone,
+        visible: canSeeContenidoDestacado,
       },
       {
         key: 'tarifa-calculadora',
@@ -369,6 +382,7 @@ export function ParametrosSistemaPage() {
     [
       canSeeAgencia,
       canSeeCanales,
+      canSeeContenidoDestacado,
       canSeeEstadosRastreo,
       canSeeTarifaCalculadora,
       canSeeTarifaDistribucion,
@@ -576,6 +590,7 @@ export function ParametrosSistemaPage() {
           )}
 
           {opcionActiva === 'tema-temporada' && <TemaTemporadaPanel />}
+          {opcionActiva === 'contenido-destacado' && <ContenidoDestacadoPanel />}
 
           {opcionActiva === 'tarifa-calculadora' && <TarifaCalculadoraPanel />}
 

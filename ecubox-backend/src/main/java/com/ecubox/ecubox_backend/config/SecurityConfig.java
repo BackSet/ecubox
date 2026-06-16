@@ -72,6 +72,7 @@ public class SecurityConfig {
                                 "/api/config/tarifa-calculadora",
                                 "/api/config/canales-comunicacion",
                                 "/api/config/tema-temporada",
+                                "/api/public/campania-landing",
                                 "/scalar/**",
                                 "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()

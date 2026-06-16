@@ -6,6 +6,8 @@ export interface Consignatario {
   provincia?: string;
   canton?: string;
   codigo?: string;
+  /** Etiqueta organizativa opcional (texto libre, máx. 60). No sustituye al nombre. */
+  etiqueta?: string | null;
   clienteUsuarioId?: number | null;
   clienteUsuarioNombre?: string | null;
   /** Conteos de envíos (solo en listados de cliente/enlace "Mis destinatarios"). */
@@ -20,5 +22,6 @@ export interface ConsignatarioRequest {
   provincia?: string;
   canton?: string;
   codigo?: string;
+  etiqueta?: string;
   clienteUsuarioId?: number;
 }

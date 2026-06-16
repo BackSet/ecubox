@@ -21,13 +21,14 @@ public interface ConsignatarioRepository extends JpaRepository<Consignatario, Lo
 
     /**
      * Para operario: listar todos los consignatarios; si {@code q} no esta vacio,
-     * filtra por subcadena (case-insensitive) sobre nombre, codigo, telefono,
-     * direccion, provincia y canton.
+     * filtra por subcadena (case-insensitive) sobre nombre, etiqueta, codigo,
+     * telefono, direccion, provincia y canton.
      */
     @Query("""
             SELECT c FROM Consignatario c
             WHERE :q IS NULL OR :q = ''
                OR LOWER(c.nombre)    LIKE LOWER(CONCAT('%', :q, '%'))
+               OR LOWER(c.etiqueta)  LIKE LOWER(CONCAT('%', :q, '%'))
                OR LOWER(c.codigo)    LIKE LOWER(CONCAT('%', :q, '%'))
                OR LOWER(c.telefono)  LIKE LOWER(CONCAT('%', :q, '%'))
                OR LOWER(c.direccion) LIKE LOWER(CONCAT('%', :q, '%'))
