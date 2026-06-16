@@ -14,19 +14,19 @@ const base: CampaniaLandingPublic = {
 
 describe('FeaturedCampaignSection', () => {
   it('renderiza título, etiqueta y descripción', () => {
-    render(<FeaturedCampaignSection campania={base} />);
+    render(<FeaturedCampaignSection campania={base} tema="light" />);
     expect(screen.getByRole('heading', { name: '20% de descuento' })).toBeInTheDocument();
     expect(screen.getByText('Nuevo')).toBeInTheDocument();
     expect(screen.getByText('Aprovecha esta semana.')).toBeInTheDocument();
   });
 
-  it('no renderiza nada sin título (sin reservar espacio ni error)', () => {
-    const { container } = render(<FeaturedCampaignSection campania={{ titulo: '' }} />);
+  it('no renderiza nada sin título', () => {
+    const { container } = render(<FeaturedCampaignSection campania={{ titulo: '' }} tema="light" />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it('no renderiza nada con datos nulos (patrón vacío / fallo API)', () => {
-    const { container } = render(<FeaturedCampaignSection campania={null} />);
+    const { container } = render(<FeaturedCampaignSection campania={null} tema="light" />);
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -34,6 +34,7 @@ describe('FeaturedCampaignSection', () => {
     render(
       <FeaturedCampaignSection
         campania={{ ...base, textoCta: 'Ver', urlCta: 'https://x.com', tipoDestinoCta: 'EXTERNO' }}
+        tema="light"
       />,
     );
     const cta = screen.getByRole('link', { name: /ver/i });
@@ -42,28 +43,47 @@ describe('FeaturedCampaignSection', () => {
     expect(cta).toHaveAttribute('rel', expect.stringContaining('noopener'));
   });
 
-  it('CTA interno no abre en nueva pestaña', () => {
-    render(
-      <FeaturedCampaignSection
-        campania={{ ...base, textoCta: 'Crear cuenta', urlCta: '/registro', tipoDestinoCta: 'INTERNO' }}
-      />,
-    );
-    const cta = screen.getByRole('link', { name: /crear cuenta/i });
-    expect(cta).toHaveAttribute('href', '/registro');
-    expect(cta).not.toHaveAttribute('target');
+  it('resuelve la imagen por tema (clara en light, oscura en dark)', () => {
+    const conImagenes: CampaniaLandingPublic = {
+      ...base,
+      imagenUrlClaro: 'https://cdn.x/claro.png',
+      imagenUrlOscuro: 'https://cdn.x/oscuro.png',
+      textoAlternativoImagen: 'Banner',
+    };
+    const { rerender } = render(<FeaturedCampaignSection campania={conImagenes} tema="light" />);
+    expect((screen.getByAltText('Banner') as HTMLImageElement).src).toContain('claro.png');
+    rerender(<FeaturedCampaignSection campania={conImagenes} tema="dark" />);
+    expect((screen.getByAltText('Banner') as HTMLImageElement).src).toContain('oscuro.png');
   });
 
-  it('imagen externa es lazy/async con alt y cae a fallback al fallar', () => {
+  it('fallback bidireccional: en oscuro usa la clara si falta la oscura', () => {
     render(
       <FeaturedCampaignSection
-        campania={{ ...base, imagenUrl: 'https://cdn.x.com/a.png', textoAlternativoImagen: 'Banner promo' }}
+        campania={{ ...base, imagenUrlClaro: 'https://cdn.x/claro.png', textoAlternativoImagen: 'B' }}
+        tema="dark"
       />,
     );
-    const img = screen.getByAltText('Banner promo') as HTMLImageElement;
+    expect((screen.getByAltText('B') as HTMLImageElement).src).toContain('claro.png');
+  });
+
+  it('imagen lazy/async y, al fallar, se oculta sin icono roto', () => {
+    render(
+      <FeaturedCampaignSection
+        campania={{ ...base, imagenUrlClaro: 'https://cdn.x/a.png', textoAlternativoImagen: 'Banner' }}
+        tema="light"
+      />,
+    );
+    const img = screen.getByAltText('Banner') as HTMLImageElement;
     expect(img).toHaveAttribute('loading', 'lazy');
     expect(img).toHaveAttribute('decoding', 'async');
-    // Al fallar la imagen, deja de renderizarse (fallback sin layout shift).
     fireEvent.error(img);
-    expect(screen.queryByAltText('Banner promo')).not.toBeInTheDocument();
+    expect(screen.queryByAltText('Banner')).not.toBeInTheDocument();
+  });
+
+  it('sin imagen no deja columna vacía (composición centrada)', () => {
+    render(<FeaturedCampaignSection campania={base} tema="light" />);
+    // No hay <img>; el bloque de contenido sigue presente.
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '20% de descuento' })).toBeInTheDocument();
   });
 });

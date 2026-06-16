@@ -84,7 +84,7 @@ public class CampaniaLandingService {
         c.setCreadaPor(actorId);
         c.setActualizadaPor(actorId);
         aplicar(request, c);
-        validarContenido(c);
+        validarComun(c); // borrador: se permite contenido incompleto
         return toDTO(repository.save(c), resolverActor(actorId), ahora());
     }
 
@@ -95,10 +95,10 @@ public class CampaniaLandingService {
         aplicar(request, c);
         c.setActualizadaPor(actorId);
         c.setActualizadaAt(ahora());
-        validarContenido(c);
-        // Si está publicada y se editó, revalidar requisitos de publicación.
+        validarComun(c);
+        // Una campaña ya publicada debe seguir cumpliendo los requisitos de publicación.
         if (c.getEstado() == EstadoCampaniaLanding.PUBLICADA) {
-            validarPublicable(c);
+            validarPublicacion(c);
         }
         return toDTO(repository.save(c), resolverActor(actorId), ahora());
     }
@@ -111,8 +111,8 @@ public class CampaniaLandingService {
     @Transactional
     public CampaniaLandingDTO publicar(Long id, Long actorId) {
         CampaniaLanding c = buscar(id);
-        validarContenido(c);
-        validarPublicable(c);
+        validarComun(c);
+        validarPublicacion(c);
         LocalDateTime ahora = ahora();
 
         repository.lockPublicada().ifPresent(anterior -> {
@@ -176,14 +176,22 @@ public class CampaniaLandingService {
         c.setTextoCta(trimToNull(req.getTextoCta()));
         c.setUrlCta(trimToNull(req.getUrlCta()));
         c.setTipoDestinoCta(req.getTipoDestinoCta());
-        c.setImagenUrl(trimToNull(req.getImagenUrl()));
+        // Dos imágenes independientes (modo claro / oscuro); el fallback se resuelve en frontend.
+        c.setImagenUrlClaro(trimToNull(req.getImagenUrlClaro()));
+        c.setImagenUrlOscuro(trimToNull(req.getImagenUrlOscuro()));
         c.setTextoAlternativoImagen(trimToNull(req.getTextoAlternativoImagen()));
         c.setFechaInicio(req.getFechaInicio());
         c.setFechaFin(req.getFechaFin());
     }
 
-    /** Validaciones cruzadas de contenido (aplican a borrador y publicación). */
-    private void validarContenido(CampaniaLanding c) {
+    /**
+     * Validaciones que aplican SIEMPRE (borrador y publicación): identidad mínima
+     * (nombre interno + tipo), fechas coherentes y bloqueo de esquemas peligrosos
+     * ({@code data:}/{@code javascript:}/{@code vbscript:}) en cualquier URL —
+     * nunca se almacena uno, ni en borrador. NO exige HTTPS, título, CTA completo
+     * ni alt: eso permite guardar borradores incompletos.
+     */
+    private void validarComun(CampaniaLanding c) {
         if (trimToNull(c.getNombreInterno()) == null) {
             throw new BadRequestException("El nombre interno es obligatorio");
         }
@@ -194,11 +202,21 @@ public class CampaniaLandingService {
                 && !c.getFechaFin().isAfter(c.getFechaInicio())) {
             throw new BadRequestException("La fecha de fin debe ser posterior a la de inicio");
         }
-        validarCta(c);
-        validarImagen(c);
+        if (c.getUrlCta() != null) rechazarEsquemaPeligroso(c.getUrlCta(), "la URL del CTA");
+        if (c.getImagenUrlClaro() != null) rechazarEsquemaPeligroso(c.getImagenUrlClaro(), "la imagen (modo claro)");
+        if (c.getImagenUrlOscuro() != null) rechazarEsquemaPeligroso(c.getImagenUrlOscuro(), "la imagen (modo oscuro)");
     }
 
-    private void validarCta(CampaniaLanding c) {
+    /** Requisitos completos para publicar (sobre los de {@link #validarComun}). */
+    private void validarPublicacion(CampaniaLanding c) {
+        if (trimToNull(c.getTitulo()) == null) {
+            throw new BadRequestException("El título es obligatorio para publicar.");
+        }
+        validarCtaCompleto(c);
+        validarImagenesPublicacion(c);
+    }
+
+    private void validarCtaCompleto(CampaniaLanding c) {
         boolean algunCampo = c.getTextoCta() != null || c.getUrlCta() != null || c.getTipoDestinoCta() != null;
         if (!algunCampo) return; // CTA opcional: ausente por completo es válido.
         if (c.getTextoCta() == null || c.getUrlCta() == null || c.getTipoDestinoCta() == null) {
@@ -216,21 +234,20 @@ public class CampaniaLandingService {
         }
     }
 
-    private void validarImagen(CampaniaLanding c) {
-        if (c.getImagenUrl() == null) return;
-        rechazarEsquemaPeligroso(c.getImagenUrl(), "la URL de la imagen");
-        if (!esHttps(c.getImagenUrl())) {
-            throw new BadRequestException("La imagen debe servirse por HTTPS.");
-        }
-        if (trimToNull(c.getTextoAlternativoImagen()) == null) {
+    private void validarImagenesPublicacion(CampaniaLanding c) {
+        boolean hayImagen = c.getImagenUrlClaro() != null || c.getImagenUrlOscuro() != null;
+        validarUrlImagen(c.getImagenUrlClaro(), "modo claro");
+        validarUrlImagen(c.getImagenUrlOscuro(), "modo oscuro");
+        if (hayImagen && trimToNull(c.getTextoAlternativoImagen()) == null) {
             throw new BadRequestException("El texto alternativo es obligatorio cuando hay imagen.");
         }
     }
 
-    /** Requisitos adicionales para poder publicar. */
-    private void validarPublicable(CampaniaLanding c) {
-        if (trimToNull(c.getTitulo()) == null) {
-            throw new BadRequestException("El título es obligatorio para publicar.");
+    private void validarUrlImagen(String url, String modo) {
+        if (url == null) return;
+        rechazarEsquemaPeligroso(url, "la imagen (" + modo + ")");
+        if (!esHttps(url)) {
+            throw new BadRequestException("La imagen (" + modo + ") debe servirse por HTTPS.");
         }
     }
 
@@ -313,7 +330,8 @@ public class CampaniaLandingService {
                 .textoCta(c.getTextoCta())
                 .urlCta(c.getUrlCta())
                 .tipoDestinoCta(c.getTipoDestinoCta())
-                .imagenUrl(c.getImagenUrl())
+                .imagenUrlClaro(c.getImagenUrlClaro())
+                .imagenUrlOscuro(c.getImagenUrlOscuro())
                 .textoAlternativoImagen(c.getTextoAlternativoImagen())
                 .fechaInicio(c.getFechaInicio())
                 .fechaFin(c.getFechaFin())
@@ -339,7 +357,8 @@ public class CampaniaLandingService {
                 .textoCta(c.getTextoCta())
                 .urlCta(c.getUrlCta())
                 .tipoDestinoCta(c.getTipoDestinoCta())
-                .imagenUrl(c.getImagenUrl())
+                .imagenUrlClaro(c.getImagenUrlClaro())
+                .imagenUrlOscuro(c.getImagenUrlOscuro())
                 .textoAlternativoImagen(c.getTextoAlternativoImagen())
                 .build();
     }

@@ -49,8 +49,11 @@ public class CampaniaLandingRequest {
 
     private TipoDestinoCta tipoDestinoCta;
 
-    @Size(max = 500, message = "La URL de la imagen admite máximo 500 caracteres")
-    private String imagenUrl;
+    @Size(max = 500, message = "La URL de la imagen (modo claro) admite máximo 500 caracteres")
+    private String imagenUrlClaro;
+
+    @Size(max = 500, message = "La URL de la imagen (modo oscuro) admite máximo 500 caracteres")
+    private String imagenUrlOscuro;
 
     @Size(max = 200, message = "El texto alternativo admite máximo 200 caracteres")
     private String textoAlternativoImagen;

@@ -6,7 +6,8 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { useBlocker, useParams, useNavigate } from '@tanstack/react-router';
+import { useParams, useNavigate } from '@tanstack/react-router';
+import { useUnsavedChangesBlocker } from '@/hooks/useUnsavedChangesBlocker';
 import {
   AlertCircle,
   AlertTriangle,
@@ -446,10 +447,17 @@ export function ParametrosSistemaPage() {
   );
   const canalesDirty = canalesToComparable(canalesLocal) !== canalesToComparable(canalesOriginal);
 
+  // Estado dirty de la sección por-punto, elevado desde su vista hija para que
+  // el bloqueo de navegación también la proteja.
+  const [porPuntoDirty, setPorPuntoDirty] = useState(false);
+
   const isCurrentDirty =
     (opcionActiva === 'mensaje-whatsapp-despacho' && whatsappDirty) ||
     (opcionActiva === 'mensaje-agencia-eeuu' && agenciaDirty) ||
-    (opcionActiva === 'canales-comunicacion' && canalesDirty);
+    (opcionActiva === 'canales-comunicacion' && canalesDirty) ||
+    (opcionActiva === 'estados-rastreo-por-punto' && porPuntoDirty);
+  // por-punto no tiene un guardado accesible desde el padre: su diálogo es de descarte.
+  const navegacionEsDescartar = opcionActiva === 'estados-rastreo-por-punto';
 
   const handleGuardarWhatsapp = async () => {
     const parsed = mensajePlantillaSchema.safeParse(plantillaLocal);
@@ -502,10 +510,8 @@ export function ParametrosSistemaPage() {
 
   // Bloquea la navegación (incluida la del sidebar) si la sección activa
   // tiene cambios sin guardar, ofreciendo guardar antes de continuar.
-  const { proceed: proceedNavegacion, reset: cancelarNavegacion, status: navegacionStatus } = useBlocker({
-    shouldBlockFn: () => isCurrentDirty,
-    withResolver: true,
-  });
+  const navegacionBlocker = useUnsavedChangesBlocker(isCurrentDirty);
+  const { proceed: proceedNavegacion, reset: cancelarNavegacion, status: navegacionStatus } = navegacionBlocker;
 
   return (
     <div className="page-stack">
@@ -603,17 +609,29 @@ export function ParametrosSistemaPage() {
             </div>
           )}
 
-          {opcionActiva === 'estados-rastreo-por-punto' && <EstadosRastreoPorPuntoView />}
+          {opcionActiva === 'estados-rastreo-por-punto' && (
+            <EstadosRastreoPorPuntoView onDirtyChange={setPorPuntoDirty} />
+          )}
       </main>
 
       <ConfirmDialog
         open={navegacionStatus === 'blocked'}
         onOpenChange={(open) => !open && cancelarNavegacion?.()}
         title="Cambios sin guardar"
-        description="Tienes cambios sin guardar en esta sección. Guárdalos antes de salir o cancela para seguir editando."
-        confirmLabel="Guardar y salir"
-        cancelLabel="Cancelar"
+        description={
+          navegacionEsDescartar
+            ? 'Tienes cambios sin guardar en esta sección. Si sales ahora, se perderán.'
+            : 'Tienes cambios sin guardar en esta sección. Guárdalos antes de salir o cancela para seguir editando.'
+        }
+        confirmLabel={navegacionEsDescartar ? 'Salir sin guardar' : 'Guardar y salir'}
+        cancelLabel={navegacionEsDescartar ? 'Seguir editando' : 'Cancelar'}
+        variant={navegacionEsDescartar ? 'destructive' : 'default'}
         onConfirm={async () => {
+          // por-punto no se guarda desde el padre: se descarta y se continúa.
+          if (navegacionEsDescartar) {
+            proceedNavegacion?.();
+            return;
+          }
           try {
             if (opcionActiva === 'mensaje-whatsapp-despacho' && whatsappDirty) {
               await handleGuardarWhatsapp();
@@ -2804,7 +2822,7 @@ function FlowTimeline({ items }: { items: FlowTimelineItem[] }) {
   );
 }
 
-function EstadosRastreoPorPuntoView() {
+function EstadosRastreoPorPuntoView({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) {
   const { data: config, isLoading, error } = useEstadosRastreoPorPunto();
   const { data: estados = [] } = useEstadosRastreoActivos();
   const updateMutation = useUpdateEstadosRastreoPorPunto();
@@ -2830,6 +2848,12 @@ function EstadosRastreoPorPuntoView() {
         (field ? ((config[field] as PuntoValue | null | undefined) ?? '') : '')
       );
     });
+
+  // Eleva el estado dirty al padre para el bloqueo de navegación; lo limpia al desmontar.
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   const allRequiredSelected = PUNTOS_FLUJO.every(
     (p) => p.source !== 'rastreo' || !p.required || valuesByKey[p.key] !== '',

@@ -60,9 +60,15 @@ public class CampaniaLanding {
     @Column(name = "tipo_destino_cta", length = 20)
     private TipoDestinoCta tipoDestinoCta;
 
-    @Column(name = "imagen_url", length = 500)
-    private String imagenUrl;
+    /** Imagen opcional para modo claro (URL HTTPS). El fallback al modo oscuro se resuelve en frontend. */
+    @Column(name = "imagen_url_claro", length = 500)
+    private String imagenUrlClaro;
 
+    /** Imagen opcional para modo oscuro (URL HTTPS). El fallback al modo claro se resuelve en frontend. */
+    @Column(name = "imagen_url_oscuro", length = 500)
+    private String imagenUrlOscuro;
+
+    /** Texto alternativo único para ambas imágenes (obligatorio al publicar si hay imagen). */
     @Column(name = "texto_alternativo_imagen", length = 200)
     private String textoAlternativoImagen;
 

@@ -79,74 +79,119 @@ class CampaniaLandingServiceTest {
         assertThrows(BadRequestException.class, () -> service.crear(req, 1L));
     }
 
-    // --------------------------------------------------------- validaciones
+    // ------------------------------------------------- validaciones (borrador)
 
     @Test
-    void cta_incompleto_falla() {
-        CampaniaLandingRequest req = baseRequest();
-        req.setUrlCta("https://x.com"); // sin texto ni tipoDestino
-        when(codigoSecuenciaService.nextCodigoCampaniaLanding()).thenReturn("CAM-1");
-        var ex = assertThrows(BadRequestException.class, () -> service.crear(req, 1L));
-        assertTrue(ex.getMessage().toLowerCase().contains("cta"));
-    }
-
-    @Test
-    void cta_externo_noHttps_falla() {
-        CampaniaLandingRequest req = baseRequest();
-        req.setTextoCta("Ver"); req.setUrlCta("http://x.com"); req.setTipoDestinoCta(TipoDestinoCta.EXTERNO);
-        when(codigoSecuenciaService.nextCodigoCampaniaLanding()).thenReturn("CAM-1");
-        assertThrows(BadRequestException.class, () -> service.crear(req, 1L));
-    }
-
-    @Test
-    void cta_interno_debeEmpezarConSlash() {
-        CampaniaLandingRequest req = baseRequest();
-        req.setTextoCta("Ver"); req.setUrlCta("registro"); req.setTipoDestinoCta(TipoDestinoCta.INTERNO);
-        when(codigoSecuenciaService.nextCodigoCampaniaLanding()).thenReturn("CAM-1");
-        assertThrows(BadRequestException.class, () -> service.crear(req, 1L));
-    }
-
-    @Test
-    void cta_interno_validoConSlash() {
-        CampaniaLandingRequest req = baseRequest();
-        req.setTextoCta("Crear cuenta"); req.setUrlCta("/registro"); req.setTipoDestinoCta(TipoDestinoCta.INTERNO);
+    void crear_borradorIncompleto_permitido() {
+        // Sin título, con CTA parcial e imagen sin alt: un borrador puede guardarse así.
+        CampaniaLandingRequest req = CampaniaLandingRequest.builder()
+                .nombreInterno("Promo").tipo(TipoCampaniaLanding.OFERTA)
+                .titulo(null).textoCta("Ver").imagenUrlClaro("https://cdn.x/a.png").build();
         when(codigoSecuenciaService.nextCodigoCampaniaLanding()).thenReturn("CAM-1");
         assertDoesNotThrow(() -> service.crear(req, 1L));
     }
 
     @Test
-    void url_javascript_bloqueada() {
-        CampaniaLandingRequest req = baseRequest();
-        req.setTextoCta("Ver"); req.setUrlCta("javascript:alert(1)"); req.setTipoDestinoCta(TipoDestinoCta.EXTERNO);
+    void crear_bloqueaEsquemaPeligroso_siempre() {
         when(codigoSecuenciaService.nextCodigoCampaniaLanding()).thenReturn("CAM-1");
-        assertThrows(BadRequestException.class, () -> service.crear(req, 1L));
-    }
-
-    @Test
-    void imagen_requiereHttpsYAlt() {
-        CampaniaLandingRequest sinAlt = baseRequest();
-        sinAlt.setImagenUrl("https://cdn.x.com/a.png");
-        when(codigoSecuenciaService.nextCodigoCampaniaLanding()).thenReturn("CAM-1");
-        assertThrows(BadRequestException.class, () -> service.crear(sinAlt, 1L));
-
-        CampaniaLandingRequest httpImg = baseRequest();
-        httpImg.setImagenUrl("http://cdn.x.com/a.png");
-        httpImg.setTextoAlternativoImagen("alt");
-        assertThrows(BadRequestException.class, () -> service.crear(httpImg, 1L));
+        CampaniaLandingRequest js = baseRequest();
+        js.setUrlCta("javascript:alert(1)");
+        assertThrows(BadRequestException.class, () -> service.crear(js, 1L));
 
         CampaniaLandingRequest dataImg = baseRequest();
-        dataImg.setImagenUrl("data:image/png;base64,AAAA");
-        dataImg.setTextoAlternativoImagen("alt");
+        dataImg.setImagenUrlOscuro("data:image/png;base64,AAAA");
         assertThrows(BadRequestException.class, () -> service.crear(dataImg, 1L));
     }
 
     @Test
-    void fechas_incoherentes_fallan() {
+    void crear_fechasIncoherentes_fallan() {
         CampaniaLandingRequest req = baseRequest();
         req.setFechaInicio(LocalDateTime.of(2026, 2, 1, 0, 0));
         req.setFechaFin(LocalDateTime.of(2026, 1, 1, 0, 0));
         when(codigoSecuenciaService.nextCodigoCampaniaLanding()).thenReturn("CAM-1");
         assertThrows(BadRequestException.class, () -> service.crear(req, 1L));
+    }
+
+    // ----------------------------------------------- validaciones (publicar)
+
+    /** Entidad lista para publicar (nombre + tipo + título), sin CTA ni imagen. */
+    private CampaniaLanding publicable(Long id) {
+        CampaniaLanding c = entidad(id, EstadoCampaniaLanding.BORRADOR);
+        when(repository.findById(id)).thenReturn(Optional.of(c));
+        lenient().when(repository.lockPublicada()).thenReturn(Optional.empty());
+        return c;
+    }
+
+    @Test
+    void publicar_ctaIncompleto_falla() {
+        CampaniaLanding c = publicable(1L);
+        c.setUrlCta("https://x.com"); // sin texto ni tipoDestino
+        var ex = assertThrows(BadRequestException.class, () -> service.publicar(1L, 1L));
+        assertTrue(ex.getMessage().toLowerCase().contains("cta"));
+    }
+
+    @Test
+    void publicar_ctaExternoNoHttps_falla() {
+        CampaniaLanding c = publicable(1L);
+        c.setTextoCta("Ver"); c.setUrlCta("http://x.com"); c.setTipoDestinoCta(TipoDestinoCta.EXTERNO);
+        assertThrows(BadRequestException.class, () -> service.publicar(1L, 1L));
+    }
+
+    @Test
+    void publicar_ctaInternoSinSlash_falla() {
+        CampaniaLanding c = publicable(1L);
+        c.setTextoCta("Ver"); c.setUrlCta("registro"); c.setTipoDestinoCta(TipoDestinoCta.INTERNO);
+        assertThrows(BadRequestException.class, () -> service.publicar(1L, 1L));
+    }
+
+    @Test
+    void publicar_ctaInternoValido_ok() {
+        CampaniaLanding c = publicable(1L);
+        c.setTextoCta("Crear cuenta"); c.setUrlCta("/registro"); c.setTipoDestinoCta(TipoDestinoCta.INTERNO);
+        assertDoesNotThrow(() -> service.publicar(1L, 1L));
+    }
+
+    @Test
+    void publicar_imagenSinAlt_falla() {
+        CampaniaLanding c = publicable(1L);
+        c.setImagenUrlClaro("https://cdn.x/a.png"); // sin alt
+        assertThrows(BadRequestException.class, () -> service.publicar(1L, 1L));
+    }
+
+    @Test
+    void publicar_imagenHttp_falla() {
+        CampaniaLanding c = publicable(1L);
+        c.setImagenUrlOscuro("http://cdn.x/a.png"); c.setTextoAlternativoImagen("alt");
+        assertThrows(BadRequestException.class, () -> service.publicar(1L, 1L));
+    }
+
+    @Test
+    void publicar_sinImagen_ok() {
+        publicable(1L);
+        assertEquals(EstadoCampaniaLanding.PUBLICADA, service.publicar(1L, 1L).getEstado());
+    }
+
+    @Test
+    void publicar_soloImagenClara_ok() {
+        CampaniaLanding c = publicable(1L);
+        c.setImagenUrlClaro("https://cdn.x/claro.png"); c.setTextoAlternativoImagen("alt");
+        assertEquals(EstadoCampaniaLanding.PUBLICADA, service.publicar(1L, 1L).getEstado());
+    }
+
+    @Test
+    void publicar_soloImagenOscura_ok() {
+        CampaniaLanding c = publicable(1L);
+        c.setImagenUrlOscuro("https://cdn.x/oscuro.png"); c.setTextoAlternativoImagen("alt");
+        assertEquals(EstadoCampaniaLanding.PUBLICADA, service.publicar(1L, 1L).getEstado());
+    }
+
+    @Test
+    void publicar_ambasImagenes_ok() {
+        CampaniaLanding c = publicable(1L);
+        c.setImagenUrlClaro("https://cdn.x/claro.png");
+        c.setImagenUrlOscuro("https://cdn.x/oscuro.png");
+        c.setTextoAlternativoImagen("alt");
+        assertEquals(EstadoCampaniaLanding.PUBLICADA, service.publicar(1L, 1L).getEstado());
     }
 
     // --------------------------------------------------------- actualizar
@@ -250,6 +295,20 @@ class CampaniaLandingServiceTest {
         assertTrue(dto.isPresent());
         assertEquals("t1", dto.get().getTitulo());
         // El DTO público no tiene campos de auditoría/estado/version por construcción.
+    }
+
+    @Test
+    void getPublicVigente_exponeAmbasImagenes() {
+        CampaniaLanding c = entidad(1L, EstadoCampaniaLanding.PUBLICADA);
+        c.setImagenUrlClaro("https://cdn.x/claro.png");
+        c.setImagenUrlOscuro("https://cdn.x/oscuro.png");
+        c.setTextoAlternativoImagen("Banner");
+        when(repository.findFirstByEstado(EstadoCampaniaLanding.PUBLICADA)).thenReturn(Optional.of(c));
+        CampaniaLandingPublicDTO dto = service.getPublicVigente().orElseThrow();
+        // El público devuelve ambas URLs; el tema NO se resuelve en backend.
+        assertEquals("https://cdn.x/claro.png", dto.getImagenUrlClaro());
+        assertEquals("https://cdn.x/oscuro.png", dto.getImagenUrlOscuro());
+        assertEquals("Banner", dto.getTextoAlternativoImagen());
     }
 
     @Test
