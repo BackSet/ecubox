@@ -26,7 +26,12 @@ vi.mock('@/stores/authStore', () => ({
     selector({ hasPermission: () => true }),
 }));
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
+
+// Sin RouterProvider en el test: el blocker queda inactivo.
+vi.mock('@/hooks/useUnsavedChangesBlocker', () => ({
+  useUnsavedChangesBlocker: () => ({ status: 'idle' }),
+}));
 
 const publicada: CampaniaLanding = {
   id: 1,
@@ -108,6 +113,40 @@ describe('ContenidoDestacadoPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /^publicar$/i }));
     await waitFor(() => expect(publicarMock).toHaveBeenCalledWith(5));
     expect(crearMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('clasifica los campos por obligatoriedad (no solo «*»)', () => {
+    render(<ContenidoDestacadoPanel />);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    // Etiquetas de obligatoriedad visibles.
+    expect(screen.getAllByText('Obligatorio').length).toBeGreaterThan(0);
+    expect(screen.getByText('Obligatorio para publicar')).toBeInTheDocument();
+    expect(screen.getAllByText('Opcional').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Condicional').length).toBeGreaterThan(0);
+  });
+
+  it('la tarjeta «Para publicar» deriva los requisitos pendientes', () => {
+    render(<ContenidoDestacadoPanel />);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    expect(screen.getByText('Para publicar')).toBeInTheDocument();
+    // Sin título, el título aparece como pendiente.
+    expect(screen.getByText(/Pendientes \(/)).toBeInTheDocument();
+    expect(screen.getByText(/El título es obligatorio para publicar/)).toBeInTheDocument();
+    // Al completar nombre + título queda lista para publicar.
+    fireEvent.change(screen.getByPlaceholderText('Ej: Promo Día de la Madre'), { target: { value: 'N' } });
+    fireEvent.change(screen.getByPlaceholderText('Ej: 20% de descuento en envíos'), { target: { value: 'T' } });
+    expect(screen.getByText('Lista para publicar.')).toBeInTheDocument();
+  });
+
+  it('Publicar incompleto se bloquea (no publica)', async () => {
+    render(<ContenidoDestacadoPanel />);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    fireEvent.change(screen.getByPlaceholderText('Ej: Promo Día de la Madre'), { target: { value: 'Solo nombre' } });
+    // Sin título → publicar no debe llamar al endpoint.
+    fireEvent.click(screen.getByRole('button', { name: /^publicar$/i }));
+    await Promise.resolve();
+    expect(publicarMock).not.toHaveBeenCalled();
+    expect(crearMock).not.toHaveBeenCalled();
   });
 
   it('Desactivar una publicada pide confirmación y llama al endpoint', async () => {

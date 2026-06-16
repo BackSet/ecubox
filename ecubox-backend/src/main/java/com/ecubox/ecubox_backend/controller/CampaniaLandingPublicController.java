@@ -74,7 +74,8 @@ public class CampaniaLandingPublicController {
         appendField(canonical, dto.getTextoCta());
         appendField(canonical, dto.getUrlCta());
         appendField(canonical, dto.getTipoDestinoCta() != null ? dto.getTipoDestinoCta().name() : null);
-        appendField(canonical, dto.getImagenUrl());
+        appendField(canonical, dto.getImagenUrlClaro());
+        appendField(canonical, dto.getImagenUrlOscuro());
         appendField(canonical, dto.getTextoAlternativoImagen());
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")

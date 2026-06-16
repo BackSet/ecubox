@@ -31,7 +31,8 @@ public class CampaniaLandingDTO {
     private String textoCta;
     private String urlCta;
     private TipoDestinoCta tipoDestinoCta;
-    private String imagenUrl;
+    private String imagenUrlClaro;
+    private String imagenUrlOscuro;
     private String textoAlternativoImagen;
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;

@@ -1,52 +1,62 @@
 import { describe, expect, it } from 'vitest';
-import { campaniaLandingSchema } from './campania-landing';
+import {
+  campaniaBorradorSchema,
+  campaniaPublicacionSchema,
+  requisitosPendientesPublicacion,
+} from './campania-landing';
 
-const ok = {
-  nombreInterno: 'Promo',
-  tipo: 'OFERTA' as const,
-};
+const min = { nombreInterno: 'Promo', tipo: 'OFERTA' as const };
 
-function validar(extra: Record<string, unknown>) {
-  return campaniaLandingSchema.safeParse({ ...ok, ...extra });
+function borrador(extra: Record<string, unknown> = {}) {
+  return campaniaBorradorSchema.safeParse({ ...min, ...extra });
+}
+function publicacion(extra: Record<string, unknown> = {}) {
+  return campaniaPublicacionSchema.safeParse({ ...min, ...extra });
 }
 
-describe('campaniaLandingSchema', () => {
-  it('acepta el mínimo (nombre + tipo)', () => {
-    expect(validar({}).success).toBe(true);
+describe('campania-landing schemas', () => {
+  describe('borrador (incompleto permitido)', () => {
+    it('acepta el mínimo (nombre + tipo)', () => {
+      expect(borrador().success).toBe(true);
+    });
+    it('acepta CTA parcial e imagen sin alt', () => {
+      expect(borrador({ textoCta: 'Ver', imagenUrlClaro: 'https://x/a.png' }).success).toBe(true);
+    });
+    it('exige nombre interno', () => {
+      expect(campaniaBorradorSchema.safeParse({ tipo: 'OFERTA', nombreInterno: '' }).success).toBe(false);
+    });
+    it('bloquea esquemas peligrosos también en borrador', () => {
+      expect(borrador({ urlCta: 'javascript:alert(1)' }).success).toBe(false);
+      expect(borrador({ imagenUrlOscuro: 'data:image/png;base64,AAA' }).success).toBe(false);
+    });
+    it('exige fechas coherentes', () => {
+      expect(borrador({ fechaInicio: '2026-02-01T00:00', fechaFin: '2026-01-01T00:00' }).success).toBe(false);
+    });
   });
 
-  it('exige nombre interno', () => {
-    expect(campaniaLandingSchema.safeParse({ tipo: 'OFERTA', nombreInterno: '' }).success).toBe(false);
+  describe('publicación (completa)', () => {
+    it('exige título', () => {
+      expect(publicacion().success).toBe(false);
+      expect(publicacion({ titulo: 'Hola' }).success).toBe(true);
+    });
+    it('CTA debe estar completo o vacío', () => {
+      expect(publicacion({ titulo: 'T', urlCta: 'https://x.com' }).success).toBe(false);
+      expect(publicacion({ titulo: 'T', textoCta: 'Ver', urlCta: 'https://x.com', tipoDestinoCta: 'EXTERNO' }).success).toBe(true);
+    });
+    it('imágenes requieren HTTPS y alt', () => {
+      expect(publicacion({ titulo: 'T', imagenUrlClaro: 'https://x/a.png' }).success).toBe(false); // sin alt
+      expect(publicacion({ titulo: 'T', imagenUrlClaro: 'http://x/a.png', textoAlternativoImagen: 'a' }).success).toBe(false);
+      expect(publicacion({ titulo: 'T', imagenUrlOscuro: 'https://x/a.png', textoAlternativoImagen: 'a' }).success).toBe(true);
+    });
   });
 
-  it('CTA todo-o-nada: URL sin texto/destino falla', () => {
-    const r = validar({ urlCta: 'https://x.com' });
-    expect(r.success).toBe(false);
-  });
-
-  it('CTA externo debe ser HTTPS', () => {
-    expect(validar({ textoCta: 'Ver', urlCta: 'http://x.com', tipoDestinoCta: 'EXTERNO' }).success).toBe(false);
-    expect(validar({ textoCta: 'Ver', urlCta: 'https://x.com', tipoDestinoCta: 'EXTERNO' }).success).toBe(true);
-  });
-
-  it('CTA interno debe empezar con «/»', () => {
-    expect(validar({ textoCta: 'Ir', urlCta: 'registro', tipoDestinoCta: 'INTERNO' }).success).toBe(false);
-    expect(validar({ textoCta: 'Ir', urlCta: '/registro', tipoDestinoCta: 'INTERNO' }).success).toBe(true);
-  });
-
-  it('bloquea esquemas javascript: y data:', () => {
-    expect(validar({ textoCta: 'X', urlCta: 'javascript:alert(1)', tipoDestinoCta: 'EXTERNO' }).success).toBe(false);
-    expect(validar({ imagenUrl: 'data:image/png;base64,AAA', textoAlternativoImagen: 'a' }).success).toBe(false);
-  });
-
-  it('imagen requiere HTTPS y alt', () => {
-    expect(validar({ imagenUrl: 'https://cdn.x/a.png' }).success).toBe(false); // sin alt
-    expect(validar({ imagenUrl: 'http://cdn.x/a.png', textoAlternativoImagen: 'a' }).success).toBe(false); // no https
-    expect(validar({ imagenUrl: 'https://cdn.x/a.png', textoAlternativoImagen: 'a' }).success).toBe(true);
-  });
-
-  it('fechas: fin debe ser posterior a inicio', () => {
-    expect(validar({ fechaInicio: '2026-02-01T00:00', fechaFin: '2026-01-01T00:00' }).success).toBe(false);
-    expect(validar({ fechaInicio: '2026-01-01T00:00', fechaFin: '2026-02-01T00:00' }).success).toBe(true);
+  describe('requisitosPendientesPublicacion (derivados del schema)', () => {
+    it('lista el título cuando falta', () => {
+      const pend = requisitosPendientesPublicacion(min);
+      expect(pend.some((m) => /título/i.test(m))).toBe(true);
+    });
+    it('vacío cuando la campaña es publicable', () => {
+      expect(requisitosPendientesPublicacion({ ...min, titulo: 'Listo' })).toEqual([]);
+    });
   });
 });
