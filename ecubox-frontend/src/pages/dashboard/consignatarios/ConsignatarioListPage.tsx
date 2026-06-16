@@ -204,6 +204,7 @@ export function ConsignatarioListPage() {
       if (!q) return true;
       return (
         d.nombre?.toLowerCase().includes(q) ||
+        (d.etiqueta?.toLowerCase().includes(q) ?? false) ||
         (d.codigo?.toLowerCase().includes(q) ?? false) ||
         (d.telefono?.toLowerCase().includes(q) ?? false) ||
         (d.direccion?.toLowerCase().includes(q) ?? false) ||
@@ -354,7 +355,7 @@ export function ConsignatarioListPage() {
       <ListToolbar
         title={copy.titulo}
         description={copy.descripcion}
-        searchPlaceholder="Buscar por nombre, código, teléfono o ubicación..."
+        searchPlaceholder="Buscar por nombre, etiqueta, código, teléfono o ubicación..."
         onSearchChange={setSearch}
         actions={
           <>
@@ -816,20 +817,20 @@ export function ConsignatarioListPage() {
                     getKey={(d) => d.id}
                     getLabel={(d) => d.codigo ? `${d.nombre} · ${d.codigo}` : d.nombre}
                     getSearchText={(d) =>
-                      `${d.nombre} ${d.codigo ?? ''} ${d.telefono ?? ''} ${d.clienteUsuarioNombre ?? ''}`
+                      `${d.nombre} ${d.etiqueta ?? ''} ${d.codigo ?? ''} ${d.telefono ?? ''} ${d.clienteUsuarioNombre ?? ''}`
                     }
                     renderOption={(d) => (
                       <div className="min-w-0">
                         <p className="truncate font-medium text-foreground">{d.nombre}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {[d.codigo, d.telefono, d.clienteUsuarioNombre ?? 'Sin cliente']
+                          {[d.etiqueta, d.codigo, d.telefono, d.clienteUsuarioNombre ?? 'Sin cliente']
                             .filter(Boolean)
                             .join(' · ')}
                         </p>
                       </div>
                     )}
                     placeholder="Buscar consignatario"
-                    searchPlaceholder="Nombre, código, teléfono o cliente..."
+                    searchPlaceholder="Nombre, etiqueta, código, teléfono o cliente..."
                     emptyMessage="Sin consignatarios disponibles"
                     className="h-9"
                   />
@@ -884,7 +885,7 @@ export function ConsignatarioListPage() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-foreground">{d.nombre}</p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {[d.codigo, d.telefono, d.clienteUsuarioNombre ?? 'Sin cliente']
+                            {[d.etiqueta, d.codigo, d.telefono, d.clienteUsuarioNombre ?? 'Sin cliente']
                               .filter(Boolean)
                               .join(' · ')}
                           </p>
@@ -1001,6 +1002,18 @@ function NombreCodigoCell({ consignatario }: { consignatario: Consignatario }) {
         >
           {consignatario.nombre}
         </p>
+        {/* Etiqueta organizativa (secundaria). Sin placeholder cuando es null. */}
+        {consignatario.etiqueta?.trim() && (
+          <div className="mt-0.5">
+            <Badge
+              variant="outline"
+              className="h-5 max-w-full truncate rounded text-[11px] font-normal text-muted-foreground"
+              title={consignatario.etiqueta}
+            >
+              {consignatario.etiqueta}
+            </Badge>
+          </div>
+        )}
         {consignatario.codigo ? (
           <CodigoCopyBadge codigo={consignatario.codigo} />
         ) : (

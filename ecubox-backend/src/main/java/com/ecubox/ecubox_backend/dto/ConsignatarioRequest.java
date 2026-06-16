@@ -1,6 +1,7 @@
 package com.ecubox.ecubox_backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,6 +29,10 @@ public class ConsignatarioRequest {
     private String canton;
 
     private String codigo;
+
+    /** Etiqueta organizativa opcional (texto libre, máx. 60). No sustituye al nombre. */
+    @Size(max = 60, message = "La etiqueta admite máximo 60 caracteres")
+    private String etiqueta;
 
     /**
      * Solo flujo operario/admin: usuario cliente al que pertenece el

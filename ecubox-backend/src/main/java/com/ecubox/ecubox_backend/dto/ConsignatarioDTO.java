@@ -18,6 +18,8 @@ public class ConsignatarioDTO {
     private String provincia;
     private String canton;
     private String codigo;
+    /** Etiqueta organizativa opcional (texto libre, máx. 60). */
+    private String etiqueta;
     private Long clienteUsuarioId;
     private String clienteUsuarioNombre;
 

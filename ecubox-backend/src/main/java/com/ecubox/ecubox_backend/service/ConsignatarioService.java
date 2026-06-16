@@ -156,6 +156,7 @@ public class ConsignatarioService {
                 .provincia(request.getProvincia())
                 .canton(request.getCanton())
                 .codigo(codigo)
+                .etiqueta(normalizarEtiqueta(request.getEtiqueta()))
                 .build();
         d = consignatarioRepository.save(d);
         consignatarioVersionService.crearNuevaVersion(d, currentUserService.getCurrentUsuarioIdOrNull());
@@ -179,6 +180,7 @@ public class ConsignatarioService {
                 .provincia(request.getProvincia())
                 .canton(request.getCanton())
                 .codigo(codigo)
+                .etiqueta(normalizarEtiqueta(request.getEtiqueta()))
                 .build();
         d = consignatarioRepository.save(d);
         consignatarioVersionService.crearNuevaVersion(d, currentUserService.getCurrentUsuarioIdOrNull());
@@ -204,6 +206,7 @@ public class ConsignatarioService {
         d.setDireccion(request.getDireccion());
         d.setProvincia(request.getProvincia());
         d.setCanton(request.getCanton());
+        d.setEtiqueta(normalizarEtiqueta(request.getEtiqueta()));
         if (canEditCodigo) {
             String codigo = resolveCodigo(usuarioId, request.getCodigo(), request.getNombre(), request.getCanton(), id);
             d.setCodigo(codigo);
@@ -232,6 +235,7 @@ public class ConsignatarioService {
         d.setDireccion(request.getDireccion());
         d.setProvincia(request.getProvincia());
         d.setCanton(request.getCanton());
+        d.setEtiqueta(normalizarEtiqueta(request.getEtiqueta()));
         d.setCodigo(codigo);
         d = consignatarioRepository.save(d);
         consignatarioVersionService.crearNuevaVersion(d, currentUserService.getCurrentUsuarioIdOrNull());
@@ -379,6 +383,17 @@ public class ConsignatarioService {
         return candidate;
     }
 
+    /**
+     * Normaliza la etiqueta organizativa: recorta espacios y convierte el vacío
+     * en {@code null}. Helper único usado por los cuatro flujos de
+     * creación/actualización (cliente y operario).
+     */
+    private static String normalizarEtiqueta(String etiqueta) {
+        if (etiqueta == null) return null;
+        String t = etiqueta.trim();
+        return t.isEmpty() ? null : t;
+    }
+
     private ConsignatarioDTO toDTO(Consignatario d) {
         Usuario u = d.getUsuario();
         return ConsignatarioDTO.builder()
@@ -389,6 +404,7 @@ public class ConsignatarioService {
                 .provincia(d.getProvincia())
                 .canton(d.getCanton())
                 .codigo(d.getCodigo())
+                .etiqueta(d.getEtiqueta())
                 .clienteUsuarioId(u != null ? u.getId() : null)
                 .clienteUsuarioNombre(u != null ? u.getUsername() : null)
                 .build();

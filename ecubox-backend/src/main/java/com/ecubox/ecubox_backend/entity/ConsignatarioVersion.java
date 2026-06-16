@@ -49,6 +49,9 @@ public class ConsignatarioVersion {
     @Column(length = 50)
     private String codigo;
 
+    @Column(length = 60)
+    private String etiqueta;
+
     @Column(name = "valid_from", nullable = false)
     private LocalDateTime validFrom;
 

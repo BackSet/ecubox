@@ -69,6 +69,7 @@ public class ConsignatarioVersionService {
                 .provincia(maestro.getProvincia())
                 .canton(maestro.getCanton())
                 .codigo(maestro.getCodigo())
+                .etiqueta(maestro.getEtiqueta())
                 .validFrom(now)
                 .validTo(null)
                 .createdByUsuario(actor)
@@ -89,7 +90,8 @@ public class ConsignatarioVersionService {
                 && Objects.equals(v.getDireccion(), m.getDireccion())
                 && Objects.equals(v.getProvincia(), m.getProvincia())
                 && Objects.equals(v.getCanton(), m.getCanton())
-                && Objects.equals(v.getCodigo(), m.getCodigo());
+                && Objects.equals(v.getCodigo(), m.getCodigo())
+                && Objects.equals(v.getEtiqueta(), m.getEtiqueta());
     }
 
     private Usuario resolverUsuario(Long actorUsuarioId) {

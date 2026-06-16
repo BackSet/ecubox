@@ -15,6 +15,7 @@ import {
   Phone,
   RefreshCw,
   Sparkles,
+  Tag,
   UserPlus,
   UserRound,
   Users,
@@ -57,6 +58,16 @@ type FormValues = z.infer<typeof consignatarioFormSchema>;
 function capitalizar(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+/** Sugerencias rápidas de etiqueta (el usuario puede escribir cualquier otra). */
+const ETIQUETA_SUGERENCIAS = [
+  'Compras personales',
+  'Regalos',
+  'Oficina',
+  'Familia',
+  'Trabajo',
+  'Sucursal',
+] as const;
 
 interface ConsignatarioFormProps {
   id?: number;
@@ -104,6 +115,7 @@ export function ConsignatarioForm({
       direccion: '',
       provincia: '',
       canton: '',
+      etiqueta: '',
       codigo: '',
       clienteUsuarioId: undefined,
     },
@@ -117,6 +129,7 @@ export function ConsignatarioForm({
         direccion: consignatario.direccion ?? '',
         provincia: consignatario.provincia ?? '',
         canton: consignatario.canton ?? '',
+        etiqueta: consignatario.etiqueta ?? '',
         codigo: consignatario.codigo ?? '',
         clienteUsuarioId: consignatario.clienteUsuarioId ?? undefined,
       });
@@ -124,6 +137,7 @@ export function ConsignatarioForm({
   }, [isEdit, consignatario, form]);
 
   const watchedNombre = form.watch('nombre');
+  const watchedEtiqueta = form.watch('etiqueta');
   const watchedTelefono = form.watch('telefono');
   const watchedDireccion = form.watch('direccion');
   const watchedProvincia = form.watch('provincia');
@@ -179,12 +193,15 @@ export function ConsignatarioForm({
   }
 
   async function onSubmit(values: FormValues) {
+    const etiqueta = values.etiqueta?.trim();
     const body: ConsignatarioRequest = {
       nombre: values.nombre.trim(),
       telefono: values.telefono.trim(),
       direccion: values.direccion.trim(),
       provincia: values.provincia.trim(),
       canton: values.canton.trim(),
+      // Vacío → no se envía (el backend normaliza a null).
+      etiqueta: etiqueta && etiqueta.length > 0 ? etiqueta : undefined,
     };
     if (isEdit && hasConsignatariosOperarioPerm && values.codigo?.trim()) {
       body.codigo = values.codigo.trim();
@@ -317,28 +334,59 @@ export function ConsignatarioForm({
             title={esCliente ? 'Datos del destinatario' : 'Datos personales'}
             description={
               esCliente
-                ? 'Nombre (persona o ubicación) y teléfono de contacto para la entrega.'
+                ? 'Nombre de la persona que recibirá y una etiqueta opcional para identificarla.'
                 : 'Nombre completo y teléfono de contacto del consignatario.'
             }
           >
             <div className="space-y-4">
               <FormField
-                label={esCliente ? 'Nombre del destinatario o ubicación' : 'Nombre completo'}
+                label={esCliente ? 'Nombre de la persona que recibirá' : 'Nombre completo'}
                 required
                 error={errors.nombre?.message}
                 hint={
                   esCliente
-                    ? 'Ej: María López, Oficina principal, Sucursal Cuenca o Bodega norte.'
+                    ? 'Escribe el nombre completo de quien recibirá los paquetes.'
                     : 'Tal como aparecerá en guías y comprobantes.'
                 }
               >
                 <Input
                   {...form.register('nombre')}
                   variant="clean"
-                  placeholder={esCliente ? 'Ej: María López u Oficina principal' : 'Ej: María Pérez González'}
+                  placeholder={esCliente ? 'Ej: María López' : 'Ej: María Pérez González'}
                   autoComplete="name"
                   aria-invalid={Boolean(errors.nombre)}
                 />
+              </FormField>
+
+              {/* Etiqueta organizativa opcional (separada del nombre). */}
+              <FormField
+                label="Etiqueta"
+                optional
+                error={errors.etiqueta?.message}
+                hint="Agrega una referencia para identificar este destinatario, por ejemplo: Oficina, Regalos o Compras personales."
+                icon={<Tag className="h-3.5 w-3.5" />}
+              >
+                <Input
+                  {...form.register('etiqueta')}
+                  variant="clean"
+                  placeholder="Ej. Oficina"
+                  maxLength={60}
+                  aria-invalid={Boolean(errors.etiqueta)}
+                />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {ETIQUETA_SUGERENCIAS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() =>
+                        form.setValue('etiqueta', s, { shouldDirty: true, shouldValidate: true })
+                      }
+                      className="ui-interactive rounded-full border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-2.5 py-0.5 text-xs text-muted-foreground hover:border-[var(--color-primary)]/40 hover:text-foreground"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </FormField>
 
               <FormField
@@ -522,6 +570,7 @@ export function ConsignatarioForm({
               </div>
               <PreviewCard
                 nombre={watchedNombre}
+                etiqueta={watchedEtiqueta}
                 codigo={watchedCodigo || consignatario?.codigo}
                 telefono={watchedTelefono}
                 direccion={watchedDireccion}
@@ -599,6 +648,7 @@ function FormSection({ icon, title, description, children }: FormSectionProps) {
 interface PreviewCardProps {
   nombre?: string;
   codigo?: string;
+  etiqueta?: string;
   telefono?: string;
   direccion?: string;
   provincia?: string;
@@ -607,6 +657,7 @@ interface PreviewCardProps {
 
 function PreviewCard({
   nombre,
+  etiqueta,
   codigo,
   telefono,
   direccion,
@@ -635,6 +686,14 @@ function PreviewCard({
             >
               {nombreMostrar}
             </p>
+            {etiqueta?.trim() && (
+              <Badge
+                variant="outline"
+                className="h-5 rounded text-[11px] font-normal"
+              >
+                {etiqueta.trim()}
+              </Badge>
+            )}
             {codigo?.trim() && (
               <Badge
                 variant="outline"

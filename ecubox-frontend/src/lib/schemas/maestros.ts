@@ -16,6 +16,8 @@ export const consignatarioFormSchema = z.object({
     .max(255, 'Máximo 255 caracteres'),
   provincia: z.string().min(1, 'La provincia es obligatoria'),
   canton: z.string().min(1, 'El cantón es obligatorio'),
+  // Etiqueta organizativa OPCIONAL (texto libre, máx. 60). Separada del nombre.
+  etiqueta: z.string().max(60, 'Máximo 60 caracteres').optional(),
   codigo: z
     .string()
     .optional()
