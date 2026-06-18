@@ -146,6 +146,60 @@ public class TrackingEventService {
         notificacionService.crearCambioEstadoPaquete(paquete, estadoDestino, eventId);
     }
 
+    /**
+     * Registra un evento de <b>reparación histórica</b> de estado (corrección de
+     * inconsistencias previas al MVP 2). A diferencia de
+     * {@link #registrarTransicion}, este evento es <b>solo de auditoría</b>: no
+     * crea {@link OutboxEvent} ni notificaciones (no se contacta al cliente ni se
+     * disparan automatismos comerciales). Es <b>idempotente</b>: si ya existe un
+     * evento con la misma {@code idempotencyKey} no registra nada y devuelve
+     * {@code false}.
+     *
+     * @param occurredAt fecha histórica verificable (p. ej. recepción del lote);
+     *                   nunca la fecha actual.
+     * @return {@code true} si registró el evento; {@code false} si ya existía.
+     */
+    @Transactional
+    public boolean registrarReparacionEstado(Paquete paquete,
+                                             EstadoRastreo estadoOrigen,
+                                             EstadoRastreo estadoDestino,
+                                             String eventSource,
+                                             String idempotencyKey,
+                                             LocalDateTime occurredAt) {
+        if (idempotencyKey != null && paqueteEstadoEventoRepository.existsByIdempotencyKey(idempotencyKey)) {
+            return false;
+        }
+        LocalDateTime now = occurredAt != null ? occurredAt : LocalDateTime.now();
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("numeroGuia", paquete.getNumeroGuia());
+        metadata.put("reparacion", true);
+        metadata.put("estadoOrigenId", estadoOrigen != null ? estadoOrigen.getId() : null);
+        metadata.put("estadoDestinoId", estadoDestino.getId());
+        metadata.put("envioConsolidadoCodigo",
+                paquete.getEnvioConsolidado() != null ? paquete.getEnvioConsolidado().getCodigo() : null);
+
+        PaqueteEstadoEvento evento = PaqueteEstadoEvento.builder()
+                .eventId(UUID.randomUUID())
+                .paquete(paquete)
+                .estadoOrigen(estadoOrigen)
+                .estadoDestino(estadoDestino)
+                .eventType(TrackingEventType.ESTADO_REPARADO_LOTE_RECEPCION)
+                .eventSource(eventSource)
+                .actorUsuario(null)
+                .motivoAlterno(null)
+                .enFlujoAlterno(Boolean.TRUE.equals(paquete.getEnFlujoAlterno()))
+                .bloqueado(Boolean.TRUE.equals(paquete.getBloqueado()))
+                .idempotencyKey(idempotencyKey)
+                .metadataJson(toJson(metadata))
+                .occurredAt(now)
+                .createdAt(now)
+                .build();
+        paqueteEstadoEventoRepository.save(evento);
+        // Intencionalmente NO se crea OutboxEvent ni notificación: la reparación
+        // no debe contactar al cliente ni disparar automatismos comerciales.
+        return true;
+    }
+
     @Transactional(readOnly = true)
     public List<PaqueteEstadoEvento> listarEventosPorPaquete(Long paqueteId) {
         return paqueteEstadoEventoRepository.findByPaqueteIdOrderByOccurredAtAscIdAsc(paqueteId);

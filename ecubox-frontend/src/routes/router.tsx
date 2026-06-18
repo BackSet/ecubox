@@ -585,6 +585,14 @@ const miDespachoDetalleRoute = createRoute({
 const enviosConsolidadosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/envios-consolidados',
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { atencion?: boolean; mixtos?: boolean } => {
+    const out: { atencion?: boolean; mixtos?: boolean } = {};
+    if (search.atencion === true || search.atencion === 'true') out.atencion = true;
+    if (search.mixtos === true || search.mixtos === 'true') out.mixtos = true;
+    return out;
+  },
   beforeLoad: requirePermission('ENVIOS_CONSOLIDADOS_READ'),
   component: withDashboardLayout(EnviosConsolidadosListPage),
 });
@@ -592,6 +600,16 @@ const enviosConsolidadosRoute = createRoute({
 const enviosConsolidadosDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/envios-consolidados/$id',
+  // estadoPaqueteId: id del estado de rastreo para filtrar las piezas; la clave
+  // explícita 'SIN_ESTADO' representa piezas sin estado (nunca se usa 0).
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { estadoPaqueteId?: number | 'SIN_ESTADO' } => {
+    const raw = search.estadoPaqueteId;
+    if (raw === 'SIN_ESTADO') return { estadoPaqueteId: 'SIN_ESTADO' };
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) && n > 0 ? { estadoPaqueteId: n } : {};
+  },
   beforeLoad: requirePermission('ENVIOS_CONSOLIDADOS_READ'),
   component: withDashboardLayout(EnvioConsolidadoDetailPage),
 });

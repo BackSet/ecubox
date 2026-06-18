@@ -192,12 +192,21 @@ export function LoteRecepcionNuevoPage() {
       {
         onSuccess: (data) => {
           const codigosRegistrados = data.numeroGuiasEnvio?.length ?? 0;
-          const totalPaquetes = data.totalPaquetes ?? 0;
-          notify.success(
-            'Lote de recepción registrado',
+          const resumen = data.resumenRecepcion;
+          const avanzados = resumen?.avanzados ?? data.totalPaquetes ?? 0;
+          const omitidos = resumen
+            ? resumen.total - resumen.avanzados
+            : 0;
+          const detalleBase =
             `${codigosRegistrados} envío${codigosRegistrados === 1 ? '' : 's'} consolidado${codigosRegistrados === 1 ? '' : 's'} · ` +
-              `${totalPaquetes} paquete${totalPaquetes === 1 ? '' : 's'} marcado${totalPaquetes === 1 ? '' : 's'} como recibido${totalPaquetes === 1 ? '' : 's'} en bodega.`,
-          );
+            `${avanzados} paquete${avanzados === 1 ? '' : 's'} marcado${avanzados === 1 ? '' : 's'} como recibido${avanzados === 1 ? '' : 's'} en bodega.`;
+          // Los omitidos no se degradan: ya estaban en bodega, en un estado
+          // posterior/terminal, en flujo alterno o bloqueados.
+          const detalleOmitidos =
+            omitidos > 0
+              ? ` ${omitidos} paquete${omitidos === 1 ? '' : 's'} sin cambio (ya avanzado${omitidos === 1 ? '' : 's'} o no aplicable).`
+              : '';
+          notify.success('Lote de recepción registrado', detalleBase + detalleOmitidos);
           navigate({ to: '/lotes-recepcion/$id', params: { id: String(data.id) } });
         },
         onError: (err) => {

@@ -229,6 +229,9 @@ export function AgregarDespachoDialog({
       Number(watched.precioKgAdicional) !== Number(tarifaActual.precioKgAdicional));
 
   const selectedId = watched.despachoId ?? 0;
+  const selectedDespacho = opciones.find((d) => d.id === selectedId);
+  const pesoIncompletoSeleccionado =
+    !isEdit && selectedDespacho?.pesoCompleto === false;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -295,8 +298,12 @@ export function AgregarDespachoDialog({
                               type="button"
                               onClick={() => {
                                 field.onChange(d.id);
+                                // Solo autocompletar el peso cuando es completo:
+                                // un peso parcial (paquetes sin peso) no debe
+                                // pre-cargarse como si fuera definitivo.
                                 if (
                                   d.pesoSugeridoKg != null &&
+                                  d.pesoCompleto !== false &&
                                   (form.getValues('pesoKg') ?? 0) === 0
                                 ) {
                                   form.setValue(
@@ -330,7 +337,13 @@ export function AgregarDespachoDialog({
                                     {d.courierEntregaNombre ?? '—'} ·{' '}
                                     {Number(d.pesoSugeridoLbs ?? 0).toFixed(2)} lbs (
                                     {Number(d.pesoSugeridoKg ?? 0).toFixed(2)} kg)
+                                    {d.pesoCompleto === false ? ' · parcial' : ''}
                                   </p>
+                                  {d.pesoCompleto === false && (d.paquetesSinPeso ?? 0) > 0 && (
+                                    <p className="truncate text-[11px] font-medium text-[var(--color-warning)]">
+                                      {d.paquetesSinPeso} sin peso — peso pendiente
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                               {sel && (
@@ -470,6 +483,18 @@ export function AgregarDespachoDialog({
               )}
             />
           </div>
+
+          {pesoIncompletoSeleccionado && (
+            <div className="rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-3 py-2 text-xs">
+              Este despacho tiene{' '}
+              <span className="font-semibold">
+                {selectedDespacho?.paquetesSinPeso} paquete
+                {selectedDespacho?.paquetesSinPeso === 1 ? '' : 's'} sin peso
+              </span>
+              . El peso sugerido es parcial; revisa y confirma el peso real antes de
+              liquidar para no calcular un importe sobre un peso incompleto.
+            </div>
+          )}
 
           {tarifaCambiada && (
             <div className="rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-3 py-2 text-xs">
