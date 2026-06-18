@@ -26,6 +26,30 @@ export type EstadoEnvioConsolidadoOperativo =
   | 'LIQUIDADO'
   | 'CANCELADO';
 
+/** Un estado dentro del resumen agregado de paquetes de un consolidado. */
+export interface EstadoPaqueteResumenItem {
+  /** id del estado de rastreo; null representa "Sin estado". */
+  estadoId: number | null;
+  codigo?: string | null;
+  nombre: string;
+  cantidad: number;
+  ordenTracking?: number | null;
+  tipoFlujo?: string | null;
+  /** true si requiere atención (flujo alterno o sin estado). */
+  requiereAtencion: boolean;
+}
+
+/**
+ * Resumen agregado de los estados de rastreo de los paquetes de un consolidado.
+ * Calculado en backend por lote (sin N+1); solo viene en el listado.
+ */
+export interface ResumenEstadosPaquetesConsolidado {
+  totalPaquetes: number;
+  estados: EstadoPaqueteResumenItem[];
+  cantidadRequiereAtencion: number;
+  estadosMixtos: boolean;
+}
+
 export interface EnvioConsolidado {
   id: number;
   codigo: string;
@@ -45,6 +69,8 @@ export interface EnvioConsolidado {
   createdAt?: string;
   updatedAt?: string;
   paquetes?: Paquete[];
+  /** Resumen agregado de estados de paquetes (solo en el listado paginado). */
+  resumenEstadosPaquetes?: ResumenEstadosPaquetesConsolidado;
 }
 
 export interface EnvioConsolidadoCreateRequest {

@@ -174,8 +174,6 @@ export function DespachoStepperForm({
   const sacasSinDespacho = elegibilidadSacas?.sacas ?? [];
   const { data: sacasOperario = [] } = useSacasOperario(false);
   const { data: paquetesSinSaca = [] } = usePaquetesSinSaca();
-  const paquetesConPeso = paquetesSinSaca.filter(hasPeso);
-  const paquetesSinPeso = paquetesSinSaca.filter((p) => !hasPeso(p));
   const createDespachoMutation = useCreateDespacho();
   const updateDespachoMutation = useUpdateDespacho();
   const createSacaMutation = useCreateSaca();
@@ -381,22 +379,29 @@ export function DespachoStepperForm({
       })()
     : undefined;
 
-  const paquetesDisponiblesParaDespacho: typeof paquetesConPeso = (() => {
+  // Un paquete sin peso puede formar parte de un despacho: su peso queda
+  // pendiente (dato desconocido), no se bloquea su elegibilidad. La base
+  // incluye paquetes con y sin peso; el peso faltante se advierte aparte.
+  const paquetesDespachablesBase = paquetesSinSaca;
+  const paquetesDisponiblesParaDespacho: typeof paquetesSinSaca = (() => {
     if (tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') {
-      if (autoDetectedDestId == null) return paquetesConPeso;
-      return paquetesConPeso.filter((p) => p.consignatarioId === autoDetectedDestId);
+      if (autoDetectedDestId == null) return paquetesDespachablesBase;
+      return paquetesDespachablesBase.filter((p) => p.consignatarioId === autoDetectedDestId);
     }
     if (tipoEntrega === 'AGENCIA') {
-      if (provinciaCantonRef == null) return paquetesConPeso;
+      if (provinciaCantonRef == null) return paquetesDespachablesBase;
       const norm = (s: string | undefined | null) => (s ?? '').trim().toLowerCase();
-      return paquetesConPeso.filter(
+      return paquetesDespachablesBase.filter(
         (p) =>
           norm(p.consignatarioProvincia) === provinciaCantonRef.provincia &&
           norm(p.consignatarioCanton) === provinciaCantonRef.canton
       );
     }
-    return paquetesConPeso;
+    return paquetesDespachablesBase;
   })();
+  // Paquetes despachables sin peso (entre los disponibles para este destino):
+  // se informa al operario, sin impedir agregarlos.
+  const disponiblesSinPeso = paquetesDisponiblesParaDespacho.filter((p) => !hasPeso(p));
 
   const disponiblesParaAgregar = sacasSinDespacho.filter((s) => {
     if (sacaIds.includes(s.id)) return false;
@@ -1291,6 +1296,17 @@ export function DespachoStepperForm({
               )}
               {paquetesDisponiblesParaDespacho.length === 0 && (autoDetectedDestId != null || provinciaCantonRef != null) && (
                 <p className="text-sm text-[var(--color-muted-foreground)]">No hay más paquetes disponibles que cumplan la restricción actual del despacho.</p>
+              )}
+              {disponiblesSinPeso.length > 0 && (
+                <div className="ui-alert ui-alert-warning">
+                  <p className="font-medium">
+                    {disponiblesSinPeso.length} paquete{disponiblesSinPeso.length === 1 ? '' : 's'} sin peso registrado
+                  </p>
+                  <p className="mt-1 text-xs opacity-80">
+                    Puedes incluirlos en el despacho; su peso quedará pendiente y los totales serán
+                    parciales hasta que registres el peso en Pesaje.
+                  </p>
+                </div>
               )}
 
               {sacasEnDespacho.length > 0 && (
@@ -2247,7 +2263,6 @@ export function DespachoStepperForm({
               )
             : paquetesDisponiblesParaDespacho.filter((p) => !idsEnSacasNuevas.includes(p.id))
         }
-        paquetesSinPeso={paquetesSinPeso}
         paquetesUniverso={paquetesSinSaca}
         tipoEntrega={tipoEntrega}
         referenciaConsignatarioId={autoDetectedDestId ?? undefined}

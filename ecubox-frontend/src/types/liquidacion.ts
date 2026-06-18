@@ -168,6 +168,13 @@ export interface DespachoDisponible {
   numeroGuia: string;
   courierEntregaNombre?: string;
   fechaHora?: string;
+  /** Peso parcial (solo paquetes con peso registrado) cuando pesoCompleto es false. */
   pesoSugeridoLbs: number;
   pesoSugeridoKg: number;
+  /** Total de paquetes del despacho. */
+  totalPaquetes?: number;
+  /** Paquetes sin peso registrado (peso pendiente, dato desconocido). */
+  paquetesSinPeso?: number;
+  /** true solo si hay paquetes y todos tienen peso registrado. */
+  pesoCompleto?: boolean;
 }

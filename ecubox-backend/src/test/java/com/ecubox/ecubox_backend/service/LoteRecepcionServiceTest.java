@@ -141,6 +141,31 @@ class LoteRecepcionServiceTest {
     }
 
     @Test
+    void create_exponeResumenDeRecepcion_avanzadosYOmitidos() {
+        EnvioConsolidado e = envio(10L, "ENV-2", true, EstadoPagoConsolidado.NO_PAGADO);
+        Paquete p1 = Paquete.builder().id(100L).numeroGuia("ABC 1/2").envioConsolidado(e).build();
+        Paquete p2 = Paquete.builder().id(101L).numeroGuia("ABC 2/2").envioConsolidado(e).build();
+        when(envioConsolidadoRepository.findByCodigoIgnoreCase("ENV-2"))
+                .thenReturn(Optional.of(e));
+        when(paqueteRepository.findByEnvioConsolidadoIdOrderByIdAsc(10L))
+                .thenReturn(List.of(p1, p2));
+        when(loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase("ENV-2"))
+                .thenReturn(false);
+        // Uno avanza a bodega, el otro ya estaba en un estado posterior (no se degrada).
+        when(paqueteService.aplicarEstadoEnLoteRecepcion(anyList(), any()))
+                .thenReturn(new PaqueteService.ResultadoEstadoPorPunto(2, 1, 0, 1, 0, 0));
+
+        LoteRecepcionDTO dto = service.create(LoteRecepcionCreateRequest.builder()
+                .numeroGuiasEnvio(List.of("ENV-2"))
+                .build());
+
+        assertNotNull(dto.getResumenRecepcion());
+        assertEquals(2, dto.getResumenRecepcion().getTotal());
+        assertEquals(1, dto.getResumenRecepcion().getAvanzados());
+        assertEquals(1, dto.getResumenRecepcion().getOmitidosPosteriores());
+    }
+
+    @Test
     void create_rechazaConsolidadoNoArribado_yNoCambiaPaquetes() {
         EnvioConsolidado e = envio(10L, "ENV-USA", true, EstadoPagoConsolidado.NO_PAGADO,
                 EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA);

@@ -69,12 +69,25 @@ public class EnvioConsolidadoController {
             @Parameter(description = "Filtro operativo: TODOS, VACIO, EN_PREPARACION, CERRADO, ENVIADO_DESDE_USA, ARRIBADO_ECUADOR, RECIBIDO_EN_BODEGA, LIQUIDADO o CANCELADO") @RequestParam(required = false) String estado,
             @Parameter(description = "Filtro de pago: TODOS, PAGADO o NO_PAGADO") @RequestParam(required = false) String estadoPago,
             @Parameter(description = "Texto de búsqueda") @RequestParam(required = false) String q,
+            @Parameter(description = "Solo consolidados con paquetes que requieren atención (flujo alterno o sin estado)")
+            @RequestParam(required = false, defaultValue = "false") boolean requiereAtencion,
+            @Parameter(description = "Solo consolidados con paquetes en más de un estado actual distinto")
+            @RequestParam(required = false, defaultValue = "false") boolean estadosMixtos,
             @Parameter(description = "Número de página (base cero)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Cantidad de elementos por página") @RequestParam(defaultValue = "20") int size) {
         EstadoEnvioConsolidadoOperativo estadoOperativoFilter = parseEstadoOperativoFilter(estado);
         com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado pagoFilter = parseEstadoPagoFilter(estadoPago);
-        Page<EnvioConsolidado> resultado = envioConsolidadoService.findAll(estadoOperativoFilter, pagoFilter, q, page, size);
-        return ResponseEntity.ok(PageResponse.of(resultado, e -> envioConsolidadoService.toDTO(e, false)));
+        Page<EnvioConsolidado> resultado = envioConsolidadoService.findAll(
+                estadoOperativoFilter, pagoFilter, q, requiereAtencion, estadosMixtos, page, size);
+        // Resumen de estados de paquetes calculado por lote (una sola consulta agregada para la página).
+        java.util.List<Long> ids = resultado.getContent().stream().map(EnvioConsolidado::getId).toList();
+        java.util.Map<Long, com.ecubox.ecubox_backend.dto.ResumenEstadosPaquetesConsolidadoDTO> resumenes =
+                envioConsolidadoService.construirResumenesEstados(ids);
+        return ResponseEntity.ok(PageResponse.of(resultado, e -> {
+            EnvioConsolidadoDTO dto = envioConsolidadoService.toDTO(e, false);
+            dto.setResumenEstadosPaquetes(resumenes.get(e.getId()));
+            return dto;
+        }));
     }
 
     @GetMapping("/resumen")

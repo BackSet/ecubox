@@ -36,4 +36,10 @@ public class EnvioConsolidadoDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<PaqueteDTO> paquetes;
+    /**
+     * Resumen agregado de los estados de rastreo de los paquetes. Solo se
+     * completa en el listado paginado (calculado por lote, sin N+1); es
+     * {@code null} en el resto de respuestas.
+     */
+    private ResumenEstadosPaquetesConsolidadoDTO resumenEstadosPaquetes;
 }

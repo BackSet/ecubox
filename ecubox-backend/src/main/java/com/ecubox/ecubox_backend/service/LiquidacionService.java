@@ -629,8 +629,14 @@ public class LiquidacionService {
     }
 
     private DespachoDisponibleDTO toDespachoDisponibleDTO(Despacho d) {
+        // pesoSugerido suma solo los paquetes con peso registrado (los nulos no
+        // se cuentan como cero). Cuando hay paquetes sin peso el sugerido es
+        // parcial: se acompaña de la completitud para que el operario no calcule
+        // un importe definitivo sobre un peso incompleto.
         BigDecimal lbs = despachoRepository.sumPesoLbsPorDespacho(d.getId());
         BigDecimal kg = lbs != null ? WeightUtil.lbsToKg(lbs) : BigDecimal.ZERO;
+        long total = despachoRepository.countPaquetesPorDespacho(d.getId());
+        long sinPeso = despachoRepository.countPaquetesSinPesoPorDespacho(d.getId());
         return DespachoDisponibleDTO.builder()
                 .id(d.getId())
                 .numeroGuia(d.getNumeroGuia())
@@ -639,6 +645,9 @@ public class LiquidacionService {
                 .fechaHora(d.getFechaHora())
                 .pesoSugeridoLbs(lbs != null ? lbs : BigDecimal.ZERO)
                 .pesoSugeridoKg(kg != null ? kg : BigDecimal.ZERO)
+                .totalPaquetes(total)
+                .paquetesSinPeso(sinPeso)
+                .pesoCompleto(total > 0 && sinPeso == 0)
                 .build();
     }
 

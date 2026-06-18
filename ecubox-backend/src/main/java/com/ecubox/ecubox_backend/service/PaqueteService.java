@@ -672,6 +672,132 @@ public class PaqueteService {
                 TrackingEventType.ESTADO_APLICADO_DESPACHO, "DESPACHO_AUTO", "despacho");
     }
 
+    /** Resultado de intentar reparar el estado de bodega de un paquete histórico. */
+    public enum ResultadoReparacionBodega {
+        /** Avanzó al estado de bodega con la fecha histórica (o avanzaría, en dry-run). */
+        REPARADO,
+        /** Ya estaba en el estado de bodega: nada que reparar. */
+        YA_CORRECTO,
+        /** Ya existía un evento de reparación con la misma clave (idempotencia). */
+        YA_REPARADO,
+        /** Está en un estado posterior o terminal: no se degrada. */
+        POSTERIOR,
+        /** Está en flujo alterno: no se toca. */
+        ALTERNO,
+        /** Está bloqueado o en revisión: se omite. */
+        BLOQUEADO,
+        /** No hay fecha histórica verificable: se omite (no se inventa la fecha). */
+        SIN_FECHA,
+        /** El estado de bodega no está configurado/activo: no se aplica. */
+        DESTINO_NO_CONFIGURADO,
+        /** El paquete no existe. */
+        NO_ENCONTRADO
+    }
+
+    /** Detalle del intento de reparación de un paquete (para auditoría/reporte). */
+    public record ResultadoReparacion(
+            Long paqueteId,
+            ResultadoReparacionBodega resultado,
+            Long estadoAnteriorId, String estadoAnteriorNombre,
+            Long estadoNuevoId, String estadoNuevoNombre,
+            LocalDateTime fechaHistorica,
+            boolean eventoRegistrado) {
+    }
+
+    /**
+     * Repara el estado de "llegada a bodega" de un paquete histórico cuyo
+     * consolidado fue recibido en un lote pero que no recibió el estado
+     * configurado. <b>Reutiliza la clasificación central</b>
+     * ({@link #clasificarParaEstadoDePunto}) para no degradar posteriores,
+     * terminales, alternos ni bloqueados, y la mutación central
+     * ({@link #aplicarEstadoConReglas}). Es idempotente (clave estable por
+     * paquete+estado) y no depende del peso. La fecha es la histórica verificable
+     * (recepción del lote del consolidado, resuelta internamente); si no hay
+     * fecha fiable se omite (nunca se usa la fecha actual). En {@code dryRun} no
+     * escribe nada.
+     *
+     * @param repairRunId identificador de la corrida (para auditoría/event_source).
+     */
+    @Transactional
+    public ResultadoReparacion repararEstadoBodega(Long paqueteId, String repairRunId, boolean dryRun) {
+        Long estadoBodegaId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnLoteRecepcionId();
+        if (estadoBodegaId == null) {
+            return resultadoSimple(paqueteId, null, ResultadoReparacionBodega.DESTINO_NO_CONFIGURADO);
+        }
+        EstadoRastreo bodega = estadoRastreoService.findEntityById(estadoBodegaId);
+        if (bodega == null || !Boolean.TRUE.equals(bodega.getActivo())) {
+            return resultadoSimple(paqueteId, null, ResultadoReparacionBodega.DESTINO_NO_CONFIGURADO);
+        }
+        Paquete p = cargarPaqueteParaOperacion(paqueteId).orElse(null);
+        if (p == null) return resultadoSimple(paqueteId, null, ResultadoReparacionBodega.NO_ENCONTRADO);
+        // Un paquete en revisión administrativa se trata como bloqueado (no se toca).
+        if (paqueteOperacionValidator.estaEnRevision(paqueteId)) {
+            return resultadoSimple(paqueteId, p, ResultadoReparacionBodega.BLOQUEADO);
+        }
+        switch (clasificarParaEstadoDePunto(p, bodega)) {
+            case MISMO_ESTADO -> { return resultadoSimple(paqueteId, p, ResultadoReparacionBodega.YA_CORRECTO); }
+            case POSTERIOR -> { return resultadoSimple(paqueteId, p, ResultadoReparacionBodega.POSTERIOR); }
+            case ALTERNO -> { return resultadoSimple(paqueteId, p, ResultadoReparacionBodega.ALTERNO); }
+            case BLOQUEADO -> { return resultadoSimple(paqueteId, p, ResultadoReparacionBodega.BLOQUEADO); }
+            case DESTINO_INACTIVO -> { return resultadoSimple(paqueteId, p, ResultadoReparacionBodega.DESTINO_NO_CONFIGURADO); }
+            case ACTUALIZABLE -> { /* candidato real: continúa */ }
+        }
+        // Fecha histórica verificable: recepción del lote del consolidado. Nunca la actual.
+        LocalDateTime fechaHistorica = resolverFechaRecepcionLote(p);
+        if (fechaHistorica == null) return resultadoSimple(paqueteId, p, ResultadoReparacionBodega.SIN_FECHA);
+        // Clave de idempotencia ESTABLE (sin repairRunId ni nanoTime): dos corridas
+        // no duplican el evento ni vuelven a mover el estado.
+        String idempotencyKey = "reparacion-bodega:" + paqueteId + ":" + bodega.getId();
+        if (paqueteEstadoEventoRepository.existsByIdempotencyKey(idempotencyKey)) {
+            return resultadoSimple(paqueteId, p, ResultadoReparacionBodega.YA_REPARADO);
+        }
+        EstadoRastreo origen = p.getEstadoRastreo();
+        if (dryRun) {
+            // Dry-run: no escribe. Reporta el estado anterior y el destino que tendría.
+            return new ResultadoReparacion(paqueteId, ResultadoReparacionBodega.REPARADO,
+                    origen != null ? origen.getId() : null, origen != null ? origen.getNombre() : null,
+                    bodega.getId(), bodega.getNombre(), fechaHistorica, false);
+        }
+        aplicarEstadoConReglas(p, bodega, null, fechaHistorica);
+        paqueteRepository.save(p);
+        boolean registrado = trackingEventService.registrarReparacionEstado(
+                p, origen, bodega,
+                "REPARACION_LOTE_RECEPCION:" + repairRunId,
+                idempotencyKey,
+                fechaHistorica);
+        if (p.getGuiaMaster() != null) {
+            guiaMasterService.recomputarEstado(p.getGuiaMaster().getId());
+        }
+        ResultadoReparacionBodega res = registrado
+                ? ResultadoReparacionBodega.REPARADO
+                : ResultadoReparacionBodega.YA_REPARADO;
+        return new ResultadoReparacion(paqueteId, res,
+                origen != null ? origen.getId() : null, origen != null ? origen.getNombre() : null,
+                bodega.getId(), bodega.getNombre(), fechaHistorica, registrado);
+    }
+
+    private ResultadoReparacion resultadoSimple(Long paqueteId, Paquete p, ResultadoReparacionBodega r) {
+        EstadoRastreo origen = p != null ? p.getEstadoRastreo() : null;
+        return new ResultadoReparacion(paqueteId, r,
+                origen != null ? origen.getId() : null,
+                origen != null ? origen.getNombre() : null,
+                null, null, null, false);
+    }
+
+    /**
+     * Fecha histórica verificable para la reparación: la mínima fecha de recepción
+     * del/los lote(s) que recibieron el consolidado del paquete. {@code null} si
+     * el paquete no tiene consolidado o su código no aparece en ningún lote.
+     */
+    private LocalDateTime resolverFechaRecepcionLote(Paquete p) {
+        if (p.getEnvioConsolidado() == null) return null;
+        String codigo = p.getEnvioConsolidado().getCodigo();
+        if (codigo == null || codigo.isBlank()) return null;
+        return loteRecepcionGuiaRepository
+                .findMinFechaRecepcionByNumeroGuiaEnvioIgnoreCase(codigo)
+                .orElse(null);
+    }
+
     /**
      * Aplica el estado configurado "en lote recepción" a los paquetes indicados.
      *
@@ -679,10 +805,10 @@ public class PaqueteService {
      *                           se usa el instante actual (compatibilidad).
      */
     @Transactional
-    public void aplicarEstadoEnLoteRecepcion(List<Long> paqueteIds, LocalDateTime fechaRecepcionLote) {
+    public ResultadoEstadoPorPunto aplicarEstadoEnLoteRecepcion(List<Long> paqueteIds, LocalDateTime fechaRecepcionLote) {
         Long estadoId = parametroSistemaService.getEstadosRastreoPorPunto().getEstadoRastreoEnLoteRecepcionId();
-        if (estadoId == null) return;
-        aplicarEstadoEnConjunto(paqueteIds, estadoId,
+        if (estadoId == null) return ResultadoEstadoPorPunto.vacio();
+        return aplicarEstadoEnConjunto(paqueteIds, estadoId,
                 TrackingEventType.ESTADO_APLICADO_LOTE_RECEPCION, "LOTE_RECEPCION_AUTO", "lote-recepcion",
                 fechaRecepcionLote);
     }
@@ -902,58 +1028,82 @@ public class PaqueteService {
      * {@code saveAll} para reducir round-trips y evitar el patron lost-update por
      * lecturas individuales fuera del mismo flush.
      */
-    private void aplicarEstadoEnConjunto(List<Long> paqueteIds,
+    private ResultadoEstadoPorPunto aplicarEstadoEnConjunto(List<Long> paqueteIds,
                                          Long estadoDestinoId,
                                          TrackingEventType eventType,
                                          String eventSource,
                                          String idempotencyPrefix) {
-        aplicarEstadoEnConjunto(paqueteIds, estadoDestinoId, eventType, eventSource, idempotencyPrefix, null);
+        return aplicarEstadoEnConjunto(paqueteIds, estadoDestinoId, eventType, eventSource, idempotencyPrefix, null);
     }
 
     /**
+     * Operación central para aplicar un estado configurado por punto del flujo a
+     * un conjunto de paquetes. Clasifica cada paquete con
+     * {@link #clasificarParaEstadoDePunto} y <b>solo avanza los actualizables</b>:
+     * nunca degrada posteriores/terminales, ni arrastra alternos/bloqueados, ni
+     * reaplica el mismo estado. Es idempotente: repetir la operación deja los
+     * paquetes ya en el hito como {@code MISMO_ESTADO} (sin nuevo evento). El peso
+     * no interviene en la clasificación ni en la transición.
+     *
      * @param fechaEfectivaOrNull instante único para todos los paquetes del lote (fecha del lote de recepción);
      *                            si es null se usa {@link LocalDateTime#now()} una sola vez por operación.
      */
-    private void aplicarEstadoEnConjunto(List<Long> paqueteIds,
+    private ResultadoEstadoPorPunto aplicarEstadoEnConjunto(List<Long> paqueteIds,
                                          Long estadoDestinoId,
                                          TrackingEventType eventType,
                                          String eventSource,
                                          String idempotencyPrefix,
                                          LocalDateTime fechaEfectivaOrNull) {
-        if (paqueteIds == null || paqueteIds.isEmpty()) return;
+        if (paqueteIds == null || paqueteIds.isEmpty()) return ResultadoEstadoPorPunto.vacio();
         LocalDateTime fechaEfectiva = fechaEfectivaOrNull != null ? fechaEfectivaOrNull : LocalDateTime.now(ZONA_ECUADOR);
         EstadoRastreo estado = estadoRastreoService.findEntityById(estadoDestinoId);
         List<Paquete> paquetes = cargarPaquetesParaOperacion(paqueteIds);
-        if (paquetes.isEmpty()) return;
+        if (paquetes.isEmpty()) return ResultadoEstadoPorPunto.vacio();
         paqueteOperacionValidator.requireOperativos(paquetes);
+        int mismoEstado = 0, posteriores = 0, alternos = 0, bloqueados = 0;
         Set<Long> guiasAfectadas = new HashSet<>();
         List<TrackingEventService.PendingTransicion> pendientes = new ArrayList<>(paquetes.size());
+        List<Paquete> actualizados = new ArrayList<>(paquetes.size());
         for (Paquete p : paquetes) {
-            EstadoRastreo origen = p.getEstadoRastreo();
-            aplicarEstadoConReglas(p, estado, null, fechaEfectiva);
-            pendientes.add(new TrackingEventService.PendingTransicion(p, origen));
-            if (p.getGuiaMaster() != null) {
-                guiasAfectadas.add(p.getGuiaMaster().getId());
+            switch (clasificarParaEstadoDePunto(p, estado)) {
+                case ACTUALIZABLE -> {
+                    EstadoRastreo origen = p.getEstadoRastreo();
+                    aplicarEstadoConReglas(p, estado, null, fechaEfectiva);
+                    pendientes.add(new TrackingEventService.PendingTransicion(p, origen));
+                    actualizados.add(p);
+                    if (p.getGuiaMaster() != null) {
+                        guiasAfectadas.add(p.getGuiaMaster().getId());
+                    }
+                }
+                case MISMO_ESTADO -> mismoEstado++;
+                case POSTERIOR -> posteriores++;
+                case ALTERNO -> alternos++;
+                case BLOQUEADO -> bloqueados++;
+                case DESTINO_INACTIVO -> { /* hito sin estado activo configurado: no se aplica nada */ }
             }
         }
-        paqueteRepository.saveAll(paquetes);
-        for (TrackingEventService.PendingTransicion pt : pendientes) {
-            Paquete p = pt.paquete();
-            EstadoRastreo origen = pt.origen();
-            trackingEventService.registrarTransicion(
-                    p,
-                    origen,
-                    estado,
-                    eventType,
-                    eventSource,
-                    p.getMotivoAlterno(),
-                    null,
-                    buildIdempotencyKey(idempotencyPrefix, p.getId(), origen != null ? origen.getId() : null, estado.getId()),
-                    fechaEfectiva);
+        if (!actualizados.isEmpty()) {
+            paqueteRepository.saveAll(actualizados);
+            for (TrackingEventService.PendingTransicion pt : pendientes) {
+                Paquete p = pt.paquete();
+                EstadoRastreo origen = pt.origen();
+                trackingEventService.registrarTransicion(
+                        p,
+                        origen,
+                        estado,
+                        eventType,
+                        eventSource,
+                        p.getMotivoAlterno(),
+                        null,
+                        buildIdempotencyKey(idempotencyPrefix, p.getId(), origen != null ? origen.getId() : null, estado.getId()),
+                        fechaEfectiva);
+            }
+            for (Long gmId : guiasAfectadas) {
+                guiaMasterService.recomputarEstado(gmId);
+            }
         }
-        for (Long gmId : guiasAfectadas) {
-            guiaMasterService.recomputarEstado(gmId);
-        }
+        return new ResultadoEstadoPorPunto(paquetes.size(), actualizados.size(),
+                mismoEstado, posteriores, alternos, bloqueados);
     }
 
     @Transactional
@@ -2119,6 +2269,79 @@ public class PaqueteService {
         Integer ordenOrigen = ordenEfectivo(origen);
         Integer ordenDestino = ordenEfectivo(destino);
         return ordenOrigen != null && ordenDestino != null && ordenDestino < ordenOrigen;
+    }
+
+    /**
+     * Clasificación de un paquete frente a un estado configurado por punto del
+     * flujo (hito automático). Determina si el paquete debe avanzar al hito o si
+     * debe omitirse para no degradarlo. El orden proviene del catálogo
+     * configurado (no se hardcodean estados ni se comparan solo IDs).
+     */
+    public enum ClasificacionEstadoPunto {
+        /** El paquete está antes del hito y puede avanzar. */
+        ACTUALIZABLE,
+        /** Ya está exactamente en el estado del hito (idempotente: no se reaplica). */
+        MISMO_ESTADO,
+        /** Su orden es igual o mayor al del hito (incluye estados terminales): no se degrada. */
+        POSTERIOR,
+        /** Está en flujo alterno (p. ej. retenido en aduana): un hito normal no lo arrastra de vuelta. */
+        ALTERNO,
+        /** Está bloqueado: se omite. */
+        BLOQUEADO,
+        /** El estado configurado del hito no existe o está inactivo: no se aplica. */
+        DESTINO_INACTIVO
+    }
+
+    /**
+     * Resumen del resultado de aplicar un estado por punto a un conjunto de
+     * paquetes. Permite informar en la UI cuántos avanzaron y cuántos se
+     * omitieron (y por qué) sin convertir omisiones en degradaciones.
+     */
+    public record ResultadoEstadoPorPunto(int total, int actualizados, int mismoEstado,
+                                          int posteriores, int alternos, int bloqueados) {
+        public static ResultadoEstadoPorPunto vacio() {
+            return new ResultadoEstadoPorPunto(0, 0, 0, 0, 0, 0);
+        }
+        public int omitidos() {
+            return mismoEstado + posteriores + alternos + bloqueados;
+        }
+    }
+
+    /**
+     * Clasifica un paquete para la aplicación de un estado por punto. Reglas:
+     * <ul>
+     *   <li>destino nulo/inactivo &rarr; no se aplica ({@code DESTINO_INACTIVO});</li>
+     *   <li>ya está en el destino &rarr; {@code MISMO_ESTADO} (idempotente);</li>
+     *   <li>bloqueado &rarr; {@code BLOQUEADO};</li>
+     *   <li>en flujo alterno (flag o estado origen {@code ALTERNO}) &rarr; {@code ALTERNO};</li>
+     *   <li>orden(origen) &gt;= orden(destino) &rarr; {@code POSTERIOR} (no degradar; cubre terminales);</li>
+     *   <li>en caso contrario &rarr; {@code ACTUALIZABLE}.</li>
+     * </ul>
+     */
+    static ClasificacionEstadoPunto clasificarParaEstadoDePunto(Paquete paquete, EstadoRastreo destino) {
+        if (destino == null || !Boolean.TRUE.equals(destino.getActivo())) {
+            return ClasificacionEstadoPunto.DESTINO_INACTIVO;
+        }
+        EstadoRastreo origen = paquete.getEstadoRastreo();
+        if (origen != null && origen.getId() != null && origen.getId().equals(destino.getId())) {
+            return ClasificacionEstadoPunto.MISMO_ESTADO;
+        }
+        if (Boolean.TRUE.equals(paquete.getBloqueado())) {
+            return ClasificacionEstadoPunto.BLOQUEADO;
+        }
+        if (origen != null
+                && (Boolean.TRUE.equals(paquete.getEnFlujoAlterno())
+                    || origen.getTipoFlujo() == TipoFlujoEstado.ALTERNO)) {
+            return ClasificacionEstadoPunto.ALTERNO;
+        }
+        if (origen != null) {
+            Integer ordenOrigen = ordenEfectivo(origen);
+            Integer ordenDestino = ordenEfectivo(destino);
+            if (ordenOrigen != null && ordenDestino != null && ordenOrigen >= ordenDestino) {
+                return ClasificacionEstadoPunto.POSTERIOR;
+            }
+        }
+        return ClasificacionEstadoPunto.ACTUALIZABLE;
     }
 
     /** Convierte entidad a DTO (público para uso desde SacaService al construir sacas con paquetes completos). */

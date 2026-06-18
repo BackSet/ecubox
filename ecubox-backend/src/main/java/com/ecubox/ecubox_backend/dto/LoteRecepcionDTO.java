@@ -22,4 +22,30 @@ public class LoteRecepcionDTO {
     private List<String> numeroGuiasEnvio;
     private List<PaqueteDTO> paquetes;
     private Integer totalPaquetes;
+
+    /**
+     * Resumen de la aplicación del estado de "llegada a bodega" durante esta
+     * operación de recepción (create/agregar guías). Solo se completa en la
+     * respuesta de esas mutaciones; es {@code null} en lecturas.
+     */
+    private RecepcionEstadoResumenDTO resumenRecepcion;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class RecepcionEstadoResumenDTO {
+        /** Paquetes considerados en la operación. */
+        private int total;
+        /** Paquetes que avanzaron al estado de bodega. */
+        private int avanzados;
+        /** Paquetes omitidos por estar ya en el estado del hito. */
+        private int sinCambioMismoEstado;
+        /** Paquetes omitidos por estar en un estado posterior o terminal (no se degradan). */
+        private int omitidosPosteriores;
+        /** Paquetes omitidos por estar en flujo alterno. */
+        private int omitidosAlternos;
+        /** Paquetes omitidos por estar bloqueados. */
+        private int omitidosBloqueados;
+    }
 }

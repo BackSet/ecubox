@@ -13,6 +13,13 @@ public interface PaqueteEstadoEventoRepository extends JpaRepository<PaqueteEsta
     java.util.Optional<PaqueteEstadoEvento> findTopByPaqueteIdOrderByOccurredAtDescIdDesc(Long paqueteId);
 
     /**
+     * Existencia de un evento con la clave de idempotencia indicada. Garantiza
+     * que una operación con clave estable (p. ej. una reparación histórica) no
+     * registre el evento dos veces.
+     */
+    boolean existsByIdempotencyKey(String idempotencyKey);
+
+    /**
      * Primera (cronológicamente) entrada del paquete al estado destino indicado.
      * Útil para anclar la cuenta regresiva al primer momento en que el paquete
      * llegó al estado configurado como "Inicio de cuenta regresiva".

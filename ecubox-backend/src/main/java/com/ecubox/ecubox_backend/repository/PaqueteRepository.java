@@ -318,6 +318,27 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     /** Paquetes sin peso cargado (pendientes para operario). */
     List<Paquete> findByPesoLbsIsNullOrderByEstadoRastreo_OrdenAscIdAsc();
 
+    /**
+     * IDs de paquetes cuyo envío consolidado fue recibido en un lote de recepción
+     * (existe {@code lote_recepcion_guia} con el código del consolidado), por
+     * encima de {@code checkpoint} y ordenados por id. Acota el universo de la
+     * auditoría/reparación de "llegada a bodega" a los consolidados realmente
+     * recibidos; la clasificación posterior decide cuáles avanzan. Paginar con un
+     * {@code Pageable} de tamaño de lote para procesar por checkpoint.
+     */
+    @Query("""
+            SELECT p.id FROM Paquete p
+            WHERE p.id > :checkpoint
+              AND p.envioConsolidado IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM LoteRecepcionGuia g
+                  WHERE LOWER(TRIM(g.numeroGuiaEnvio)) = LOWER(TRIM(p.envioConsolidado.codigo))
+              )
+            ORDER BY p.id ASC
+            """)
+    List<Long> findIdsEnConsolidadosRecibidosEnLote(@Param("checkpoint") Long checkpoint,
+                                                    org.springframework.data.domain.Pageable pageable);
+
     /** Piezas (paquetes) de una guía master, ordenadas por número de pieza. */
     List<Paquete> findByGuiaMasterIdOrderByPiezaNumeroAscIdAsc(Long guiaMasterId);
 
@@ -355,6 +376,22 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
 
     @Query("SELECT COALESCE(SUM(p.pesoLbs), 0) FROM Paquete p WHERE p.envioConsolidado.id = :envioId")
     java.math.BigDecimal sumPesoLbsByEnvioConsolidadoId(@Param("envioId") Long envioConsolidadoId);
+
+    /**
+     * Resumen agregado de estados de rastreo de los paquetes de varios
+     * consolidados en <b>una sola consulta</b> (evita N+1 en el listado). Cada
+     * fila: {@code [consolidadoId, estadoId, codigo, nombre, ordenTracking,
+     * tipoFlujo, cantidad]}. El estado de la pieza es {@code NOT NULL}; el
+     * {@code LEFT JOIN} es defensivo por si en algún histórico faltara.
+     */
+    @Query("""
+            SELECT p.envioConsolidado.id, er.id, er.codigo, er.nombre, er.ordenTracking, er.tipoFlujo, COUNT(p)
+            FROM Paquete p
+            LEFT JOIN p.estadoRastreo er
+            WHERE p.envioConsolidado.id IN :consolidadoIds
+            GROUP BY p.envioConsolidado.id, er.id, er.codigo, er.nombre, er.ordenTracking, er.tipoFlujo
+            """)
+    List<Object[]> resumenEstadosPaquetesPorConsolidado(@Param("consolidadoIds") List<Long> consolidadoIds);
 
     // ---------------------------------------------------------------------
     // Resumen liviano de paquetes (KPIs + opciones de filtro) y backfill de

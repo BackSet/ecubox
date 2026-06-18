@@ -197,6 +197,18 @@ export function AgregarPaquetesSacaDialog({
     return { kg, lbs };
   }, [paquetesIngresados]);
 
+  // Un peso nulo es un dato desconocido (no cero): contamos los ingresados sin
+  // peso para advertir que el total es parcial, sin impedir crear las sacas.
+  const ingresadosSinPeso = useMemo(
+    () =>
+      paquetesIngresados.filter(
+        (p) =>
+          (p.pesoKg == null || Number.isNaN(p.pesoKg) || p.pesoKg <= 0) &&
+          (p.pesoLbs == null || Number.isNaN(p.pesoLbs) || p.pesoLbs <= 0),
+      ).length,
+    [paquetesIngresados],
+  );
+
   const distribucionPreview = useMemo<number[] | null>(
     () => computeDistributionPreview(paqueteIdsOrdenados.length, distribucionState),
     [paqueteIdsOrdenados.length, distribucionState],
@@ -424,8 +436,8 @@ export function AgregarPaquetesSacaDialog({
               </DialogTitle>
               <DialogDescription className="mt-1 text-xs">
                 {modo === 'crearYDistribuir'
-                  ? 'Escanea o pega guías. El orden de ingreso define a qué saca va cada paquete. Solo se aceptan paquetes con peso cargado.'
-                  : 'Pega un listado de guías (una por línea) o escanea individualmente. Solo se aceptan paquetes con peso cargado.'}
+                  ? 'Escanea o pega guías. El orden de ingreso define a qué saca va cada paquete. Los paquetes sin peso también pueden incluirse; su peso quedará pendiente.'
+                  : 'Pega un listado de guías (una por línea) o escanea individualmente. Los paquetes sin peso también pueden incluirse; su peso quedará pendiente.'}
               </DialogDescription>
             </div>
           </div>
@@ -440,6 +452,13 @@ export function AgregarPaquetesSacaDialog({
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-[var(--color-muted)]/30 px-2.5 py-1 text-xs font-medium text-foreground">
                   <Scale className="h-3.5 w-3.5" />
                   {formatWeightInline(pesoTotalIngresados.lbs, pesoTotalIngresados.kg)}
+                  {ingresadosSinPeso > 0 && <span className="text-muted-foreground"> · parcial</span>}
+                </span>
+              )}
+              {ingresadosSinPeso > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-2.5 py-1 text-xs font-medium text-[var(--color-warning)]">
+                  <Scale className="h-3.5 w-3.5" />
+                  {ingresadosSinPeso} sin peso
                 </span>
               )}
               {distribucionPreview && (

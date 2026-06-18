@@ -13,5 +13,12 @@ public enum TrackingEventType {
     ESTADO_APLICADO_ARRIBADO_EC,
     ESTADO_APLICADO_CIERRE_CONSOLIDADO,
     ESTADO_APLICADO_ARRIBO_ECUADOR,
-    ESTADO_CONFIRMADO_CLIENTE
+    ESTADO_CONFIRMADO_CLIENTE,
+    /**
+     * Reparación histórica del estado de "llegada a bodega" para paquetes cuyo
+     * consolidado fue recibido en un lote pero que no recibieron el estado
+     * configurado (corrección de inconsistencias previas al MVP 2). Es un evento
+     * de auditoría que NO genera outbox ni notificaciones.
+     */
+    ESTADO_REPARADO_LOTE_RECEPCION
 }

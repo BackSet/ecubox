@@ -52,7 +52,11 @@ import { KpiCard } from '@/components/KpiCard';
 import { KpiCardsGrid } from '@/components/KpiCardsGrid';
 import { ChipFiltro, type ChipFiltroTone } from '@/components/ChipFiltro';
 import type { StatusTone } from '@/components/ui/StatusBadge';
-import { FiltrosBar } from '@/components/FiltrosBar';
+import { useSearch } from '@tanstack/react-router';
+import { Switch } from '@/components/ui/switch';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { ResumenEstadosPaquetes } from './ResumenEstadosPaquetes';
+import { FiltrosBar, FiltroCampo } from '@/components/FiltrosBar';
 import { MonoTrunc } from '@/components/MonoTrunc';
 import { RowActionsMenu } from '@/components/RowActionsMenu';
 import { TablePagination } from '@/components/ui/TablePagination';
@@ -91,6 +95,10 @@ export function EnviosConsolidadosListPage() {
   const { q, page, size, setQ, setPage, setSize, resetPage } = useSearchPagination({
     initialSize: 20,
   });
+  const { atencion = false, mixtos = false } = useSearch({ strict: false }) as {
+    atencion?: boolean;
+    mixtos?: boolean;
+  };
   const [estadoFilter, setEstadoFilter] = useState<EstadoFiltro>('TODOS');
   const [estadoPagoFilter, setEstadoPagoFilter] = useState<EstadoPagoFiltro>('TODOS');
   const [createOpen, setCreateOpen] = useState(false);
@@ -128,9 +136,33 @@ export function EnviosConsolidadosListPage() {
     estado: estadoFilter,
     estadoPago: estadoPagoFilter,
     q: q.trim() || undefined,
+    requiereAtencion: atencion || undefined,
+    estadosMixtos: mixtos || undefined,
     page,
     size,
   });
+
+  const setAtencion = (val: boolean) => {
+    navigate({
+      to: '/envios-consolidados',
+      search: (prev) => ({
+        ...prev,
+        atencion: val ? true : undefined,
+      }),
+    });
+    resetPage();
+  };
+
+  const setMixtos = (val: boolean) => {
+    navigate({
+      to: '/envios-consolidados',
+      search: (prev) => ({
+        ...prev,
+        mixtos: val ? true : undefined,
+      }),
+    });
+    resetPage();
+  };
 
   async function handleCerrar() {
     if (!confirmCerrar) return;
@@ -333,10 +365,19 @@ export function EnviosConsolidadosListPage() {
       </KpiCardsGrid>
 
       <FiltrosBar
-        hayFiltrosActivos={estadoFilter !== 'TODOS' || estadoPagoFilter !== 'TODOS'}
+        hayFiltrosActivos={
+          estadoFilter !== 'TODOS' ||
+          estadoPagoFilter !== 'TODOS' ||
+          atencion ||
+          mixtos
+        }
         onLimpiar={() => {
           setEstadoFilter('TODOS');
           setEstadoPagoFilter('TODOS');
+          navigate({
+            to: '/envios-consolidados',
+            search: {},
+          });
           resetPage();
         }}
         chips={
@@ -386,6 +427,28 @@ export function EnviosConsolidadosListPage() {
             />
           </>
         }
+        filtros={
+          <>
+            <FiltroCampo label="Requiere atención" hint="Solo piezas en flujo alterno o sin estado">
+              <div className="flex h-9 items-center">
+                <Switch
+                  checked={atencion}
+                  onCheckedChange={setAtencion}
+                  id="filtro-atencion"
+                />
+              </div>
+            </FiltroCampo>
+            <FiltroCampo label="Estados mixtos" hint="Consolidados con piezas en más de un estado">
+              <div className="flex h-9 items-center">
+                <Switch
+                  checked={mixtos}
+                  onCheckedChange={setMixtos}
+                  id="filtro-mixtos"
+                />
+              </div>
+            </FiltroCampo>
+          </>
+        }
       />
 
       {error && items.length > 0 && (
@@ -430,18 +493,180 @@ export function EnviosConsolidadosListPage() {
         />
       ) : (
         <>
-          <ListTableShell>
+          {/* Mobile Card Layout */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {isLoading && (
+              <>
+                <SurfaceCard className="p-4 animate-pulse">
+                  <div className="h-4 w-2/3 bg-muted rounded mb-2" />
+                  <div className="h-5 w-24 bg-muted rounded" />
+                </SurfaceCard>
+                <SurfaceCard className="p-4 animate-pulse">
+                  <div className="h-4 w-2/3 bg-muted rounded mb-2" />
+                  <div className="h-5 w-24 bg-muted rounded" />
+                </SurfaceCard>
+              </>
+            )}
+            {!isLoading && items.map((e) => {
+              const op = resolveEstadoOperativoConsolidado(e);
+              return (
+                <SurfaceCard
+                  key={e.id}
+                  onClick={() =>
+                    navigate({
+                      to: '/envios-consolidados/$id',
+                      params: { id: String(e.id) },
+                    })
+                  }
+                  className="cursor-pointer p-4 hover:border-[var(--color-primary)]/40 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <MonoTrunc
+                        value={e.codigo}
+                        className="font-mono text-sm font-semibold text-foreground"
+                      />
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <EnvioConsolidadoBadge
+                          cerrado={e.cerrado}
+                          estadoOperativo={op}
+                        />
+                        <PagoBadge estado={e.estadoPago} />
+                      </div>
+                    </div>
+                    <div onClick={(ev) => ev.stopPropagation()}>
+                      <RowActionsMenu
+                        items={[
+                          {
+                            label: 'Ver detalle',
+                            icon: Eye,
+                            onSelect: () =>
+                              navigate({
+                                to: '/envios-consolidados/$id',
+                                params: { id: String(e.id) },
+                              }),
+                          },
+                          { type: 'separator' },
+                          {
+                            label: 'Aplicar estado',
+                            icon: Tag,
+                            hidden: !hasEnviosUpdate || op === 'CANCELADO' || op === 'LIQUIDADO',
+                            onSelect: () => abrirAplicarEstado(e.id),
+                          },
+                          {
+                            label: 'Cerrar envío',
+                            icon: Lock,
+                            hidden: !hasEnviosUpdate || op !== 'EN_PREPARACION',
+                            disabled: cerrarMutation.isPending,
+                            onSelect: () =>
+                              setConfirmCerrar({ id: e.id, codigo: e.codigo }),
+                          },
+                          {
+                            label: 'Enviar desde USA',
+                            icon: Truck,
+                            hidden: !hasEnviosUpdate || op !== 'CERRADO',
+                            disabled: enviarUsaMutation.isPending,
+                            onSelect: () =>
+                              setConfirmEnviarUsa({ id: e.id, codigo: e.codigo }),
+                          },
+                          {
+                            label: 'Arribar a Ecuador',
+                            icon: PlaneLanding,
+                            hidden: !hasEnviosUpdate || op !== 'ENVIADO_DESDE_USA',
+                            disabled: arribarEcuadorMutation.isPending,
+                            onSelect: () =>
+                              setConfirmArribarEcuador({ id: e.id, codigo: e.codigo }),
+                          },
+                          {
+                            label: 'Reabrir envío',
+                            icon: Unlock,
+                            hidden: !hasEnviosUpdate || (op !== 'CERRADO' && op !== 'ENVIADO_DESDE_USA'),
+                            disabled: reabrirMutation.isPending,
+                            onSelect: () =>
+                              setConfirmReabrir({ id: e.id, codigo: e.codigo }),
+                          },
+                          {
+                            label: 'Cancelar consolidado',
+                            icon: Ban,
+                            hidden: !hasEnviosUpdate || (op !== 'VACIO' && op !== 'EN_PREPARACION'),
+                            disabled: cancelarMutation.isPending,
+                            onSelect: () =>
+                              setConfirmCancelar({ id: e.id, codigo: e.codigo }),
+                          },
+                          { type: 'separator', hidden: !hasEnviosDelete },
+                          {
+                            label: 'Eliminar envío',
+                            icon: Trash2,
+                            destructive: true,
+                            hidden: !hasEnviosDelete,
+                            disabled: (op !== 'VACIO' && op !== 'EN_PREPARACION') || eliminarMutation.isPending,
+                            onSelect: () =>
+                              setConfirmEliminar({
+                                id: e.id,
+                                codigo: e.codigo,
+                                totalPaquetes: e.totalPaquetes ?? 0,
+                              }),
+                          },
+                        ]}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Paquetes
+                      </p>
+                      <div className="mt-1" onClick={(ev) => ev.stopPropagation()}>
+                        <ResumenEstadosPaquetes
+                          consolidadoId={e.id}
+                          resumen={e.resumenEstadosPaquetes}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Peso total
+                      </p>
+                      <div className="mt-1">
+                        <PesoCell
+                          pesoLbs={
+                            e.pesoTotalLbs != null && e.pesoTotalLbs > 0
+                              ? e.pesoTotalLbs
+                              : null
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1">Creado: <FechaCell value={e.createdAt} /></span>
+                    {(e.fechaCierre || e.fechaCerrado) && (
+                      <span className="flex items-center gap-1">
+                        {e.fechaCerrado ? 'Salida USA: ' : 'Cerrado: '}
+                        <FechaCell value={e.fechaCerrado || e.fechaCierre} />
+                      </span>
+                    )}
+                  </div>
+                </SurfaceCard>
+              );
+            })}
+          </div>
+
+          {/* Desktop Table Layout */}
+          <ListTableShell className="hidden md:block">
             <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Pago</TableHead>
-                  <TableHead className="text-center">Paquetes</TableHead>
+                  <TableHead className="text-left min-w-[160px]">Paquetes</TableHead>
                   <TableHead className={PESO_TABLE_HEAD_CLASS}>Peso</TableHead>
                   <TableHead>Creado</TableHead>
-                  <TableHead className="hidden md:table-cell">Cerrado</TableHead>
-                  <TableHead className="hidden md:table-cell">Salida USA</TableHead>
+                  <TableHead className="hidden lg:table-cell">Cerrado</TableHead>
+                  <TableHead className="hidden lg:table-cell">Salida USA</TableHead>
                   <TableHead className="w-12 text-right" aria-label="Acciones" />
                 </TableRow>
               </TableHeader>
@@ -449,10 +674,10 @@ export function EnviosConsolidadosListPage() {
                 {isLoading && (
                   <TableRowsSkeleton
                     columns={9}
-                    columnClasses={{ 6: 'hidden md:table-cell', 7: 'hidden md:table-cell' }}
+                    columnClasses={{ 6: 'hidden lg:table-cell', 7: 'hidden lg:table-cell' }}
                   />
                 )}
-                {items.map((e) => {
+                {!isLoading && items.map((e) => {
                   const op = resolveEstadoOperativoConsolidado(e);
                   return (
                     <TableRow
@@ -480,8 +705,11 @@ export function EnviosConsolidadosListPage() {
                       <TableCell>
                         <PagoBadge estado={e.estadoPago} />
                       </TableCell>
-                      <TableCell className="text-center">
-                        <PaquetesBadge total={e.totalPaquetes ?? 0} />
+                      <TableCell className="text-left py-2.5" onClick={(ev) => ev.stopPropagation()}>
+                        <ResumenEstadosPaquetes
+                          consolidadoId={e.id}
+                          resumen={e.resumenEstadosPaquetes}
+                        />
                       </TableCell>
                       <TableCell className={PESO_TABLE_CELL_CLASS}>
                         <PesoCell
@@ -495,10 +723,10 @@ export function EnviosConsolidadosListPage() {
                       <TableCell className="text-xs text-muted-foreground">
                         <FechaCell value={e.createdAt} />
                       </TableCell>
-                      <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
+                      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
                         <FechaCell value={e.fechaCierre} mutedIfEmpty />
                       </TableCell>
-                      <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
+                      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
                         <FechaCell value={e.fechaCerrado} mutedIfEmpty />
                       </TableCell>
                       <TableCell
@@ -832,22 +1060,6 @@ function PagoBadge({ estado }: { estado?: EstadoPagoConsolidado }) {
   );
 }
 
-function PaquetesBadge({ total }: { total: number }) {
-  const empty = total === 0;
-  return (
-    <span
-      className={cn(
-        'inline-flex min-w-[2.25rem] items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
-        empty
-          ? 'border-border bg-[var(--color-muted)]/40 text-muted-foreground'
-          : 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 text-[var(--color-primary)]'
-      )}
-    >
-      <PackageIcon className="h-3 w-3" />
-      {total}
-    </span>
-  );
-}
 
 function FechaCell({
   value,

@@ -159,13 +159,19 @@ public class LoteRecepcionService {
             paquetes.forEach(p -> paqueteIds.add(p.getId()));
         }
 
+        PaqueteService.ResultadoEstadoPorPunto resultadoBodega = null;
         if (!paqueteIds.isEmpty()) {
             List<Long> pIds = new ArrayList<>(paqueteIds);
             paqueteService.aplicarEstadoArribadoEc(pIds, fechaRecepcion);
-            paqueteService.aplicarEstadoEnLoteRecepcion(pIds, fechaRecepcion);
+            // Llegada a bodega de destino: estado configurado por punto. Solo
+            // avanzan los paquetes anteriores al hito; los posteriores/terminales,
+            // alternos y bloqueados no se degradan (clasificación central).
+            resultadoBodega = paqueteService.aplicarEstadoEnLoteRecepcion(pIds, fechaRecepcion);
         }
 
-        return toDTO(lote, false);
+        LoteRecepcionDTO dto = toDTO(lote, false);
+        dto.setResumenRecepcion(toResumenRecepcion(resultadoBodega));
+        return dto;
     }
 
     /** Agrega guías de envío a un lote existente. Solo se agregan guías que tengan paquetes y que no estén ya en el lote. */
@@ -213,15 +219,32 @@ public class LoteRecepcionService {
             yaEnLote.add(canonico.trim().toUpperCase());
             paquetes.forEach(p -> paqueteIds.add(p.getId()));
         }
+        PaqueteService.ResultadoEstadoPorPunto resultadoBodega = null;
         if (!paqueteIds.isEmpty()) {
             List<Long> pIds = new ArrayList<>(paqueteIds);
             paqueteService.aplicarEstadoArribadoEc(pIds, lote.getFechaRecepcion());
-            paqueteService.aplicarEstadoEnLoteRecepcion(pIds, lote.getFechaRecepcion());
+            resultadoBodega = paqueteService.aplicarEstadoEnLoteRecepcion(pIds, lote.getFechaRecepcion());
         }
 
         loteRecepcionRepository.flush();
         lote = loteRecepcionRepository.findByIdWithGuiasAndOperario(loteId).orElseThrow(() -> new ResourceNotFoundException("Lote de recepción", loteId));
-        return toDTO(lote, true);
+        LoteRecepcionDTO dto = toDTO(lote, true);
+        dto.setResumenRecepcion(toResumenRecepcion(resultadoBodega));
+        return dto;
+    }
+
+    /** Convierte el resultado de la clasificación central al resumen del DTO (null-safe para tests con mocks). */
+    private LoteRecepcionDTO.RecepcionEstadoResumenDTO toResumenRecepcion(
+            PaqueteService.ResultadoEstadoPorPunto r) {
+        if (r == null) return null;
+        return LoteRecepcionDTO.RecepcionEstadoResumenDTO.builder()
+                .total(r.total())
+                .avanzados(r.actualizados())
+                .sinCambioMismoEstado(r.mismoEstado())
+                .omitidosPosteriores(r.posteriores())
+                .omitidosAlternos(r.alternos())
+                .omitidosBloqueados(r.bloqueados())
+                .build();
     }
 
     private EnvioConsolidado resolverEnvio(String codigo) {

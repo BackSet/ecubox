@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import {
   AlertCircle,
   ArrowLeft,
@@ -24,6 +24,7 @@ import {
   Truck,
   Unlock,
   Wallet,
+  X,
 } from 'lucide-react';
 import { notify } from '@/lib/notify';
 import { getApiErrorMessage } from '@/lib/api/error-message';
@@ -92,6 +93,9 @@ export function EnvioConsolidadoDetailPage() {
   const params = useParams({ strict: false });
   const id = Number(params.id);
   const { data: envio, isLoading, error } = useEnvioConsolidado(id);
+  const { estadoPaqueteId } = useSearch({ strict: false }) as {
+    estadoPaqueteId?: number | 'SIN_ESTADO';
+  };
   const [agregarOpen, setAgregarOpen] = useState(false);
   const [confirmCerrar, setConfirmCerrar] = useState(false);
   const [confirmEnviarUsa, setConfirmEnviarUsa] = useState(false);
@@ -112,10 +116,28 @@ export function EnvioConsolidadoDetailPage() {
   );
 
   const paquetes = envio?.paquetes ?? [];
+
+  const estadoFiltradoNombre = useMemo(() => {
+    if (estadoPaqueteId === 'SIN_ESTADO') return 'Sin estado';
+    if (typeof estadoPaqueteId === 'number') {
+      const pkg = paquetes.find((p) => p.estadoRastreoId === estadoPaqueteId);
+      return pkg?.estadoRastreoNombre ?? `Estado #${estadoPaqueteId}`;
+    }
+    return null;
+  }, [estadoPaqueteId, paquetes]);
+
   const paquetesFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return paquetes;
-    return paquetes.filter((p) => {
+    let res = paquetes;
+
+    if (estadoPaqueteId === 'SIN_ESTADO') {
+      res = res.filter((p) => p.estadoRastreoId === null || p.estadoRastreoId === undefined);
+    } else if (typeof estadoPaqueteId === 'number') {
+      res = res.filter((p) => p.estadoRastreoId === estadoPaqueteId);
+    }
+
+    if (!q) return res;
+    return res.filter((p) => {
       return (
         p.numeroGuia?.toLowerCase().includes(q) ||
         p.guiaMasterTrackingBase?.toLowerCase().includes(q) ||
@@ -124,7 +146,7 @@ export function EnvioConsolidadoDetailPage() {
         p.estadoRastreoCodigo?.toLowerCase().includes(q)
       );
     });
-  }, [paquetes, busqueda]);
+  }, [paquetes, busqueda, estadoPaqueteId]);
 
   const stats = useMemo(() => {
     let pesoLbs = 0;
@@ -490,16 +512,35 @@ export function EnvioConsolidadoDetailPage() {
 
       <SurfaceCard className="space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="inline-flex items-center gap-2 text-base font-semibold">
               <PackageIcon className="h-4 w-4 text-[var(--color-primary)]" />
               Paquetes incluidos
               <span className="rounded bg-[var(--color-muted)] px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-                {paquetes.length}
+                {paquetesFiltrados.length} {paquetesFiltrados.length !== paquetes.length && `de ${paquetes.length}`}
               </span>
             </h2>
+            {estadoFiltradoNombre && (
+              <div className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-primary)]/10 px-2 py-0.5 text-xs text-[var(--color-primary)] font-medium">
+                <span>Estado: {estadoFiltradoNombre}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate({
+                      to: '/envios-consolidados/$id',
+                      params: { id: String(id) },
+                      search: {},
+                    });
+                  }}
+                  className="rounded-full hover:bg-[var(--color-primary)]/20 p-0.5"
+                  title="Quitar filtro de estado"
+                >
+                  <X className="h-3 w-3" strokeWidth={2.5} />
+                </button>
+              </div>
+            )}
             {!puedeAdministrarPaquetes && (
-              <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <p className="w-full mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Lock className="h-3 w-3" />
                 Envío enviado desde USA: solo lectura. Reábrelo para gestionar paquetes.
               </p>
@@ -533,8 +574,17 @@ export function EnvioConsolidadoDetailPage() {
           puedeRemover={puedeAdministrarPaquetes}
           onRemover={handleQuitarPaquete}
           isRemoving={remover.isPending}
-          onLimpiarBusqueda={() => setBusqueda('')}
-          tieneBusqueda={busqueda.trim() !== ''}
+          onLimpiarBusqueda={() => {
+            setBusqueda('');
+            if (estadoPaqueteId !== undefined) {
+              navigate({
+                to: '/envios-consolidados/$id',
+                params: { id: String(id) },
+                search: {},
+              });
+            }
+          }}
+          tieneBusqueda={busqueda.trim() !== '' || estadoPaqueteId !== undefined}
         />
       </SurfaceCard>
 
