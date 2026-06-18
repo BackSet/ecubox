@@ -51,6 +51,13 @@ public class EstadoConsolidadoOperativoResolver {
         return EstadoEnvioConsolidadoOperativo.EN_PREPARACION;
     }
 
+    /**
+     * Calcula el estado operativo del consolidado (método del motor canónico).
+     */
+    public EstadoEnvioConsolidadoOperativo calcularEstadoOperativoConsolidado(EnvioConsolidado envio, long totalPaquetes) {
+        return resolve(envio, totalPaquetes);
+    }
+
     public Specification<EnvioConsolidado> specificationFor(EstadoEnvioConsolidadoOperativo estado) {
         return (root, query, cb) ->
                 cb.equal(root.get("estadoOperativo"), estado);

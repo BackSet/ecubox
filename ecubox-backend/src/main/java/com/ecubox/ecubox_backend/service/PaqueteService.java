@@ -2344,6 +2344,158 @@ public class PaqueteService {
         return ClasificacionEstadoPunto.ACTUALIZABLE;
     }
 
+    /**
+     * Calcula el estado mínimo del paquete en función de sus relaciones.
+     * Prioridades:
+     * 1. entrega (estadoRastreoEntregaConfirmadaClienteId)
+     * 2. despacho (estadoRastreoEnDespachoId)
+     * 3. lote de recepción (estadoRastreoEnLoteRecepcionId)
+     * 4. estado avanzado del consolidado (arribado ecuador, enviado desde usa, cerrado)
+     * 5. asociación inicial al consolidado (asociar consolidado / en planilla)
+     * 6. registro (registro paquete / registrado)
+     *
+     * Respeta estados especiales (bloqueado, alterno, en revisión, retenido, devuelto, cancelado)
+     * y previene retrocesos en el flujo.
+     */
+    @Transactional(readOnly = true)
+    public EstadoRastreo calcularEstadoMinimoPaquete(Paquete paquete) {
+        if (paquete == null) return null;
+
+        EstadosRastreoPorPuntoDTO config = parametroSistemaService.getEstadosRastreoPorPunto();
+        if (config == null) {
+            return paquete.getEstadoRastreo();
+        }
+
+        EstadoRastreo targetState = null;
+
+        // 1. Entrega
+        Long entregaId = config.getEstadoRastreoEntregaConfirmadaClienteId();
+        if (entregaId != null) {
+            boolean hasEntregaEvent = false;
+            if (paquete.getId() != null) {
+                hasEntregaEvent = paqueteEstadoEventoRepository
+                        .findTopByPaqueteIdAndEstadoDestino_IdOrderByOccurredAtAscIdAsc(paquete.getId(), entregaId)
+                        .isPresent();
+            }
+            boolean isCurrentEntrega = paquete.getEstadoRastreo() != null
+                    && entregaId.equals(paquete.getEstadoRastreo().getId());
+            if (hasEntregaEvent || isCurrentEntrega) {
+                targetState = estadoRastreoService.findEntityById(entregaId);
+            }
+        }
+
+        // 2. Despacho
+        if (targetState == null && paquete.getSaca() != null && paquete.getSaca().getDespacho() != null) {
+            Long despachoId = config.getEstadoRastreoEnDespachoId();
+            if (despachoId != null) {
+                targetState = estadoRastreoService.findEntityById(despachoId);
+            }
+        }
+
+        // 3. Lote de Recepción
+        if (targetState == null) {
+            String trackingBase = paquete.getGuiaMaster() != null ? Strings.trimOrNull(paquete.getGuiaMaster().getTrackingBase()) : null;
+            String consolidadoCodigo = paquete.getEnvioConsolidado() != null ? Strings.trimOrNull(paquete.getEnvioConsolidado().getCodigo()) : null;
+
+            boolean inLote = (trackingBase != null && loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(trackingBase))
+                    || (consolidadoCodigo != null && loteRecepcionGuiaRepository.existsByNumeroGuiaEnvioIgnoreCase(consolidadoCodigo));
+
+            boolean consolidadoRecibido = paquete.getEnvioConsolidado() != null
+                    && (paquete.getEnvioConsolidado().getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.RECIBIDO_EN_BODEGA
+                        || paquete.getEnvioConsolidado().getEstadoOperativo() == EstadoEnvioConsolidadoOperativo.LIQUIDADO);
+
+            if (inLote || consolidadoRecibido) {
+                Long loteRecepcionId = config.getEstadoRastreoEnLoteRecepcionId();
+                if (loteRecepcionId != null) {
+                    targetState = estadoRastreoService.findEntityById(loteRecepcionId);
+                }
+            }
+        }
+
+        // 4. Estado avanzado del consolidado
+        if (targetState == null && paquete.getEnvioConsolidado() != null) {
+            EstadoEnvioConsolidadoOperativo estadoConsolidado = paquete.getEnvioConsolidado().getEstadoOperativo();
+            if (estadoConsolidado == EstadoEnvioConsolidadoOperativo.ARRIBADO_ECUADOR) {
+                Long aduanaId = config.getEstadoRastreoArriboEcuadorId();
+                if (aduanaId == null) {
+                    aduanaId = config.getEstadoRastreoArribadoEcId();
+                }
+                if (aduanaId != null) {
+                    targetState = estadoRastreoService.findEntityById(aduanaId);
+                }
+            } else if (estadoConsolidado == EstadoEnvioConsolidadoOperativo.ENVIADO_DESDE_USA) {
+                Long vueloId = config.getEstadoRastreoEnviadoDesdeUsaId();
+                if (vueloId != null) {
+                    targetState = estadoRastreoService.findEntityById(vueloId);
+                }
+            } else if (estadoConsolidado == EstadoEnvioConsolidadoOperativo.CERRADO) {
+                Long manifestadoId = config.getEstadoRastreoCierreConsolidadoId();
+                if (manifestadoId == null) {
+                    manifestadoId = config.getEstadoRastreoAsociarGuiaMasterId();
+                }
+                if (manifestadoId != null) {
+                    targetState = estadoRastreoService.findEntityById(manifestadoId);
+                }
+            }
+        }
+
+        // 5. Asociación inicial al consolidado
+        if (targetState == null && paquete.getEnvioConsolidado() != null) {
+            Long asociarId = config.getEstadoRastreoAsociarEnvioConsolidadoId();
+            if (asociarId != null) {
+                targetState = estadoRastreoService.findEntityById(asociarId);
+            }
+        }
+
+        // 6. Registro
+        if (targetState == null) {
+            Long registroId = config.getEstadoRastreoRegistroPaqueteId();
+            if (registroId != null) {
+                targetState = estadoRastreoService.findEntityById(registroId);
+            }
+        }
+
+        // Fallback
+        if (targetState == null) {
+            targetState = paquete.getEstadoRastreo();
+        }
+
+        // Reglas de exclusión: no sobrescribir estados especiales o terminales / posteriores
+        EstadoRastreo origen = paquete.getEstadoRastreo();
+        if (origen != null) {
+            // Verificar si el estado origen es un estado especial (bloqueado, alterno, revision, retenido, devuelto, cancelado)
+            if (Boolean.TRUE.equals(paquete.getBloqueado())
+                    || Boolean.TRUE.equals(paquete.getEnFlujoAlterno())
+                    || origen.getTipoFlujo() == TipoFlujoEstado.ALTERNO) {
+                return origen;
+            }
+
+            // Revision
+            boolean enRevision = revisionPaqueteRepository != null
+                    && revisionPaqueteRepository.findActiva(paquete.getId(), EstadoRevisionPaquete.EN_REVISION).isPresent();
+            if (enRevision) {
+                return origen;
+            }
+
+            // Exclusiones adicionales por código de estado
+            if (origen.getCodigo() != null) {
+                String cod = origen.getCodigo().toUpperCase(java.util.Locale.ROOT);
+                if (cod.contains("RETENIDO") || cod.contains("DEVUELTO") || cod.contains("CANCELADO")) {
+                    return origen;
+                }
+            }
+
+            // Evitar retroceso/degradación
+            Integer ordenOrigen = ordenEfectivo(origen);
+            Integer ordenTarget = ordenEfectivo(targetState);
+            if (ordenOrigen != null && ordenTarget != null && ordenOrigen > ordenTarget) {
+                return origen;
+            }
+        }
+
+        return targetState;
+    }
+
     /** Convierte entidad a DTO (público para uso desde SacaService al construir sacas con paquetes completos). */
     public PaqueteDTO toDTO(Paquete p) {
         EstadoRastreo er = p.getEstadoRastreo();
