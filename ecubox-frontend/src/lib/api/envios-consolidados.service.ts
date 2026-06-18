@@ -30,6 +30,10 @@ export interface ListarEnviosParams {
   estadoPago?: EstadoPagoFiltro;
   /** Búsqueda libre (LIKE multi-token) sobre el código del envío. */
   q?: string;
+  /** Solo consolidados con paquetes que requieren atención (flujo alterno o sin estado). */
+  requiereAtencion?: boolean;
+  /** Solo consolidados con paquetes en más de un estado actual distinto. */
+  estadosMixtos?: boolean;
   page?: number;
   size?: number;
 }

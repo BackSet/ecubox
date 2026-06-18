@@ -20,8 +20,10 @@ import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.LiquidacionConsolidadoLinea;
 import com.ecubox.ecubox_backend.entity.Paquete;
+import com.ecubox.ecubox_backend.dto.ResumenEstadosPaquetesConsolidadoDTO;
 import com.ecubox.ecubox_backend.enums.EstadoEnvioConsolidadoOperativo;
 import com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado;
+import com.ecubox.ecubox_backend.enums.TipoFlujoEstado;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ConflictException;
 import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
@@ -159,6 +161,21 @@ public class EnvioConsolidadoService {
     public Page<EnvioConsolidado> findAll(EstadoEnvioConsolidadoOperativo estadoOperativo,
                                           com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado estadoPago,
                                           String q, int page, int size) {
+        return findAll(estadoOperativo, estadoPago, q, false, false, page, size);
+    }
+
+    /**
+     * Variante con los filtros derivados del resumen de paquetes:
+     * {@code requiereAtencion} (al menos un paquete en flujo alterno o sin
+     * estado) y {@code estadosMixtos} (más de un estado actual distinto). Ambos
+     * se resuelven con subconsultas dentro de la misma consulta paginada, por lo
+     * que se aplican <b>antes</b> de paginar y son combinables.
+     */
+    @Transactional(readOnly = true)
+    public Page<EnvioConsolidado> findAll(EstadoEnvioConsolidadoOperativo estadoOperativo,
+                                          com.ecubox.ecubox_backend.enums.EstadoPagoConsolidado estadoPago,
+                                          String q, boolean requiereAtencion, boolean estadosMixtos,
+                                          int page, int size) {
         Pageable pageable = Pageables.bounded(page, size, 100,
                 Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
@@ -176,7 +193,40 @@ public class EnvioConsolidadoService {
             spec = spec.and(SearchSpecifications.tokensLike(trimmed,
                     SearchSpecifications.field("codigo")));
         }
+        if (requiereAtencion) {
+            spec = spec.and(specRequiereAtencion());
+        }
+        if (estadosMixtos) {
+            spec = spec.and(specEstadosMixtos());
+        }
         return envioConsolidadoRepository.findAll(spec, pageable);
+    }
+
+    /** Consolidados con al menos un paquete que requiere atención (flujo alterno o sin estado). */
+    private Specification<EnvioConsolidado> specRequiereAtencion() {
+        return (root, query, cb) -> {
+            jakarta.persistence.criteria.Subquery<Long> sub = query.subquery(Long.class);
+            jakarta.persistence.criteria.Root<Paquete> p = sub.from(Paquete.class);
+            jakarta.persistence.criteria.Join<Paquete, EstadoRastreo> er =
+                    p.join("estadoRastreo", jakarta.persistence.criteria.JoinType.LEFT);
+            sub.select(cb.literal(1L)).where(
+                    cb.equal(p.get("envioConsolidado"), root),
+                    cb.or(
+                            er.get("id").isNull(),
+                            cb.equal(er.get("tipoFlujo"), com.ecubox.ecubox_backend.enums.TipoFlujoEstado.ALTERNO)));
+            return cb.exists(sub);
+        };
+    }
+
+    /** Consolidados cuyos paquetes tienen más de un estado actual distinto. */
+    private Specification<EnvioConsolidado> specEstadosMixtos() {
+        return (root, query, cb) -> {
+            jakarta.persistence.criteria.Subquery<Long> sub = query.subquery(Long.class);
+            jakarta.persistence.criteria.Root<Paquete> p = sub.from(Paquete.class);
+            sub.select(cb.countDistinct(p.get("estadoRastreo").get("id")))
+                    .where(cb.equal(p.get("envioConsolidado"), root));
+            return cb.greaterThan(sub, 1L);
+        };
     }
 
     /**
@@ -1537,6 +1587,72 @@ public class EnvioConsolidadoService {
                 .updatedAt(envio.getUpdatedAt())
                 .paquetes(paquetesDTO)
                 .build();
+    }
+
+    /**
+     * Regla canónica de "requiere atención" para un estado de un paquete:
+     * <b>sin estado</b> (defensivo; el estado de la pieza es NOT NULL) o estado
+     * en <b>flujo alterno</b> (excepción). Centralizada aquí para no duplicarla
+     * en el frontend.
+     */
+    public static boolean requiereAtencionEstado(Long estadoId, TipoFlujoEstado tipoFlujo) {
+        return estadoId == null || tipoFlujo == TipoFlujoEstado.ALTERNO;
+    }
+
+    /**
+     * Construye, en <b>una sola consulta agregada</b>, el resumen de estados de
+     * paquetes de varios consolidados (para el listado paginado, sin N+1). Los
+     * estados de cada consolidado se ordenan por el orden canónico del tracking
+     * ({@code ordenTracking} asc, sin orden al final) y luego por nombre; nunca
+     * por cantidad.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<Long, ResumenEstadosPaquetesConsolidadoDTO> construirResumenesEstados(
+            java.util.List<Long> consolidadoIds) {
+        if (consolidadoIds == null || consolidadoIds.isEmpty()) return java.util.Map.of();
+        java.util.Map<Long, java.util.List<ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO>>
+                porConsolidado = new java.util.HashMap<>();
+        for (Object[] fila : paqueteRepository.resumenEstadosPaquetesPorConsolidado(consolidadoIds)) {
+            Long consolidadoId = (Long) fila[0];
+            Long estadoId = (Long) fila[1];
+            String codigo = (String) fila[2];
+            String nombre = (String) fila[3];
+            Integer ordenTracking = (Integer) fila[4];
+            TipoFlujoEstado tipoFlujo = (TipoFlujoEstado) fila[5];
+            int cantidad = ((Number) fila[6]).intValue();
+            ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO item =
+                    ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO.builder()
+                            .estadoId(estadoId)
+                            .codigo(codigo)
+                            .nombre(nombre != null ? nombre : "Sin estado")
+                            .cantidad(cantidad)
+                            .ordenTracking(ordenTracking)
+                            .tipoFlujo(tipoFlujo != null ? tipoFlujo.name() : null)
+                            .requiereAtencion(requiereAtencionEstado(estadoId, tipoFlujo))
+                            .build();
+            porConsolidado.computeIfAbsent(consolidadoId, k -> new java.util.ArrayList<>()).add(item);
+        }
+        java.util.Map<Long, ResumenEstadosPaquetesConsolidadoDTO> resultado = new java.util.HashMap<>();
+        for (Long id : consolidadoIds) {
+            java.util.List<ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO> items =
+                    porConsolidado.getOrDefault(id, new java.util.ArrayList<>());
+            items.sort(java.util.Comparator
+                    .comparing((ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO it) ->
+                            it.getOrdenTracking() == null ? Integer.MAX_VALUE : it.getOrdenTracking())
+                    .thenComparing(it -> it.getNombre() != null ? it.getNombre() : ""));
+            int total = items.stream()
+                    .mapToInt(ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO::getCantidad).sum();
+            int atencion = items.stream()
+                    .filter(ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO::isRequiereAtencion)
+                    .mapToInt(ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO::getCantidad).sum();
+            resultado.put(id, ResumenEstadosPaquetesConsolidadoDTO.builder()
+                    .totalPaquetes(total)
+                    .estados(items)
+                    .cantidadRequiereAtencion(atencion)
+                    .estadosMixtos(items.size() > 1)
+                    .build());
+        }
+        return resultado;
     }
 
 }

@@ -356,6 +356,22 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     @Query("SELECT COALESCE(SUM(p.pesoLbs), 0) FROM Paquete p WHERE p.envioConsolidado.id = :envioId")
     java.math.BigDecimal sumPesoLbsByEnvioConsolidadoId(@Param("envioId") Long envioConsolidadoId);
 
+    /**
+     * Resumen agregado de estados de rastreo de los paquetes de varios
+     * consolidados en <b>una sola consulta</b> (evita N+1 en el listado). Cada
+     * fila: {@code [consolidadoId, estadoId, codigo, nombre, ordenTracking,
+     * tipoFlujo, cantidad]}. El estado de la pieza es {@code NOT NULL}; el
+     * {@code LEFT JOIN} es defensivo por si en algún histórico faltara.
+     */
+    @Query("""
+            SELECT p.envioConsolidado.id, er.id, er.codigo, er.nombre, er.ordenTracking, er.tipoFlujo, COUNT(p)
+            FROM Paquete p
+            LEFT JOIN p.estadoRastreo er
+            WHERE p.envioConsolidado.id IN :consolidadoIds
+            GROUP BY p.envioConsolidado.id, er.id, er.codigo, er.nombre, er.ordenTracking, er.tipoFlujo
+            """)
+    List<Object[]> resumenEstadosPaquetesPorConsolidado(@Param("consolidadoIds") List<Long> consolidadoIds);
+
     // ---------------------------------------------------------------------
     // Resumen liviano de paquetes (KPIs + opciones de filtro) y backfill de
     // la fecha límite de retiro. Las queries de opciones aceptan un usuarioId

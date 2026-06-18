@@ -309,10 +309,8 @@ export function AplicarEstadoMasivoDialog({
                                     <p className="mt-0.5 text-[11px] text-warning">
                                       {item.disabledReason}
                                     </p>
-          </div>
-
-          {contentExtra}
-        </div>
+                                  </div>
+                                </div>
                               </li>
                             ))}
                           </ul>
@@ -322,6 +320,8 @@ export function AplicarEstadoMasivoDialog({
                   </>
                 )}
               </div>
+
+              {contentExtra}
 
               <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
                 {selectedIds.length === 0

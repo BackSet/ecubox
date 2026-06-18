@@ -90,6 +90,29 @@ public interface DespachoRepository extends JpaRepository<Despacho, Long>,
             """)
     java.math.BigDecimal sumPesoLbsPorDespacho(@Param("despachoId") Long despachoId);
 
+    /** Total de paquetes (vía saca) que viajan en un despacho. */
+    @Query("""
+            SELECT COUNT(p)
+            FROM Paquete p
+            JOIN p.saca s
+            WHERE s.despacho.id = :despachoId
+            """)
+    long countPaquetesPorDespacho(@Param("despachoId") Long despachoId);
+
+    /**
+     * Paquetes sin peso registrado que viajan en un despacho. Un peso nulo es un
+     * dato desconocido (no cero): este conteo permite informar la completitud
+     * del peso sin convertir nulos en cero.
+     */
+    @Query("""
+            SELECT COUNT(p)
+            FROM Paquete p
+            JOIN p.saca s
+            WHERE s.despacho.id = :despachoId
+              AND p.pesoLbs IS NULL
+            """)
+    long countPaquetesSinPesoPorDespacho(@Param("despachoId") Long despachoId);
+
     /**
      * Despachos que aun no aparecen como linea en ninguna liquidacion (UNIQUE
      * global en {@code liquidacion_despacho_linea.despacho_id}). Hidrata el
