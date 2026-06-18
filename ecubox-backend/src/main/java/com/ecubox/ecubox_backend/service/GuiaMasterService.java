@@ -876,6 +876,14 @@ public class GuiaMasterService {
     }
 
     /**
+     * Recalcula el estado global de la guía master (método del motor canónico).
+     */
+    @Transactional
+    public void recalcularEstadoGuia(Long securityGuiaMasterId) {
+        recomputarEstado(securityGuiaMasterId);
+    }
+
+    /**
      * Congela el snapshot del destinatario en la guia. Idempotente: si la
      * guia ya tiene {@code destinatarioVersion}, no hace nada. Resuelve
      * la version vigente del destinatario maestro o, si por algun motivo
