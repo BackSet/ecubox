@@ -43,5 +43,21 @@ public class ResumenEstadosPaquetesConsolidadoDTO {
         private String tipoFlujo;
         /** true si este estado requiere atención (flujo alterno o sin estado). */
         private boolean requiereAtencion;
+        /** Muestra acotada de paquetes de este estado (máximo 3 por backend). */
+        private List<PaquetePreviewDTO> paquetesPreview;
+        /** true si hay más paquetes de este estado que los incluidos en el preview. */
+        private boolean hayMas;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PaquetePreviewDTO {
+        private Long paqueteId;
+        private String codigo;
+        private Long guiaId;
+        private String guiaCodigo;
+        private String piezaLabel;
     }
 }

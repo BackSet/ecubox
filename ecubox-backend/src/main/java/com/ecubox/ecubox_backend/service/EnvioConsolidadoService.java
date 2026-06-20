@@ -90,6 +90,7 @@ public class EnvioConsolidadoService {
     private static final ZoneId ZONA_ECUADOR = ZoneId.of("America/Guayaquil");
     private static final String MENSAJE_REQUIERE_PAQUETE =
             "El consolidado debe contener al menos un paquete para cambiar de estado.";
+    private static final int PAQUETES_PREVIEW_POR_ESTADO = 3;
     private static final List<EstadoEnvioConsolidadoOperativo> ESTADOS_OPERATIVOS_AVANCE = List.of(
             EstadoEnvioConsolidadoOperativo.EN_PREPARACION,
             EstadoEnvioConsolidadoOperativo.CERRADO,
@@ -1599,6 +1600,8 @@ public class EnvioConsolidadoService {
         return estadoId == null || tipoFlujo == TipoFlujoEstado.ALTERNO;
     }
 
+    private record EstadoResumenKey(Long consolidadoId, Long estadoId) {}
+
     /**
      * Construye, en <b>una sola consulta agregada</b>, el resumen de estados de
      * paquetes de varios consolidados (para el listado paginado, sin N+1). Los
@@ -1629,13 +1632,50 @@ public class EnvioConsolidadoService {
                             .ordenTracking(ordenTracking)
                             .tipoFlujo(tipoFlujo != null ? tipoFlujo.name() : null)
                             .requiereAtencion(requiereAtencionEstado(estadoId, tipoFlujo))
+                            .paquetesPreview(List.of())
+                            .hayMas(false)
                             .build();
             porConsolidado.computeIfAbsent(consolidadoId, k -> new java.util.ArrayList<>()).add(item);
+        }
+        java.util.Map<EstadoResumenKey, java.util.List<ResumenEstadosPaquetesConsolidadoDTO.PaquetePreviewDTO>>
+                previewsPorEstado = new java.util.HashMap<>();
+        java.util.List<Object[]> previewRows = paqueteRepository.previewPaquetesPorEstadoConsolidado(
+                consolidadoIds, PAQUETES_PREVIEW_POR_ESTADO);
+        for (Object[] fila : previewRows != null ? previewRows : List.<Object[]>of()) {
+            Long consolidadoId = ((Number) fila[0]).longValue();
+            Long estadoId = fila[1] != null ? ((Number) fila[1]).longValue() : null;
+            Long paqueteId = ((Number) fila[2]).longValue();
+            String numeroGuia = (String) fila[3];
+            Long guiaId = fila[4] != null ? ((Number) fila[4]).longValue() : null;
+            String guiaCodigo = (String) fila[5];
+            Integer piezaNumero = fila[6] != null ? ((Number) fila[6]).intValue() : null;
+            Integer piezaTotal = fila[7] != null ? ((Number) fila[7]).intValue() : null;
+            String piezaLabel = piezaNumero != null && piezaTotal != null
+                    ? piezaNumero + "/" + piezaTotal
+                    : piezaNumero != null ? String.valueOf(piezaNumero) : null;
+
+            previewsPorEstado
+                    .computeIfAbsent(new EstadoResumenKey(consolidadoId, estadoId),
+                            k -> new java.util.ArrayList<>())
+                    .add(ResumenEstadosPaquetesConsolidadoDTO.PaquetePreviewDTO.builder()
+                            .paqueteId(paqueteId)
+                            .codigo(numeroGuia)
+                            .guiaId(guiaId)
+                            .guiaCodigo(guiaCodigo)
+                            .piezaLabel(piezaLabel)
+                            .build());
         }
         java.util.Map<Long, ResumenEstadosPaquetesConsolidadoDTO> resultado = new java.util.HashMap<>();
         for (Long id : consolidadoIds) {
             java.util.List<ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO> items =
                     porConsolidado.getOrDefault(id, new java.util.ArrayList<>());
+            for (ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO item : items) {
+                java.util.List<ResumenEstadosPaquetesConsolidadoDTO.PaquetePreviewDTO> preview =
+                        previewsPorEstado.getOrDefault(
+                                new EstadoResumenKey(id, item.getEstadoId()), List.of());
+                item.setPaquetesPreview(preview);
+                item.setHayMas(item.getCantidad() > preview.size());
+            }
             items.sort(java.util.Comparator
                     .comparing((ResumenEstadosPaquetesConsolidadoDTO.EstadoPaqueteResumenItemDTO it) ->
                             it.getOrdenTracking() == null ? Integer.MAX_VALUE : it.getOrdenTracking())

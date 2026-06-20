@@ -600,13 +600,15 @@ const enviosConsolidadosRoute = createRoute({
 const enviosConsolidadosDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/envios-consolidados/$id',
-  // estadoPaqueteId: id del estado de rastreo para filtrar las piezas; la clave
-  // explícita 'SIN_ESTADO' representa piezas sin estado (nunca se usa 0).
+  // estadoPaqueteId: id del estado de rastreo para filtrar las piezas.
+  // sinEstado=true representa piezas sin estado; nunca se usa estadoPaqueteId=0.
   validateSearch: (
     search: Record<string, unknown>,
-  ): { estadoPaqueteId?: number | 'SIN_ESTADO' } => {
+  ): { estadoPaqueteId?: number; sinEstado?: boolean } => {
+    if (search.sinEstado === true || search.sinEstado === 'true') {
+      return { sinEstado: true };
+    }
     const raw = search.estadoPaqueteId;
-    if (raw === 'SIN_ESTADO') return { estadoPaqueteId: 'SIN_ESTADO' };
     const n = typeof raw === 'number' ? raw : Number(raw);
     return Number.isFinite(n) && n > 0 ? { estadoPaqueteId: n } : {};
   },

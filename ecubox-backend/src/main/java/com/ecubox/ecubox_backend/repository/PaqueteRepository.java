@@ -393,6 +393,50 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
             """)
     List<Object[]> resumenEstadosPaquetesPorConsolidado(@Param("consolidadoIds") List<Long> consolidadoIds);
 
+    /**
+     * Preview acotado de paquetes por consolidado y estado en una sola consulta
+     * por página. PostgreSQL calcula {@code row_number()} por grupo y devuelve
+     * como máximo {@code limite} paquetes por estado; el orden es creación más
+     * reciente y luego id descendente para que la muestra sea estable y útil en
+     * operación sin cargar todos los paquetes.
+     *
+     * Filas: [consolidadoId, estadoId, paqueteId, numeroGuia, guiaId,
+     * guiaCodigo, piezaNumero, piezaTotal].
+     */
+    @Query(value = """
+            SELECT ranked.consolidado_id,
+                   ranked.estado_id,
+                   ranked.paquete_id,
+                   ranked.numero_guia,
+                   ranked.guia_id,
+                   ranked.guia_codigo,
+                   ranked.pieza_numero,
+                   ranked.pieza_total
+            FROM (
+                SELECT p.envio_consolidado_id AS consolidado_id,
+                       p.estado_rastreo_id AS estado_id,
+                       p.id AS paquete_id,
+                       p.numero_guia AS numero_guia,
+                       gm.id AS guia_id,
+                       gm.tracking_base AS guia_codigo,
+                       p.pieza_numero AS pieza_numero,
+                       p.pieza_total AS pieza_total,
+                       row_number() OVER (
+                           PARTITION BY p.envio_consolidado_id, p.estado_rastreo_id
+                           ORDER BY p.created_at DESC NULLS LAST, p.id DESC
+                       ) AS rn
+                FROM paquete p
+                LEFT JOIN guia_master gm ON gm.id = p.guia_master_id
+                WHERE p.envio_consolidado_id IN (:consolidadoIds)
+            ) ranked
+            WHERE ranked.rn <= :limite
+            ORDER BY ranked.consolidado_id ASC,
+                     ranked.estado_id ASC NULLS LAST,
+                     ranked.rn ASC
+            """, nativeQuery = true)
+    List<Object[]> previewPaquetesPorEstadoConsolidado(@Param("consolidadoIds") List<Long> consolidadoIds,
+                                                       @Param("limite") int limite);
+
     // ---------------------------------------------------------------------
     // Resumen liviano de paquetes (KPIs + opciones de filtro) y backfill de
     // la fecha límite de retiro. Las queries de opciones aceptan un usuarioId
