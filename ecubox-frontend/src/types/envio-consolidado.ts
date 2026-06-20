@@ -27,6 +27,14 @@ export type EstadoEnvioConsolidadoOperativo =
   | 'CANCELADO';
 
 /** Un estado dentro del resumen agregado de paquetes de un consolidado. */
+export interface PaqueteEstadoPreview {
+  paqueteId: number;
+  codigo: string;
+  guiaId?: number | null;
+  guiaCodigo?: string | null;
+  piezaLabel?: string | null;
+}
+
 export interface EstadoPaqueteResumenItem {
   /** id del estado de rastreo; null representa "Sin estado". */
   estadoId: number | null;
@@ -37,6 +45,10 @@ export interface EstadoPaqueteResumenItem {
   tipoFlujo?: string | null;
   /** true si requiere atención (flujo alterno o sin estado). */
   requiereAtencion: boolean;
+  /** Muestra acotada de paquetes de este estado (máximo 3 por backend). */
+  paquetesPreview?: PaqueteEstadoPreview[];
+  /** true si hay más paquetes de este estado que los incluidos en el preview. */
+  hayMas?: boolean;
 }
 
 /**

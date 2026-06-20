@@ -56,6 +56,14 @@ class EnvioConsolidadoServiceResumenEstadosTest {
         return new Object[]{consolidadoId, estadoId, codigo, nombre, ordenTracking, tipoFlujo, count};
     }
 
+    /** [consolidadoId, estadoId, paqueteId, numeroGuia, guiaId, guiaCodigo, piezaNumero, piezaTotal]. */
+    private Object[] preview(long consolidadoId, Long estadoId, long paqueteId, String numeroGuia,
+                             Long guiaId, String guiaCodigo, Integer piezaNumero, Integer piezaTotal) {
+        return new Object[]{
+                consolidadoId, estadoId, paqueteId, numeroGuia, guiaId, guiaCodigo, piezaNumero, piezaTotal
+        };
+    }
+
     @Test
     void requiereAtencionEstado_reglaCanonica() {
         assertTrue(EnvioConsolidadoService.requiereAtencionEstado(null, null)); // sin estado
@@ -86,6 +94,10 @@ class EnvioConsolidadoServiceResumenEstadosTest {
     void unEstado_noMixto() {
         when(paqueteRepository.resumenEstadosPaquetesPorConsolidado(anyList())).thenReturn(List.<Object[]>of(
                 fila(1L, 50L, "EN_BODEGA", "En bodega", 5, TipoFlujoEstado.NORMAL, 9L)));
+        when(paqueteRepository.previewPaquetesPorEstadoConsolidado(List.of(1L), 3)).thenReturn(List.<Object[]>of(
+                preview(1L, 50L, 101L, "TBA331923064", 201L, "420071431319", 1, 2),
+                preview(1L, 50L, 102L, "CNUSP154283", null, null, null, null),
+                preview(1L, 50L, 103L, "1ZH383330075", 202L, "420071218477", 2, 2)));
 
         ResumenEstadosPaquetesConsolidadoDTO r = service().construirResumenesEstados(List.of(1L)).get(1L);
 
@@ -93,6 +105,14 @@ class EnvioConsolidadoServiceResumenEstadosTest {
         assertEquals(1, r.getEstados().size());
         assertFalse(r.isEstadosMixtos());
         assertEquals(0, r.getCantidadRequiereAtencion());
+        EstadoPaqueteResumenItemDTO estado = r.getEstados().getFirst();
+        assertEquals(3, estado.getPaquetesPreview().size());
+        assertTrue(estado.isHayMas());
+        assertEquals("TBA331923064", estado.getPaquetesPreview().getFirst().getCodigo());
+        assertEquals(201L, estado.getPaquetesPreview().getFirst().getGuiaId());
+        assertEquals("420071431319", estado.getPaquetesPreview().getFirst().getGuiaCodigo());
+        assertEquals("1/2", estado.getPaquetesPreview().getFirst().getPiezaLabel());
+        assertNull(estado.getPaquetesPreview().get(1).getGuiaId());
     }
 
     @Test
@@ -118,12 +138,37 @@ class EnvioConsolidadoServiceResumenEstadosTest {
         when(paqueteRepository.resumenEstadosPaquetesPorConsolidado(anyList())).thenReturn(List.<Object[]>of(
                 fila(1L, 5L, "BODEGA", "En bodega", 5, TipoFlujoEstado.NORMAL, 3L),
                 fila(1L, 8L, "RETENIDO", "Retenido en aduana", 6, TipoFlujoEstado.ALTERNO, 2L)));
+        when(paqueteRepository.previewPaquetesPorEstadoConsolidado(List.of(1L), 3)).thenReturn(List.<Object[]>of(
+                preview(1L, 8L, 201L, "ALT-1", null, null, null, null),
+                preview(1L, 8L, 202L, "ALT-2", null, null, null, null)));
 
         ResumenEstadosPaquetesConsolidadoDTO r = service().construirResumenesEstados(List.of(1L)).get(1L);
 
         assertEquals(5, r.getTotalPaquetes());
         assertEquals(2, r.getCantidadRequiereAtencion());
         assertTrue(r.getEstados().stream().anyMatch(EstadoPaqueteResumenItemDTO::isRequiereAtencion));
+        assertFalse(r.getEstados().stream()
+                .filter(EstadoPaqueteResumenItemDTO::isRequiereAtencion)
+                .findFirst()
+                .orElseThrow()
+                .isHayMas());
+    }
+
+    @Test
+    void sinEstado_noSeOculta_yUsaPreviewPropio() {
+        when(paqueteRepository.resumenEstadosPaquetesPorConsolidado(anyList())).thenReturn(List.<Object[]>of(
+                fila(1L, null, null, null, null, null, 1L)));
+        when(paqueteRepository.previewPaquetesPorEstadoConsolidado(List.of(1L), 3)).thenReturn(List.<Object[]>of(
+                preview(1L, null, 300L, "SIN-ESTADO-1", 400L, "GUIA-400", null, null)));
+
+        ResumenEstadosPaquetesConsolidadoDTO r = service().construirResumenesEstados(List.of(1L)).get(1L);
+
+        EstadoPaqueteResumenItemDTO estado = r.getEstados().getFirst();
+        assertNull(estado.getEstadoId());
+        assertEquals("Sin estado", estado.getNombre());
+        assertTrue(estado.isRequiereAtencion());
+        assertEquals(1, estado.getPaquetesPreview().size());
+        assertEquals("SIN-ESTADO-1", estado.getPaquetesPreview().getFirst().getCodigo());
     }
 
     @Test
@@ -135,8 +180,10 @@ class EnvioConsolidadoServiceResumenEstadosTest {
         Map<Long, ResumenEstadosPaquetesConsolidadoDTO> r =
                 service().construirResumenesEstados(List.of(1L, 2L, 3L));
 
-        // Una única invocación al repositorio para toda la página.
+        // Dos invocaciones por página: una agregada para conteos y una acotada
+        // con row_number() para preview; nunca una consulta por consolidado.
         verify(paqueteRepository).resumenEstadosPaquetesPorConsolidado(List.of(1L, 2L, 3L));
+        verify(paqueteRepository).previewPaquetesPorEstadoConsolidado(List.of(1L, 2L, 3L), 3);
         assertEquals(1, r.get(1L).getTotalPaquetes());
         assertEquals(1, r.get(2L).getTotalPaquetes());
         // El consolidado sin filas igual aparece con total 0 (no se omite).

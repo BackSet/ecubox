@@ -93,8 +93,9 @@ export function EnvioConsolidadoDetailPage() {
   const params = useParams({ strict: false });
   const id = Number(params.id);
   const { data: envio, isLoading, error } = useEnvioConsolidado(id);
-  const { estadoPaqueteId } = useSearch({ strict: false }) as {
-    estadoPaqueteId?: number | 'SIN_ESTADO';
+  const { estadoPaqueteId, sinEstado } = useSearch({ strict: false }) as {
+    estadoPaqueteId?: number | string;
+    sinEstado?: boolean;
   };
   const [agregarOpen, setAgregarOpen] = useState(false);
   const [confirmCerrar, setConfirmCerrar] = useState(false);
@@ -117,23 +118,29 @@ export function EnvioConsolidadoDetailPage() {
 
   const paquetes = envio?.paquetes ?? [];
 
+  const estadoPaqueteIdNumero = useMemo(() => {
+    if (estadoPaqueteId == null || estadoPaqueteId === '') return undefined;
+    const value = Number(estadoPaqueteId);
+    return Number.isFinite(value) && value > 0 ? value : undefined;
+  }, [estadoPaqueteId]);
+
   const estadoFiltradoNombre = useMemo(() => {
-    if (estadoPaqueteId === 'SIN_ESTADO') return 'Sin estado';
-    if (typeof estadoPaqueteId === 'number') {
-      const pkg = paquetes.find((p) => p.estadoRastreoId === estadoPaqueteId);
-      return pkg?.estadoRastreoNombre ?? `Estado #${estadoPaqueteId}`;
+    if (sinEstado) return 'Sin estado';
+    if (estadoPaqueteIdNumero != null) {
+      const pkg = paquetes.find((p) => p.estadoRastreoId === estadoPaqueteIdNumero);
+      return pkg?.estadoRastreoNombre ?? `Estado #${estadoPaqueteIdNumero}`;
     }
     return null;
-  }, [estadoPaqueteId, paquetes]);
+  }, [estadoPaqueteIdNumero, paquetes, sinEstado]);
 
   const paquetesFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     let res = paquetes;
 
-    if (estadoPaqueteId === 'SIN_ESTADO') {
+    if (sinEstado) {
       res = res.filter((p) => p.estadoRastreoId === null || p.estadoRastreoId === undefined);
-    } else if (typeof estadoPaqueteId === 'number') {
-      res = res.filter((p) => p.estadoRastreoId === estadoPaqueteId);
+    } else if (estadoPaqueteIdNumero != null) {
+      res = res.filter((p) => p.estadoRastreoId === estadoPaqueteIdNumero);
     }
 
     if (!q) return res;
@@ -146,7 +153,7 @@ export function EnvioConsolidadoDetailPage() {
         p.estadoRastreoCodigo?.toLowerCase().includes(q)
       );
     });
-  }, [paquetes, busqueda, estadoPaqueteId]);
+  }, [paquetes, busqueda, estadoPaqueteIdNumero, sinEstado]);
 
   const stats = useMemo(() => {
     let pesoLbs = 0;
@@ -576,7 +583,7 @@ export function EnvioConsolidadoDetailPage() {
           isRemoving={remover.isPending}
           onLimpiarBusqueda={() => {
             setBusqueda('');
-            if (estadoPaqueteId !== undefined) {
+            if (estadoPaqueteIdNumero !== undefined || sinEstado) {
               navigate({
                 to: '/envios-consolidados/$id',
                 params: { id: String(id) },
@@ -584,7 +591,7 @@ export function EnvioConsolidadoDetailPage() {
               });
             }
           }}
-          tieneBusqueda={busqueda.trim() !== '' || estadoPaqueteId !== undefined}
+          tieneBusqueda={busqueda.trim() !== '' || estadoPaqueteIdNumero !== undefined || !!sinEstado}
         />
       </SurfaceCard>
 
