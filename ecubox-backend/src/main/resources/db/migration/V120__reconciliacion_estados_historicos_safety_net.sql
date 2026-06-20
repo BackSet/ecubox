@@ -148,6 +148,7 @@ BEGIN
     -- ====================================================
     -- FASE A: candidatos de consolidado
     -- ====================================================
+    DROP TABLE IF EXISTS temp_consolidado_v120;
     CREATE TEMPORARY TABLE temp_consolidado_v120 (
         consolidado_id BIGINT PRIMARY KEY,
         codigo VARCHAR(100),
@@ -173,37 +174,20 @@ BEGIN
         ec.id,
         ec.codigo,
         ec.estado_operativo::text,
+        -- Estado sugerido determinístico desde los HITOS PROPIOS del consolidado
+        -- (no se infiere desde el orden de los paquetes: el catálogo de dev colapsa
+        --  aduana y bodega en el mismo estado, lo que haría ambigua esa inferencia).
         CASE
             WHEN ec.estado_operativo = 'CANCELADO' THEN 'CANCELADO'
-            -- Regla 4: pertenece a liquidación => piso LIQUIDADO (más avanzado, no degrada)
-            WHEN EXISTS (SELECT 1 FROM liquidacion_consolidado_linea lcl WHERE lcl.envio_consolidado_id = ec.id)
-                 THEN 'LIQUIDADO'
+            -- Regla 4: pertenece a liquidación => LIQUIDADO
+            WHEN EXISTS (SELECT 1 FROM liquidacion_consolidado_linea lcl WHERE lcl.envio_consolidado_id = ec.id) THEN 'LIQUIDADO'
             WHEN ec.estado_operativo = 'LIQUIDADO' THEN 'LIQUIDADO'
-            WHEN EXISTS (
-                    SELECT 1 FROM lote_recepcion_guia lrg
-                    WHERE LOWER(TRIM(lrg.numero_guia_envio)) = LOWER(TRIM(ec.codigo))
-                 ) OR COALESCE((
-                    SELECT MAX(COALESCE(er.orden, er.orden_tracking))
-                    FROM paquete p JOIN estado_rastreo er ON p.estado_rastreo_id = er.id
-                    WHERE p.envio_consolidado_id = ec.id AND er.tipo_flujo = 'NORMAL'
-                 ), 0) >= v_bodega_orden THEN 'RECIBIDO_EN_BODEGA'
-            WHEN ec.fecha_arribo_ecuador IS NOT NULL OR COALESCE((
-                    SELECT MAX(COALESCE(er.orden, er.orden_tracking))
-                    FROM paquete p JOIN estado_rastreo er ON p.estado_rastreo_id = er.id
-                    WHERE p.envio_consolidado_id = ec.id AND er.tipo_flujo = 'NORMAL'
-                 ), 0) >= v_aduana_orden THEN 'ARRIBADO_ECUADOR'
-            WHEN ec.fecha_cerrado IS NOT NULL OR COALESCE((
-                    SELECT MAX(COALESCE(er.orden, er.orden_tracking))
-                    FROM paquete p JOIN estado_rastreo er ON p.estado_rastreo_id = er.id
-                    WHERE p.envio_consolidado_id = ec.id AND er.tipo_flujo = 'NORMAL'
-                 ), 0) >= v_vuelo_orden THEN 'ENVIADO_DESDE_USA'
-            WHEN ec.fecha_cierre IS NOT NULL OR COALESCE((
-                    SELECT MAX(COALESCE(er.orden, er.orden_tracking))
-                    FROM paquete p JOIN estado_rastreo er ON p.estado_rastreo_id = er.id
-                    WHERE p.envio_consolidado_id = ec.id AND er.tipo_flujo = 'NORMAL'
-                 ), 0) >= v_manifestado_orden THEN 'CERRADO'
+            -- en lote de recepción confirmado => RECIBIDO_EN_BODEGA
+            WHEN EXISTS (SELECT 1 FROM lote_recepcion_guia lrg WHERE LOWER(TRIM(lrg.numero_guia_envio)) = LOWER(TRIM(ec.codigo))) THEN 'RECIBIDO_EN_BODEGA'
+            WHEN ec.fecha_arribo_ecuador IS NOT NULL THEN 'ARRIBADO_ECUADOR'
+            WHEN ec.fecha_cerrado IS NOT NULL THEN 'ENVIADO_DESDE_USA'
+            WHEN ec.fecha_cierre IS NOT NULL THEN 'CERRADO'
             WHEN (SELECT COUNT(*) FROM paquete p WHERE p.envio_consolidado_id = ec.id) > 0 THEN 'EN_PREPARACION'
-            WHEN ec.estado_operativo = 'EN_PREPARACION' THEN 'VACIO'
             ELSE ec.estado_operativo::text
         END,
         (SELECT COUNT(*) FROM paquete p WHERE p.envio_consolidado_id = ec.id),
@@ -230,19 +214,19 @@ BEGIN
     SET es_ambiguo = TRUE, motivo_ambiguo = 'CONSOLIDADO_LIQUIDADO_SIN_EVIDENCIA'
     WHERE estado_actual = 'LIQUIDADO' AND en_liquidacion IS FALSE;
 
-    -- Corregibles deterministas
+    -- Corregibles deterministas. Sólo se ELEVA por rango operativo (nunca degrada).
     UPDATE temp_consolidado_v120
     SET es_corregible = TRUE,
         razon = CASE
             WHEN en_liquidacion AND estado_sugerido = 'LIQUIDADO' THEN 'CONSOLIDADO_EN_LIQUIDACION_DEBAJO_DE_LIQUIDADO'
+            WHEN confirmado_en_lote AND estado_sugerido = 'RECIBIDO_EN_BODEGA' THEN 'CONSOLIDADO_CONFIRMADO_EN_LOTE_SIN_RECIBIDO'
             WHEN estado_actual = 'VACIO' AND estado_sugerido = 'EN_PREPARACION' THEN 'VACIO_CON_PAQUETES'
-            WHEN estado_actual = 'EN_PREPARACION' AND estado_sugerido = 'VACIO' THEN 'EN_PREPARACION_SIN_PAQUETES'
-            WHEN confirmado_en_lote AND estado_actual <> 'RECIBIDO_EN_BODEGA' THEN 'CONSOLIDADO_CONFIRMADO_EN_LOTE_SIN_RECIBIDO'
-            ELSE 'ESTADO_ANTERIOR_PESE_A_HITO_POSTERIOR'
+            ELSE 'CONSOLIDADO_DEBAJO_DE_HITO'
         END
     WHERE es_ambiguo IS FALSE
-      AND estado_actual <> estado_sugerido
-      AND estado_actual <> 'CANCELADO';   -- nunca degradar/cambiar un cancelado
+      AND estado_actual <> 'CANCELADO'   -- nunca tocar un cancelado
+      AND COALESCE(array_position(ARRAY['VACIO','EN_PREPARACION','CERRADO','ENVIADO_DESDE_USA','ARRIBADO_ECUADOR','RECIBIDO_EN_BODEGA','LIQUIDADO'], estado_sugerido), 0)
+        > COALESCE(array_position(ARRAY['VACIO','EN_PREPARACION','CERRADO','ENVIADO_DESDE_USA','ARRIBADO_ECUADOR','RECIBIDO_EN_BODEGA','LIQUIDADO'], estado_actual), 0);
 
     -- Fecha histórica verificable por estado sugerido
     UPDATE temp_consolidado_v120 tc
@@ -254,12 +238,11 @@ BEGIN
                 JOIN liquidacion l ON lcl.liquidacion_id = l.id
                 WHERE lcl.envio_consolidado_id = tc.consolidado_id
             )
-            WHEN estado_sugerido = 'RECIBIDO_EN_BODEGA' THEN COALESCE(
-                (SELECT MIN(lr.fecha_recepcion)
-                   FROM lote_recepcion_guia lrg
-                   JOIN lote_recepcion lr ON lrg.lote_recepcion_id = lr.id
-                   WHERE LOWER(TRIM(lrg.numero_guia_envio)) = LOWER(TRIM(tc.codigo))),
-                (SELECT ec.fecha_recibido FROM envio_consolidado ec WHERE ec.id = tc.consolidado_id)
+            WHEN estado_sugerido = 'RECIBIDO_EN_BODEGA' THEN (
+                SELECT MIN(lr.fecha_recepcion)
+                FROM lote_recepcion_guia lrg
+                JOIN lote_recepcion lr ON lrg.lote_recepcion_id = lr.id
+                WHERE LOWER(TRIM(lrg.numero_guia_envio)) = LOWER(TRIM(tc.codigo))
             )
             WHEN estado_sugerido = 'ARRIBADO_ECUADOR' THEN (SELECT ec.fecha_arribo_ecuador FROM envio_consolidado ec WHERE ec.id = tc.consolidado_id)
             WHEN estado_sugerido = 'ENVIADO_DESDE_USA' THEN (SELECT ec.fecha_cerrado      FROM envio_consolidado ec WHERE ec.id = tc.consolidado_id)
@@ -274,6 +257,7 @@ BEGIN
     -- ====================================================
     -- FASE B: piso operativo de cada paquete
     -- ====================================================
+    DROP TABLE IF EXISTS temp_paquete_v120;
     CREATE TEMPORARY TABLE temp_paquete_v120 (
         paquete_id BIGINT PRIMARY KEY,
         numero_guia VARCHAR(100),
@@ -432,6 +416,7 @@ BEGIN
     -- ====================================================
     -- FASE C: reconciliación de guías (usa el piso de paquetes ya calculado)
     -- ====================================================
+    DROP TABLE IF EXISTS temp_guia_v120;
     CREATE TEMPORARY TABLE temp_guia_v120 (
         guia_id BIGINT PRIMARY KEY,
         estado_actual VARCHAR(40),
@@ -649,19 +634,19 @@ BEGIN
                 WHEN ec.estado_operativo = 'CANCELADO' THEN 'CANCELADO'
                 WHEN EXISTS (SELECT 1 FROM liquidacion_consolidado_linea lcl WHERE lcl.envio_consolidado_id = ec.id) THEN 'LIQUIDADO'
                 WHEN ec.estado_operativo = 'LIQUIDADO' THEN 'LIQUIDADO'
-                WHEN EXISTS (SELECT 1 FROM lote_recepcion_guia lrg WHERE LOWER(TRIM(lrg.numero_guia_envio)) = LOWER(TRIM(ec.codigo)))
-                     OR COALESCE((SELECT MAX(COALESCE(er.orden,er.orden_tracking)) FROM paquete p JOIN estado_rastreo er ON p.estado_rastreo_id=er.id WHERE p.envio_consolidado_id=ec.id AND er.tipo_flujo='NORMAL'),0) >= v_bodega_orden THEN 'RECIBIDO_EN_BODEGA'
-                WHEN ec.fecha_arribo_ecuador IS NOT NULL OR COALESCE((SELECT MAX(COALESCE(er.orden,er.orden_tracking)) FROM paquete p JOIN estado_rastreo er ON p.estado_rastreo_id=er.id WHERE p.envio_consolidado_id=ec.id AND er.tipo_flujo='NORMAL'),0) >= v_aduana_orden THEN 'ARRIBADO_ECUADOR'
-                WHEN ec.fecha_cerrado IS NOT NULL OR COALESCE((SELECT MAX(COALESCE(er.orden,er.orden_tracking)) FROM paquete p JOIN estado_rastreo er ON p.estado_rastreo_id=er.id WHERE p.envio_consolidado_id=ec.id AND er.tipo_flujo='NORMAL'),0) >= v_vuelo_orden THEN 'ENVIADO_DESDE_USA'
-                WHEN ec.fecha_cierre IS NOT NULL OR COALESCE((SELECT MAX(COALESCE(er.orden,er.orden_tracking)) FROM paquete p JOIN estado_rastreo er ON p.estado_rastreo_id=er.id WHERE p.envio_consolidado_id=ec.id AND er.tipo_flujo='NORMAL'),0) >= v_manifestado_orden THEN 'CERRADO'
+                WHEN EXISTS (SELECT 1 FROM lote_recepcion_guia lrg WHERE LOWER(TRIM(lrg.numero_guia_envio)) = LOWER(TRIM(ec.codigo))) THEN 'RECIBIDO_EN_BODEGA'
+                WHEN ec.fecha_arribo_ecuador IS NOT NULL THEN 'ARRIBADO_ECUADOR'
+                WHEN ec.fecha_cerrado IS NOT NULL THEN 'ENVIADO_DESDE_USA'
+                WHEN ec.fecha_cierre IS NOT NULL THEN 'CERRADO'
                 WHEN (SELECT COUNT(*) FROM paquete p WHERE p.envio_consolidado_id=ec.id) > 0 THEN 'EN_PREPARACION'
-                WHEN ec.estado_operativo = 'EN_PREPARACION' THEN 'VACIO'
                 ELSE ec.estado_operativo::text
             END AS sugerido,
             ec.estado_operativo::text AS actual
         FROM envio_consolidado ec
     ) s
-    WHERE s.sugerido <> s.actual AND s.actual <> 'CANCELADO'
+    WHERE s.actual <> 'CANCELADO'
+      AND COALESCE(array_position(ARRAY['VACIO','EN_PREPARACION','CERRADO','ENVIADO_DESDE_USA','ARRIBADO_ECUADOR','RECIBIDO_EN_BODEGA','LIQUIDADO'], s.sugerido), 0)
+        > COALESCE(array_position(ARRAY['VACIO','EN_PREPARACION','CERRADO','ENVIADO_DESDE_USA','ARRIBADO_ECUADOR','RECIBIDO_EN_BODEGA','LIQUIDADO'], s.actual), 0)
       AND NOT EXISTS (SELECT 1 FROM migracion_ambiguos_v120 ma WHERE ma.entidad='CONSOLIDADO' AND ma.entidad_id=s.id);
 
     -- Paquetes normales aún por debajo de su piso
