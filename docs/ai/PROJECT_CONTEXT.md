@@ -1,6 +1,6 @@
 # Contexto técnico canónico de ECUBOX
 
-> Corte funcional auditado: rama `dev`, merge `6ff2e24d5620305dc4315c2437a08b2f49f6d0fb`.
+> Corte funcional auditado: rama `dev`, `HEAD d81b513` — actualizado 2026-06-20.
 >
 > Etiquetas de evidencia:
 > - **Verificado en Git**: código, configuración, migraciones, tests o historial de la rama.
@@ -30,7 +30,7 @@
 | Contexto IA | `docs/ai/` | Estos cuatro archivos canónicos. |
 | Infraestructura local | `docker-compose.yml`, `*/Dockerfile`, `ecubox-frontend/Caddyfile` | PostgreSQL, backend y frontend servido por Caddy. |
 | Despliegue | `ecubox-backend/railway.json`, `ecubox-frontend/railway.json`, `docs/despliegue/` | Configuración y guía de Railway. |
-| Migraciones | `ecubox-backend/src/main/resources/db/migration/` | Flyway `V1` a `V110`, con numeración no necesariamente contigua. |
+| Migraciones | `ecubox-backend/src/main/resources/db/migration/` | Flyway `V1` a `V120` (119 archivos; numeración no contigua: falta `V70`). |
 | Seed de desarrollo | `ecubox-backend/src/main/resources/db/dev/` | Migración repetible solo del perfil `dev`. |
 | Tests backend | `ecubox-backend/src/test/java/` | JUnit/Spring Test/Mockito; predominan unitarios y pruebas HTTP aisladas. |
 | Tests frontend | `ecubox-frontend/src/**/*.test.{ts,tsx}` | Vitest, Testing Library y jsdom. |
@@ -122,6 +122,14 @@ Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.js
 - Hibernate usa `ddl-auto=validate`; Flyway es la autoridad del esquema.
 - No modificar migraciones históricas aplicadas. Los cambios futuros de esquema requieren una migración nueva.
 - Zona horaria operativa: `America/Guayaquil`, fijada en aplicación y contenedor backend.
+- **Familia de migraciones de reconciliación de estados históricos** (`V118`, `V119`, `V120`): reparan estados rezagados de paquetes/consolidados/guías contra el piso operativo derivado de sus relaciones y la configuración de "estados por punto" en `parametro_sistema` (sin hardcodear IDs; abortan si falta configuración; nunca degradan; omiten alterno/bloqueado/en revisión/terminal; fechas históricas verificables; eventos idempotentes sin notificar). `V120` añade la regla determinística Regla 4 (consolidado en liquidación por debajo de `LIQUIDADO` → `LIQUIDADO`). Detalle y matriz: `docs/ai/MODULE_MAP.md` §7, `docs/ai/states_audit.md`, `docs/ai/reparacion_reporte_v119.md`. **Flyway se ejecuta automáticamente al arrancar el backend en cualquier perfil** (`spring.flyway.enabled=true` en `application.properties`, sin guardia de entorno): el próximo arranque del backend aplica estas migraciones a la base de datos de ese entorno.
+
+### Validación reciente (2026-06-20, corte `d81b513`)
+
+- **Verificado en Git**: 34 tests de servicio de reconciliación verdes (`ReparacionEstadoBodegaServiceTest`, `PaqueteServiceReparacionBodegaTest`, `PaqueteServiceCalcularEstadoMinimoTest`, `TrackingEventServiceReparacionTest`, `EstadoConsolidadoOperativoResolverTest`).
+- **Verificado en DB de dev**: `V120` ejecutada en `BEGIN…ROLLBACK` con `psql` (no aplicada de forma permanente): corrigió 1 paquete (`LLEGA_A_ADUANA→EN_BODEGA`) y 1 guía (`ENVIO_PARCIAL→RECEPCION_PARCIAL`), `post_*`=0, sin degradación, segunda corrida = 0 filas.
+- **Pendiente de confirmar**: comportamiento de la familia de reconciliación contra datos de **producción** (la configuración de `estado_rastreo` puede diferir de dev; en dev `aduana` y `bodega` apuntan al mismo estado). No existe reporte de ejecución en producción; no afirmar que producción fue reparada.
+- El arnés de tests no ejecuta migraciones Flyway (los tests son unitarios Mockito y el test de contexto está gateado por `ECUBOX_RUN_BOOT_CONTEXT_TEST`); validar SQL de migraciones requiere `psql` contra un clon de dev.
 
 ### Integraciones externas confirmadas
 
@@ -201,8 +209,8 @@ Variables por nombre, sin valores:
 - **Proyecciones por audiencia**: las vistas de cliente no reutilizan el DTO administrativo. Exponen un DTO propio (`MiGuia*`, `MiDespacho*`) acotado al cliente o al scope de enlace —conteos, peso y estados se calculan solo sobre sus paquetes, nunca con totales globales— y omiten datos operativos sensibles (precinto, sacas, observaciones internas, liquidación, usuario creador). Cuando un dato tiene snapshot histórico (SCD2), la vista de cliente lo resuelve por la **misma fuente histórica** que el back-office (p. ej. el destino del despacho en `/mis-entregas`). El vocabulario visible se separa del interno (ver NAMING: estados de guía, entregas/despachos).
 - Las revisiones administrativas que suspenden operabilidad se modelan como historial independiente del estado logístico; la condición activa se protege en servicio, base de datos y validadores operativos.
 - Una bandeja de trabajo separa consulta global, operación normal y atención especializada; filtros, conteos y paginación se resuelven en servidor. Cuando una pantalla tiene varias bandejas, cada una es una consulta distinta (la bandeja forma parte de la queryKey) y **no se conservan datos entre bandejas distintas**: al cambiar de bandeja se muestra esqueleto, no filas de la anterior, y se limpian selección masiva, acción elegida, página y filtros no aplicables (referencia: `/paquetes`, `/guias-master`).
-- **Contradicción**: `docs/desarrollo/TECH-STACK.md` tiene versiones antiguas frente a manifiestos.
-- **Contradicción**: `docs/desarrollo/ARQUITECTURA_BACKEND.md` menciona `entity/enums`, `PermissionConstants`, `AuthService`, `PaqueteMapper` y entidades de tracking que no coinciden con el árbol actual.
+- `docs/desarrollo/TECH-STACK.md` está **alineado** con los manifiestos en las versiones mayores (Java 25, Spring Boot 4.0.6, React 19, Vite 8, TypeScript 6, Tailwind 4, jjwt 0.13.0, Zustand 5). Inconsistencia menor interna: declara Flyway `12.2.0` en una tabla y `12.6` en el resumen; `pom.xml` es la autoridad.
+- **Contradicción (vigente)**: `docs/desarrollo/ARQUITECTURA_BACKEND.md` menciona `entity/enums` (los enums viven en `enums/` de nivel superior), `PermissionConstants`, `AuthService` y `PaqueteMapper`, que no existen en el árbol actual (el mapeo de paquete es inline; auth vive en `AuthController` + `UsuarioService`/`JwtService`).
 - **Contradicción**: `docs/nomenclatura.md` mapea algunos endpoints como `/api/consignatarios`, `/api/lotes-recepcion`, `/api/despachos` y `/api/casillero`; el código actual expone variantes como `/api/mis-consignatarios`, `/api/operario/consignatarios`, `/api/operario/lotes-recepcion`, `/api/operario/despachos`, y el casillero se obtiene por configuración.
 - **Pendiente de confirmar**: rama exacta conectada a cada servicio Railway.
 - **Pendiente de confirmar**: cobertura mínima exigida; no hay umbral configurado.

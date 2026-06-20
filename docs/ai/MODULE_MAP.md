@@ -1,6 +1,6 @@
 # Mapa canónico de módulos ECUBOX
 
-> Fuente funcional: rama `dev`, commit `adac693` más cambios locales descritos en este documento.
+> Fuente funcional: rama `dev`, `HEAD d81b513` (actualizado 2026-06-20).
 > Salvo indicación contraria, las rutas y clases de este documento están **verificadas en Git**.
 
 ## 1. Inventario funcional
