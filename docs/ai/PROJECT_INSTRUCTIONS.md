@@ -68,6 +68,32 @@ Etiquetas:
 - No hagas commit, push, merge, rebase ni abras PR sin autorización explícita.
 - No uses `main` para completar vacíos de información de `dev`.
 
+## 4.1 Producción y migraciones
+
+- `main` es la rama predeterminada remota y la de despliegue; `dev` es la base de trabajo. No mergees `dev → main` sin autorización explícita.
+- **Flyway se ejecuta automáticamente al arrancar el backend en cualquier perfil** (`spring.flyway.enabled=true`, sin guardia de entorno). Un `git push` y el CI **no** aplican migraciones (CI solo corre tests; el test de contexto está gateado por `ECUBOX_RUN_BOOT_CONTEXT_TEST`), pero **el próximo arranque/reinicio del backend de un entorno aplica las migraciones pendientes a la DB de ese entorno**. Tenlo en cuenta antes de promover migraciones a `main`.
+- Para validar SQL de una migración sin un arranque completo: ejecútala dentro de `BEGIN … ROLLBACK` con `psql` contra un clon/transacción reversible de dev (sourcing `.env`, nunca exponiendo la contraseña). El arnés de tests no aplica migraciones.
+- No afirmar que producción fue reparada/migrada sin un reporte de ejecución real contra producción.
+
+## 4.2 Comandos base
+
+```bash
+# Verificación de contexto
+git remote -v && git branch --show-current && git status --short
+
+# Backend (cd ecubox-backend)
+./mvnw -q -o compile           # compilar
+./mvnw test                    # tests
+./mvnw spring-boot:run         # API en :8080 (perfil dev; aplica Flyway)
+
+# Frontend (cd ecubox-frontend)
+npm ci && npm run dev          # dev server :5173
+npx tsc --noEmit               # typecheck (no hay script eslint)
+npm test                       # Vitest
+npm run build                  # build (incluye tsc)
+npm run lint:nomenclatura      # lint de términos de dominio
+```
+
 ## 5. Mantenimiento obligatorio
 
 Después de cada implementación, revisar:
@@ -124,3 +150,7 @@ Incluye:
 - lista exacta del diff final.
 
 No ocultes limitaciones. Si algo no está confirmado en `dev`, márcalo como pendiente.
+
+## 8. Protocolo de continuidad
+
+Si una tarea no se completa, no la declares terminada. Entrega un **RESUMEN DE CONTINUIDAD** con: proyecto/repo/rama; estado actual; archivos revisados; archivos modificados; hallazgos confirmados; hallazgos pendientes; comandos ejecutados y resultados; cambios parciales; pendientes exactos; riesgos; siguiente acción; y un **prompt autocontenido para reanudar**. Ese prompt de reanudación debe ordenar, antes de continuar: confirmar `origin`/rama, revisar `git status --short`, inspeccionar el `diff` y los archivos ya modificados.
