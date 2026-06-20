@@ -419,11 +419,17 @@ export function AgregarPaquetesSacaDialog({
     () => listadoGuias.split('\n').map((l) => l.trim()).filter(Boolean).length,
     [listadoGuias]
   );
+  const crearSacasDisabled = paqueteIdsOrdenados.length === 0 || loading;
+  const cantidadSacasPreview = distribucionPreview?.length ?? 0;
+  const crearSacasLabel =
+    paqueteIdsOrdenados.length === 0
+      ? 'Crear sacas'
+      : `Crear ${cantidadSacasPreview} saca${cantidadSacasPreview === 1 ? '' : 's'}`;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden p-0">
-        <DialogHeader className="border-b border-[var(--color-border)] px-6 pb-4 pt-6">
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-3xl flex-col overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)]">
+        <DialogHeader className="shrink-0 border-b border-[var(--color-border)] px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
           <div className="flex items-start gap-3">
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--color-muted)] text-[var(--color-primary)]">
               <Boxes className="h-5 w-5" />
@@ -436,7 +442,7 @@ export function AgregarPaquetesSacaDialog({
               </DialogTitle>
               <DialogDescription className="mt-1 text-xs">
                 {modo === 'crearYDistribuir'
-                  ? 'Escanea o pega guías. El orden de ingreso define a qué saca va cada paquete. Los paquetes sin peso también pueden incluirse; su peso quedará pendiente.'
+                  ? 'Pega o escanea paquetes y elige cómo distribuirlos.'
                   : 'Pega un listado de guías (una por línea) o escanea individualmente. Los paquetes sin peso también pueden incluirse; su peso quedará pendiente.'}
               </DialogDescription>
             </div>
@@ -471,7 +477,7 @@ export function AgregarPaquetesSacaDialog({
           )}
         </DialogHeader>
 
-        <div className="flex gap-1 border-b border-[var(--color-border)] bg-[var(--color-muted)]/20 px-6 py-2">
+        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-2 sm:px-6">
           <button
             type="button"
             onClick={() => setTab('lista')}
@@ -500,7 +506,7 @@ export function AgregarPaquetesSacaDialog({
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 sm:px-6">
           {tab === 'lista' && (
             <div className="flex flex-col space-y-3">
               <div className="flex items-center justify-between">
@@ -523,6 +529,7 @@ export function AgregarPaquetesSacaDialog({
                   listadoGuiasErrors.length > 0 && 'border-[var(--color-destructive)]'
                 )}
                 aria-invalid={listadoGuiasErrors.length > 0}
+                autoFocus
               />
               {listadoGuiasErrors.length > 0 && (
                 <div
@@ -702,34 +709,40 @@ export function AgregarPaquetesSacaDialog({
               </ul>
             </div>
           )}
+
+          {modo === 'crearYDistribuir' && (
+            <div className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/10 p-3">
+              <DistribucionSacasPanel
+                totalPaquetes={paqueteIdsOrdenados.length}
+                paquetesDetalle={paquetesDetalleDistribucion}
+                value={distribucionState}
+                onChange={setDistribucionState}
+                error={errorDistribucion}
+              />
+            </div>
+          )}
         </div>
 
-        {modo === 'crearYDistribuir' && (
-          <div className="border-t border-[var(--color-border)] bg-[var(--color-muted)]/10 px-6 py-4">
-            <DistribucionSacasPanel
-              totalPaquetes={paqueteIdsOrdenados.length}
-              paquetesDetalle={paquetesDetalleDistribucion}
-              value={distribucionState}
-              onChange={setDistribucionState}
-              error={errorDistribucion}
-            />
-          </div>
-
-        )}
-
-        <DialogFooter className="border-t border-[var(--color-border)] bg-[var(--color-background)] px-6 py-3">
+        <DialogFooter className="shrink-0 border-t border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 sm:px-6">
           <Button type="button" variant="outline" onClick={() => handleClose(false)}>
             Cerrar
           </Button>
           {modo === 'crearYDistribuir' && (
-            <Button
-              type="button"
-              onClick={handleCrearSacas}
-              disabled={paqueteIdsOrdenados.length === 0 || loading}
-            >
-              <Check className="mr-1.5 h-4 w-4" />
-              Crear {distribucionPreview?.length ?? 0} saca{(distribucionPreview?.length ?? 0) === 1 ? '' : 's'}
-            </Button>
+            <div className="flex flex-col items-stretch gap-1 sm:items-end">
+              {paqueteIdsOrdenados.length === 0 && (
+                <span className="text-xs text-muted-foreground">
+                  Agrega al menos un paquete.
+                </span>
+              )}
+              <Button
+                type="button"
+                onClick={handleCrearSacas}
+                disabled={crearSacasDisabled}
+              >
+                <Check className="mr-1.5 h-4 w-4" />
+                {crearSacasLabel}
+              </Button>
+            </div>
           )}
         </DialogFooter>
       </DialogContent>

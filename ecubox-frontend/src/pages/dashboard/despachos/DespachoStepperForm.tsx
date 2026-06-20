@@ -425,6 +425,10 @@ export function DespachoStepperForm({
     }
     return true;
   });
+  const noHayPaquetesDisponiblesParaCrearSaca =
+    paquetesDisponiblesParaDespacho.length === 0 &&
+    sacasEnDespacho.length === 0 &&
+    sacasNuevas.length === 0;
 
   useEffect(() => {
     if (tipoEntrega !== 'AGENCIA' || provinciaCantonRef == null) return;
@@ -1256,58 +1260,87 @@ export function DespachoStepperForm({
         {pasoActual === 2 && (
           <>
             <section ref={sectionSacasRef} className="surface-card space-y-5 sm:space-y-6 p-4 sm:p-5">
-              <div>
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
-                  <Package className="h-4 w-4" />
-                  Sacas en este despacho
-                </h2>
-                <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-                  Ingresa paquetes (lista o individual) y define la distribución para crear sacas. El peso se calcula automáticamente y el tamaño se configura en cada saca.
-                </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
+                    <Package className="h-4 w-4" />
+                    Sacas en este despacho
+                  </h2>
+                  <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+                    Agrupa paquetes en sacas para este despacho.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={() =>
+                    setAgregarPaquetesDialog({
+                      open: true,
+                      modo: 'crearYDistribuir',
+                      tipo: 'nueva',
+                      label: 'Crear sacas',
+                    })
+                  }
+                >
+                  <Package className="mr-2 h-4 w-4" />
+                  Ingresar paquetes
+                </Button>
               </div>
-              {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') && autoDetectedDestId != null && autoDetectedDest && (
-                <div className="ui-alert ui-alert-success">
-                  <p className="font-medium">
-                    Consignatario detectado: <strong>{autoDetectedDest.nombre}</strong>
-                    {(autoDetectedDest.provincia || autoDetectedDest.canton) && (
-                      <span className="font-normal"> — {[autoDetectedDest.provincia, autoDetectedDest.canton].filter(Boolean).join(', ')}</span>
-                    )}
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted-foreground)]">
+                <span className="rounded-full border border-border bg-[var(--color-muted)]/20 px-2.5 py-1">
+                  {totalSacasDisplay} saca{totalSacasDisplay === 1 ? '' : 's'}
+                </span>
+                <span className="rounded-full border border-border bg-[var(--color-muted)]/20 px-2.5 py-1">
+                  {totalPaquetesDisplay} paquete{totalPaquetesDisplay === 1 ? '' : 's'}
+                </span>
+                {disponiblesSinPeso.length > 0 && (
+                  <span className="rounded-full border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-2.5 py-1 text-[var(--color-warning)]">
+                    {disponiblesSinPeso.length} paquete{disponiblesSinPeso.length === 1 ? '' : 's'} sin peso · se pueden incluir, quedarán pendientes de pesaje.
+                  </span>
+                )}
+                {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') && autoDetectedDestId != null && autoDetectedDest && (
+                  <span className="rounded-full border border-border bg-[var(--color-muted)]/20 px-2.5 py-1">
+                    Consignatario: {autoDetectedDest.nombre}
+                  </span>
+                )}
+                {tipoEntrega === 'AGENCIA' && provinciaCantonRef != null && (
+                  <span className="rounded-full border border-border bg-[var(--color-muted)]/20 px-2.5 py-1">
+                    Ubicación: {provinciaCantonRef.provincia}, {provinciaCantonRef.canton}
+                  </span>
+                )}
+              </div>
+
+              <details className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/10 px-3 py-2 text-sm">
+                <summary className="cursor-pointer text-xs font-medium text-[var(--color-foreground)]">
+                  Reglas para crear sacas
+                </summary>
+                <div className="mt-2 space-y-1.5 text-xs text-[var(--color-muted-foreground)]">
+                  <p>
+                    Para crear una saca, los paquetes deben estar en el estado de bodega configurado.
                   </p>
-                  <p className="mt-1 text-xs opacity-80">Solo puedes agregar paquetes del consignatario detectado.</p>
+                  {elegibilidadSacas?.estadoRequeridoNombre && (
+                    <p>
+                      Estado requerido actual:{' '}
+                      <span className="font-medium text-[var(--color-foreground)]">
+                        {elegibilidadSacas.estadoRequeridoNombre}
+                      </span>
+                    </p>
+                  )}
+                  {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') && (
+                    <p>
+                      El primer paquete fija el consignatario del despacho; después solo se agregan paquetes del mismo consignatario.
+                    </p>
+                  )}
+                  {tipoEntrega === 'AGENCIA' && (
+                    <p>
+                      El primer paquete fija provincia y cantón; después solo se agregan paquetes de la misma zona.
+                    </p>
+                  )}
+                  <p>Puedes guardar el despacho vacío y agregar las sacas después.</p>
                 </div>
-              )}
-              {(tipoEntrega === 'DOMICILIO' || tipoEntrega === 'AGENCIA_COURIER_ENTREGA') && autoDetectedDestId == null && (
-                <div className="ui-alert ui-alert-info">
-                  Agrega un primer paquete para fijar automáticamente el consignatario del despacho.
-                </div>
-              )}
-              {tipoEntrega === 'AGENCIA' && provinciaCantonRef != null && (
-                <div className="ui-alert ui-alert-success">
-                  <p className="font-medium">
-                    Ubicación del envío: <strong>{provinciaCantonRef.provincia}, {provinciaCantonRef.canton}</strong>
-                  </p>
-                  <p className="mt-1 text-xs opacity-80">Solo puedes agregar paquetes de la misma provincia y cantón.</p>
-                </div>
-              )}
-              {tipoEntrega === 'AGENCIA' && provinciaCantonRef == null && (
-                <div className="ui-alert ui-alert-info">
-                  Agrega un primer paquete para fijar automáticamente provincia y cantón del despacho.
-                </div>
-              )}
-              {paquetesDisponiblesParaDespacho.length === 0 && (autoDetectedDestId != null || provinciaCantonRef != null) && (
-                <p className="text-sm text-[var(--color-muted-foreground)]">No hay más paquetes disponibles que cumplan la restricción actual del despacho.</p>
-              )}
-              {disponiblesSinPeso.length > 0 && (
-                <div className="ui-alert ui-alert-warning">
-                  <p className="font-medium">
-                    {disponiblesSinPeso.length} paquete{disponiblesSinPeso.length === 1 ? '' : 's'} sin peso registrado
-                  </p>
-                  <p className="mt-1 text-xs opacity-80">
-                    Puedes incluirlos en el despacho; su peso quedará pendiente y los totales serán
-                    parciales hasta que registres el peso en Pesaje.
-                  </p>
-                </div>
-              )}
+              </details>
 
               {sacasEnDespacho.length > 0 && (
                 <div className="space-y-3">
@@ -1467,21 +1500,6 @@ export function DespachoStepperForm({
                 </div>
               )}
 
-              <div
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-3 text-sm"
-                role="status"
-              >
-                <p className="font-medium text-[var(--color-foreground)]">
-                  Las sacas nuevas deben tener todos sus paquetes en{' '}
-                  {elegibilidadSacas?.estadoRequeridoNombre
-                    ? `“${elegibilidadSacas.estadoRequeridoNombre}”`
-                    : 'el estado requerido por la configuración'}.
-                </p>
-                <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                  Puedes guardar el despacho vacío y agregar las sacas después.
-                </p>
-              </div>
-
               {loadingElegibilidadSacas && (
                 <div className="rounded-md border border-dashed border-[var(--color-border)] px-3 py-3 text-sm text-[var(--color-muted-foreground)]">
                   Cargando sacas elegibles…
@@ -1523,23 +1541,25 @@ export function DespachoStepperForm({
                 </div>
               )}
 
-              {!loadingElegibilidadSacas &&
-                !errorElegibilidadSacas &&
-                disponiblesParaAgregar.length === 0 && (
+              {noHayPaquetesDisponiblesParaCrearSaca && (
                   <div className="rounded-md border border-dashed border-[var(--color-border)] px-3 py-3 text-sm text-[var(--color-muted-foreground)]">
-                    No hay sacas elegibles disponibles en este momento.
+                    <p className="font-medium text-[var(--color-foreground)]">
+                      No hay paquetes disponibles para crear sacas.
+                    </p>
+                    <p className="mt-1 text-xs">
+                      Solo se pueden agregar paquetes sin saca en el estado de bodega configurado.
+                    </p>
                   </div>
                 )}
 
               {fields.length === 0 && sacasEnDespacho.length === 0 ? (
-                <div className="space-y-5">
-                  <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/10 p-6">
-                    <h3 className="text-sm font-medium text-[var(--color-foreground)]">Ingresar paquetes y crear sacas</h3>
-                    <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                      Escanea o ingresa paquetes (lista o individual) y define la distribución (ej. 1,2,4) para crear varias sacas. El tamaño se configura en cada saca después.
-                    </p>
-                    <p className="mt-3 text-sm text-[var(--color-muted-foreground)]">
-                      Aún no hay sacas. Use el botón para ingresar paquetes y crear sacas, o agregue sacas disponibles.
+                noHayPaquetesDisponiblesParaCrearSaca ? null : (
+                  <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/10 p-6 text-center">
+                    <h3 className="text-sm font-medium text-[var(--color-foreground)]">
+                      Aún no hay sacas en este despacho.
+                    </h3>
+                    <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+                      Ingresa paquetes para crear la primera saca.
                     </p>
                     <Button
                       type="button"
@@ -1556,22 +1576,22 @@ export function DespachoStepperForm({
                       }
                     >
                       <Package className="mr-2 h-4 w-4" />
-                      Ingresar paquetes y crear sacas
+                      Ingresar paquetes
                     </Button>
                   </div>
-                </div>
+                )
               ) : (
                 <div className="space-y-5">
-                  <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/10 p-4">
-                    <h3 className="text-sm font-medium text-[var(--color-foreground)]">Ingresar paquetes y crear sacas</h3>
+                  <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/10 p-4">
+                    <h3 className="text-sm font-medium text-[var(--color-foreground)]">Crear más sacas</h3>
                     <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                      Escanea o ingresa paquetes (lista o individual) y luego define la distribución (ej. 1,2,4) para crear más sacas. El tamaño se configura en cada saca.
+                      Ingresa paquetes y ajusta la distribución si necesitas dividirlos en varias sacas.
                     </p>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="mt-3"
+                      className="mt-4"
                       onClick={() =>
                         setAgregarPaquetesDialog({
                           open: true,
@@ -1582,7 +1602,7 @@ export function DespachoStepperForm({
                       }
                     >
                       <Package className="mr-2 h-4 w-4" />
-                      Ingresar paquetes y crear sacas
+                      Ingresar paquetes
                     </Button>
                   </div>
                   <div className="space-y-4">
