@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useCreateLoteRecepcion } from '@/hooks/useLotesRecepcion';
-import { useEnviosDisponiblesParaRecepcion } from '@/hooks/useEnviosConsolidados';
+import {
+  useEnviosDisponiblesParaRecepcion,
+  useTodosEnviosConsolidados,
+} from '@/hooks/useEnviosConsolidados';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SearchableCombobox } from '@/components/ui/searchable-combobox';
@@ -27,11 +30,32 @@ import { cn } from '@/lib/utils';
 import { notify } from '@/lib/notify';
 import { getApiErrorMessage } from '@/lib/api/error-message';
 import type { EnvioConsolidado } from '@/types/envio-consolidado';
+import {
+  ENVIO_CONSOLIDADO_ESTADO_UI,
+  resolveEstadoOperativoConsolidado,
+} from '@/pages/dashboard/envios-consolidados/EnvioConsolidadoBadge';
 
 function defaultFechaRecepcion(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function describirNoDisponible(envio: EnvioConsolidado): string {
+  if ((envio.totalPaquetes ?? 0) <= 0) {
+    return `${envio.codigo} · no tiene paquetes asociados`;
+  }
+
+  const estado = resolveEstadoOperativoConsolidado(envio);
+  if (estado !== 'ARRIBADO_ECUADOR') {
+    return `${envio.codigo} · está en ${ENVIO_CONSOLIDADO_ESTADO_UI[estado].label}; debe estar en Arribado a Ecuador`;
+  }
+
+  return `${envio.codigo} · ya fue recibido en otro lote`;
+}
+
+function codigoDesdeDescripcionNoDisponible(descripcion: string): string {
+  return descripcion.split(' · ')[0] ?? descripcion;
 }
 
 export function LoteRecepcionNuevoPage() {
@@ -55,6 +79,7 @@ export function LoteRecepcionNuevoPage() {
     size: 200,
   });
   const envios = enviosResp?.content ?? [];
+  const { data: todosEnvios, isLoading: loadingTodosEnvios } = useTodosEnviosConsolidados();
 
   const opcionesDisponibles = useMemo(
     () => envios.filter((e) => !seleccionados.some((s) => s.id === e.id)),
@@ -107,26 +132,33 @@ export function LoteRecepcionNuevoPage() {
     const yaSeleccionadosSet = new Set(
       seleccionados.map((s) => s.codigo.toUpperCase()),
     );
-    // Indexamos contra TODOS los envios cargados (incluyendo los sin paquetes)
-    // para poder distinguir entre "no existe" y "existe pero esta vacio" en
-    // los toasts de feedback. La seleccion final solo agrega los que tienen
-    // paquetes, igual que el combobox.
-    const enviosPorCodigo = new Map(
+    // El endpoint de recepcion trae solo elegibles. El catalogo general se usa
+    // como respaldo para explicar por que un codigo real no puede recibirse.
+    const disponiblesPorCodigo = new Map(
       envios.map((e) => [e.codigo.toUpperCase(), e]),
+    );
+    const todosPorCodigo = new Map(
+      (todosEnvios ?? []).map((e) => [e.codigo.toUpperCase(), e]),
     );
 
     const nuevos: EnvioConsolidado[] = [];
     const duplicados: string[] = [];
-    const desconocidos: string[] = [];
+    const noEncontrados: string[] = [];
+    const noDisponibles: string[] = [];
 
     for (const codigoUpper of dedup) {
       if (yaSeleccionadosSet.has(codigoUpper)) {
         duplicados.push(codigoUpper);
         continue;
       }
-      const env = enviosPorCodigo.get(codigoUpper);
+      const env = disponiblesPorCodigo.get(codigoUpper);
       if (!env) {
-        desconocidos.push(codigoUpper);
+        const conocido = todosPorCodigo.get(codigoUpper);
+        if (conocido) {
+          noDisponibles.push(describirNoDisponible(conocido));
+        } else {
+          noEncontrados.push(codigoUpper);
+        }
         continue;
       }
       nuevos.push(env);
@@ -149,16 +181,26 @@ export function LoteRecepcionNuevoPage() {
           ` · Ya estaba${duplicados.length === 1 ? '' : 'n'} en la lista.`,
       );
     }
-    if (desconocidos.length > 0) {
+    if (noDisponibles.length > 0) {
       notify.error(
-        `${desconocidos.length} código${desconocidos.length === 1 ? '' : 's'} no disponible${desconocidos.length === 1 ? '' : 's'}`,
-        desconocidos.slice(0, 5).join(', ') +
-          (desconocidos.length > 5 ? '...' : '') +
-          ' · No existen, no tienen paquetes o ya fueron recibidos en otro lote.',
+        `${noDisponibles.length} código${noDisponibles.length === 1 ? '' : 's'} no disponible${noDisponibles.length === 1 ? '' : 's'}`,
+        noDisponibles.slice(0, 3).join(' · ') +
+          (noDisponibles.length > 3 ? '...' : ''),
+      );
+    }
+    if (noEncontrados.length > 0) {
+      notify.error(
+        `${noEncontrados.length} código${noEncontrados.length === 1 ? '' : 's'} no encontrado${noEncontrados.length === 1 ? '' : 's'}`,
+        noEncontrados.slice(0, 5).join(', ') +
+          (noEncontrados.length > 5 ? '...' : '') +
+          ' · No existe un envío consolidado con ese código.',
       );
     }
 
-    const restantes = desconocidos;
+    const restantes = [
+      ...noDisponibles.map(codigoDesdeDescripcionNoDisponible),
+      ...noEncontrados,
+    ];
     setBulkText(restantes.join('\n'));
   };
 
@@ -382,7 +424,7 @@ export function LoteRecepcionNuevoPage() {
                         loadingEnvios
                           ? 'Cargando envíos...'
                           : opcionesDisponibles.length === 0
-                            ? 'No hay consolidados «Arribado a Ecuador» pendientes de recibir'
+                            ? 'No hay consolidados arribados pendientes de recibir'
                             : 'Buscar por código de envío consolidado'
                       }
                       searchPlaceholder="Escribe el código..."
@@ -408,15 +450,9 @@ export function LoteRecepcionNuevoPage() {
                                 Pagado
                               </Badge>
                             )}
-                            {o.cerrado ? (
-                              <Badge variant="secondary" className="font-normal">
-                                Enviado desde USA
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-[var(--color-success)]/15 font-normal text-[var(--color-success)] hover:bg-[var(--color-success)]/20">
-                                En preparación
-                              </Badge>
-                            )}
+                            <Badge variant="secondary" className="font-normal">
+                              Arribado a Ecuador
+                            </Badge>
                           </div>
                         </div>
                       )}
@@ -437,10 +473,9 @@ export function LoteRecepcionNuevoPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Se listan envíos con al menos un paquete que aún no fueron
-                  recibidos en otro lote, sin importar si están en preparación,
-                  enviados desde USA o ya pagados. Si no aparece el código que buscas,
-                  créalo o agrégale paquetes en{' '}
+                  Se listan envíos con al menos un paquete, estado «Arribado a
+                  Ecuador» y que aún no fueron recibidos en otro lote. Si el
+                  código existe pero está en otro estado, avánzalo primero en{' '}
                   <Link
                     to="/envios-consolidados"
                     className="text-primary underline-offset-2 hover:underline"
@@ -457,8 +492,8 @@ export function LoteRecepcionNuevoPage() {
                 </label>
                 <p className="text-xs text-muted-foreground">
                   Separa los códigos por líneas, espacios o comas. Se agregarán
-                  los envíos con paquetes que aún no estén en otro lote, sin
-                  importar si ya salieron de USA o ya están pagados.
+                  los envíos con paquetes que estén en «Arribado a Ecuador» y
+                  aún no estén en otro lote.
                 </p>
                 <textarea
                   value={bulkText}
@@ -500,7 +535,11 @@ export function LoteRecepcionNuevoPage() {
                     <Button
                       type="button"
                       onClick={agregarLista}
-                      disabled={loadingEnvios || bulkText.trim().length === 0}
+                      disabled={
+                        loadingEnvios ||
+                        loadingTodosEnvios ||
+                        bulkText.trim().length === 0
+                      }
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Agregar lista
@@ -555,11 +594,9 @@ export function LoteRecepcionNuevoPage() {
                                 Pagado
                               </Badge>
                             )}
-                            {env.cerrado && (
-                              <Badge variant="secondary" className="font-normal">
-                                Enviado desde USA
-                              </Badge>
-                            )}
+                            <Badge variant="secondary" className="font-normal">
+                              Arribado a Ecuador
+                            </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">
                             {env.totalPaquetes ?? 0} paquete
