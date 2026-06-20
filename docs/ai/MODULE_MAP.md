@@ -172,3 +172,19 @@
 - El endpoint canónico documental de consignatarios está desalineado: el código separa vistas de cliente y operario.
 - La rama de producción y el mecanismo automático de despliegue no están declarados en configuración versionada.
 - `docs/desarrollo/API_REFERENCE.md` debe cotejarse endpoint por endpoint antes de considerarse contrato ejecutable.
+
+## 7. Migraciones de reconciliación de estados históricos (Flyway)
+
+Familia de migraciones que reparan el histórico de estados de **paquetes, envíos consolidados y guías master** alineándolos con el piso operativo derivado de sus relaciones (consolidado, lote de recepción, despacho, entrega, liquidación) y la configuración de **estados por punto** en `parametro_sistema` (sin hardcodear IDs; abortan si falta configuración). Nunca degradan estados avanzados ni tocan alternos/bloqueados/en revisión/terminales; usan fechas históricas verificables; insertan eventos de rastreo idempotentes sin notificar.
+
+| Migración | Alcance | Reglas | Reporte / auditoría | Estado de validación |
+|---|---|---|---|---|
+| [V118](../../ecubox-backend/src/main/resources/db/migration/V118__reparacion_historica_estados.sql) | Reparación inicial: consolidados + paquetes por lote/consolidado, eventos faltantes | Planilla/Manifestado/Vuelo/Aduana/Bodega | — | Aplicada en `dev` |
+| [V119](../../ecubox-backend/src/main/resources/db/migration/V119__ampliacion_migracion_historica.sql) | Ampliación integral: piso por despacho/entrega, recálculo de guías, catálogo de ambiguos, reporte pre/post | + Registro/Despacho/Entrega; agregador canónico de guías | `migracion_reporte_v119`, `migracion_auditoria_v119`, `migracion_ambiguos_v119`; [reporte](reparacion_reporte_v119.md) | Aplicada en `dev` |
+| [V120](../../ecubox-backend/src/main/resources/db/migration/V120__reconciliacion_estados_historicos_safety_net.sql) | Red de seguridad re-ejecutable e independiente; re-deriva candidatos y no modifica filas en bases ya reparadas | Igual que V119 **+ Regla 4 determinística**: consolidado que pertenece a una liquidación y está por debajo de `LIQUIDADO` se eleva a `LIQUIDADO` (fecha = `liquidacion.fecha_documento`). Lee/valida también `estado_rastreo_en_transito` por completitud (sin piso determinístico que eleve a `EN_TRANSITO`). | `migracion_reporte_v120`, `migracion_auditoria_v120`, `migracion_ambiguos_v120`; clave de idempotencia `reconciliacion-historica-v120:` | **Pendiente de ejecución contra DB** (entorno sin credenciales/Docker/Testcontainers). Lógica verificada estáticamente y alineada con V119; tests de servicio de reconciliación verdes (34) |
+
+Matriz de estados, transiciones, detonantes y exclusiones: [states_audit.md](states_audit.md).
+
+**Regla 1 (despacho EN_TRANSITO/ENTREGADO):** la entidad `despacho` no tiene estado propio (`Despacho.java` carece de columna de estado), por lo que no existe fuente determinística para elevar un paquete a `EN_TRANSITO` por estar el despacho «en tránsito». El piso por despacho se fija en `estado_rastreo_en_despacho` y sólo se eleva a entrega cuando el propio paquete tiene evento de entrega. Esta es una limitación de modelo, no un defecto de la migración.
+
+Tests de la familia (servicio, nivel unitario Mockito): `ReparacionEstadoBodegaServiceTest`, `PaqueteServiceReparacionBodegaTest`, `PaqueteServiceCalcularEstadoMinimoTest`, `TrackingEventServiceReparacionTest`, `EstadoConsolidadoOperativoResolverTest`. **No hay arnés de ejecución de migraciones** (sin Testcontainers); la validación SQL de esta familia requiere `psql` contra un clon de dev dentro de `BEGIN … ROLLBACK`.
