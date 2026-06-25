@@ -6,6 +6,7 @@ import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoDTO;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoPaquetesRequest;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
+import com.ecubox.ecubox_backend.dto.PaqueteElegibleConsolidadoDTO;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosRequest;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.AvanceEstadosConsolidadosPreviewDTO;
@@ -136,8 +137,24 @@ public class EnvioConsolidadoController {
         EnvioConsolidadoCreateResponse response = envioConsolidadoService.crearConGuias(
                 request.getCodigo(),
                 request.getNumerosGuia(),
+                request.getPaqueteIds(),
                 usuarioId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/paquetes-elegibles")
+    @PreAuthorize("hasAnyAuthority('ENVIOS_CONSOLIDADOS_CREATE', 'ENVIOS_CONSOLIDADOS_UPDATE')")
+    @Operation(summary = "Buscar paquetes para un envío consolidado",
+            description = "Busca paquetes por guía, ref, contenido, guía master, consignatario o consolidado, "
+                    + "indicando su elegibilidad para asociarse a un envío consolidado y el motivo cuando no lo son")
+    @ApiResponse(responseCode = "200", description = "Página de paquetes con su elegibilidad")
+    public ResponseEntity<PageResponse<PaqueteElegibleConsolidadoDTO>> buscarPaquetesElegibles(
+            @Parameter(description = "Texto de búsqueda") @RequestParam(required = false) String q,
+            @Parameter(description = "Número de página (base cero)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Cantidad de elementos por página") @RequestParam(defaultValue = "20") int size) {
+        Page<PaqueteElegibleConsolidadoDTO> resultado =
+                envioConsolidadoService.buscarPaquetesElegibles(q, page, size);
+        return ResponseEntity.ok(PageResponse.of(resultado, e -> e));
     }
 
     @PostMapping("/{id}/cerrar-consolidado")

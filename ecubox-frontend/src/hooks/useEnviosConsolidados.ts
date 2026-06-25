@@ -4,6 +4,7 @@ import {
   aplicarAvanceEstadosConsolidados,
   aplicarEstadoEnConsolidados,
   aplicarTransicionConsolidados,
+  buscarPaquetesElegibles,
   crearEnvioConsolidado,
   descargarManifiestoPdf,
   descargarManifiestoXlsx,
@@ -28,6 +29,7 @@ import {
   cerrarConsolidadoEnvioConsolidado,
   arribarEcuadorEnvioConsolidado,
   cancelarEnvioConsolidado,
+  type BuscarPaquetesElegiblesParams,
   type ListarDisponiblesRecepcionParams,
   type ListarEnviosParams,
 } from '@/lib/api/envios-consolidados.service';
@@ -99,6 +101,23 @@ export function useEnvioConsolidado(id: number | null | undefined) {
     queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'detail', id],
     queryFn: () => obtenerEnvioConsolidado(id as number),
     enabled: id != null,
+  });
+}
+
+/**
+ * Búsqueda paginada de paquetes para agregar a un envío consolidado, con su
+ * elegibilidad. Habilitada solo cuando hay término de búsqueda para evitar
+ * traer el universo completo al abrir el diálogo.
+ */
+export function useBuscarPaquetesElegibles(
+  params: BuscarPaquetesElegiblesParams,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [...ENVIOS_CONSOLIDADOS_QUERY_KEY, 'paquetes-elegibles', params],
+    queryFn: () => buscarPaquetesElegibles(params),
+    enabled,
+    placeholderData: keepPreviousData,
   });
 }
 

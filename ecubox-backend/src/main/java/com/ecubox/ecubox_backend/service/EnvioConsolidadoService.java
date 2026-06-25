@@ -4,6 +4,7 @@ import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoDTO;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
 import com.ecubox.ecubox_backend.dto.PaqueteDTO;
+import com.ecubox.ecubox_backend.dto.PaqueteElegibleConsolidadoDTO;
 import com.ecubox.ecubox_backend.dto.AplicarEstadoEnConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.AplicarTransicionConsolidadosResponse;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
@@ -287,15 +288,37 @@ public class EnvioConsolidadoService {
     }
 
     /**
-     * Crea un envio consolidado y, en la misma transaccion, asocia los paquetes
-     * que existan para los numeros de guia indicados. Si alguna guia no existe
-     * se reporta en {@code guiasNoEncontradas} sin abortar la creacion: el
-     * envio queda creado y el operario puede agregar/quitar paquetes despues.
+     * Compatibilidad: crea un consolidado solo con carga por lista de guías.
+     * Delega en {@link #crearConGuias(String, List, List, Long)} sin ids.
      */
     @Transactional
     public EnvioConsolidadoCreateResponse crearConGuias(String codigo, List<String> numerosGuia, Long actorUsuarioId) {
+        return crearConGuias(codigo, numerosGuia, null, actorUsuarioId);
+    }
+
+    /**
+     * Crea un envio consolidado y, en la misma transaccion, asocia los paquetes
+     * indicados por dos vias combinables:
+     * <ul>
+     *   <li>{@code numerosGuia}: carga por lista pegada por el operario. Las guias
+     *       que no resuelven a ningun paquete se reportan en
+     *       {@code guiasNoEncontradas} sin abortar la creacion.</li>
+     *   <li>{@code paqueteIds}: ids seleccionados desde la busqueda interactiva.</li>
+     * </ul>
+     * Los paquetes resueltos por ambas vias se unen por id (sin duplicados) y se
+     * asocian con {@link #agregarPaquetes(Long, List)}, que valida elegibilidad,
+     * estado anterior requerido y reasignacion. El envio queda creado aunque no
+     * se asocie ningun paquete; el operario puede agregar/quitar despues.
+     */
+    @Transactional
+    public EnvioConsolidadoCreateResponse crearConGuias(String codigo, List<String> numerosGuia,
+                                                        List<Long> paqueteIds, Long actorUsuarioId) {
         EnvioConsolidado envio = crear(codigo, actorUsuarioId);
         List<String> noEncontradas = List.of();
+        // Union por id preservando el orden de aparicion: primero los resueltos
+        // por lista, luego los seleccionados por busqueda. El LinkedHashSet
+        // deduplica los paquetes que llegan por ambas vias.
+        Set<Long> idsAUnir = new LinkedHashSet<>();
         if (numerosGuia != null && !numerosGuia.isEmpty()) {
             List<String> normalizadas = numerosGuia.stream()
                     .filter(s -> s != null && !s.isBlank())
@@ -313,15 +336,57 @@ public class EnvioConsolidadoService {
                 noEncontradas = normalizadas.stream()
                         .filter(g -> !encontradosLower.contains(g.toLowerCase(Locale.ROOT)))
                         .toList();
-                if (!paquetes.isEmpty()) {
-                    agregarPaquetes(envio.getId(), paquetes.stream().map(Paquete::getId).toList());
-                    envio = findById(envio.getId());
-                }
+                paquetes.forEach(p -> idsAUnir.add(p.getId()));
             }
+        }
+        if (paqueteIds != null) {
+            paqueteIds.stream().filter(Objects::nonNull).forEach(idsAUnir::add);
+        }
+        if (!idsAUnir.isEmpty()) {
+            agregarPaquetes(envio.getId(), new ArrayList<>(idsAUnir));
+            envio = findById(envio.getId());
         }
         return EnvioConsolidadoCreateResponse.builder()
                 .envio(toDTO(envio, true))
                 .guiasNoEncontradas(noEncontradas)
+                .build();
+    }
+
+    /**
+     * Busca paquetes (por guia, ref, contenido, guia master, consignatario o
+     * codigo de consolidado) para agregarlos a un envio consolidado y calcula su
+     * elegibilidad con la misma regla que {@link #agregarPaquetes(Long, List)}.
+     *
+     * <p>Devuelve todos los resultados de la busqueda (no solo los elegibles) con
+     * el motivo cuando un paquete no puede asociarse, para que la UI lo muestre
+     * sin reimplementar la regla. La elegibilidad se computa sobre el
+     * {@link PaqueteDTO} ya materializado (estado, revision activa y consolidado
+     * actual), por lo que no hay consultas adicionales por fila.
+     */
+    @Transactional(readOnly = true)
+    public Page<PaqueteElegibleConsolidadoDTO> buscarPaquetesElegibles(String q, int page, int size) {
+        EstadoRastreo requerido = resolverEstadoRequeridoAsociacion();
+        Page<PaqueteDTO> paquetes = paqueteService.findAllPaginated(
+                Strings.trimOrNull(q), PaqueteService.PaqueteListFilters.empty(), page, size);
+        return paquetes.map(dto -> evaluarElegibilidad(dto, requerido));
+    }
+
+    private PaqueteElegibleConsolidadoDTO evaluarElegibilidad(PaqueteDTO dto, EstadoRastreo requerido) {
+        String motivo = null;
+        if (dto.getRevisionActiva() != null) {
+            motivo = "El paquete está en revisión y no se puede asociar hasta resolverla.";
+        } else if (dto.isEnvioConsolidadoCerrado()) {
+            motivo = "Pertenece al envío " + dto.getEnvioConsolidadoCodigo()
+                    + ", que ya fue cerrado o enviado desde USA, y no se puede reasignar.";
+        } else if (requerido == null || !requerido.getId().equals(dto.getEstadoRastreoId())) {
+            motivo = "Debe estar en el estado '" + (requerido != null ? requerido.getNombre() : "configurado")
+                    + "' para asociarse. Estado actual: "
+                    + (dto.getEstadoRastreoNombre() != null ? dto.getEstadoRastreoNombre() : "sin estado") + ".";
+        }
+        return PaqueteElegibleConsolidadoDTO.builder()
+                .paquete(dto)
+                .elegible(motivo == null)
+                .motivoNoElegible(motivo)
                 .build();
     }
 
@@ -403,16 +468,7 @@ public class EnvioConsolidadoService {
         if (nuevos == null || nuevos.isEmpty()) {
             return;
         }
-        Long asociarId = parametroSistemaService.getEstadosRastreoPorPunto()
-                .getEstadoRastreoAsociarEnvioConsolidadoId();
-        if (asociarId == null) {
-            throw new BadRequestException(
-                    "No se pueden asociar paquetes porque no hay un estado configurado para la "
-                            + "asociación a envío consolidado. Configúralo en /parametros-sistema/por-punto.");
-        }
-        EstadoRastreoService.TransicionInmediata transicion =
-                estadoRastreoService.resolverTransicionInmediata(asociarId);
-        EstadoRastreo requerido = transicion.anterior();
+        EstadoRastreo requerido = resolverEstadoRequeridoAsociacion();
         for (Paquete p : nuevos) {
             EstadoRastreo actual = p.getEstadoRastreo();
             if (actual == null || !requerido.getId().equals(actual.getId())) {
@@ -424,6 +480,23 @@ public class EnvioConsolidadoService {
                                 + (actual != null ? actual.getNombre() : "sin estado") + ".");
             }
         }
+    }
+
+    /**
+     * Estado de rastreo en el que debe estar EXACTAMENTE un paquete para poder
+     * asociarse a un envío consolidado: el inmediatamente anterior al configurado
+     * para "asociar a envío consolidado" ({@code estadoRastreoAsociarEnvioConsolidadoId}
+     * en /parametros-sistema/por-punto). No se hardcodea ningún código de estado.
+     */
+    private EstadoRastreo resolverEstadoRequeridoAsociacion() {
+        Long asociarId = parametroSistemaService.getEstadosRastreoPorPunto()
+                .getEstadoRastreoAsociarEnvioConsolidadoId();
+        if (asociarId == null) {
+            throw new BadRequestException(
+                    "No se pueden asociar paquetes porque no hay un estado configurado para la "
+                            + "asociación a envío consolidado. Configúralo en /parametros-sistema/por-punto.");
+        }
+        return estadoRastreoService.resolverTransicionInmediata(asociarId).anterior();
     }
 
     @Transactional

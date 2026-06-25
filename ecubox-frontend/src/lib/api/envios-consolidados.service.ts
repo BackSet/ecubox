@@ -6,6 +6,7 @@ import type {
   EnvioConsolidadoCreateResponse,
   EnvioConsolidadoPaquetesRequest,
   EstadoEnvioConsolidadoOperativo,
+  PaqueteElegibleConsolidado,
 } from '@/types/envio-consolidado';
 import type { PageResponse } from '@/types/page';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
@@ -122,6 +123,34 @@ export async function crearEnvioConsolidado(
   body: EnvioConsolidadoCreateRequest
 ): Promise<EnvioConsolidadoCreateResponse> {
   const { data } = await apiClient.post<EnvioConsolidadoCreateResponse>(BASE, body);
+  return data;
+}
+
+export interface BuscarPaquetesElegiblesParams {
+  /** Texto de búsqueda (guía, ref, contenido, guía master, consignatario o consolidado). */
+  q?: string;
+  page?: number;
+  size?: number;
+}
+
+/**
+ * Busca paquetes para agregarlos a un envío consolidado, indicando la
+ * elegibilidad de cada uno (misma regla que la asociación) y el motivo cuando
+ * no es elegible. Resultado paginado.
+ */
+export async function buscarPaquetesElegibles(
+  params: BuscarPaquetesElegiblesParams = {}
+): Promise<PageResponse<PaqueteElegibleConsolidado>> {
+  const { data } = await apiClient.get<PageResponse<PaqueteElegibleConsolidado>>(
+    `${BASE}/paquetes-elegibles`,
+    {
+      params: {
+        q: params.q || undefined,
+        page: params.page ?? 0,
+        size: params.size ?? 20,
+      },
+    }
+  );
   return data;
 }
 
