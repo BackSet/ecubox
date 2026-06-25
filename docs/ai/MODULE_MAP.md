@@ -32,8 +32,9 @@
 
 ### Nota de flujo: registro de paquetes
 
-- En `/paquetes` -> `Registrar paquetes`, la sección principal es `Paquetes del lote (N)`. No existe acción masiva `Contenido para todos`: cada paquete conserva su propio contenido.
-- El control opcional `Peso para todos los paquetes` aplica el mismo peso por paquete en el lote actual usando los campos existentes `pesoLbs`/`pesoKg`; si queda vacío, los paquetes se crean sin peso para completarlo luego en Pesaje. No hay campo backend de peso total de lote.
+- En `/paquetes` -> `Registrar paquetes` (`PaqueteBulkCreateForm`), el modal se organiza en secciones dentro de un **body scrolleable con footer fijo** (`max-h-[90dvh]`, `overflow-hidden`, `flex`, `min-h-0`, body `overflow-y-auto`): **1) Guía** (selector/consignatario/cupo/bloqueo), **2) Configuración del lote** (cantidad, presets, peso para todos, pegar lista), **3) Paquetes del lote (N)** (planilla, sección principal) y **4) Resumen**. No existe acción masiva `Contenido para todos`: cada paquete conserva su propio contenido. La numeración de pieza (`piezaNumero`) **se asigna automáticamente** y no se edita en este formulario.
+- El control opcional `Peso para todos los paquetes` ya **no se aplica al escribir**: el operario escribe el peso (lb/kg, espejados) y lo aplica con botones explícitos **`Aplicar a todos`** (pide confirmación ligera si reemplazará pesos ya ingresados), **`Aplicar solo a paquetes sin peso`** y **`Limpiar pesos`**. Usa los campos `pesoLbs`/`pesoKg` existentes; vacío = **peso pendiente** (se crea sin peso para completarlo luego en Pesaje). No hay campo backend de peso total de lote.
+- Validación de peso alineada UI/schema (`paqueteItemSchema` usa `pesoPositivoSchema`): vacío permitido, `0`/negativo inválidos (el filtro de entrada impide teclear signo negativo). El **Resumen** muestra total, `con peso`, `con peso pendiente`, peso total (lb · kg) y paquetes sin contenido.
 
 ## 2. Capas técnicas compartidas
 
