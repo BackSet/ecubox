@@ -185,9 +185,9 @@ export function PaqueteBulkCreateForm({
   const initialCantidadRef = useRef<number | null>(null);
   const initialTotalEsperadasRef = useRef<number | null>(null);
   const autoSizedGuiaIdRef = useRef<number | null>(null);
-  const [contenidoTodos, setContenidoTodos] = useState('');
-  const [pesoTotalLbsInput, setPesoTotalLbsInput] = useState('');
-  const [pesoTotalKgInput, setPesoTotalKgInput] = useState('');
+  const [pesoParaTodosLbsInput, setPesoParaTodosLbsInput] = useState('');
+  const [pesoParaTodosKgInput, setPesoParaTodosKgInput] = useState('');
+  const [pesoParaTodosError, setPesoParaTodosError] = useState<string | null>(null);
 
   const guiasSeleccionables = useMemo(
     () => guiasMaster.filter((gm) => guiaAdmiteRegistroDePiezas(gm, { isEditMode })),
@@ -499,25 +499,10 @@ export function PaqueteBulkCreateForm({
     pegarLista(text, vacia >= 0 ? vacia : undefined);
   }
 
-  function applyContenidoATodos() {
-    const contenido = contenidoTodos.trim();
-    if (!contenido) {
-      notify.warning('Escribe el contenido que quieres aplicar');
-      return;
-    }
-    for (let i = 0; i < fields.length; i++) {
-      setValue(`paquetes.${i}.contenido`, contenido, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-    }
-    notify.success('Contenido aplicado a todos los paquetes');
-  }
-
-  function distribuirPesoTotal(pesoTotal: number, unit: 'lbs' | 'kg') {
-    if (!Number.isFinite(pesoTotal) || pesoTotal <= 0 || fields.length === 0) return;
+  function aplicarPesoATodos(peso: number, unit: 'lbs' | 'kg') {
+    if (!Number.isFinite(peso) || peso <= 0 || fields.length === 0) return;
     if (unit === 'lbs') {
-      const lbsPorPaquete = Math.round((pesoTotal / fields.length) * 100) / 100;
+      const lbsPorPaquete = Math.round(peso * 100) / 100;
       const kgPorPaquete = lbsToKg(lbsPorPaquete);
       for (let i = 0; i < fields.length; i++) {
         setValue(`paquetes.${i}.pesoLbs`, lbsPorPaquete, {
@@ -528,7 +513,7 @@ export function PaqueteBulkCreateForm({
       }
       return;
     }
-    const kgPorPaquete = Math.round((pesoTotal / fields.length) * 100) / 100;
+    const kgPorPaquete = Math.round(peso * 100) / 100;
     const lbsPorPaquete = kgToLbs(kgPorPaquete);
     for (let i = 0; i < fields.length; i++) {
       setValue(`paquetes.${i}.pesoKg`, kgPorPaquete, {
@@ -539,40 +524,69 @@ export function PaqueteBulkCreateForm({
     }
   }
 
-  function handlePesoTotalLbsChange(raw: string) {
-    const s = sanitizeNumericDecimal(raw);
-    setPesoTotalLbsInput(s);
-    const n = s === '' || s === '.' ? undefined : Number(s);
-    if (typeof n === 'number' && Number.isFinite(n) && n > 0) {
-      setPesoTotalKgInput(String(lbsToKg(n)));
-      distribuirPesoTotal(n, 'lbs');
-    } else {
-      setPesoTotalKgInput('');
+  function limpiarPesoATodos() {
+    for (let i = 0; i < fields.length; i++) {
+      setValue(`paquetes.${i}.pesoLbs`, undefined, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      setValue(`paquetes.${i}.pesoKg`, undefined, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
     }
   }
 
-  function handlePesoTotalKgChange(raw: string) {
+  function handlePesoParaTodosLbsChange(raw: string) {
     const s = sanitizeNumericDecimal(raw);
-    setPesoTotalKgInput(s);
+    setPesoParaTodosLbsInput(s);
     const n = s === '' || s === '.' ? undefined : Number(s);
+    setPesoParaTodosError(null);
+    if (s === '') {
+      setPesoParaTodosKgInput('');
+      limpiarPesoATodos();
+      return;
+    }
     if (typeof n === 'number' && Number.isFinite(n) && n > 0) {
-      setPesoTotalLbsInput(String(kgToLbs(n)));
-      distribuirPesoTotal(n, 'kg');
+      setPesoParaTodosKgInput(String(lbsToKg(n)));
+      aplicarPesoATodos(n, 'lbs');
     } else {
-      setPesoTotalLbsInput('');
+      setPesoParaTodosKgInput('');
+      limpiarPesoATodos();
+      setPesoParaTodosError('El peso debe ser mayor a 0');
+    }
+  }
+
+  function handlePesoParaTodosKgChange(raw: string) {
+    const s = sanitizeNumericDecimal(raw);
+    setPesoParaTodosKgInput(s);
+    const n = s === '' || s === '.' ? undefined : Number(s);
+    setPesoParaTodosError(null);
+    if (s === '') {
+      setPesoParaTodosLbsInput('');
+      limpiarPesoATodos();
+      return;
+    }
+    if (typeof n === 'number' && Number.isFinite(n) && n > 0) {
+      setPesoParaTodosLbsInput(String(kgToLbs(n)));
+      aplicarPesoATodos(n, 'kg');
+    } else {
+      setPesoParaTodosLbsInput('');
+      limpiarPesoATodos();
+      setPesoParaTodosError('El peso debe ser mayor a 0');
     }
   }
 
   useEffect(() => {
     if (!hasPesoWrite || fields.length === 0) return;
-    const lbs = pesoTotalLbsInput === '' || pesoTotalLbsInput === '.'
+    const lbs = pesoParaTodosLbsInput === '' || pesoParaTodosLbsInput === '.'
       ? undefined
-      : Number(pesoTotalLbsInput);
+      : Number(pesoParaTodosLbsInput);
     if (typeof lbs === 'number' && Number.isFinite(lbs) && lbs > 0) {
-      distribuirPesoTotal(lbs, 'lbs');
+      aplicarPesoATodos(lbs, 'lbs');
     }
     // Solo reaccionamos al cambio de cantidad de filas; mientras el usuario
-    // escribe, los handlers de los inputs ya distribuyen el peso.
+    // escribe, los handlers de los inputs ya aplican el peso.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fields.length, hasPesoWrite]);
 
@@ -608,6 +622,10 @@ export function PaqueteBulkCreateForm({
 
   async function onSubmitCreate(values: FormValues) {
     if (!applyBulkSchemaErrors(values)) return;
+    if (pesoParaTodosError) {
+      notify.warning('Corrige el peso para todos los paquetes antes de registrar');
+      return;
+    }
     if (consignatarioId == null) {
       notify.warning('La guía seleccionada no tiene consignatario asignado');
       return;
@@ -684,6 +702,10 @@ export function PaqueteBulkCreateForm({
 
   async function onSubmitEdit(values: FormValues) {
     if (!applyBulkSchemaErrors(values)) return;
+    if (pesoParaTodosError) {
+      notify.warning('Corrige el peso para todos los paquetes antes de guardar');
+      return;
+    }
     if (consignatarioId == null) {
       notify.warning('La guía no tiene consignatario asignado');
       return;
@@ -1026,63 +1048,6 @@ export function PaqueteBulkCreateForm({
                 </div>
               </div>
             )}
-
-            {guiaMasterId != null && (
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <div>
-                    <label
-                      htmlFor="contenido-todos"
-                      className="mb-1 block text-sm font-medium text-[var(--color-foreground)]"
-                    >
-                      Contenido para todos
-                    </label>
-                    <Input
-                      id="contenido-todos"
-                      value={contenidoTodos}
-                      onChange={(e) => setContenidoTodos(e.target.value)}
-                      placeholder="Ej: ropa, zapatos, repuestos..."
-                      variant="clean"
-                      className="input-clean"
-                      disabled={enviando}
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={applyContenidoATodos}
-                      disabled={enviando || fields.length === 0}
-                    >
-                      Aplicar
-                    </Button>
-                  </div>
-                </div>
-
-                {hasPesoWrite && (
-                  <div className="mt-3">
-                    <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-                      Peso total del lote
-                    </label>
-                    <PesoInputPair
-                      lbs={pesoTotalLbsInput}
-                      kg={pesoTotalKgInput}
-                      onLbsChange={handlePesoTotalLbsChange}
-                      onKgChange={handlePesoTotalKgChange}
-                      lbsAriaLabel="Peso total en libras"
-                      kgAriaLabel="Peso total en kilogramos"
-                      disabled={enviando || fields.length === 0}
-                      size="md"
-                    />
-                    <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                      Se divide automáticamente entre {fields.length}{' '}
-                      paquete{fields.length === 1 ? '' : 's'}.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
             {excedeCupo && (
               <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-3 py-2 text-xs text-[var(--color-warning)] dark:border-[var(--color-warning)]/30 dark:bg-[var(--color-warning)]/10 dark:text-[var(--color-warning)]">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -1115,15 +1080,57 @@ export function PaqueteBulkCreateForm({
 
             {guiaMasterId != null && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
-                    Paquetes del lote
-                    <span className="ml-1.5 font-normal text-muted-foreground">
-                      ({fields.length})
-                    </span>
-                  </h3>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-2">
+                    <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
+                      Paquetes del lote
+                      <span className="ml-1.5 font-normal text-muted-foreground">
+                        ({fields.length})
+                      </span>
+                    </h3>
+                    {hasPesoWrite && (
+                      <div className="max-w-sm space-y-1.5">
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <label className="text-sm font-medium text-[var(--color-foreground)]">
+                            Peso para todos los paquetes
+                          </label>
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Opcional
+                          </span>
+                        </div>
+                        <PesoInputPair
+                          lbs={pesoParaTodosLbsInput}
+                          kg={pesoParaTodosKgInput}
+                          onLbsChange={handlePesoParaTodosLbsChange}
+                          onKgChange={handlePesoParaTodosKgChange}
+                          lbsAriaLabel="Peso para todos los paquetes en libras"
+                          kgAriaLabel="Peso para todos los paquetes en kilogramos"
+                          disabled={enviando || fields.length === 0}
+                          invalid={pesoParaTodosError != null}
+                          size="md"
+                        />
+                        <p className="text-xs text-[var(--color-muted-foreground)]">
+                          Si lo completas, se aplicara este peso a todos los paquetes del lote.
+                          Puedes dejarlo vacio y registrar el peso despues en Pesaje.
+                        </p>
+                        {pesoParaTodosError ? (
+                          <p className="text-sm text-[var(--color-destructive)]">
+                            {pesoParaTodosError}
+                          </p>
+                        ) : pesoParaTodosLbsInput ? (
+                          <p className="text-xs font-medium text-[var(--color-primary)]">
+                            Se aplicara {pesoParaTodosLbsInput} lbs a todos los paquetes del lote.
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Los paquetes se crearan sin peso y podran pesarse despues.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {fields.length < MAX_PAQUETES_BULK && !enviando && !bloqueaPiezasNuevas && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                       <Button
                         type="button"
                         variant="ghost"
