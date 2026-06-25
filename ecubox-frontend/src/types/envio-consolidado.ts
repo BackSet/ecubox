@@ -88,6 +88,19 @@ export interface EnvioConsolidado {
 export interface EnvioConsolidadoCreateRequest {
   codigo: string;
   numerosGuia?: string[];
+  /** Ids de paquetes seleccionados desde la búsqueda; se combinan con `numerosGuia` sin duplicados. */
+  paqueteIds?: number[];
+}
+
+/**
+ * Resultado de la búsqueda de paquetes para agregar a un envío consolidado:
+ * el paquete más su elegibilidad (misma regla que aplica la asociación) y el
+ * motivo cuando no puede asociarse.
+ */
+export interface PaqueteElegibleConsolidado {
+  paquete: Paquete;
+  elegible: boolean;
+  motivoNoElegible?: string | null;
 }
 
 export interface EnvioConsolidadoCreateResponse {

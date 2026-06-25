@@ -11,6 +11,9 @@ import com.ecubox.ecubox_backend.dto.EnvioConsolidadoCreateResponse;
 import com.ecubox.ecubox_backend.dto.EnvioConsolidadoResumenDTO;
 import com.ecubox.ecubox_backend.dto.EstadoRastreoDTO;
 import com.ecubox.ecubox_backend.dto.EstadosRastreoPorPuntoDTO;
+import com.ecubox.ecubox_backend.dto.PaqueteDTO;
+import com.ecubox.ecubox_backend.dto.PaqueteElegibleConsolidadoDTO;
+import com.ecubox.ecubox_backend.dto.RevisionPaqueteDTO;
 import com.ecubox.ecubox_backend.entity.EstadoRastreo;
 import com.ecubox.ecubox_backend.entity.EnvioConsolidado;
 import com.ecubox.ecubox_backend.entity.GuiaMaster;
@@ -22,6 +25,7 @@ import com.ecubox.ecubox_backend.entity.LiquidacionConsolidadoLinea;
 import com.ecubox.ecubox_backend.entity.Paquete;
 import com.ecubox.ecubox_backend.exception.BadRequestException;
 import com.ecubox.ecubox_backend.exception.ConflictException;
+import com.ecubox.ecubox_backend.exception.ResourceNotFoundException;
 import com.ecubox.ecubox_backend.repository.EnvioConsolidadoRepository;
 import com.ecubox.ecubox_backend.repository.LiquidacionConsolidadoLineaRepository;
 import com.ecubox.ecubox_backend.repository.LoteRecepcionGuiaRepository;
@@ -195,6 +199,105 @@ class EnvioConsolidadoServiceTest {
                 () -> service.crearConGuias("DUP", List.of("X"), 1L));
         assertNotNull(ex);
         verify(paqueteRepository, never()).findByNumeroGuiaInIgnoreCase(anyList());
+    }
+
+    @Test
+    void crearConGuias_soloCodigo_noAsociaNingunPaquete() {
+        when(envioRepository.existsByCodigoIgnoreCase("SOLO")).thenReturn(false);
+
+        EnvioConsolidadoCreateResponse res = service.crearConGuias("SOLO", null, null, 7L);
+
+        assertEquals("SOLO", res.getEnvio().getCodigo());
+        assertTrue(res.getGuiasNoEncontradas().isEmpty());
+        verify(paqueteRepository, never()).findByNumeroGuiaInIgnoreCase(anyList());
+        verify(paqueteService, never()).aplicarEstadoAsociarEnvioConsolidado(anyList());
+    }
+
+    @Test
+    void crearConGuias_porIds_asociaPaquetesSeleccionados() {
+        when(envioRepository.existsByCodigoIgnoreCase("ENV-ID")).thenReturn(false);
+        Paquete p1 = paqueteEnEstadoAnterior(10L, "ABC 1/2");
+        Paquete p2 = paqueteEnEstadoAnterior(11L, "ABC 2/2");
+        when(paqueteRepository.findAllById(any())).thenReturn(List.of(p1, p2));
+        when(envioRepository.findById(anyLong())).thenAnswer(inv -> Optional.of(EnvioConsolidado.builder()
+                .id(inv.getArgument(0)).codigo("ENV-ID")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build()));
+
+        EnvioConsolidadoCreateResponse res = service.crearConGuias(
+                "ENV-ID", null, List.of(10L, 11L), 7L);
+
+        assertEquals("ENV-ID", res.getEnvio().getCodigo());
+        assertTrue(res.getGuiasNoEncontradas().isEmpty());
+        verify(paqueteRepository, never()).findByNumeroGuiaInIgnoreCase(anyList());
+        verify(paqueteService).aplicarEstadoAsociarEnvioConsolidado(List.of(10L, 11L));
+    }
+
+    @Test
+    void crearConGuias_listaYIds_unePreservandoOrden() {
+        when(envioRepository.existsByCodigoIgnoreCase("ENV-MIX")).thenReturn(false);
+        Paquete p1 = paqueteEnEstadoAnterior(10L, "ABC 1/1");
+        Paquete p2 = paqueteEnEstadoAnterior(11L, "XYZ 1/1");
+        when(paqueteRepository.findByNumeroGuiaInIgnoreCase(List.of("abc 1/1")))
+                .thenReturn(List.of(p1));
+        when(paqueteRepository.findAllById(any())).thenReturn(List.of(p1, p2));
+        when(envioRepository.findById(anyLong())).thenAnswer(inv -> Optional.of(EnvioConsolidado.builder()
+                .id(inv.getArgument(0)).codigo("ENV-MIX")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build()));
+
+        EnvioConsolidadoCreateResponse res = service.crearConGuias(
+                "ENV-MIX", List.of("ABC 1/1"), List.of(11L), 7L);
+
+        assertEquals("ENV-MIX", res.getEnvio().getCodigo());
+        // El paquete de la lista va primero (10) y luego el seleccionado por búsqueda (11).
+        verify(paqueteService).aplicarEstadoAsociarEnvioConsolidado(List.of(10L, 11L));
+    }
+
+    @Test
+    void crearConGuias_paqueteEnListaYEnIds_seDeduplicaPorId() {
+        when(envioRepository.existsByCodigoIgnoreCase("ENV-DUP")).thenReturn(false);
+        Paquete p1 = paqueteEnEstadoAnterior(10L, "ABC 1/1");
+        when(paqueteRepository.findByNumeroGuiaInIgnoreCase(List.of("abc 1/1")))
+                .thenReturn(List.of(p1));
+        when(paqueteRepository.findAllById(any())).thenReturn(List.of(p1));
+        when(envioRepository.findById(anyLong())).thenAnswer(inv -> Optional.of(EnvioConsolidado.builder()
+                .id(inv.getArgument(0)).codigo("ENV-DUP")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build()));
+
+        service.crearConGuias("ENV-DUP", List.of("ABC 1/1"), List.of(10L), 7L);
+
+        // El mismo paquete llega por lista y por id: se asocia una sola vez.
+        verify(paqueteService).aplicarEstadoAsociarEnvioConsolidado(List.of(10L));
+    }
+
+    @Test
+    void crearConGuias_idInexistente_lanzaNotFound() {
+        when(envioRepository.existsByCodigoIgnoreCase("ENV-404")).thenReturn(false);
+        Paquete p1 = paqueteEnEstadoAnterior(10L, "ABC 1/1");
+        // Solo existe el id 10; el 999 no se resuelve y agregarPaquetes lo detecta.
+        when(paqueteRepository.findAllById(any())).thenReturn(List.of(p1));
+        when(envioRepository.findById(anyLong())).thenAnswer(inv -> Optional.of(EnvioConsolidado.builder()
+                .id(inv.getArgument(0)).codigo("ENV-404")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build()));
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.crearConGuias("ENV-404", null, List.of(10L, 999L), 7L));
+        verify(paqueteService, never()).aplicarEstadoAsociarEnvioConsolidado(anyList());
+    }
+
+    @Test
+    void crearConGuias_paqueteNoElegible_lanzaBadRequest() {
+        when(envioRepository.existsByCodigoIgnoreCase("ENV-NEL")).thenReturn(false);
+        EstadoRastreo otro = estado(9L, "En tránsito", 9);
+        Paquete p = Paquete.builder().id(10L).numeroGuia("G 1/1").estadoRastreo(otro).build();
+        when(paqueteRepository.findAllById(any())).thenReturn(List.of(p));
+        when(envioRepository.findById(anyLong())).thenAnswer(inv -> Optional.of(EnvioConsolidado.builder()
+                .id(inv.getArgument(0)).codigo("ENV-NEL")
+                .estadoOperativo(EstadoEnvioConsolidadoOperativo.EN_PREPARACION).build()));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> service.crearConGuias("ENV-NEL", null, List.of(10L), 7L));
+        assertTrue(ex.getMessage().contains("Registrado"));
+        verify(paqueteService, never()).aplicarEstadoAsociarEnvioConsolidado(anyList());
     }
 
     @Test
@@ -1052,6 +1155,37 @@ class EnvioConsolidadoServiceTest {
         assertThrows(ConflictException.class, () ->
                 service.aplicarAvanceOperativo(requestAvance(List.of(1L), "ARRIBADO_ECUADOR", "token-viejo")));
         verify(paqueteService, never()).aplicarEstadoSecuenciaConsolidados(anyList(), any(), any(), any());
+    }
+
+    @Test
+    void buscarPaquetesElegibles_marcaElegibilidadYMotivo() {
+        // requerido = "Registrado" (id 4) por el stub de setUp.
+        PaqueteDTO elegible = PaqueteDTO.builder()
+                .id(10L).numeroGuia("OK 1/1").estadoRastreoId(4L).estadoRastreoNombre("Registrado").build();
+        PaqueteDTO fueraDeEstado = PaqueteDTO.builder()
+                .id(11L).numeroGuia("BAD 1/1").estadoRastreoId(9L).estadoRastreoNombre("En tránsito").build();
+        PaqueteDTO enRevision = PaqueteDTO.builder()
+                .id(12L).numeroGuia("REV 1/1").estadoRastreoId(4L).estadoRastreoNombre("Registrado")
+                .revisionActiva(RevisionPaqueteDTO.builder().build()).build();
+        PaqueteDTO enOtroCerrado = PaqueteDTO.builder()
+                .id(13L).numeroGuia("CER 1/1").estadoRastreoId(4L).estadoRastreoNombre("Registrado")
+                .envioConsolidadoCodigo("ENV-OLD").envioConsolidadoCerrado(true).build();
+        when(paqueteService.findAllPaginated(eq("ok"), any(), eq(0), eq(20)))
+                .thenReturn(new PageImpl<>(List.of(elegible, fueraDeEstado, enRevision, enOtroCerrado),
+                        PageRequest.of(0, 20), 4));
+
+        Page<PaqueteElegibleConsolidadoDTO> page = service.buscarPaquetesElegibles("ok", 0, 20);
+
+        List<PaqueteElegibleConsolidadoDTO> filas = page.getContent();
+        assertEquals(4, filas.size());
+        assertTrue(filas.get(0).isElegible());
+        assertNull(filas.get(0).getMotivoNoElegible());
+        assertFalse(filas.get(1).isElegible());
+        assertTrue(filas.get(1).getMotivoNoElegible().contains("Registrado"));
+        assertFalse(filas.get(2).isElegible());
+        assertTrue(filas.get(2).getMotivoNoElegible().contains("revisión"));
+        assertFalse(filas.get(3).isElegible());
+        assertTrue(filas.get(3).getMotivoNoElegible().contains("ENV-OLD"));
     }
 
     private EstadoRastreo estado(Long id, String nombre, int orden) {

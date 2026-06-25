@@ -5,6 +5,10 @@ import { guiaListSchema } from './bulk-guias';
 export const envioConsolidadoCreateSchema = z.object({
   codigo: codigoEnvioSchema,
   numerosGuia: guiaListSchema.optional(),
+  // Ids de paquetes seleccionados desde la búsqueda interactiva. Se combinan con
+  // `numerosGuia` en backend (unión por id, sin duplicados). La creación sin
+  // paquetes sigue permitida (ambos opcionales).
+  paqueteIds: z.array(z.number().int().positive()).max(500).optional(),
 });
 
 export const envioConsolidadoPaquetesSchema = z.object({

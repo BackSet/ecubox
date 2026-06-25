@@ -185,9 +185,15 @@ export function PaqueteBulkCreateForm({
   const initialCantidadRef = useRef<number | null>(null);
   const initialTotalEsperadasRef = useRef<number | null>(null);
   const autoSizedGuiaIdRef = useRef<number | null>(null);
-  const [contenidoTodos, setContenidoTodos] = useState('');
-  const [pesoTotalLbsInput, setPesoTotalLbsInput] = useState('');
-  const [pesoTotalKgInput, setPesoTotalKgInput] = useState('');
+  const [pesoParaTodosLbsInput, setPesoParaTodosLbsInput] = useState('');
+  const [pesoParaTodosKgInput, setPesoParaTodosKgInput] = useState('');
+  const [pesoParaTodosError, setPesoParaTodosError] = useState<string | null>(null);
+  // Confirmación ligera antes de reemplazar pesos ya ingresados al aplicar a todos.
+  const [confirmReemplazoPeso, setConfirmReemplazoPeso] = useState(false);
+  // Se incrementa tras cada acción masiva de peso para que cada fila vuelva a
+  // leer su peso del store del formulario (setValue(undefined) no siempre
+  // notifica a watch, así que no podemos depender solo del prop derivado).
+  const [pesoNonce, setPesoNonce] = useState(0);
 
   const guiasSeleccionables = useMemo(
     () => guiasMaster.filter((gm) => guiaAdmiteRegistroDePiezas(gm, { isEditMode })),
@@ -499,85 +505,147 @@ export function PaqueteBulkCreateForm({
     pegarLista(text, vacia >= 0 ? vacia : undefined);
   }
 
-  function applyContenidoATodos() {
-    const contenido = contenidoTodos.trim();
-    if (!contenido) {
-      notify.warning('Escribe el contenido que quieres aplicar');
-      return;
-    }
-    for (let i = 0; i < fields.length; i++) {
-      setValue(`paquetes.${i}.contenido`, contenido, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-    }
-    notify.success('Contenido aplicado a todos los paquetes');
+  // Estado vivo de las filas, usado por el peso para todos, el diff y el resumen.
+  const watchedItems = watch('paquetes');
+
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  /**
+   * Valor de "peso para todos" listo para aplicar, derivado del input en lbs
+   * (el de kg se mantiene espejado). Devuelve `null` si está vacío o no es
+   * mayor que 0. NO muta las filas: solo se usa al pulsar un botón de aplicar.
+   */
+  const pesoParaTodosValor = useMemo<{ lbs: number; kg: number } | null>(() => {
+    const s = pesoParaTodosLbsInput;
+    if (s === '' || s === '.') return null;
+    const n = Number(s);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    const lbs = round2(n);
+    return { lbs, kg: lbsToKg(lbs) };
+  }, [pesoParaTodosLbsInput]);
+
+  // Se recalcula en cada render (barato) leyendo el store real con getValues,
+  // porque watch no siempre emite tras un setValue masivo de peso.
+  const algunPaqueteConPeso = (getValues('paquetes') ?? []).some(
+    (it) =>
+      (typeof it.pesoLbs === 'number' && it.pesoLbs > 0) ||
+      (typeof it.pesoKg === 'number' && it.pesoKg > 0),
+  );
+
+  /** Escribe el peso en una fila concreta (ambas unidades). */
+  function setPesoFila(i: number, lbs: number, kg: number) {
+    setValue(`paquetes.${i}.pesoLbs`, lbs, { shouldDirty: true, shouldValidate: true });
+    setValue(`paquetes.${i}.pesoKg`, kg, { shouldDirty: true });
   }
 
-  function distribuirPesoTotal(pesoTotal: number, unit: 'lbs' | 'kg') {
-    if (!Number.isFinite(pesoTotal) || pesoTotal <= 0 || fields.length === 0) return;
-    if (unit === 'lbs') {
-      const lbsPorPaquete = Math.round((pesoTotal / fields.length) * 100) / 100;
-      const kgPorPaquete = lbsToKg(lbsPorPaquete);
-      for (let i = 0; i < fields.length; i++) {
-        setValue(`paquetes.${i}.pesoLbs`, lbsPorPaquete, {
-          shouldDirty: true,
-          shouldValidate: true,
-        });
-        setValue(`paquetes.${i}.pesoKg`, kgPorPaquete, { shouldDirty: true });
+  /**
+   * Aplica el "peso para todos" a las filas del lote. `scope` decide el alcance:
+   *  - `'todos'`: reemplaza el peso de todas las filas;
+   *  - `'sin-peso'`: solo rellena las filas que aún no tienen peso.
+   * No aplica nada si el valor no es válido (> 0).
+   */
+  function aplicarPesoParaTodos(scope: 'todos' | 'sin-peso') {
+    if (!pesoParaTodosValor || fields.length === 0) {
+      setPesoParaTodosError('Ingresa un peso mayor a 0 para aplicarlo');
+      return;
+    }
+    const { lbs, kg } = pesoParaTodosValor;
+    let aplicados = 0;
+    for (let i = 0; i < fields.length; i++) {
+      if (scope === 'sin-peso') {
+        const cur = getValues(`paquetes.${i}` as const);
+        const tienePeso =
+          (typeof cur?.pesoLbs === 'number' && cur.pesoLbs > 0) ||
+          (typeof cur?.pesoKg === 'number' && cur.pesoKg > 0);
+        if (tienePeso) continue;
       }
+      setPesoFila(i, lbs, kg);
+      aplicados += 1;
+    }
+    setConfirmReemplazoPeso(false);
+    setPesoNonce((n) => n + 1);
+    if (aplicados === 0) {
+      notify.info('Todos los paquetes ya tenían peso');
+    } else {
+      notify.success(
+        `Peso aplicado a ${aplicados} paquete${aplicados === 1 ? '' : 's'}`,
+      );
+    }
+  }
+
+  /** Punto de entrada de "Aplicar a todos": confirma si hay pesos a reemplazar. */
+  function solicitarAplicarATodos() {
+    if (!pesoParaTodosValor) {
+      setPesoParaTodosError('Ingresa un peso mayor a 0 para aplicarlo');
       return;
     }
-    const kgPorPaquete = Math.round((pesoTotal / fields.length) * 100) / 100;
-    const lbsPorPaquete = kgToLbs(kgPorPaquete);
+    // Lectura autoritativa del store: watch puede no haber emitido tras editar
+    // el peso de una fila (PesoInputPair no está registrado en RHF).
+    const hayPeso = (getValues('paquetes') ?? []).some(
+      (it) =>
+        (typeof it.pesoLbs === 'number' && it.pesoLbs > 0) ||
+        (typeof it.pesoKg === 'number' && it.pesoKg > 0),
+    );
+    if (hayPeso) {
+      setConfirmReemplazoPeso(true);
+      return;
+    }
+    aplicarPesoParaTodos('todos');
+  }
+
+  /** Vacía el peso de todas las filas (sin tocar contenido). */
+  function limpiarPesos() {
     for (let i = 0; i < fields.length; i++) {
-      setValue(`paquetes.${i}.pesoKg`, kgPorPaquete, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-      setValue(`paquetes.${i}.pesoLbs`, lbsPorPaquete, { shouldDirty: true });
+      setValue(`paquetes.${i}.pesoLbs`, undefined, { shouldDirty: true, shouldValidate: true });
+      setValue(`paquetes.${i}.pesoKg`, undefined, { shouldDirty: true, shouldValidate: true });
     }
+    setConfirmReemplazoPeso(false);
+    setPesoNonce((n) => n + 1);
+    notify.success('Pesos limpiados');
   }
 
-  function handlePesoTotalLbsChange(raw: string) {
+  // Los handlers del campo "peso para todos" solo actualizan el texto y espejan
+  // la otra unidad; NO aplican el peso a las filas mientras se escribe (eso
+  // ocurre solo al pulsar un botón de aplicar), evitando cambios accidentales.
+  function handlePesoParaTodosLbsChange(raw: string) {
     const s = sanitizeNumericDecimal(raw);
-    setPesoTotalLbsInput(s);
-    const n = s === '' || s === '.' ? undefined : Number(s);
-    if (typeof n === 'number' && Number.isFinite(n) && n > 0) {
-      setPesoTotalKgInput(String(lbsToKg(n)));
-      distribuirPesoTotal(n, 'lbs');
+    setPesoParaTodosLbsInput(s);
+    setConfirmReemplazoPeso(false);
+    if (s === '' || s === '.') {
+      setPesoParaTodosKgInput('');
+      setPesoParaTodosError(null);
+      return;
+    }
+    const n = Number(s);
+    if (Number.isFinite(n) && n > 0) {
+      setPesoParaTodosKgInput(String(lbsToKg(n)));
+      setPesoParaTodosError(null);
     } else {
-      setPesoTotalKgInput('');
+      setPesoParaTodosKgInput('');
+      setPesoParaTodosError('El peso debe ser mayor a 0');
     }
   }
 
-  function handlePesoTotalKgChange(raw: string) {
+  function handlePesoParaTodosKgChange(raw: string) {
     const s = sanitizeNumericDecimal(raw);
-    setPesoTotalKgInput(s);
-    const n = s === '' || s === '.' ? undefined : Number(s);
-    if (typeof n === 'number' && Number.isFinite(n) && n > 0) {
-      setPesoTotalLbsInput(String(kgToLbs(n)));
-      distribuirPesoTotal(n, 'kg');
+    setPesoParaTodosKgInput(s);
+    setConfirmReemplazoPeso(false);
+    if (s === '' || s === '.') {
+      setPesoParaTodosLbsInput('');
+      setPesoParaTodosError(null);
+      return;
+    }
+    const n = Number(s);
+    if (Number.isFinite(n) && n > 0) {
+      setPesoParaTodosLbsInput(String(kgToLbs(n)));
+      setPesoParaTodosError(null);
     } else {
-      setPesoTotalLbsInput('');
+      setPesoParaTodosLbsInput('');
+      setPesoParaTodosError('El peso debe ser mayor a 0');
     }
   }
-
-  useEffect(() => {
-    if (!hasPesoWrite || fields.length === 0) return;
-    const lbs = pesoTotalLbsInput === '' || pesoTotalLbsInput === '.'
-      ? undefined
-      : Number(pesoTotalLbsInput);
-    if (typeof lbs === 'number' && Number.isFinite(lbs) && lbs > 0) {
-      distribuirPesoTotal(lbs, 'lbs');
-    }
-    // Solo reaccionamos al cambio de cantidad de filas; mientras el usuario
-    // escribe, los handlers de los inputs ya distribuyen el peso.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fields.length, hasPesoWrite]);
 
   // ----- Diff en modo edit -----
-  const watchedItems = watch('paquetes');
   const diff = useMemo(() => {
     if (!isEditMode) {
       return { creates: 0, updates: 0, deletes: 0, totalChanged: false };
@@ -848,10 +916,12 @@ export function PaqueteBulkCreateForm({
       if (lbs > 0 || kg > 0) conPeso += 1;
       if (!(it.contenido ?? '').trim()) incompletos += 1;
     }
+    const total = items.length;
     return {
-      total: items.length,
+      total,
       incompletos,
       conPeso,
+      sinPeso: total - conPeso,
       sumaLbs: Math.round(sumaLbs * 100) / 100,
       sumaKg: Math.round(sumaKg * 100) / 100,
     };
@@ -876,15 +946,14 @@ export function PaqueteBulkCreateForm({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !enviando && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b border-[var(--color-border)] px-6 pb-4 pt-6">
           <DialogTitle>{titulo}</DialogTitle>
-          {isEditMode && (
-            <DialogDescription>
-              Modifica las piezas existentes, agrega nuevas o quita las que ya no
-              correspondan. Solo se aplicarán los cambios detectados.
-            </DialogDescription>
-          )}
+          <DialogDescription>
+            {isEditMode
+              ? 'Modifica las piezas existentes, agrega nuevas o quita las que ya no correspondan. Solo se aplicarán los cambios detectados.'
+              : 'Selecciona la guía, configura el lote y registra sus paquetes. El peso es opcional y puede completarse después en Pesaje.'}
+          </DialogDescription>
         </DialogHeader>
 
         {isEditMode && cargandoExistentes ? (
@@ -895,7 +964,7 @@ export function PaqueteBulkCreateForm({
         ) : (
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="space-y-3"
+            className="flex min-h-0 flex-1 flex-col"
             onKeyDown={(e) => {
               // Ctrl/Cmd+Enter envía el formulario desde cualquier campo.
               if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !enviando) {
@@ -904,337 +973,421 @@ export function PaqueteBulkCreateForm({
               }
             }}
           >
-            {!isEditMode && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="sm:col-span-2">
-                  <label
-                    htmlFor="guia-master-combobox"
-                    className="mb-1 block text-sm font-medium text-[var(--color-foreground)]"
-                  >
-                    Guía *
-                  </label>
-                  <GuiaMasterCombobox
-                    id="guia-master-combobox"
-                    value={typeof guiaMasterId === 'number' ? guiaMasterId : undefined}
-                    onChange={(id) =>
-                      setValue('guiaMasterId', id, {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      })
-                    }
-                    options={guiasSeleccionables}
-                    disabled={sinGuiasDisponibles || enviando}
-                    emptyMessage="No se encontraron guías con ese criterio"
-                  />
-                  {formState.errors.guiaMasterId && (
-                    <p className="mt-1 text-sm text-[var(--color-destructive)]">
-                      {formState.errors.guiaMasterId.message as string}
-                    </p>
-                  )}
-                  {sinGuiasDisponibles && (
-                    <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-                      No hay guías con consignatario asignado. Crea o asigna un consignatario en la guía
-                      antes de registrar paquetes.
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-                    Paquetes *
-                  </label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={MAX_PAQUETES_BULK}
-                    {...register('cantidad', { valueAsNumber: true })}
-                    variant="clean"
-                    className="input-clean"
-                    disabled={!guiaMasterId || enviando}
-                  />
-                  {!isEditMode && cantidadPresetOptions.length > 0 && (
-                    <QuickPresetChips
-                      className="mt-1.5"
-                      options={cantidadPresetOptions}
-                      value={typeof cantidad === 'number' && !Number.isNaN(cantidad) ? cantidad : undefined}
-                      onSelect={(v) =>
-                        setValue('cantidad', v, { shouldValidate: true, shouldDirty: true })
-                      }
-                    />
-                  )}
-                  <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                    {fields.length} fila{fields.length === 1 ? '' : 's'} en este lote
-                    {cupoRestante != null
-                      ? ` · pendientes declaradas: ${cupoRestante}`
-                      : ` · hasta ${MAX_PAQUETES_BULK}`}
-                  </p>
-                  {formState.errors.cantidad && (
-                    <p className="mt-1 text-sm text-[var(--color-destructive)]">
-                      {formState.errors.cantidad.message as string}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {isEditMode && guiaSeleccionada && (
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Guía master
-                    </p>
-                    <p className="mt-0.5 break-all font-mono text-sm font-medium text-foreground">
-                      {guiaSeleccionada.trackingBase}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="tabular-nums text-muted-foreground">
-                      Inicial: <span className="font-medium text-foreground">{initialCantidadRef.current ?? 0}</span>
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">
-                      Total esperado:{' '}
-                      <span className="font-medium text-foreground">
-                        {initialTotalEsperadasRef.current ?? '—'}
-                      </span>
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">
-                      Ahora:{' '}
-                      <span
-                        className={cn(
-                          'font-semibold',
-                          fields.length !== (initialCantidadRef.current ?? 0)
-                            ? 'text-[var(--color-primary)]'
-                            : 'text-foreground',
-                        )}
-                      >
-                        {fields.length}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {consignatarioNombre && (
-              <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 px-3 py-2 text-sm">
-                <UserRound className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]" />
-                <div className="min-w-0">
-                  <p className="text-xs text-[var(--color-muted-foreground)]">Consignatario</p>
-                  <p className="truncate font-medium text-[var(--color-foreground)]">
-                    {consignatarioNombre}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {guiaMasterId != null && (
-              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            {/* Body scrolleable: el footer queda fijo fuera de este contenedor */}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+              {/* 1. Guía */}
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Guía</h3>
+                {!isEditMode && (
                   <div>
                     <label
-                      htmlFor="contenido-todos"
+                      htmlFor="guia-master-combobox"
                       className="mb-1 block text-sm font-medium text-[var(--color-foreground)]"
                     >
-                      Contenido para todos
+                      Guía master *
                     </label>
-                    <Input
-                      id="contenido-todos"
-                      value={contenidoTodos}
-                      onChange={(e) => setContenidoTodos(e.target.value)}
-                      placeholder="Ej: ropa, zapatos, repuestos..."
-                      variant="clean"
-                      className="input-clean"
-                      disabled={enviando}
+                    <GuiaMasterCombobox
+                      id="guia-master-combobox"
+                      value={typeof guiaMasterId === 'number' ? guiaMasterId : undefined}
+                      onChange={(id) =>
+                        setValue('guiaMasterId', id, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                      options={guiasSeleccionables}
+                      disabled={sinGuiasDisponibles || enviando}
+                      emptyMessage="No se encontraron guías con ese criterio"
                     />
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={applyContenidoATodos}
-                      disabled={enviando || fields.length === 0}
-                    >
-                      Aplicar
-                    </Button>
-                  </div>
-                </div>
-
-                {hasPesoWrite && (
-                  <div className="mt-3">
-                    <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-                      Peso total del lote
-                    </label>
-                    <PesoInputPair
-                      lbs={pesoTotalLbsInput}
-                      kg={pesoTotalKgInput}
-                      onLbsChange={handlePesoTotalLbsChange}
-                      onKgChange={handlePesoTotalKgChange}
-                      lbsAriaLabel="Peso total en libras"
-                      kgAriaLabel="Peso total en kilogramos"
-                      disabled={enviando || fields.length === 0}
-                      size="md"
-                    />
-                    <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                      Se divide automáticamente entre {fields.length}{' '}
-                      paquete{fields.length === 1 ? '' : 's'}.
-                    </p>
+                    {formState.errors.guiaMasterId && (
+                      <p className="mt-1 text-sm text-[var(--color-destructive)]">
+                        {formState.errors.guiaMasterId.message as string}
+                      </p>
+                    )}
+                    {sinGuiasDisponibles && (
+                      <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+                        No hay guías con consignatario asignado. Crea o asigna un consignatario en la guía
+                        antes de registrar paquetes.
+                      </p>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {excedeCupo && (
-              <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-3 py-2 text-xs text-[var(--color-warning)] dark:border-[var(--color-warning)]/30 dark:bg-[var(--color-warning)]/10 dark:text-[var(--color-warning)]">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>
-                  Vas a registrar {fields.length} paquetes pero la guía declara solo {cupoRestante} cupo
-                  restante. Se permitirá, pero verifica que el total esperado de la guía sea correcto.
-                </span>
-              </div>
-            )}
-
-            {isEditMode && removedIds.length > 0 && (
-              <div className="flex items-start gap-2 rounded-md border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 px-3 py-2 text-xs text-foreground">
-                <Trash2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-destructive)]" />
-                <span className="flex-1">
-                  Se eliminará{removedIds.length === 1 ? '' : 'n'}{' '}
-                  <span className="font-semibold">{removedIds.length}</span>{' '}
-                  paquete{removedIds.length === 1 ? '' : 's'} existente
-                  {removedIds.length === 1 ? '' : 's'} al guardar.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setRemovedIds([])}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-primary)] hover:underline"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  Deshacer
-                </button>
-              </div>
-            )}
-
-            {guiaMasterId != null && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
-                    Paquetes del lote
-                    <span className="ml-1.5 font-normal text-muted-foreground">
-                      ({fields.length})
-                    </span>
-                  </h3>
-                  {fields.length < MAX_PAQUETES_BULK && !enviando && !bloqueaPiezasNuevas && (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={pegarDesdePortapapeles}
-                        title="Pegar una lista de contenidos (uno por línea)"
-                      >
-                        <ClipboardPaste className="mr-1 h-3.5 w-3.5" />
-                        Pegar lista
-                      </Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={handleAddOne}>
-                        <Plus className="mr-1 h-3.5 w-3.5" />
-                        Añadir fila
-                      </Button>
+                {isEditMode && guiaSeleccionada && (
+                  <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Guía master
+                        </p>
+                        <p className="mt-0.5 break-all font-mono text-sm font-medium text-foreground">
+                          {guiaSeleccionada.trackingBase}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        <span className="tabular-nums text-muted-foreground">
+                          Inicial: <span className="font-medium text-foreground">{initialCantidadRef.current ?? 0}</span>
+                        </span>
+                        <span className="tabular-nums text-muted-foreground">
+                          Total esperado:{' '}
+                          <span className="font-medium text-foreground">
+                            {initialTotalEsperadasRef.current ?? '—'}
+                          </span>
+                        </span>
+                        <span className="tabular-nums text-muted-foreground">
+                          Ahora:{' '}
+                          <span
+                            className={cn(
+                              'font-semibold',
+                              fields.length !== (initialCantidadRef.current ?? 0)
+                                ? 'text-[var(--color-primary)]'
+                                : 'text-foreground',
+                            )}
+                          >
+                            {fields.length}
+                          </span>
+                        </span>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {bloqueaPiezasNuevas ? (
+                {consignatarioNombre && (
+                  <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 px-3 py-2 text-sm">
+                    <UserRound className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-[var(--color-muted-foreground)]">Consignatario</p>
+                      <p className="truncate font-medium text-[var(--color-foreground)]">
+                        {consignatarioNombre}
+                      </p>
+                    </div>
+                    {cupoRestante != null && (
+                      <span className="shrink-0 rounded-full bg-[var(--color-muted)] px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+                        Cupo restante: <span className="font-medium text-foreground">{cupoRestante}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {guiaMasterId != null && bloqueaPiezasNuevas && (
                   <p className="rounded-md border border-[var(--color-warning)] bg-[color-mix(in_oklab,var(--color-warning)_10%,transparent)] px-3 py-2 text-xs text-foreground">
                     La guía está {estadoGuiaActual === 'EN_REVISION' ? 'en revisión' : 'pendiente de aprobación'};
                     no se pueden registrar piezas nuevas. Apruébala o sácala de revisión desde el
                     módulo Guías master para habilitar el registro.
                   </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    <kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">Enter</kbd>{' '}
-                    pasa a la siguiente · pega una lista para crear varias filas ·{' '}
-                    <kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">Ctrl/⌘+Enter</kbd>{' '}
-                    guarda
-                  </p>
                 )}
 
-                {/* Planilla: todos los paquetes visibles a la vez */}
-                <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
-                  <div className="hidden bg-[var(--color-muted)]/40 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[2rem_minmax(0,1fr)_auto_4.5rem] sm:items-center sm:gap-3">
-                    <span className="text-center">#</span>
-                    <span>Contenido</span>
-                    <span className={hasPesoWrite ? '' : 'sr-only'}>{hasPesoWrite ? 'Peso (lb / kg)' : 'Peso'}</span>
-                    <span className="text-right">Acciones</span>
+                {excedeCupo && (
+                  <div className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-3 py-2 text-xs text-[var(--color-warning)]">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Vas a registrar {fields.length} paquetes pero la guía declara solo {cupoRestante} cupo
+                      restante. Se permitirá, pero verifica que el total esperado de la guía sea correcto.
+                    </span>
                   </div>
-                  <div className="divide-y divide-[var(--color-border)]">
-                    {fields.map((field, index) => (
-                      <BulkPaqueteRow
-                        key={field.id}
-                        index={index}
-                        total={fields.length}
-                        setValue={setValue}
-                        register={register}
-                        hasPesoWrite={hasPesoWrite}
-                        errors={formState.errors.paquetes?.[index]}
-                        disabled={enviando}
-                        defaultContenido={field.contenido ?? ''}
-                        esExistente={(watchedItems?.[index]?.id ?? null) != null}
-                        isEditMode={isEditMode}
-                        pesoLbs={watchedItems?.[index]?.pesoLbs}
-                        pesoKg={watchedItems?.[index]?.pesoKg}
-                        onEnter={() => handleContenidoEnter(index)}
-                        onPasteList={(text) => pegarLista(text, index)}
-                        onDuplicate={() => handleDuplicate(index)}
-                        onRemove={() => handleRemove(index)}
+                )}
+
+                {isEditMode && removedIds.length > 0 && (
+                  <div className="flex items-start gap-2 rounded-md border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/5 px-3 py-2 text-xs text-foreground">
+                    <Trash2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-destructive)]" />
+                    <span className="flex-1">
+                      Se eliminará{removedIds.length === 1 ? '' : 'n'}{' '}
+                      <span className="font-semibold">{removedIds.length}</span>{' '}
+                      paquete{removedIds.length === 1 ? '' : 's'} existente
+                      {removedIds.length === 1 ? '' : 's'} al guardar.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setRemovedIds([])}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-primary)] hover:underline"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Deshacer
+                    </button>
+                  </div>
+                )}
+              </section>
+
+              {/* 2. Configuración del lote */}
+              {guiaMasterId != null && (
+                <section className="space-y-3 border-t border-[var(--color-border)] pt-4">
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
+                    Configuración del lote
+                  </h3>
+
+                  {!isEditMode && (
+                    <div className="max-w-xs">
+                      <label
+                        htmlFor="cantidad-input"
+                        className="mb-1 block text-sm font-medium text-[var(--color-foreground)]"
+                      >
+                        Cantidad de paquetes *
+                      </label>
+                      <Input
+                        id="cantidad-input"
+                        type="number"
+                        min={1}
+                        max={MAX_PAQUETES_BULK}
+                        {...register('cantidad', { valueAsNumber: true })}
+                        variant="clean"
+                        className="input-clean"
+                        disabled={!guiaMasterId || enviando}
                       />
-                    ))}
-                  </div>
-                </div>
+                      {cantidadPresetOptions.length > 0 && (
+                        <QuickPresetChips
+                          className="mt-1.5"
+                          options={cantidadPresetOptions}
+                          value={typeof cantidad === 'number' && !Number.isNaN(cantidad) ? cantidad : undefined}
+                          onSelect={(v) =>
+                            setValue('cantidad', v, { shouldValidate: true, shouldDirty: true })
+                          }
+                        />
+                      )}
+                      <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                        {fields.length} fila{fields.length === 1 ? '' : 's'} en este lote
+                        {cupoRestante != null
+                          ? ` · pendientes declaradas: ${cupoRestante}`
+                          : ` · hasta ${MAX_PAQUETES_BULK}`}
+                      </p>
+                      {formState.errors.cantidad && (
+                        <p className="mt-1 text-sm text-[var(--color-destructive)]">
+                          {formState.errors.cantidad.message as string}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-                {typeof formState.errors.paquetes?.message === 'string' && (
-                  <p className="text-sm text-[var(--color-destructive)]">
-                    {formState.errors.paquetes.message}
-                  </p>
-                )}
+                  {hasPesoWrite && (
+                    <div className="space-y-2 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <label className="text-sm font-medium text-[var(--color-foreground)]">
+                          Peso para todos los paquetes
+                        </label>
+                        <span className="text-xs font-medium text-muted-foreground">Opcional</span>
+                      </div>
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
+                        <PesoInputPair
+                          lbs={pesoParaTodosLbsInput}
+                          kg={pesoParaTodosKgInput}
+                          onLbsChange={handlePesoParaTodosLbsChange}
+                          onKgChange={handlePesoParaTodosKgChange}
+                          lbsAriaLabel="Peso para todos los paquetes en libras"
+                          kgAriaLabel="Peso para todos los paquetes en kilogramos"
+                          disabled={enviando || fields.length === 0}
+                          invalid={pesoParaTodosError != null}
+                          size="md"
+                          className="shrink-0 lg:w-auto"
+                        />
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={solicitarAplicarATodos}
+                            disabled={enviando || fields.length === 0 || pesoParaTodosValor == null}
+                          >
+                            Aplicar a todos
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => aplicarPesoParaTodos('sin-peso')}
+                            disabled={enviando || fields.length === 0 || pesoParaTodosValor == null}
+                            aria-label="Aplicar solo a paquetes sin peso"
+                            title="Aplicar solo a paquetes sin peso"
+                          >
+                            Solo a sin peso
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={limpiarPesos}
+                            disabled={enviando || !algunPaqueteConPeso}
+                          >
+                            Limpiar pesos
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-[var(--color-muted-foreground)]">
+                        Si lo completas, se aplicará este peso a los paquetes del lote. Puedes dejarlo
+                        vacío y registrar el peso después en Pesaje.
+                      </p>
+                      {pesoParaTodosError && (
+                        <p className="text-sm text-[var(--color-destructive)]">{pesoParaTodosError}</p>
+                      )}
+                      {confirmReemplazoPeso && (
+                        <div className="flex flex-col gap-2 rounded-md border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 px-3 py-2 text-xs text-foreground sm:flex-row sm:items-center sm:justify-between">
+                          <span className="inline-flex items-center gap-1.5">
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[var(--color-warning)]" />
+                            Esto reemplazará pesos ya ingresados.
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => aplicarPesoParaTodos('todos')}
+                            >
+                              Reemplazar todos
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setConfirmReemplazoPeso(false)}
+                            >
+                              Cancelar
+                            </Button>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                {/* Resumen del lote antes de guardar */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-3 py-2 text-sm">
-                  <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                    <PackageCheck className="h-4 w-4 text-muted-foreground" />
-                    {resumen.total} paquete{resumen.total === 1 ? '' : 's'}
-                  </span>
-                  {hasPesoWrite && (resumen.sumaLbs > 0 || resumen.sumaKg > 0) && (
-                    <span className="tabular-nums text-muted-foreground">
-                      Peso total:{' '}
-                      <span className="font-medium text-foreground">
-                        {resumen.sumaLbs} lb · {resumen.sumaKg} kg
+                  {!bloqueaPiezasNuevas && fields.length < MAX_PAQUETES_BULK && !enviando && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={pegarDesdePortapapeles}
+                      title="Pegar una lista de contenidos (uno por línea)"
+                    >
+                      <ClipboardPaste className="mr-1 h-3.5 w-3.5" />
+                      Pegar lista
+                    </Button>
+                  )}
+                </section>
+              )}
+
+              {/* 3. Paquetes del lote */}
+              {guiaMasterId != null && (
+                <section className="space-y-2 border-t border-[var(--color-border)] pt-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
+                      Paquetes del lote
+                      <span className="ml-1.5 font-normal text-muted-foreground">
+                        ({fields.length})
                       </span>
-                    </span>
+                    </h3>
+                    {fields.length < MAX_PAQUETES_BULK && !enviando && !bloqueaPiezasNuevas && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleAddOne}
+                        className="self-start sm:self-auto"
+                      >
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        Añadir fila
+                      </Button>
+                    )}
+                  </div>
+
+                  {!bloqueaPiezasNuevas && (
+                    <p className="text-xs text-muted-foreground">
+                      <kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">Enter</kbd>{' '}
+                      pasa a la siguiente · pega una lista para crear varias filas ·{' '}
+                      <kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">Ctrl/⌘+Enter</kbd>{' '}
+                      guarda · la numeración de piezas se asigna automáticamente.
+                    </p>
                   )}
-                  {resumen.incompletos > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 text-[var(--color-warning)]">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      {resumen.incompletos} sin contenido
-                    </span>
-                  ) : (
-                    <span className="text-[var(--color-success)]">Todos con contenido</span>
+
+                  {/* Planilla: scrolleable internamente si hay muchas filas */}
+                  <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+                    <div className="hidden bg-[var(--color-muted)]/40 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[2rem_minmax(0,1fr)_auto_4.5rem] sm:items-center sm:gap-3">
+                      <span className="text-center">#</span>
+                      <span>Contenido</span>
+                      <span className={hasPesoWrite ? '' : 'sr-only'}>{hasPesoWrite ? 'Peso (lb / kg)' : 'Peso'}</span>
+                      <span className="text-right">Acciones</span>
+                    </div>
+                    <div className="max-h-[42vh] divide-y divide-[var(--color-border)] overflow-y-auto">
+                      {fields.map((field, index) => (
+                        <BulkPaqueteRow
+                          key={field.id}
+                          index={index}
+                          total={fields.length}
+                          setValue={setValue}
+                          register={register}
+                          hasPesoWrite={hasPesoWrite}
+                          errors={formState.errors.paquetes?.[index]}
+                          disabled={enviando}
+                          defaultContenido={field.contenido ?? ''}
+                          esExistente={(watchedItems?.[index]?.id ?? null) != null}
+                          isEditMode={isEditMode}
+                          pesoLbs={watchedItems?.[index]?.pesoLbs}
+                          pesoKg={watchedItems?.[index]?.pesoKg}
+                          pesoNonce={pesoNonce}
+                          getRowPeso={() => getValues(`paquetes.${index}` as const)}
+                          onEnter={() => handleContenidoEnter(index)}
+                          onPasteList={(text) => pegarLista(text, index)}
+                          onDuplicate={() => handleDuplicate(index)}
+                          onRemove={() => handleRemove(index)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {typeof formState.errors.paquetes?.message === 'string' && (
+                    <p className="text-sm text-[var(--color-destructive)]">
+                      {formState.errors.paquetes.message}
+                    </p>
                   )}
+                </section>
+              )}
+
+              {/* 4. Resumen */}
+              {guiaMasterId != null && (
+                <section className="border-t border-[var(--color-border)] pt-4">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-3 py-2 text-sm">
+                    <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                      <PackageCheck className="h-4 w-4 text-muted-foreground" />
+                      {resumen.total} paquete{resumen.total === 1 ? '' : 's'}
+                    </span>
+                    {hasPesoWrite && (
+                      <span className="tabular-nums text-muted-foreground">
+                        <span className="font-medium text-[var(--color-success)]">{resumen.conPeso}</span>{' '}
+                        con peso ·{' '}
+                        <span className="font-medium text-foreground">{resumen.sinPeso}</span>{' '}
+                        con peso pendiente
+                      </span>
+                    )}
+                    {hasPesoWrite && (resumen.sumaLbs > 0 || resumen.sumaKg > 0) && (
+                      <span className="tabular-nums text-muted-foreground">
+                        Peso total:{' '}
+                        <span className="font-medium text-foreground">
+                          {resumen.sumaLbs} lb · {resumen.sumaKg} kg
+                        </span>
+                      </span>
+                    )}
+                    {resumen.incompletos > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 text-[var(--color-warning)]">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        {resumen.incompletos} sin contenido
+                      </span>
+                    ) : (
+                      <span className="text-[var(--color-success)]">Todos con contenido</span>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {enviando && (
+                <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 px-3 py-2 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {progreso.fase === 'crear' && 'Creando paquete'}
+                  {progreso.fase === 'actualizar' && 'Actualizando paquete'}
+                  {progreso.fase === 'eliminar' && 'Eliminando paquete'}
+                  {progreso.fase == null && 'Procesando'}{' '}
+                  {progreso.actual + (progreso.actual < progreso.total ? 1 : 0)} de{' '}
+                  {progreso.total}…
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {enviando && (
-              <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 px-3 py-2 text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {progreso.fase === 'crear' && 'Creando paquete'}
-                {progreso.fase === 'actualizar' && 'Actualizando paquete'}
-                {progreso.fase === 'eliminar' && 'Eliminando paquete'}
-                {progreso.fase == null && 'Procesando'}{' '}
-                {progreso.actual + (progreso.actual < progreso.total ? 1 : 0)} de{' '}
-                {progreso.total}…
-              </div>
-            )}
-
-            <DialogFooter>
+            {/* Footer fijo */}
+            <DialogFooter className="border-t border-[var(--color-border)] bg-[var(--color-background)] px-6 py-3">
               <Button type="button" variant="secondary" onClick={onClose} disabled={enviando}>
                 Cancelar
               </Button>
@@ -1276,6 +1429,10 @@ interface BulkPaqueteRowProps {
   isEditMode: boolean;
   pesoLbs?: number;
   pesoKg?: number;
+  /** Cambia tras cada acción masiva de peso para forzar la resync de la fila. */
+  pesoNonce: number;
+  /** Lee el peso actual de la fila desde el store del formulario. */
+  getRowPeso: () => { pesoLbs?: number; pesoKg?: number } | undefined;
   onEnter: () => void;
   onPasteList: (text: string) => void;
   onDuplicate: () => void;
@@ -1296,6 +1453,8 @@ function BulkPaqueteRow({
   isEditMode,
   pesoLbs,
   pesoKg,
+  pesoNonce,
+  getRowPeso,
   onEnter,
   onPasteList,
   onDuplicate,
@@ -1304,17 +1463,48 @@ function BulkPaqueteRow({
   const [pesoLbsInput, setPesoLbsInput] = useState(pesoLbs != null ? String(pesoLbs) : '');
   const [pesoKgInput, setPesoKgInput] = useState(pesoKg != null ? String(pesoKg) : '');
 
-  // Sincroniza el texto visible cuando una acción masiva cambia el peso.
+  // Tras una acción masiva de peso (aplicar/limpiar), relee el peso desde el
+  // store del formulario. No dependemos del prop derivado de watch porque
+  // setValue(undefined) no siempre lo emite; getValues sí refleja el valor real.
   useEffect(() => {
-    const next = pesoLbs != null ? String(pesoLbs) : '';
-    if (next !== pesoLbsInput) setPesoLbsInput(next);
-  }, [pesoLbs, pesoLbsInput]);
-  useEffect(() => {
-    const next = pesoKg != null ? String(pesoKg) : '';
-    if (next !== pesoKgInput) setPesoKgInput(next);
-  }, [pesoKg, pesoKgInput]);
+    if (pesoNonce === 0) return;
+    const cur = getRowPeso();
+    setPesoLbsInput(cur?.pesoLbs != null ? String(cur.pesoLbs) : '');
+    setPesoKgInput(cur?.pesoKg != null ? String(cur.pesoKg) : '');
+    // Solo reaccionamos al nonce; getRowPeso se recrea en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pesoNonce]);
 
   const contenidoError = errors?.contenido?.message;
+  const pesoError = errors?.pesoLbs?.message ?? errors?.pesoKg?.message;
+
+  /**
+   * Actualiza el peso de la fila desde una unidad, espejando la otra. Un valor
+   * mayor que 0 convierte y refleja; un 0 (peso inválido) se conserva en ambas
+   * para que el schema lo marque; vacío limpia ambas.
+   */
+  function cambiarPeso(unit: 'lbs' | 'kg', raw: string) {
+    const s = sanitizeNumericDecimal(raw);
+    const n = s === '' || s === '.' ? undefined : Number(s);
+    const valido = typeof n === 'number' && Number.isFinite(n) && n > 0;
+    const srcField = unit === 'lbs' ? 'pesoLbs' : 'pesoKg';
+    const dstField = unit === 'lbs' ? 'pesoKg' : 'pesoLbs';
+    const setSrcInput = unit === 'lbs' ? setPesoLbsInput : setPesoKgInput;
+    const setDstInput = unit === 'lbs' ? setPesoKgInput : setPesoLbsInput;
+    const convertir = unit === 'lbs' ? lbsToKg : kgToLbs;
+    setSrcInput(s);
+    setValue(`paquetes.${index}.${srcField}` as const, n, { shouldValidate: true, shouldDirty: true });
+    if (valido) {
+      const dst = convertir(n);
+      setValue(`paquetes.${index}.${dstField}` as const, dst, { shouldDirty: true, shouldValidate: true });
+      setDstInput(String(dst));
+    } else {
+      // n es 0 (inválido) o undefined (vacío): reflejamos el mismo valor para
+      // que ambas unidades queden coherentes y el error se muestre una vez.
+      setValue(`paquetes.${index}.${dstField}` as const, n, { shouldDirty: true, shouldValidate: true });
+      setDstInput(s === '' || s === '.' ? '' : s);
+    }
+  }
 
   return (
     <div className="px-3 py-2">
@@ -1370,34 +1560,9 @@ function BulkPaqueteRow({
             kg={pesoKgInput}
             disabled={disabled}
             size="sm"
-            onLbsChange={(raw) => {
-              const s = sanitizeNumericDecimal(raw);
-              setPesoLbsInput(s);
-              const n = s === '' || s === '.' ? undefined : Number(s);
-              setValue(`paquetes.${index}.pesoLbs`, n, { shouldValidate: true, shouldDirty: true });
-              if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
-                const kg = lbsToKg(n);
-                setValue(`paquetes.${index}.pesoKg`, kg, { shouldDirty: true });
-                setPesoKgInput(String(kg));
-              } else {
-                setValue(`paquetes.${index}.pesoKg`, undefined, { shouldDirty: true });
-                setPesoKgInput('');
-              }
-            }}
-            onKgChange={(raw) => {
-              const s = sanitizeNumericDecimal(raw);
-              setPesoKgInput(s);
-              const n = s === '' || s === '.' ? undefined : Number(s);
-              setValue(`paquetes.${index}.pesoKg`, n, { shouldValidate: true, shouldDirty: true });
-              if (typeof n === 'number' && !Number.isNaN(n) && n >= 0) {
-                const lbs = kgToLbs(n);
-                setValue(`paquetes.${index}.pesoLbs`, lbs, { shouldDirty: true });
-                setPesoLbsInput(String(lbs));
-              } else {
-                setValue(`paquetes.${index}.pesoLbs`, undefined, { shouldDirty: true });
-                setPesoLbsInput('');
-              }
-            }}
+            invalid={pesoError != null}
+            onLbsChange={(raw) => cambiarPeso('lbs', raw)}
+            onKgChange={(raw) => cambiarPeso('kg', raw)}
           />
         ) : (
           <span className="hidden sm:block" />
@@ -1431,9 +1596,9 @@ function BulkPaqueteRow({
         </div>
       </div>
 
-      {contenidoError && (
+      {(contenidoError || pesoError) && (
         <p className="mt-1 text-xs text-[var(--color-destructive)] sm:pl-[2.75rem]">
-          {contenidoError}
+          {[contenidoError, pesoError].filter(Boolean).join(' · ')}
         </p>
       )}
     </div>

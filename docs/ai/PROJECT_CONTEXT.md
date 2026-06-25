@@ -53,15 +53,15 @@
 
 ### Frontend
 
-- React 19.2.6, TypeScript 6.0.3 y Vite 8.0.14.
+- React 19.2.7, TypeScript 6.0.3 y Vite 8.1.0.
 - Node.js 22 en CI y Docker.
 - npm con lockfile `ecubox-frontend/package-lock.json`.
-- TanStack Router 1.170.8 y TanStack Query 5.100.14.
-- Axios 1.16.1, Zustand 5.0.13, React Hook Form 7.76.1 y Zod 4.4.3.
-- Tailwind CSS 4.3.0, Radix UI/shadcn, Lucide y Sonner.
+- TanStack Router 1.170.16 y TanStack Query 5.101.1.
+- Axios 1.18.1, Zustand 5.0.13, React Hook Form 7.80.0 y Zod 4.4.3.
+- Tailwind CSS 4.3.1, Radix UI/shadcn, Lucide y Sonner.
 - PWA con `vite-plugin-pwa`; generación de iconos con Sharp.
 - Exportación con jsPDF, ExcelJS y `html-to-image`.
-- Vitest 4.1.7, Testing Library, jsdom y cobertura V8.
+- Vitest 4.1.9, Testing Library, jsdom y cobertura V8.
 
 Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.json` y lockfiles. `docs/desarrollo/TECH-STACK.md` contiene varias versiones anteriores y no debe usarse para fijar versiones sin cotejo.
 

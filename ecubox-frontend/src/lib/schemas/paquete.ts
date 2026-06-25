@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { optionalNumber } from './primitives';
+import { optionalNumber, pesoPositivoSchema } from './primitives';
 
 export const MAX_PAQUETES_BULK = 50;
 export const MAX_CONTENIDO = 500;
@@ -17,8 +17,10 @@ export const paqueteItemSchema = z.object({
     .string()
     .min(1, 'El contenido es obligatorio')
     .max(MAX_CONTENIDO, `Máximo ${MAX_CONTENIDO} caracteres`),
-  pesoLbs: optionalNumber,
-  pesoKg: optionalNumber,
+  // El peso es opcional (vacío = peso pendiente). Si se ingresa, debe ser
+  // mayor que 0: un 0 representa un peso escrito inválido, no "sin peso".
+  pesoLbs: pesoPositivoSchema,
+  pesoKg: pesoPositivoSchema,
   piezaNumero: optionalNumber,
 });
 
