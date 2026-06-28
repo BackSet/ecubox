@@ -33,14 +33,14 @@ export function CallToActionBanner() {
         <div className="relative mt-7 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Link
             to="/registro"
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-7 py-3.5 text-sm font-semibold text-[var(--color-primary)] shadow-lg transition hover:bg-white/95 sm:px-9 sm:py-4"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-7 py-3.5 text-sm font-semibold text-[var(--color-primary)] shadow-md ui-transition hover:bg-white/95 hover:shadow-lg active:scale-[0.97] sm:px-9 sm:py-4"
           >
             Crear cuenta gratis
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
           <Link
             to="/calculadora"
-            className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-white/70 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/15 sm:px-9 sm:py-4"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-white/70 px-7 py-3.5 text-sm font-semibold text-white ui-transition hover:bg-white/15 active:scale-[0.97] sm:px-9 sm:py-4"
           >
             <Calculator className="h-4 w-4" aria-hidden />
             Cotizar primero

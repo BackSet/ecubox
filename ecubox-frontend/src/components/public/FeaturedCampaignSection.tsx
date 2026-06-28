@@ -74,7 +74,7 @@ export function FeaturedCampaignSection({ campania, tema }: FeaturedCampaignSect
                 <a
                   href={campania.urlCta ?? '#'}
                   {...(ctaExterno ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                  className="ui-interactive inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--color-primary-foreground)] shadow-sm hover:opacity-95 sm:w-auto"
+                  className="ui-interactive ui-transition inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--color-primary-foreground)] shadow-sm hover:bg-[var(--color-primary)]/90 active:scale-[0.97] sm:w-auto"
                 >
                   {campania.textoCta}
                   <ArrowRight className="h-4 w-4" aria-hidden />
@@ -92,7 +92,7 @@ export function FeaturedCampaignSection({ campania, tema }: FeaturedCampaignSect
                 loading="lazy"
                 decoding="async"
                 onError={() => setImagenFallo(true)}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
               />
             </div>
           ) : null}
