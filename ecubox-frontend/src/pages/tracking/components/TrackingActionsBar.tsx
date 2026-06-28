@@ -95,7 +95,7 @@ export function TrackingActionsBar({
         </p>
         <Button
           type="button"
-          className="h-10 w-full justify-center gap-2 sm:w-auto sm:min-w-[11rem]"
+          className="h-10 w-full justify-center gap-2 sm:w-auto sm:min-w-[11rem] ui-transition active:scale-[0.97]"
           disabled={isPending('share')}
           onClick={() => void runShare()}
         >

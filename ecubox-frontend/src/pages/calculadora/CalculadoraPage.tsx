@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { getTarifaCalculadoraPublic } from '@/lib/api/tarifa-calculadora.service';
 import { PesoInputPair } from '@/components/PesoInput';
@@ -271,10 +271,10 @@ export function CalculadoraPage() {
                           key={p.valor}
                           type="button"
                           onClick={() => aplicarPreset(p.valor)}
-                          className={`inline-flex h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors ${
+                          className={`inline-flex h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium ui-transition active:scale-95 ${
                             activo
                               ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                              : 'border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                              : 'border-[var(--color-landing-border)] bg-[var(--color-landing-card)] text-[var(--color-landing-text-muted)] hover:bg-[var(--color-landing-card-muted)] hover:text-[var(--color-landing-text)]'
                           }`}
                         >
                           <PackageIcon className="h-3 w-3" />
@@ -406,13 +406,13 @@ export function CalculadoraPage() {
                 </section>
               )}
 
-              <section className="landing-card flex flex-wrap items-center justify-between gap-3 p-4">
+               <section className="landing-card flex flex-wrap items-center justify-between gap-3 p-4">
                 <p className="text-sm landing-text-muted">
                   ¿Ya tienes un envío en camino?
                 </p>
                 <Link
                   to="/tracking"
-                  className="inline-flex items-center gap-2 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-medium text-[var(--color-primary-foreground)] transition-colors hover:bg-[var(--color-primary)]/90"
+                  className="inline-flex items-center gap-2 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-semibold text-[var(--color-primary-foreground)] ui-transition hover:bg-[var(--color-primary)]/90 active:scale-[0.97]"
                 >
                   <Search className="h-4 w-4" />
                   Rastrear envío

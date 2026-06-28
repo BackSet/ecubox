@@ -121,7 +121,7 @@ export function CalculadoraActionsBar({
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             type="button"
-            className="h-10 justify-center gap-2 sm:min-w-[11rem]"
+            className="h-10 justify-center gap-2 sm:min-w-[11rem] ui-transition active:scale-[0.97]"
             disabled={disabled || isPending('share')}
             onClick={() => void runShare()}
           >
@@ -137,7 +137,7 @@ export function CalculadoraActionsBar({
           <Button
             type="button"
             variant="outline"
-            className="h-10 justify-center gap-2"
+            className="h-10 justify-center gap-2 ui-transition active:scale-[0.97]"
             disabled={disabled || isPending('copy-texto')}
             onClick={() => void runCopyTexto()}
           >
