@@ -28,6 +28,9 @@ export function SiteFooter() {
             <Link to="/" className="w-fit" aria-label="ECUBOX - Inicio">
               <EcuboxLogo variant="principal" size="md" asLink={false} />
             </Link>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+              Conecta · Envía · Llega
+            </p>
             <p className="max-w-xs text-sm leading-relaxed landing-text-muted">
               Logística de clase mundial con el corazón del Ecuador.
             </p>
@@ -53,13 +56,18 @@ export function SiteFooter() {
               <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider landing-text-muted">Legal</h4>
               <ul className="flex flex-col gap-2 text-sm landing-text">
                 <li>
-                  <Link to="/terminos" className="transition hover:text-[var(--color-primary)]">
+                  <Link to="/terminos-y-condiciones" className="transition hover:text-[var(--color-primary)]">
                     Términos y condiciones
                   </Link>
                 </li>
                 <li>
-                  <Link to="/privacidad" className="transition hover:text-[var(--color-primary)]">
+                  <Link to="/politica-de-privacidad" className="transition hover:text-[var(--color-primary)]">
                     Política de privacidad
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/politica-de-cookies" className="transition hover:text-[var(--color-primary)]">
+                    Política de cookies
                   </Link>
                 </li>
               </ul>

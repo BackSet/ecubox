@@ -505,8 +505,8 @@ export function MiDespachoDetallePage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        title="Ver tracking"
-                        aria-label="Ver tracking"
+                        title="Ver rastreo"
+                        aria-label="Ver rastreo"
                         onClick={() => {
                           const url = `/tracking?numeroGuia=${encodeURIComponent(p.numeroGuia)}`;
                           window.open(url, '_blank', 'noopener');

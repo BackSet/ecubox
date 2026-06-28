@@ -107,6 +107,16 @@ export function TrackingSearchPanel({
             >
               Abrir ejemplos dinámicos
             </Link>
+            <span className="basis-full sm:basis-auto">
+              El rastreo público muestra datos limitados. Consulta la{' '}
+              <Link
+                to="/politica-de-privacidad"
+                className="font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
+              >
+                política de privacidad
+              </Link>
+              .
+            </span>
           </div>
         )}
       </form>

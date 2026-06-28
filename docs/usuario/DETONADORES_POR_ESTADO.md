@@ -25,7 +25,7 @@ elige **qué estado** del catálogo corresponde a cada uno.
 | Aviso de confirmación de entrega | El paquete alcanza el estado configurado | Sistema → notificación push al cliente |
 | Entrega confirmada por cliente | El cliente confirma recepción de sus piezas | Mis entregas → Confirmar entrega |
 | Cambio manual | El operario cambia el estado a mano (paquete sin saca) | Operaciones → Estados de paquetes |
-| Inicio / fin de cuenta regresiva | Anclas de cálculo de plazo (no cambian estado por sí solas) | Parámetros → Tracking; visible en Rastreo público |
+| Inicio / fin de cuenta regresiva | Anclas de cálculo de plazo (no cambian estado por sí solas) | Parámetros → Rastreo; visible en rastreo público |
 
 ---
 

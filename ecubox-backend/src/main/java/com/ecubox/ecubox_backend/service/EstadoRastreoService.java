@@ -77,7 +77,7 @@ public class EstadoRastreoService {
     }
 
     /**
-     * Catálogo canónico del tracking público. El orden base proviene de
+     * Catálogo canónico del rastreo público. El orden base proviene de
      * {@code ordenTracking}; los alternos con ancla se insertan inmediatamente
      * después de su estado base. Los estados ocultos o inactivos no participan.
      */

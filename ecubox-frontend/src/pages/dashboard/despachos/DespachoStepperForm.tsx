@@ -90,14 +90,14 @@ function hasPeso(p: { pesoKg?: number | null; pesoLbs?: number | null }): boolea
 }
 
 const TAMANIO_OPTIONS: { value: TamanioSaca; label: string; sublabel: string }[] = [
-  { value: 'INDIVIDUAL', label: 'Paquete individual', sublabel: `máx ${INDIVIDUAL_KG_MAX} kg · ${Math.round(kgToLbs(INDIVIDUAL_KG_MAX))} lbs` },
+  { value: 'INDIVIDUAL', label: 'Pieza', sublabel: `máx ${INDIVIDUAL_KG_MAX} kg · ${Math.round(kgToLbs(INDIVIDUAL_KG_MAX))} lbs` },
   { value: 'PEQUENO', label: 'Saca pequeña', sublabel: `máx 30 kg · ${Math.round(kgToLbs(30))} lbs` },
   { value: 'MEDIANO', label: 'Saca mediana', sublabel: `máx 40 kg · ${Math.round(kgToLbs(40))} lbs` },
   { value: 'GRANDE', label: 'Saca grande', sublabel: `máx 50 kg · ${Math.round(kgToLbs(50))} lbs` },
 ];
 
 const TAMANIO_LABELS: Record<TamanioSaca, string> = {
-  INDIVIDUAL: 'Paquete individual',
+  INDIVIDUAL: 'Pieza',
   PEQUENO: 'Saca pequeña',
   MEDIANO: 'Saca mediana',
   GRANDE: 'Saca grande',

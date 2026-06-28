@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router';
 import { cn } from '@/lib/utils';
-import logoLight from '@/assets/brand/logotipo_texto_ecubox-light.svg';
-import logoDark from '@/assets/brand/logotipo_texto_ecubox-dark.svg';
-import markLight from '@/assets/brand/monograma_ecubox-light.svg';
-import markDark from '@/assets/brand/monograma_ecubox-dark.svg';
+import logoLight from '@/assets/brand/ecubox-logo-horizontal-light.svg';
+import logoDark from '@/assets/brand/ecubox-logo-horizontal-dark.svg';
+import markLight from '@/assets/brand/ecubox-symbol-light.svg';
+import markDark from '@/assets/brand/ecubox-symbol-dark.svg';
 
 export type EcuboxLogoVariant = 'principal' | 'gradient' | 'purple' | 'light' | 'onPurple';
 export type EcuboxLogoSize = 'sm' | 'md' | 'lg';
@@ -34,12 +34,14 @@ export function EcuboxLogo({
   const sizes = SIZE_CLASSES[size];
   const lightSrc = iconOnly ? markLight : logoLight;
   const darkSrc = iconOnly ? markDark : logoDark;
-  const forceLightAsset = variant === 'onPurple';
+  // Sobre fondo violeta (onPurple) se usa la variante de fondo oscuro: tinta
+  // clara, que es la que contrasta sobre el primary.
+  const forceDarkBgAsset = variant === 'onPurple';
   const baseClass = iconOnly ? sizes.icon : cn(sizes.wordmark, 'w-auto');
 
-  const content = forceLightAsset ? (
+  const content = forceDarkBgAsset ? (
     <span className={cn('inline-flex items-center', className)} aria-label="ECUBOX">
-      <img src={lightSrc} alt="ECUBOX" className={baseClass} />
+      <img src={darkSrc} alt="ECUBOX" className={baseClass} />
     </span>
   ) : (
     <span className={cn('inline-flex items-center', className)} aria-label="ECUBOX">

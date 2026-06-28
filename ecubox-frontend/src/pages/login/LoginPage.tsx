@@ -318,17 +318,24 @@ export function LoginPage() {
             <p className="mt-4 text-center text-xs landing-text-muted">
               Al usar tu cuenta aplicas los{' '}
               <Link
-                to="/terminos"
+                to="/terminos-y-condiciones"
                 className="font-medium text-[var(--color-primary)] hover:underline"
               >
                 términos y condiciones
-              </Link>{' '}
-              y la{' '}
+              </Link>
+              {', la '}
               <Link
-                to="/privacidad"
+                to="/politica-de-privacidad"
                 className="font-medium text-[var(--color-primary)] hover:underline"
               >
                 política de privacidad
+              </Link>
+              {' y la '}
+              <Link
+                to="/politica-de-cookies"
+                className="font-medium text-[var(--color-primary)] hover:underline"
+              >
+                política de cookies
               </Link>
               .
             </p>

@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { E_PATH, E_TRANSFORM, GRAD_DARK, GRAD_LIGHT } from './brand-glyphs.mjs';
+import { glyphMarkup, GRAD_DARK, GRAD_LIGHT } from './brand-glyphs.mjs';
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
@@ -18,7 +18,7 @@ function buildFavicon({ id, stops, filename }) {
     </linearGradient>
   </defs>
   <rect x="0" y="0" width="100" height="100" rx="24" fill="url(#${id})"/>
-  <path d="${E_PATH}" fill="#FFFFFF" transform="${E_TRANSFORM}"/>
+  ${glyphMarkup()}
 </svg>
 `;
 }

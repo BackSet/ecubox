@@ -93,7 +93,7 @@ El glosario está alineado con la terminología estándar de la industria courie
 
 **Qué es:** empresa de paquetería de última milla que entrega los paquetes al consignatario en Ecuador (Servientrega, Laar, Tramaco, etc.).
 
-**Cuándo usarlo:** siempre que se hable de la empresa que hace la entrega final. En catálogos, formularios, columnas, tracking público.
+**Cuándo usarlo:** siempre que se hable de la empresa que hace la entrega final. En catálogos, formularios, columnas, rastreo público.
 
 **Ejemplo:** *"Selecciona el courier de entrega que llevará tu paquete a Cuenca."*
 
@@ -128,7 +128,7 @@ El glosario está alineado con la terminología estándar de la industria courie
 **Regla de doble término según contexto:**
 
 - **Consignatario** en back-office y operación (es el término aduanero técnico, alineado con el resto de la industria logística).
-- **Destinatario** en vista del cliente final y tracking público (es más amigable, sin jerga).
+- **Destinatario** en vista del cliente final y rastreo público (es más amigable, sin jerga).
 
 **Términos prohibidos:** "Destinatario final" (redundante), "Cliente" como sinónimo de consignatario (cliente es el dueño del casillero).
 

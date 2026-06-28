@@ -14,7 +14,7 @@ interface TrackingPiezasListProps {
   numeroGuiaActual?: string;
   /**
    * Handler ejecutado al hacer click izquierdo sin modificadores: navega "in place"
-   * dentro de la misma página de tracking. Para Ctrl/Cmd/middle click el enlace
+   * dentro de la misma página de rastreo. Para Ctrl/Cmd/middle click el enlace
    * se abre normalmente en una pestaña nueva (gracias al {@code href} real).
    */
   onSelectPieza: (numeroGuia: string) => void;
@@ -25,7 +25,7 @@ interface TrackingPiezasListProps {
 }
 
 /**
- * Construye la URL pública del tracking de una pieza individual.
+ * Construye la URL pública de rastreo de una pieza individual.
  * El parámetro canónico es {@code codigo}; mantenemos {@code numeroGuia} fuera
  * para no contaminar la URL con alias deprecated.
  */
@@ -180,7 +180,7 @@ function PiezaRow({ pieza, totalEsperadas, esActual, onSelectPieza }: PiezaRowPr
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-xs text-[var(--color-primary)] hover:underline">
-                Ver tracking
+                Ver rastreo
                 <ExternalLink className="h-3 w-3" />
               </span>
             )}

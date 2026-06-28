@@ -29,11 +29,11 @@ describe('applyBrowserChromeTheme', () => {
   it('actualiza favicon segun tema efectivo', () => {
     applyBrowserChromeTheme('dark');
     const favicon = document.getElementById('ecubox-favicon') as HTMLLinkElement;
-    expect(favicon?.href).toContain('/favicon-dark.svg?v=7');
+    expect(favicon?.href).toContain('/favicon-dark.svg?v=8');
 
     applyBrowserChromeTheme('light');
     expect((document.getElementById('ecubox-favicon') as HTMLLinkElement)?.href).toContain(
-      '/favicon-light.svg?v=7'
+      '/favicon-light.svg?v=8'
     );
   });
 });

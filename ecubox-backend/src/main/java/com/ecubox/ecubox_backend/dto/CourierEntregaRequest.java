@@ -31,7 +31,7 @@ public class CourierEntregaRequest {
 
     @Pattern(
             regexp = "^(https?://.*)?$",
-            message = "La página de tracking debe iniciar con http:// o https://"
+            message = "La página de rastreo debe iniciar con http:// o https://"
     )
     private String paginaTracking;
 

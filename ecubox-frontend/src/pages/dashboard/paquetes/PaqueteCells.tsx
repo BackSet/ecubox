@@ -4,7 +4,7 @@ import { MonoTrunc } from '@/components/MonoTrunc';
 
 /**
  * Celda compartida para mostrar la guía master + pieza.
- * - Línea 1: `trackingBase` (enlace a la guía master o al tracking si no hay
+ * - Línea 1: `trackingBase` (enlace a la guía master o al rastreo si no hay
  *   guía master) con botón para copiar inline.
  * - Línea 2 (si hay pieza): "Pieza N de M" con botón para copiar el
  *   `numeroGuia` individual del paquete.
@@ -24,7 +24,7 @@ export function GuiaMasterPiezaCell({ paquete: p }: { paquete: Paquete }) {
         title={
           guiaHref
             ? `Ver guía master: ${trackingBase}`
-            : `Ver tracking: ${trackingBase}`
+            : `Ver rastreo: ${trackingBase}`
         }
         className="font-medium text-primary"
       />
@@ -33,7 +33,7 @@ export function GuiaMasterPiezaCell({ paquete: p }: { paquete: Paquete }) {
           <a
             href={trackingHref}
             className="text-xs text-muted-foreground hover:text-primary hover:underline"
-            title={`Ver tracking de esta pieza · ${p.numeroGuia}`}
+            title={`Ver rastreo de esta pieza · ${p.numeroGuia}`}
           >
             Pieza {p.piezaNumero} de {p.piezaTotal}
           </a>

@@ -102,6 +102,18 @@ export class TrackingDocumentRenderer {
     return clipped;
   }
 
+  private drawBrandLockup(x: number, baselineY: number, tone: 'light' | 'accent' = 'light') {
+    const ink = tone === 'light' ? this.colors.white : this.colors.primary;
+    this.doc.setTextColor(...ink);
+    this.doc.setDrawColor(...ink);
+    this.doc.setLineWidth(0.35);
+    this.doc.roundedRect(x, baselineY - 3.9, 8.4, 5.8, 1.4, 1.4, 'S');
+    this.setFont(6.4, true);
+    this.doc.text('ec', x + 4.2, baselineY, { align: 'center' });
+    this.setFont(8.5, true);
+    this.doc.text('ECUBOX', x + 11, baselineY);
+  }
+
   ensureSpace(heightNeeded: number) {
     if (this.y + heightNeeded <= this.contentMaxY) return;
     this.addPage();
@@ -179,11 +191,10 @@ export class TrackingDocumentRenderer {
 
     this.doc.setFillColor(...this.colors.primary);
     this.doc.roundedRect(x, startY, this.width, bandH, 2.4, 2.4, 'F');
-    this.setFont(8.5, true);
-    this.doc.setTextColor(...this.colors.white);
-    this.doc.text('ECUBOX', x + 4, startY + 5.8);
+    this.drawBrandLockup(x + 4, startY + 5.8, 'light');
     this.setFont(7.2, false);
-    this.doc.text(options.docType, x + 24, startY + 5.8);
+    this.doc.setTextColor(...this.colors.white);
+    this.doc.text(options.docType, x + 45, startY + 5.8);
 
     const generated = new Date().toLocaleString('es-EC', {
       dateStyle: 'medium',
@@ -274,12 +285,10 @@ export class TrackingDocumentRenderer {
     const startY = this.y;
     this.doc.setFillColor(...this.colors.primarySoftFill);
     this.doc.roundedRect(x, startY, this.width, h, 1.8, 1.8, 'F');
-    this.setFont(7.2, true);
-    this.doc.setTextColor(...this.colors.primary);
-    this.doc.text('ECUBOX', x + 3.5, startY + 6.2);
+    this.drawBrandLockup(x + 3.5, startY + 6.2, 'accent');
     this.setFont(7.2, false);
     this.doc.setTextColor(...this.colors.text);
-    this.doc.text(reference, x + 22, startY + 6.2);
+    this.doc.text(reference, x + 37, startY + 6.2);
     this.y = startY + h + 3;
   }
 

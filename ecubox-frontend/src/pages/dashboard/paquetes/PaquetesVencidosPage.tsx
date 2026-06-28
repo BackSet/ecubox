@@ -371,7 +371,7 @@ export function PaquetesVencidosPage() {
                       <RowActionsMenu
                         items={[
                           {
-                            label: 'Ver tracking',
+                            label: 'Ver rastreo',
                             icon: Eye,
                             onSelect: () =>
                               void navigate({

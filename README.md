@@ -2,7 +2,7 @@
 
 Sistema de gestión logística para envíos entre Estados Unidos y Ecuador.
 Incluye administración de paquetes, guías master, despachos, manifiestos,
-liquidaciones, recepción, tracking público y notificaciones PWA.
+liquidaciones, recepción, rastreo público y notificaciones PWA.
 
 ## Arquitectura
 

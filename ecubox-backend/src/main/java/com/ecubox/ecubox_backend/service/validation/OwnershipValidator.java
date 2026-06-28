@@ -36,7 +36,7 @@ public class OwnershipValidator {
     }
 
     /**
-     * Valida que un destinatario final pertenezca al usuario indicado.
+     * Valida que un consignatario pertenezca al usuario indicado.
      */
     public void requireDestinatarioOwnership(Consignatario destinatario, Long currentUsuarioId, boolean canManageAny) {
         if (canManageAny) return;

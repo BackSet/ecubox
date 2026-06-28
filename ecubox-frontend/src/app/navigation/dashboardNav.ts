@@ -315,7 +315,7 @@ const CLIENTE_GROUPS: NavGroup[] = [
 
 /** Composición OPERARIO: agrupada por tareas del flujo logístico. */
 const OPERARIO_GROUPS: NavGroup[] = [
-  { label: 'Inicio y seguimiento', items: [NAV.inicio, NAV.estadisticas] },
+  { label: 'Inicio y rastreo', items: [NAV.inicio, NAV.estadisticas] },
   {
     label: 'Gestión de clientes',
     items: [NAV.consignatarios, NAV.guiasMaster, NAV.paquetes, NAV.pesaje, NAV.paquetesVencidos],

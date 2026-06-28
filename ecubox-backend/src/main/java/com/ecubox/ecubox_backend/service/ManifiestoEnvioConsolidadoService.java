@@ -51,15 +51,15 @@ public class ManifiestoEnvioConsolidadoService {
     private static final BigDecimal LBS_TO_KG = WeightUtil.LBS_TO_KG;
 
     // Paleta corporativa ECUBOX (espejo de ECUBOX_PDF_COLORS en frontend).
-    private static final Color COLOR_PRIMARY = new Color(123, 63, 228);              // #7B3FE4
-    private static final Color COLOR_PRIMARY_DARK = new Color(86, 32, 188);          // #5620BC
-    private static final Color COLOR_PRIMARY_SOFT_STROKE = new Color(203, 184, 246); // #CBB8F6
-    private static final Color COLOR_BORDER = new Color(226, 230, 237);              // #E2E6ED
-    private static final Color COLOR_BORDER_SOFT = new Color(237, 233, 250);         // #EDE9FA
-    private static final Color COLOR_HEADER_BG = new Color(244, 240, 254);           // #F4F0FE
-    private static final Color COLOR_ZEBRA = new Color(249, 247, 254);               // #F9F7FE
-    private static final Color COLOR_TEXT = new Color(10, 22, 40);                   // #0A1628
-    private static final Color COLOR_MUTED = new Color(107, 114, 128);               // #6B7280
+    private static final Color COLOR_PRIMARY = new Color(108, 92, 231);              // #6C5CE7
+    private static final Color COLOR_PRIMARY_DARK = new Color(75, 63, 176);          // #4B3FB0
+    private static final Color COLOR_PRIMARY_SOFT_STROKE = new Color(148, 134, 244); // #9486F4
+    private static final Color COLOR_BORDER = new Color(222, 223, 229);              // #DEDFE5
+    private static final Color COLOR_BORDER_SOFT = new Color(231, 232, 236);         // #E7E8EC
+    private static final Color COLOR_HEADER_BG = new Color(237, 233, 254);           // #EDE9FE
+    private static final Color COLOR_ZEBRA = new Color(248, 248, 251);               // #F8F8FB
+    private static final Color COLOR_TEXT = new Color(13, 13, 15);                   // #0D0D0F
+    private static final Color COLOR_MUTED = new Color(92, 92, 102);                 // #5C5C66
 
     private final PaqueteRepository paqueteRepository;
     private final LoteRecepcionGuiaRepository loteRecepcionGuiaRepository;
@@ -90,7 +90,7 @@ public class ManifiestoEnvioConsolidadoService {
             float contentWidth = pageWidth - margin * 2;
             float footerY = margin + 14f;
 
-            String[] headers = {"#", "Tracking master", "Pieza", "Consignatario", "Telefono", "Ubicacion",
+            String[] headers = {"#", "Guia master", "Pieza", "Consignatario", "Telefono", "Ubicacion",
                     "Peso (lbs)", "Peso (kg)"};
             float[] widths = computeColumnWidths(contentWidth,
                     new float[]{0.04f, 0.18f, 0.07f, 0.22f, 0.10f, 0.21f, 0.09f, 0.09f});
@@ -212,15 +212,11 @@ public class ManifiestoEnvioConsolidadoService {
 
         cs.setNonStrokingColor(Color.WHITE);
 
-        cs.beginText();
-        cs.setFont(fontBold, 16);
-        cs.newLineAtOffset(x + 14, y - 22);
-        cs.showText("ECUBOX");
-        cs.endText();
+        drawBrandLockup(cs, fontBold, fontRegular, x + 14, y - 22, Color.WHITE);
 
         cs.beginText();
         cs.setFont(fontRegular, 9);
-        cs.newLineAtOffset(x + 14, y - 36);
+        cs.newLineAtOffset(x + 118, y - 23);
         cs.showText("Documento interno de logistica");
         cs.endText();
 
@@ -254,6 +250,36 @@ public class ManifiestoEnvioConsolidadoService {
 
         cs.setNonStrokingColor(COLOR_TEXT);
         return y - height;
+    }
+
+    private void drawBrandLockup(PDPageContentStream cs, PDFont fontBold, PDFont fontRegular,
+                                 float x, float y, Color ink) throws IOException {
+        cs.setStrokingColor(ink);
+        cs.setLineWidth(0.8f);
+        cs.addRect(x, y - 8.5f, 22f, 15f);
+        cs.stroke();
+
+        cs.setNonStrokingColor(ink);
+        cs.beginText();
+        cs.setFont(fontBold, 13);
+        cs.newLineAtOffset(x + 4.6f, y - 3f);
+        cs.showText("ec");
+        cs.endText();
+
+        cs.beginText();
+        cs.setFont(fontBold, 16);
+        cs.newLineAtOffset(x + 29f, y);
+        cs.showText("ECUBOX");
+        cs.endText();
+
+        cs.beginText();
+        cs.setFont(fontRegular, 7);
+        cs.newLineAtOffset(x + 29f, y - 11f);
+        cs.showText("Conecta - Envia - Llega");
+        cs.endText();
+
+        cs.setNonStrokingColor(COLOR_TEXT);
+        cs.setStrokingColor(COLOR_TEXT);
     }
 
     private float drawMetadataBox(PDPageContentStream cs, PDFont fontBold, PDFont fontRegular,
@@ -446,7 +472,7 @@ public class ManifiestoEnvioConsolidadoService {
 
             // Anchos de columnas (unidades 1/256 char)
             sheet.setColumnWidth(0, 5 * 256);    // #
-            sheet.setColumnWidth(1, 22 * 256);   // Tracking master
+            sheet.setColumnWidth(1, 22 * 256);   // Guia master
             sheet.setColumnWidth(2, 8 * 256);    // Pieza N
             sheet.setColumnWidth(3, 8 * 256);    // Pieza Total
             sheet.setColumnWidth(4, 24 * 256);   // N. Guia pieza
@@ -527,7 +553,7 @@ public class ManifiestoEnvioConsolidadoService {
             rowIdx++;
 
             // ----- Encabezado de tabla -----
-            String[] headers = {"#", "Tracking master", "Pieza N", "Pieza Total", "N. Guia pieza",
+            String[] headers = {"#", "Guia master", "Pieza N", "Pieza Total", "N. Guia pieza",
                     "Consignatario", "Telefono", "Direccion", "Canton / Provincia", "Codigo",
                     "Peso (lbs)", "Peso (kg)"};
             Row header = sheet.createRow(rowIdx);

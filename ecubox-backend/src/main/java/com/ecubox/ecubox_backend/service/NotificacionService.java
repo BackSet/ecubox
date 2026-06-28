@@ -62,10 +62,10 @@ public class NotificacionService {
         // entregas"); si no, es el aviso genérico de cambio de estado.
         boolean pedirConfirmacion = esEstadoAvisoConfirmacion(estadoDestino);
         String tipo = pedirConfirmacion ? TIPO_CONFIRMAR_ENTREGA : TIPO_PAQUETE_ESTADO;
-        String titulo = pedirConfirmacion ? "¿Recibiste tu envío?" : "Tu paquete cambio de estado";
+        String titulo = pedirConfirmacion ? "¿Recibiste tu envío?" : "Tu paquete cambió de estado";
         String mensaje = pedirConfirmacion
-                ? "Tu envío (guia " + numeroGuia + ") va en camino. Confírmanos cuando lo recibas."
-                : "La guia " + numeroGuia + " ahora esta en \"" + estado + "\".";
+                ? "Tu envío ECUBOX (guía " + numeroGuia + ") va en camino. Confírmanos cuando lo recibas."
+                : "La guía " + numeroGuia + " ahora está en \"" + estado + "\". Puedes revisar el rastreo cuando quieras.";
         String url = pedirConfirmacion
                 ? "/mis-entregas"
                 : "/tracking?codigo=" + URLEncoder.encode(numeroGuia, StandardCharsets.UTF_8);

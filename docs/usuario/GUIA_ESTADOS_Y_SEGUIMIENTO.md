@@ -1,4 +1,4 @@
-# Guía: estados de paquete y seguimiento en ECUBOX
+# Guía: estados de paquete y rastreo en ECUBOX
 ---
 
 ## 1. Para quién es esta guía
@@ -29,7 +29,7 @@ Cualquier persona puede abrir la página de **Rastreo** (desde la web pública),
 
 **Si un estado “no es visible” en el rastreo público**
 
-En **Parámetros**, cada estado puede marcarse como visible o no para el tracking. La regla práctica es:
+En **Parámetros**, cada estado puede marcarse como visible o no para el rastreo. La regla práctica es:
 
 - Los estados **no marcados como visibles** o inactivos no aparecen como pasos de la línea de tiempo pública.
 - Los alternos públicos solo aparecen si realmente ocurrieron o si son el estado actual. Su posición respeta el campo **después de** configurado.
@@ -78,7 +78,7 @@ En el menú lateral, bajo **Configuración**, está **Parámetros**. Allí suele
    - **Paquetes:** registro, asociar a consolidado, lote de recepción, asociar guía master, salida de origen (USA), llegada a destino (aduana), en despacho, avance masivo, aviso de confirmación de entrega, entrega confirmada por cliente, anclas de cuenta regresiva.
    - **Guías master:** los diez estados globales (`EN_ESPERA_RECEPCION`, `EN_TRANSITO_USA_ECUADOR`, recepción, despacho, etc.) usados al recalcular la guía.
    - **Consolidados:** etiquetas operativas derivadas (`VACIO`, `EN_PREPARACION`, `ENVIADO_DESDE_USA`, `RECIBIDO_EN_BODEGA`, `LIQUIDADO`) para la UI de Parámetros.
-   - **Tracking:** inicio y fin de cuenta regresiva (anclas de cálculo, no cambian el estado del paquete por sí solas).
+   - **Rastreo:** inicio y fin de cuenta regresiva (anclas de cálculo, no cambian el estado del paquete por sí solas).
 
    Detonadores principales de paquete (ver tabla canónica en [Detonadores por estado](DETONADORES_POR_ESTADO.md)):
    - **Registro** de paquete;

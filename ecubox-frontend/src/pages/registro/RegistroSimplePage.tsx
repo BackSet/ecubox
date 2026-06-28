@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { registroSchema } from '@/lib/schemas/auth';
+import { LEGAL_VERSION } from '@/lib/legal';
 
 type FormValues = z.infer<typeof registroSchema>;
 
@@ -433,7 +434,7 @@ export function RegistroSimplePage() {
                       <span className="leading-snug">
                         Acepto los{' '}
                         <Link
-                          to="/terminos"
+                          to="/terminos-y-condiciones"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium text-[var(--color-primary)] hover:underline"
@@ -442,7 +443,7 @@ export function RegistroSimplePage() {
                         </Link>{' '}
                         y la{' '}
                         <Link
-                          to="/privacidad"
+                          to="/politica-de-privacidad"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium text-[var(--color-primary)] hover:underline"
@@ -452,6 +453,11 @@ export function RegistroSimplePage() {
                         de ECUBOX.
                       </span>
                     </label>
+                    <p className="mt-2 text-[11px] leading-snug landing-text-muted">
+                      Versión legal aplicable: {LEGAL_VERSION}. La aceptación queda validada
+                      en esta pantalla; la persistencia probatoria en backend requiere alcance
+                      adicional.
+                    </p>
                     {errors.acceptTerms && (
                       <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-[var(--color-destructive)]">
                         <AlertCircle className="h-3.5 w-3.5" />
@@ -498,7 +504,14 @@ export function RegistroSimplePage() {
             </div>
 
             <p className="mt-4 text-center text-xs landing-text-muted">
-              Tu información se guarda de forma segura y no compartimos tus datos.
+              Tus datos se usan para crear tu cuenta y operar tus envíos. Revisa también la{' '}
+              <Link
+                to="/politica-de-cookies"
+                className="font-medium text-[var(--color-primary)] hover:underline"
+              >
+                política de cookies
+              </Link>
+              .
             </p>
           </div>
         </div>

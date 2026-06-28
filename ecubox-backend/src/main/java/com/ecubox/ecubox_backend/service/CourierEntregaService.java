@@ -38,7 +38,7 @@ public class CourierEntregaService {
 
     /**
      * Lista paginada con búsqueda libre (LIKE multi-token) sobre nombre,
-     * código, email, horario de reparto y página de tracking. La entidad no
+     * código, email, horario de reparto y página de rastreo. La entidad no
      * expone RUC ni teléfono.
      */
     @Transactional(readOnly = true)

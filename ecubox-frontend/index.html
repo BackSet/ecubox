@@ -2,17 +2,17 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon-light.svg?v=7" id="ecubox-favicon" />
-    <link rel="apple-touch-icon" href="/icons/ecubox-monogram-180.png?v=7" />
-    <link rel="mask-icon" href="/favicon.svg?v=7" color="#6C4CF1" />
-    <link rel="manifest" href="/manifest.webmanifest?v=7" />
+    <link rel="icon" type="image/svg+xml" href="/favicon-light.svg?v=8" id="ecubox-favicon" />
+    <link rel="apple-touch-icon" href="/icons/ecubox-monogram-180.png?v=8" />
+    <link rel="mask-icon" href="/favicon.svg?v=8" color="#6C5CE7" />
+    <link rel="manifest" href="/manifest.webmanifest?v=8" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="ECUBOX" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" id="ecubox-theme-color" content="#FBFBFA" />
+    <meta name="theme-color" id="ecubox-theme-color" content="#F2F3F5" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Compra en Amazon, eBay o Shein y recíbelo en Ecuador. ECUBOX te da un casillero gratis en USA, envíos en 8–12 días, rastreo por pieza y tarifas transparentes." />
+    <meta name="description" content="Compra en Amazon, eBay o Shein y recíbelo en Ecuador. ECUBOX te da un casillero gratis en USA, envíos en 8–12 días, rastreo por paquete y tarifas transparentes." />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="ECUBOX" />
     <link rel="canonical" href="https://ecubox.org/" />
@@ -27,7 +27,7 @@
     <meta property="og:locale" content="es_EC" />
     <meta property="og:url" content="https://ecubox.org/" />
     <meta property="og:title" content="ECUBOX | Casillero en USA y envíos a Ecuador con rastreo" />
-    <meta property="og:description" content="Compra en Amazon, eBay o Shein y recíbelo en Ecuador. Casillero gratis en USA, envíos en 8–12 días, rastreo por pieza y tarifas transparentes." />
+    <meta property="og:description" content="Compra en Amazon, eBay o Shein y recíbelo en Ecuador. Casillero gratis en USA, envíos en 8–12 días, rastreo por paquete y tarifas transparentes." />
     <meta property="og:image" content="https://ecubox.org/og-image.png" />
     <meta property="og:image:secure_url" content="https://ecubox.org/og-image.png" />
     <meta property="og:image:type" content="image/png" />
@@ -36,7 +36,7 @@
     <meta property="og:image:alt" content="ECUBOX – Casillero en USA y envíos a Ecuador" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="ECUBOX | Casillero en USA y envíos a Ecuador con rastreo" />
-    <meta name="twitter:description" content="Compra en Amazon, eBay o Shein y recíbelo en Ecuador. Casillero gratis en USA, envíos en 8–12 días, rastreo por pieza y tarifas transparentes." />
+    <meta name="twitter:description" content="Compra en Amazon, eBay o Shein y recíbelo en Ecuador. Casillero gratis en USA, envíos en 8–12 días, rastreo por paquete y tarifas transparentes." />
     <meta name="twitter:image" content="https://ecubox.org/og-image.png" />
     <meta name="twitter:image:alt" content="ECUBOX – Casillero en USA y envíos a Ecuador" />
     <!-- Estilos criticos inline: el bundle CSS de Vite carga con el modulo JS.
@@ -45,21 +45,21 @@
     <style id="ecubox-critical">
       html {
         color-scheme: light dark;
-        background-color: #fbfbfa;
+        background-color: #f2f3f5;
       }
       html.dark {
         color-scheme: dark;
-        background-color: #1a1a1a;
+        background-color: #0d0d0f;
       }
       body {
         margin: 0;
         min-height: 100vh;
         background-color: inherit;
-        color: #1a1a1a;
-        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        color: #0d0d0f;
+        font-family: 'Sora', system-ui, -apple-system, 'Segoe UI', sans-serif;
       }
       html.dark body {
-        color: #ececec;
+        color: #ececf0;
       }
       #root {
         min-height: 100vh;
@@ -70,13 +70,13 @@
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap"
       onload="this.onload=null;this.rel='stylesheet'"
     />
     <noscript>
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap"
       />
     </noscript>
     <script>
@@ -108,7 +108,7 @@
           } else {
             root.classList.remove('dark');
           }
-          var barColor = effective === 'dark' ? '#1A1A1A' : '#FBFBFA';
+          var barColor = effective === 'dark' ? '#0D0D0F' : '#F2F3F5';
           var themeMeta = document.getElementById('ecubox-theme-color');
           if (themeMeta) themeMeta.setAttribute('content', barColor);
           var appleBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
@@ -117,7 +117,7 @@
           }
           var favicon = document.getElementById('ecubox-favicon');
           if (favicon) {
-            favicon.setAttribute('href', effective === 'dark' ? '/favicon-dark.svg?v=7' : '/favicon-light.svg?v=7');
+            favicon.setAttribute('href', effective === 'dark' ? '/favicon-dark.svg?v=8' : '/favicon-light.svg?v=8');
           }
         } catch (e) {
           // Storage bloqueado: dejamos que React aplique el default tras montar.

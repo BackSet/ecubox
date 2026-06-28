@@ -92,6 +92,24 @@ function setText(doc: jsPDF, c: PdfRgb) {
   doc.setTextColor(c[0], c[1], c[2]);
 }
 
+function drawBrandLockup(doc: jsPDF, x: number, y: number) {
+  setText(doc, ECUBOX_PDF_COLORS.white);
+  doc.setDrawColor(...ECUBOX_PDF_COLORS.white);
+  doc.setLineWidth(0.45);
+  doc.roundedRect(x, y - 5.4, 11.2, 7.6, 1.8, 1.8, 'S');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.6);
+  doc.text('ec', x + 5.6, y, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(PDF_DOC.fonts.title);
+  doc.text('ECUBOX', x + 15, y);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(PDF_DOC.fonts.subtitle - 1.7);
+  doc.text('Conecta - Envia - Llega', x + 15, y + 5.6);
+}
+
 // ============================================================
 // API pública
 // ============================================================
@@ -125,15 +143,12 @@ export function drawDocHeader(ctx: DocCtx, opts: DrawHeaderOpts): number {
   doc.rect(0, headerH, pageW, 0.8, 'F');
 
   // Marca + título
-  setText(doc, ECUBOX_PDF_COLORS.white);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(PDF_DOC.fonts.title);
-  doc.text('ECUBOX', margin, 9.6);
+  drawBrandLockup(doc, margin, 9.6);
 
   if (opts.subtitulo) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(PDF_DOC.fonts.subtitle);
-    doc.text(opts.subtitulo, margin, 15.6);
+    doc.text(opts.subtitulo, margin + 58, 10.2);
   }
 
   doc.setFont('helvetica', 'bold');

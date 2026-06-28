@@ -3,8 +3,8 @@
  * Deben coincidir con --color-background en index.css (:root y .dark).
  */
 export const APP_SURFACE_COLORS = {
-  light: '#FBFBFA',
-  dark: '#1A1A1A',
+  light: '#F2F3F5',
+  dark: '#0D0D0F',
 } as const;
 
 export type EffectiveTheme = keyof typeof APP_SURFACE_COLORS;
@@ -13,7 +13,7 @@ const THEME_COLOR_META_ID = 'ecubox-theme-color';
 const APPLE_STATUS_META_NAME = 'apple-mobile-web-app-status-bar-style';
 const FAVICON_LINK_ID = 'ecubox-favicon';
 /** Incrementar al cambiar favicon SVG para invalidar caché del navegador. */
-export const FAVICON_ASSET_VERSION = '7';
+export const FAVICON_ASSET_VERSION = '8';
 const FAVICON_PATHS: Record<EffectiveTheme, string> = {
   light: '/favicon-light.svg',
   dark: '/favicon-dark.svg',
