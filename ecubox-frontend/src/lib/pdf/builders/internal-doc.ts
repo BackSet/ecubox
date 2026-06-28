@@ -116,12 +116,14 @@ function drawBrandLockup(doc: jsPDF, x: number, y: number) {
 
 /** Crea el contexto a partir del doc ya inicializado por el builder. */
 export function createDocCtx(doc: jsPDF): DocCtx {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
   return {
     doc,
     margin: PDF_DOC.margin,
-    contentWidth: PDF_DOC.pageW - PDF_DOC.margin * 2,
-    pageW: PDF_DOC.pageW,
-    contentBottom: PDF_DOC.contentBottom,
+    contentWidth: pageW - PDF_DOC.margin * 2,
+    pageW,
+    contentBottom: pageH - 14,
     y: PDF_DOC.margin,
   };
 }
@@ -197,11 +199,15 @@ export function drawDocFooter(doc: jsPDF, opts: { left: string }) {
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
     doc.setPage(i);
+    const pW = doc.internal.pageSize.getWidth();
+    const pH = doc.internal.pageSize.getHeight();
+    const fY = pH - 7;
+
     setText(doc, ECUBOX_PDF_COLORS.muted);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(PDF_DOC.fonts.footer);
-    doc.text(opts.left, PDF_DOC.margin, PDF_DOC.footerY);
-    doc.text(`Página ${i} / ${total}`, PDF_DOC.pageW - PDF_DOC.margin, PDF_DOC.footerY, {
+    doc.text(opts.left, PDF_DOC.margin, fY);
+    doc.text(`Página ${i} / ${total}`, pW - PDF_DOC.margin, fY, {
       align: 'right',
     });
     // Línea fina sobre el footer.
@@ -209,9 +215,9 @@ export function drawDocFooter(doc: jsPDF, opts: { left: string }) {
     doc.setLineWidth(0.2);
     doc.line(
       PDF_DOC.margin,
-      PDF_DOC.footerY - 3,
-      PDF_DOC.pageW - PDF_DOC.margin,
-      PDF_DOC.footerY - 3,
+      fY - 3,
+      pW - PDF_DOC.margin,
+      fY - 3,
     );
   }
 }
@@ -496,7 +502,7 @@ function drawRow<R>(
 
 function ensureSpace<R>(ctx: DocCtx, need: number, resolved: ResolvedColumns<R>) {
   if (ctx.y + need <= ctx.contentBottom) return;
-  ctx.doc.addPage('a4', 'landscape');
+  ctx.doc.addPage();
   ctx.y = PDF_DOC.margin;
   ctx.onPageBreak?.(ctx);
   drawTableHeader(ctx, resolved);
@@ -566,7 +572,7 @@ export function drawTotalBar(
   const { doc, margin, contentWidth } = ctx;
   const h = 9.6;
   if (ctx.y + h > ctx.contentBottom) {
-    doc.addPage('a4', 'landscape');
+    doc.addPage();
     ctx.y = PDF_DOC.margin;
     ctx.onPageBreak?.(ctx);
   }
@@ -596,7 +602,7 @@ export function drawFirmas(
   const { doc, margin, contentWidth } = ctx;
   const h = 24;
   if (ctx.y + h > ctx.contentBottom) {
-    doc.addPage('a4', 'landscape');
+    doc.addPage();
     ctx.y = PDF_DOC.margin;
     ctx.onPageBreak?.(ctx);
   }
