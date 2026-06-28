@@ -64,14 +64,14 @@ export function TrackingSearchPanel({
               <button
                 type="button"
                 onClick={() => onNumeroGuiaChange('')}
-                className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+                className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--color-muted-foreground)] ui-transition hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)] active:scale-90"
                 aria-label="Limpiar"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
-          <Button type="submit" className="h-11 sm:px-5" disabled={loading || !hasValor}>
+          <Button type="submit" className="h-11 sm:px-5 ui-transition active:scale-[0.97]" disabled={loading || !hasValor}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -103,7 +103,7 @@ export function TrackingSearchPanel({
             <Link
               to="/tracking/ejemplo"
               search={{} as never}
-              className="ui-transition inline-flex items-center rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/50 px-2 py-0.5 text-[11px] font-medium text-[var(--color-foreground)] hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
+              className="ui-transition inline-flex items-center rounded-md border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-landing-text)] hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)] active:scale-95"
             >
               Abrir ejemplos dinámicos
             </Link>
@@ -111,7 +111,7 @@ export function TrackingSearchPanel({
               El rastreo público muestra datos limitados. Consulta la{' '}
               <Link
                 to="/politica-de-privacidad"
-                className="font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
+                className="font-medium text-[var(--color-primary)] ui-transition hover:text-[var(--color-primary)]/85 underline underline-offset-2"
               >
                 política de privacidad
               </Link>

@@ -111,7 +111,9 @@ export class TrackingDocumentRenderer {
     this.setFont(6.4, true);
     this.doc.text('ec', x + 4.2, baselineY, { align: 'center' });
     this.setFont(8.5, true);
-    this.doc.text('ECUBOX', x + 11, baselineY);
+    this.doc.text('ECUBOX', x + 11, baselineY - 1.2);
+    this.setFont(4.8, false);
+    this.doc.text('Conecta - Envia - Llega', x + 11, baselineY + 1.2);
   }
 
   ensureSpace(heightNeeded: number) {

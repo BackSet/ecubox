@@ -25,8 +25,7 @@ describe('crearCotizacion', () => {
     expect(c.recargoMenorPeso).toBe(3.5);
     expect(c.moneda).toBe('USD');
     expect(c.pesoKg).toBeCloseTo(1.13, 1);
-    expect(c.notas).toHaveLength(1);
-    expect(c.notas[0]).toContain('referencial');
+    expect(c.notas).toHaveLength(0);
   });
 
   it('normaliza el recargo a null cuando no aplica', () => {

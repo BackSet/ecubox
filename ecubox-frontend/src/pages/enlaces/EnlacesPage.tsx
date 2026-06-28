@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Copy,
   Download,
-  type LucideIcon,
   LogIn,
   Mail,
   Monitor,
@@ -36,6 +35,8 @@ import { notify } from '@/lib/notify';
 import { copyText } from '@/lib/clipboard';
 import { downloadBlob } from '@/lib/download';
 import { cn } from '@/lib/utils';
+import { PublicPageLayout } from '@/components/public/PublicPageLayout';
+export { CONTACT_KEYS, SOCIAL_KEYS, CANAL_SUBTITULO, INTERNAL_LINKS };
 
 /** Orden y subtítulos de los canales configurables en el sistema. */
 const CONTACT_KEYS: CanalComunicacionKey[] = ['whatsapp', 'telefono', 'email'];
@@ -61,12 +62,7 @@ const CANAL_SUBTITULO: Partial<Record<CanalComunicacionKey, string>> = {
 };
 
 /** Enlaces internos del producto que tiene sentido destacar aquí. */
-const INTERNAL_LINKS: {
-  to: string;
-  label: string;
-  subtitle: string;
-  icon: LucideIcon;
-}[] = [
+const INTERNAL_LINKS = [
   {
     to: '/tracking',
     label: 'Rastrear mi paquete',
@@ -92,6 +88,7 @@ const INTERNAL_LINKS: {
     icon: LogIn,
   },
 ];
+
 
 function buildHref(key: CanalComunicacionKey, valor: string): string {
   if (key === 'email') return `mailto:${valor}`;
@@ -244,9 +241,10 @@ export function EnlacesPage() {
   }
 
   return (
-    <div className="landing-shell">
-      <div className="landing-overlay" aria-hidden="true" />
-      <main className="relative z-10 mobile-safe-inline flex flex-1 flex-col items-center py-10 sm:py-14">
+    <PublicPageLayout
+      variant="compact"
+      mainClassName="mobile-safe-inline flex flex-col items-center py-10 sm:py-14"
+    >
       <button
         type="button"
         onClick={toggleTheme}
@@ -383,7 +381,6 @@ export function EnlacesPage() {
           </p>
         </footer>
       </div>
-      </main>
-    </div>
+    </PublicPageLayout>
   );
 }

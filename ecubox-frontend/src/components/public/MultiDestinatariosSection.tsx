@@ -96,7 +96,7 @@ export function MultiDestinatariosSection() {
           <div className="mt-7">
             <Link
               to="/registro"
-              className="ui-interactive inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--color-primary-foreground)] shadow-sm hover:opacity-95"
+              className="ui-interactive ui-transition inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--color-primary-foreground)] shadow-sm hover:bg-[var(--color-primary)]/90 active:scale-[0.97]"
             >
               Crear mi cuenta
               <ArrowRight className="h-4 w-4" aria-hidden />

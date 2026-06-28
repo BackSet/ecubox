@@ -95,13 +95,9 @@ export function ServicesGrid() {
               key={feature.title}
               className="landing-card-interactive group relative flex min-h-[320px] flex-col overflow-hidden p-5 sm:p-6 lg:p-7"
             >
-              <div
-                aria-hidden
-                className={`pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b ${feature.accent}`}
-              />
               <div className="relative flex items-center justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)] text-[var(--color-primary)] shadow-sm">
-                  <Icon className="h-6 w-6" strokeWidth={1.6} aria-hidden />
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--color-landing-border)] bg-[var(--color-landing-card-muted)]/50 text-[var(--color-primary)] shadow-xs">
+                  <Icon className="h-5.5 w-5.5" strokeWidth={1.6} aria-hidden />
                 </div>
                 {feature.badge ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary)]/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-primary)]">
@@ -118,11 +114,11 @@ export function ServicesGrid() {
                 {feature.description}
               </p>
 
-              <ul className="mt-4 space-y-2">
+              <ul className="mt-4 space-y-2.5">
                 {feature.bullets.map(({ icon: BulletIcon, text }) => (
                   <li
                     key={text}
-                    className="flex items-start gap-2 text-sm landing-text"
+                    className="flex items-start gap-2 text-sm landing-text-muted"
                   >
                     <BulletIcon
                       className="mt-0.5 h-4 w-4 flex-shrink-0 text-[var(--color-primary)]"
@@ -136,7 +132,7 @@ export function ServicesGrid() {
 
               <Link
                 to={feature.href}
-                className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-[var(--color-primary)] transition group-hover:gap-2.5"
+                className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-[var(--color-primary)] ui-transition group-hover:gap-2.5 active:scale-[0.98]"
               >
                 {feature.ctaLabel}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />

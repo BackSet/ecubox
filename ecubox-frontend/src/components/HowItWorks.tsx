@@ -16,30 +16,30 @@ interface Step {
 const STEPS: Step[] = [
   {
     number: '01',
-    title: 'Compra y registra tu guía',
+    title: 'Conecta tu cuenta',
     description:
-      'Compra en Amazon, eBay, Shein y más con tu dirección de New Jersey. Registra tu guía y elige quién recibirá sus paquetes. Puedes guardar varios destinatarios en una sola cuenta.',
+      'Regístrate gratis para obtener tu dirección y número de casillero en New Jersey, USA. Conecta tu cuenta con múltiples destinatarios si deseas compartir tus envíos.',
     icon: CreditCard,
   },
   {
     number: '02',
-    title: 'Recibimos por ti',
+    title: 'Compra y envía',
     description:
-      'Verificamos tu paquete, lo registramos en tu casillero y te notificamos al instante.',
+      'Compra en tus tiendas favoritas de USA y el mundo usando tu dirección de casillero. Registra tus paquetes en tu panel en segundos.',
     icon: PackageOpen,
   },
   {
     number: '03',
-    title: 'Enviamos a Ecuador',
+    title: 'Despacho y rastreo',
     description:
-      'Reunimos tus paquetes y los enviamos a Ecuador en salidas frecuentes, con rastreo en cada paso.',
+      'Recibimos tus compras, las consolidamos con manejo seguro y las enviamos a Ecuador. Sigue la trazabilidad en tiempo real 24/7.',
     icon: Plane,
   },
   {
     number: '04',
-    title: 'Recibe tu paquete',
+    title: 'Llega a tus manos',
     description:
-      'Retira en agencia o recíbelo a domicilio. Te avisamos en cada cambio de estado.',
+      'Recibe tus compras directamente en la dirección del destinatario elegido o retíralas en agencias a nivel nacional. ¡Así de fácil!',
     icon: PackageCheck,
   },
 ];
