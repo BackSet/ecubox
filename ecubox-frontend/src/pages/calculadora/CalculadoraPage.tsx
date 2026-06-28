@@ -374,10 +374,7 @@ export function CalculadoraPage() {
                           </div>
                         </dl>
 
-                        <p className="text-[11px] leading-relaxed text-[var(--color-muted-foreground)]">
-                          * Este valor es referencial. El costo final puede variar según
-                          embalaje, dimensiones y revisión aduanal.
-                        </p>
+
                       </div>
                     </section>
                   </div>

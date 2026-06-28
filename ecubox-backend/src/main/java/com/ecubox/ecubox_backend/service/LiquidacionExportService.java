@@ -280,9 +280,26 @@ public class LiquidacionExportService {
 
     private void drawBrandLockup(PDPageContentStream cs, PDFont fontBold, PDFont fontRegular,
                                  float x, float y, Color ink) throws IOException {
+        float r = 3f;
+        float c = 0.55228475f;
+        float k = r * c;
+
+        float xMin = x;
+        float xMax = x + 22f;
+        float yMin = y - 8.5f;
+        float yMax = yMin + 15f;
+
         cs.setStrokingColor(ink);
         cs.setLineWidth(0.8f);
-        cs.addRect(x, y - 8.5f, 22f, 15f);
+        cs.moveTo(xMin + r, yMin);
+        cs.lineTo(xMax - r, yMin);
+        cs.curveTo(xMax - r + k, yMin, xMax, yMin + r - k, xMax, yMin + r);
+        cs.lineTo(xMax, yMax - r);
+        cs.curveTo(xMax, yMax - r + k, xMax - r + k, yMax, xMax - r, yMax);
+        cs.lineTo(xMin + r, yMax);
+        cs.curveTo(xMin + r - k, yMax, xMin, yMax - r + k, xMin, yMax - r);
+        cs.lineTo(xMin, yMin + r);
+        cs.curveTo(xMin, yMin + r - k, xMin + r - k, yMin, xMin + r, yMin);
         cs.stroke();
 
         cs.setNonStrokingColor(ink);

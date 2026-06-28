@@ -78,7 +78,7 @@ export function crearCotizacion(params: CrearCotizacionParams): CotizacionCalcul
     umbralRecargoLbs: params.umbralRecargoLbs,
     total: params.total,
     moneda: 'USD',
-    notas: [NOTA_REFERENCIAL],
+    notas: [],
   };
 }
 
