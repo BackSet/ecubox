@@ -1379,7 +1379,7 @@ public class PaqueteService {
                                    boolean cuentaRegresivaFinalizada) {}
 
     /**
-     * Lectura para tracking público. {@link ResourceNotFoundException} se usa como
+     * Lectura para rastreo público. {@link ResourceNotFoundException} se usa como
      * señal de "no existe pieza con ese número" y es esperado en flujos donde el
      * llamador (ej. {@code TrackingResolverService.resolve}) prueba después con
      * guía master. Evitamos así marcar la transacción global como rollback-only

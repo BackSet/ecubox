@@ -366,7 +366,7 @@ export function ParametrosSistemaPage() {
         slug: 'estados',
         label: 'Estados de rastreo',
         shortLabel: 'Estados',
-        description: 'Catálogo de estados, flujo y orden público del tracking.',
+        description: 'Catálogo de estados, flujo y orden público del rastreo.',
         icon: ListOrdered,
         visible: canSeeEstadosRastreo,
       },
@@ -839,7 +839,7 @@ function WhatsAppDespachoPanel({
             onChange={(e) => setPlantillaLocal(e.target.value)}
             className="min-h-[220px] font-mono text-sm leading-relaxed"
             rows={9}
-            placeholder="Hola {{consignatarioNombre}}, tu envío {{numeroGuia}} ({{fechaDespacho}}) va a {{destinoNombre}}. Sacas: {{cantidadSacas}}, peso {{pesoTotalKg}} kg."
+            placeholder="Hola {{consignatarioNombre}}, tu envío ECUBOX {{numeroGuia}} fue preparado para {{destinoNombre}}. Sacas: {{cantidadSacas}}, peso {{pesoTotalLbs}} lbs / {{pesoTotalKg}} kg."
           />
 
           {unknown.length > 0 && (
@@ -1565,20 +1565,20 @@ function EstadosRastreoView() {
         />
         <KpiCard
           icon={<EyeOff className="h-5 w-5" />}
-          label="Ocultos en tracking"
+          label="Ocultos en rastreo"
           value={totalSinTracking}
           tone={totalSinTracking > 0 ? 'danger' : 'neutral'}
           hint="No los ve el cliente"
         />
       </div>
 
-      {/* Sección de orden de tracking */}
+      {/* Sección de orden de rastreo */}
       <section className="space-y-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
               <Layers className="h-4 w-4 text-muted-foreground" />
-              Orden para tracking público
+              Orden para rastreo público
             </h3>
             <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
               Flujo normal: numeración 1…n. Estados alternos: eligen un estado base «después del
@@ -1634,7 +1634,7 @@ function EstadosRastreoView() {
                       <Badge
                         variant="outline"
                         className="h-5 rounded border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-1.5 text-[10px] font-normal text-[var(--color-warning)]"
-                        title="Oculto en el tracking público"
+                        title="Oculto en el rastreo público"
                       >
                         <EyeOff className="mr-1 h-2.5 w-2.5" />
                         Oculto
@@ -2031,7 +2031,7 @@ function EstadosRastreoView() {
                   label="Nombre"
                   required
                   error={formErrors.nombre}
-                  hint="Tal como aparecerá al cliente en el tracking."
+                  hint="Tal como aparecerá al cliente en el rastreo."
                 >
                   <Input
                     id="estado-nombre"
@@ -2048,7 +2048,7 @@ function EstadosRastreoView() {
             <FormSection
               icon={<Layers className="h-4 w-4" />}
               title="Flujo y visibilidad"
-              description="Define el comportamiento dentro del flujo de tracking público."
+              description="Define el comportamiento dentro del flujo de rastreo público."
             >
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField label="Tipo de flujo">
@@ -2078,7 +2078,7 @@ function EstadosRastreoView() {
                   </Select>
                 </FormField>
 
-                <FormField label="Visibilidad en tracking">
+                <FormField label="Visibilidad en rastreo">
                   <div
                     className={cn(
                       'flex items-center justify-between rounded-md border px-3 py-2 transition-colors',
@@ -2109,7 +2109,7 @@ function EstadosRastreoView() {
               </div>
               <p className="mt-2 inline-flex items-start gap-1.5 text-[11px] text-muted-foreground">
                 <Info className="mt-0.5 h-3 w-3 shrink-0" />
-                El orden numérico se gestiona en la sección «Orden para tracking público» de esta
+                El orden numérico se gestiona en la sección «Orden para rastreo público» de esta
                 misma pestaña.
               </p>
             </FormSection>
@@ -2117,7 +2117,7 @@ function EstadosRastreoView() {
             <FormSection
               icon={<Quote className="h-4 w-4" />}
               title="Nota del estado (opcional)"
-              description="Texto informativo que se muestra junto al estado en el tracking."
+              description="Texto informativo que se muestra junto al estado en el rastreo."
             >
               <Textarea
                 id="leyenda-general"

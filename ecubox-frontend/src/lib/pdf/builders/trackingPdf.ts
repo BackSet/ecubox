@@ -250,7 +250,7 @@ export function buildTrackingPdf(data: TrackingResponse): jsPDF {
           value: String(op.diasMaxRetiroDomicilio ?? 'No configurado'),
         },
         {
-          label: 'Tracking del courier',
+          label: 'Rastreo del courier',
           value: (() => {
             const url = pdfSafe(op.paginaTrackingCourierEntrega);
             if (url === '-') return 'No disponible para este envío';

@@ -25,7 +25,7 @@ export function CallToActionBanner() {
           Un solo flujo, infinitas posibilidades
         </h2>
         <p className="relative mx-auto mt-3 max-w-xl text-sm text-white/85 sm:text-base">
-          Tus compras de USA a Ecuador con seguimiento claro y entrega confiable.
+          Tus compras de USA a Ecuador con rastreo claro y entrega confiable.
           Crear tu casillero es gratis y te toma menos de 2 minutos: sin tarjetas, sin
           mensualidad.
         </p>

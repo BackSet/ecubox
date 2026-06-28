@@ -33,7 +33,7 @@ export function TrackingDetailsCard({ result }: TrackingDetailsCardProps) {
         />
       </div>
       <p className="text-xs text-[var(--color-muted-foreground)] leading-relaxed">
-        Por privacidad no se exponen teléfonos ni direcciones exactas en el tracking público.
+        Por privacidad no se exponen teléfonos ni direcciones exactas en el rastreo público.
       </p>
     </section>
   );
@@ -60,4 +60,3 @@ function Field({
     </div>
   );
 }
-

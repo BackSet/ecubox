@@ -224,7 +224,7 @@ referencian esos items (sin duplicar rutas, iconos ni permisos):
 - **Cliente** (`CLIENTE_GROUPS`): `Principal` (Inicio) + `Mis envíos`
   (**Mi casillero primero**, luego Destinatarios, Mis guías, Mis entregas). El
   flujo del cliente empieza por su casillero.
-- **Operario** (`OPERARIO_GROUPS`): agrupado por tarea — `Inicio y seguimiento`,
+- **Operario** (`OPERARIO_GROUPS`): agrupado por tarea — `Inicio y rastreo`,
   `Gestión de clientes`, `Recepción y transporte`, `Entrega y cierre`,
   `Red de entrega`.
 - **Administrador**: operario + `Accesos y seguridad` + `Configuración`.

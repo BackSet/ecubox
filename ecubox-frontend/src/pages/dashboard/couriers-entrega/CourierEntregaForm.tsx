@@ -176,7 +176,7 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
               </DialogTitle>
               <DialogDescription>
                 {isEdit
-                  ? 'Actualiza los datos del courier de entrega: contacto, operación y tracking.'
+                  ? 'Actualiza los datos del courier de entrega: contacto, operación y rastreo.'
                   : 'Registra un nuevo courier de entrega para asignarlo a despachos y puntos de entrega.'}
               </DialogDescription>
               {isEdit && courierEntrega?.codigo && (
@@ -386,14 +386,14 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
             </div>
           </FormSection>
 
-          {/* Tracking */}
+          {/* Rastreo */}
           <FormSection
             icon={<Link2 className="h-4 w-4" />}
-            title="Tracking"
+            title="Rastreo"
             description="URL pública para rastrear envíos en el sitio del courier de entrega."
           >
             <FormField
-              label="Página de tracking"
+              label="Página de rastreo"
               error={errors.paginaTracking?.message}
               hint="Debe iniciar con http:// o https://"
               icon={<Link2 className="h-3.5 w-3.5" />}
@@ -413,7 +413,7 @@ export function CourierEntregaForm({ id, onClose, onSuccess }: CourierEntregaFor
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-3 text-xs text-foreground hover:bg-[var(--color-muted)]/60"
-                    title="Abrir página de tracking"
+                    title="Abrir página de rastreo"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     Abrir

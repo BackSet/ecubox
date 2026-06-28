@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 @Builder
 public class PaqueteCreateRequest {
 
-    @NotNull(message = "El destinatario final es obligatorio")
+    @NotNull(message = "El consignatario es obligatorio")
     private Long consignatarioId;
 
     private String contenido;

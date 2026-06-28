@@ -67,7 +67,7 @@ export const courierEntregaFormSchema = z.object({
     .optional()
     .refine(
       (v) => !v || v.trim() === '' || /^https?:\/\/.+/i.test(v.trim()),
-      { message: 'La página de tracking debe iniciar con http:// o https://' }
+      { message: 'La página de rastreo debe iniciar con http:// o https://' }
     ),
   diasMaxRetiroDomicilio: diasMaxRetiroSchema,
 });

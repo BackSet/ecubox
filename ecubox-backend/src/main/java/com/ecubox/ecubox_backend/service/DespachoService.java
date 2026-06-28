@@ -1021,7 +1021,7 @@ public class DespachoService {
     }
 
     /**
-     * Para tipo AGENCIA_COURIER_ENTREGA (y DOMICILIO): todos los paquetes de las sacas deben tener el mismo destinatario final.
+     * Para tipo AGENCIA_COURIER_ENTREGA (y DOMICILIO): todos los paquetes de las sacas deben tener el mismo consignatario.
      */
     private void validarSacasParaTipoEntrega(TipoEntrega tipoEntrega, List<Long> sacaIds) {
         if (tipoEntrega == TipoEntrega.AGENCIA_COURIER_ENTREGA && !sacaIds.isEmpty()) {

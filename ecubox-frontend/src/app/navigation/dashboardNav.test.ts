@@ -57,7 +57,7 @@ describe('dashboardNav · composición por audiencia', () => {
   describe('operario', () => {
     it('agrupa por tareas y no incluye grupos de admin ni Mi cuenta', () => {
       expect(grupos(OPERARIO)).toEqual([
-        'Inicio y seguimiento',
+        'Inicio y rastreo',
         'Gestión de clientes',
         'Recepción y transporte',
         'Entrega y cierre',
@@ -83,7 +83,7 @@ describe('dashboardNav · composición por audiencia', () => {
     it('usa el árbol operativo y añade "Mi cuenta" al final', () => {
       const mixto = [...OPERARIO, 'MIS_GUIAS_READ', 'MIS_ENTREGAS_READ', 'CASILLERO_READ'];
       const labels = grupos(mixto);
-      expect(labels[0]).toBe('Inicio y seguimiento');
+      expect(labels[0]).toBe('Inicio y rastreo');
       expect(labels[labels.length - 1]).toBe('Mi cuenta');
       const miCuenta = getVisibleNavGroups(withPerms(mixto)).find((g) => g.label === 'Mi cuenta');
       expect(miCuenta?.items.map((i) => i.to)).toEqual(['/casillero', '/mis-guias', '/mis-entregas']);

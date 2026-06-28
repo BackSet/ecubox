@@ -47,7 +47,7 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     /**
      * Carga paquete con todas las asociaciones que el endpoint publico de
      * tracking lee (saca, despacho, courierEntrega/agencia/agenciaCourierEntrega,
-     * destinatario del despacho, destinatario final del paquete, estado y
+     * destinatario del despacho, consignatario del paquete, estado y
      * guia master). Sin estos JOIN FETCH la respuesta de tracking dispara
      * decenas de queries por LAZY loading.
      */
@@ -359,7 +359,7 @@ public interface PaqueteRepository extends JpaRepository<Paquete, Long>, JpaSpec
     List<Paquete> findByNumeroGuiaInIgnoreCase(@Param("numeroGuiasLower") List<String> numeroGuiasLower);
 
     /**
-     * Paquetes asociados a un envio consolidado, con destinatario final y guia
+     * Paquetes asociados a un envio consolidado, con consignatario y guia
      * master ya cargados. Optimizado para la generacion del manifiesto (PDF y
      * XLSX) que itera sobre cada paquete leyendo destinatario.* y guiaMaster.*.
      */

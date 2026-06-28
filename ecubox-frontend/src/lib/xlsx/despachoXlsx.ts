@@ -27,7 +27,7 @@ import { FONTS } from '@/lib/xlsx/theme';
  */
 
 const TAMANIO_LABELS: Record<TamanioSaca, string> = {
-  INDIVIDUAL: 'Paquete individual',
+  INDIVIDUAL: 'Pieza',
   PEQUENO: 'Saca pequeña',
   MEDIANO: 'Saca mediana',
   GRANDE: 'Saca grande',

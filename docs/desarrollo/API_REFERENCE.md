@@ -127,7 +127,7 @@ Base: `/api/health`
 
 ---
 
-## Tracking
+## Rastreo
 
 Base: `/api/v1/tracking`
 
@@ -513,7 +513,7 @@ Base: `/api/operario/estados-rastreo`
 | DELETE | `/api/operario/estados-rastreo/{id}` | `ESTADOS_RASTREO_DELETE` | Eliminar estado |
 | GET | `/api/operario/estados-rastreo/{id}/transiciones` | `ESTADOS_RASTREO_READ` | Transiciones desde estado |
 | PUT | `/api/operario/estados-rastreo/{id}/transiciones` | `ESTADOS_RASTREO_UPDATE` | Reemplazar transiciones |
-| PUT | `/api/operario/estados-rastreo/orden-tracking` | `ESTADOS_RASTREO_UPDATE` | Reordenar estados en tracking |
+| PUT | `/api/operario/estados-rastreo/orden-tracking` | `ESTADOS_RASTREO_UPDATE` | Reordenar estados en rastreo |
 
 **Request:** `EstadoRastreoRequest`, `EstadoRastreoTransicionUpsertRequest`, `EstadoRastreoOrdenTrackingRequest`.
 **Response:** `EstadoRastreoDTO`, `EstadoRastreoTransicionDTO`.

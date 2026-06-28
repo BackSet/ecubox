@@ -132,7 +132,7 @@
 | Guías master | `PENDIENTE_VERIFICACION`, `EN_REVISION` | Aprobar, corregir o salir de revisión | Separa operación normal de control administrativo | Mantener el patrón actual; no ampliarlo aquí porque ya tiene pestañas y reglas propias |
 | Envíos consolidados | `CERRADO`, `ENVIADO_DESDE_USA`, `ARRIBADO_ECUADOR` y previews obsoletos | Avance operativo y resolución de conflictos | Reduce mezcla entre preparación y tránsito | Diseñar con métricas reales; sus estados forman una secuencia, no una revisión |
 | Lotes de recepción | Consolidado `ARRIBADO_ECUADOR` aún no recibido | Recepción física | Prioriza trabajo pendiente de ingreso | Candidato fuerte, pero faltan SLA, asignación y reglas de recepción parcial |
-| Despachos | Preparación, salida y entrega pendiente | Armado, despacho y seguimiento | Clarifica colas por hito | Esperar estados canónicos propios; hoy varias condiciones se derivan de paquetes |
+| Despachos | Preparación, salida y entrega pendiente | Armado, despacho y rastreo | Clarifica colas por hito | Esperar estados canónicos propios; hoy varias condiciones se derivan de paquetes |
 | Liquidaciones | No pagada, pagada o con referencias bloqueadas | Revisión financiera y cobro | Separa cuentas accionables del histórico | Requiere catálogo financiero y responsables confirmados |
 | Manifiestos | Borrador/incompleto/listo, si se confirma | Completar y cerrar | Hace visible trabajo incompleto | Auditar primero el modelo; no crear estados por inferencia |
 

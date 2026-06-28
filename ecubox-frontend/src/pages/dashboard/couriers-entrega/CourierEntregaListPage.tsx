@@ -145,7 +145,7 @@ export function CourierEntregaListPage() {
     <div className="page-stack">
       <ListToolbar
         title="Couriers de entrega"
-        searchPlaceholder="Buscar por nombre, código, email, horario o página de tracking..."
+        searchPlaceholder="Buscar por nombre, código, email, horario o página de rastreo..."
         value={q}
         onSearchChange={setQ}
         actions={
@@ -181,7 +181,7 @@ export function CourierEntregaListPage() {
           />
           <KpiCard
             icon={<Link2 className="h-4 w-4" />}
-            label="Con tracking"
+            label="Con rastreo"
             value={stats.conTracking}
             tone="neutral"
             hint={`${stats.total - stats.conTracking} sin URL configurada`}
@@ -216,7 +216,7 @@ export function CourierEntregaListPage() {
                 }}
               />
               <ChipFiltro
-                label="Con tracking"
+                label="Con rastreo"
                 count={chipCounts.conTracking}
                 active={chipActivo === 'con_tracking'}
                 tone="success"
@@ -227,7 +227,7 @@ export function CourierEntregaListPage() {
                 hideWhenZero
               />
               <ChipFiltro
-                label="Sin tracking"
+                label="Sin rastreo"
                 count={chipCounts.sinTracking}
                 active={chipActivo === 'sin_tracking'}
                 tone="warning"
@@ -262,7 +262,7 @@ export function CourierEntregaListPage() {
                 <TableHead className="w-[20rem]">Courier de entrega</TableHead>
                 <TableHead className="hidden min-w-[14rem] xl:table-cell">Operación</TableHead>
                 <TableHead className="min-w-[14rem]">Contacto</TableHead>
-                <TableHead className="hidden min-w-[16rem] lg:table-cell">Tracking</TableHead>
+                <TableHead className="hidden min-w-[16rem] lg:table-cell">Rastreo</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -308,7 +308,7 @@ export function CourierEntregaListPage() {
                 <TableHead className="w-[20rem]">Courier de entrega</TableHead>
                 <TableHead className="hidden min-w-[14rem] xl:table-cell">Operación</TableHead>
                 <TableHead className="min-w-[14rem]">Contacto</TableHead>
-                <TableHead className="hidden min-w-[16rem] lg:table-cell">Tracking</TableHead>
+                <TableHead className="hidden min-w-[16rem] lg:table-cell">Rastreo</TableHead>
                 <TableHead className="w-12 text-right" aria-label="Acciones" />
               </TableRow>
             </TableHeader>
@@ -579,4 +579,3 @@ function TrackingCell({ url }: { url?: string | null }) {
     </a>
   );
 }
-

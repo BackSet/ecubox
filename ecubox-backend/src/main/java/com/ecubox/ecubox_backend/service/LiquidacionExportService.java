@@ -43,13 +43,13 @@ public class LiquidacionExportService {
     private static final DateTimeFormatter FMT_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     // Paleta corporativa.
-    private static final Color COLOR_PRIMARY = new Color(123, 63, 228);
-    private static final Color COLOR_PRIMARY_DARK = new Color(86, 32, 188);
-    private static final Color COLOR_BORDER = new Color(226, 230, 237);
-    private static final Color COLOR_HEADER_BG = new Color(244, 240, 254);
-    private static final Color COLOR_ZEBRA = new Color(249, 247, 254);
-    private static final Color COLOR_TEXT = new Color(10, 22, 40);
-    private static final Color COLOR_MUTED = new Color(107, 114, 128);
+    private static final Color COLOR_PRIMARY = new Color(108, 92, 231);
+    private static final Color COLOR_PRIMARY_DARK = new Color(75, 63, 176);
+    private static final Color COLOR_BORDER = new Color(222, 223, 229);
+    private static final Color COLOR_HEADER_BG = new Color(237, 233, 254);
+    private static final Color COLOR_ZEBRA = new Color(248, 248, 251);
+    private static final Color COLOR_TEXT = new Color(13, 13, 15);
+    private static final Color COLOR_MUTED = new Color(92, 92, 102);
     private static final Color COLOR_OK = new Color(16, 122, 87);
     private static final Color COLOR_WARN = new Color(176, 99, 12);
 
@@ -246,17 +246,15 @@ public class LiquidacionExportService {
         cs.setNonStrokingColor(COLOR_PRIMARY);
         cs.addRect(x, y - height, width, height);
         cs.fill();
+        cs.setNonStrokingColor(COLOR_PRIMARY_DARK);
+        cs.addRect(x, y - height - 1.6f, width, 1.6f);
+        cs.fill();
 
-        cs.setNonStrokingColor(Color.WHITE);
-        cs.beginText();
-        cs.setFont(fontBold, 18);
-        cs.newLineAtOffset(x + 16, y - 26);
-        cs.showText("ECUBOX  |  LIQUIDACION");
-        cs.endText();
+        drawBrandLockup(cs, fontBold, fontRegular, x + 16, y - 25, Color.WHITE);
 
         cs.beginText();
         cs.setFont(fontRegular, 10);
-        cs.newLineAtOffset(x + 16, y - 44);
+        cs.newLineAtOffset(x + 124, y - 26);
         cs.showText("Documento periodico de cierre. Seccion A: costo al proveedor. Seccion B: courier de entrega.");
         cs.endText();
 
@@ -278,6 +276,36 @@ public class LiquidacionExportService {
         cs.showText(estado);
         cs.endText();
         return y - height;
+    }
+
+    private void drawBrandLockup(PDPageContentStream cs, PDFont fontBold, PDFont fontRegular,
+                                 float x, float y, Color ink) throws IOException {
+        cs.setStrokingColor(ink);
+        cs.setLineWidth(0.8f);
+        cs.addRect(x, y - 8.5f, 22f, 15f);
+        cs.stroke();
+
+        cs.setNonStrokingColor(ink);
+        cs.beginText();
+        cs.setFont(fontBold, 13);
+        cs.newLineAtOffset(x + 4.6f, y - 3f);
+        cs.showText("ec");
+        cs.endText();
+
+        cs.beginText();
+        cs.setFont(fontBold, 16);
+        cs.newLineAtOffset(x + 29f, y);
+        cs.showText("ECUBOX");
+        cs.endText();
+
+        cs.beginText();
+        cs.setFont(fontRegular, 7);
+        cs.newLineAtOffset(x + 29f, y - 11f);
+        cs.showText("Conecta - Envia - Llega");
+        cs.endText();
+
+        cs.setNonStrokingColor(COLOR_TEXT);
+        cs.setStrokingColor(COLOR_TEXT);
     }
 
     private float drawMetadataBox(PDPageContentStream cs, PDFont fontBold, PDFont fontRegular,

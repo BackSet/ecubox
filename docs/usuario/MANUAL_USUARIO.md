@@ -134,7 +134,7 @@ Orden sugerido según el flujo logístico (las rutas pueden variar ligeramente s
 ### Despachos (`/despachos`, `/despachos/nuevo`, `/despachos/$id`, editar)
 
 - **Permiso:** `DESPACHOS_WRITE`.
-- Creación y seguimiento de despachos, asociación de sacas y paquetes según las reglas del sistema.
+- Creación y gestión de despachos, asociación de sacas y paquetes según las reglas del sistema.
 
 ### Lotes de recepción (`/lotes-recepcion`, nuevo, detalle)
 
@@ -154,7 +154,7 @@ Orden sugerido según el flujo logístico (las rutas pueden variar ligeramente s
 
 ### Mis guías y Mis entregas (cliente)
 
-- **Mis guías** (`/mis-guias`): seguimiento de guías master del cliente (`MIS_GUIAS_READ`).
+- **Mis guías** (`/mis-guias`): rastreo de guías master del cliente (`MIS_GUIAS_READ`).
 - **Mis entregas** (`/mis-entregas`): despachos con las piezas del cliente; puede **confirmar entrega** (`MIS_ENTREGAS_CONFIRM`) cuando el sistema lo habilita.
 
 #### ¿Cómo encuentro el número de guía?
@@ -247,10 +247,10 @@ Los **estados de rastreo** describen en qué etapa está un paquete (por ejemplo
 **Campos habituales al crear o editar**
 
 - **Código** y **nombre** (obligatorios); el código suele normalizarse en mayúsculas.
-- **Orden de tracking** — posición en la secuencia mostrada al público.
+- **Orden de rastreo** — posición en la secuencia mostrada al público.
 - **Tipo de flujo:** **Normal** o **Alterno**. Los estados **alternos** representan situaciones excepcionales (por ejemplo una retención): en la configuración de orden deben quedar **justo después** de un estado **base** que elijas.
 - **Leyenda** opcional (puede incluir texto dinámico para días, según lo definido en pantalla).
-- **Visible en tracking público** u opciones similares según la interfaz.
+- **Visible en rastreo público** u opciones similares según la interfaz.
 - **Activo** — si el estado puede usarse en operaciones nuevas.
 
 **Acciones**
@@ -261,7 +261,7 @@ Los **estados de rastreo** describen en qué etapa está un paquete (por ejemplo
 | **Editar** | Modificar un estado existente. |
 | **Desactivar** | El estado deja de estar disponible para operaciones nuevas; no borra el histórico. El cuadro de confirmación indica que dejará de estar disponible para nuevas operaciones. |
 | **Eliminar** | Solo si **ningún paquete** usa ese estado; en caso contrario el sistema lo impedirá (mensaje acorde al backend). |
-| **Orden de tracking** | Reordena los estados **base** y define **después de qué base** va cada estado **alterno**. Debes pulsar **Guardar orden tracking** para aplicar los cambios. Este orden afecta cómo se muestra la progresión en rastreo. |
+| **Orden de rastreo** | Reordena los estados **base** y define **después de qué base** va cada estado **alterno**. Debes pulsar **Guardar orden de rastreo** para aplicar los cambios. Este orden afecta cómo se muestra la progresión en rastreo. |
 
 La página pública de ejemplos usa este mismo catálogo en tiempo real. Crear, renombrar,
 reordenar, ocultar o desactivar un estado no requiere editar la web pública.
@@ -294,14 +294,14 @@ Aquí eliges **qué estado del catálogo** (o qué etiqueta de guía/consolidado
 
 **Consolidados:** cuatro etiquetas operativas (`VACIO`, `EN_PREPARACION`, `ENVIADO_DESDE_USA`, `RECIBIDO_EN_BODEGA`, `LIQUIDADO`) para la UI — el backend **deriva** el estado real con la misma lógica.
 
-**Tracking:** anclas de inicio/fin de cuenta regresiva.
+**Rastreo:** anclas de inicio/fin de cuenta regresiva.
 
 Los estados asignados a estos puntos **no** aparecen en **Estados de paquetes** (cambio manual). Ver [Detonadores por estado](DETONADORES_POR_ESTADO.md).
 
 ### 9.4 Coherencia con el resto del manual
 
 1. Define el **catálogo** y el **orden** en **Parámetros → Estados**.  
-2. Asigna **estados por punto** (paquetes, guías master, consolidados, tracking).  
+2. Asigna **estados por punto** (paquetes, guías master, consolidados, rastreo).  
 3. Flujo típico: **Registro** → **Consolidado** (`PLANILLA`) → **Guía master** → **Salida USA** → **Lote** (aduana + bodega) → **Despacho** → **Avance masivo** → **Aviso push** → **Mis entregas** (`ENTREGADO`).
 
 ---
@@ -376,9 +376,9 @@ ECUBOX separa el vocabulario **interno** (operación, back-office, esta document
 | **Saca** | Contenedor o agrupación física dentro de un despacho. |
 | **Lote de recepción** | Registro de llegada o ingreso de guías desde operación de recepción. |
 | **Estado de rastreo** | Etapa del ciclo de vida del paquete en el sistema. |
-| **Estado base** | Estado de flujo **normal** que forma la secuencia principal de tracking. |
+| **Estado base** | Estado de flujo **normal** que forma la secuencia principal de rastreo. |
 | **Estado alterno** | Estado excepcional que en la configuración se coloca **después** de un estado base. |
-| **Orden de tracking** | Posición del estado en la línea de tiempo pública. |
+| **Orden de rastreo** | Posición del estado en la línea de tiempo pública. |
 | **Estado por punto** | Estado asignado automáticamente en cada hito (registro, consolidado, lote, guía master, despacho, confirmación cliente, etc.). |
 | **Envío consolidado** | Agrupador interno del operario para manifiestos; no aparece en rastreo público. |
 | **Estado operativo consolidado** | Etiqueta derivada (`VACIO` … `LIQUIDADO`); independiente del `estadoPago`. |
