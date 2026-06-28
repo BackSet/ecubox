@@ -27,7 +27,7 @@ export function absoluteUrl(path: string): string {
 
 export const SEO_DEFAULT_TITLE = 'ECUBOX | Casillero en USA y envíos a Ecuador con rastreo';
 export const SEO_DEFAULT_DESCRIPTION =
-  'Compra en Amazon, eBay o Shein y recíbelo en Ecuador. ECUBOX te da un casillero gratis en USA, envíos en 8–12 días, rastreo por pieza y tarifas transparentes. Con una sola cuenta gestionas varios destinatarios: personas, oficinas o sucursales.';
+  'Compra en Amazon, eBay o Shein y recíbelo en Ecuador. ECUBOX te da un casillero gratis en USA, envíos en 8–12 días, rastreo por paquete y tarifas transparentes. Con una sola cuenta gestionas varios destinatarios: personas, oficinas o sucursales.';
 
 /** Dimensiones reales de /og-image.png. Declararlas evita previsualizaciones rotas. */
 export const OG_IMAGE_WIDTH = 1376;

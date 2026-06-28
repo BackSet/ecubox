@@ -299,8 +299,8 @@ export function PwaInstallGuideDialog({
           </DialogDescription>
         </DialogHeader>
         {inAppBrowser && (
-          <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-[var(--color-popover-foreground)]">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+          <p className="flex items-start gap-2 rounded-md border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-3 py-2 text-xs text-[var(--color-popover-foreground)]">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
             Copia el enlace y abrelo en Chrome o Safari para poder instalar.
           </p>
         )}

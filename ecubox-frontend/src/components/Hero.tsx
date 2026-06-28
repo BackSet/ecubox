@@ -18,7 +18,7 @@ import { useTemaTemporadaPublic } from '@/hooks/useTemaTemporada';
 
 const STATS = [
   { value: '8-12', label: 'Días promedio USA → EC' },
-  { value: '100%', label: 'Trazabilidad por pieza' },
+  { value: '100%', label: 'Trazabilidad por paquete' },
   { value: '24/7', label: 'Rastreo en línea' },
 ] as const;
 
@@ -56,7 +56,11 @@ export function Hero() {
               <span className="landing-chip mb-4 inline-flex w-fit items-center gap-1.5 px-3 py-1 text-xs font-medium text-[var(--color-primary)]">
                 {season.season.badge}
               </span>
-            ) : null}
+            ) : (
+              <span className="landing-chip mb-4 inline-flex w-fit items-center gap-1.5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                Conecta · Envía · Llega
+              </span>
+            )}
             <h1 id="hero-heading" className="hero-title landing-text mb-5 max-w-3xl font-bold">
               Tu casillero en USA.{' '}
               <span className="brand-gradient-text">
@@ -122,7 +126,7 @@ export function Hero() {
               </p>
             ) : (
               <p className="mb-6 max-w-xl text-xs landing-text-muted">
-                También puedes usar el formato de pieza, por ejemplo{' '}
+                También puedes usar el formato de paquete, por ejemplo{' '}
                 <span className="font-mono text-[var(--color-primary)]">ABC123 1/2</span>
                 .{' '}
                 <Link to="/tracking/ejemplo" className="font-medium text-[var(--color-primary)] hover:underline">

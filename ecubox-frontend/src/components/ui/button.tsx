@@ -9,10 +9,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // Acción primaria de marca: violeta ECUBOX (token --primary).
         default:
-          "bg-foreground text-background hover:bg-foreground/90",
+          "bg-primary text-primary-foreground hover:bg-primary/90",
+        // Alias explícito de la acción primaria (mismo estilo que default).
         primary:
           "bg-primary text-primary-foreground hover:bg-primary/90",
+        // Acción de alto contraste en carbón (para CTAs no-marca puntuales).
+        contrast:
+          "bg-foreground text-background hover:bg-foreground/90",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:

@@ -28,6 +28,9 @@ export function SiteFooter() {
             <Link to="/" className="w-fit" aria-label="ECUBOX - Inicio">
               <EcuboxLogo variant="principal" size="md" asLink={false} />
             </Link>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+              Conecta · Envía · Llega
+            </p>
             <p className="max-w-xs text-sm leading-relaxed landing-text-muted">
               Logística de clase mundial con el corazón del Ecuador.
             </p>

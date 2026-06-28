@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { E_PATH, E_TRANSFORM, GRAD_LIGHT } from './brand-glyphs.mjs';
+import { glyphMarkup, GRAD_LIGHT } from './brand-glyphs.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'public/icons');
@@ -17,14 +17,10 @@ const outDir = path.join(root, 'public/icons');
  */
 function buildSvg(size, rx, eScale = 1) {
   const [c0, c1] = GRAD_LIGHT;
-  const glyph =
-    eScale === 1
-      ? `<path d="${E_PATH}" fill="#FFFFFF" transform="${E_TRANSFORM}"/>`
-      : `<g transform="translate(50 50) scale(${eScale}) translate(-50 -50)"><path d="${E_PATH}" fill="#FFFFFF" transform="${E_TRANSFORM}"/></g>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100" fill="none">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c0}"/><stop offset="1" stop-color="${c1}"/></linearGradient></defs>
   <rect x="0" y="0" width="100" height="100" rx="${rx}" fill="url(#g)"/>
-  ${glyph}
+  ${glyphMarkup(eScale)}
 </svg>`;
 }
 

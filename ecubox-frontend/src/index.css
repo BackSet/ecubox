@@ -5,7 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Sora', system-ui, -apple-system, sans-serif;
+  --font-display: 'Sora', system-ui, -apple-system, sans-serif;
   --radius: 0.5rem;
   --radius-lg: 0.5rem;
   --radius-md: 0.375rem;
@@ -16,39 +17,41 @@
    LIGHT MODE (paleta neutra estilo Claude)
    ──────────────────────────────────────────────────────── */
 :root {
-  /* shadcn bridge targets (preservados como nombres) */
-  --background: #FBFBFA;
-  --foreground: #1A1A1A;
+  /* shadcn bridge targets (preservados como nombres)
+     Paleta rebranding ECUBOX: negro carbón #0D0D0F · grafito #2A2A30 ·
+     gris claro #F2F3F5 · violeta ECUBOX #6C5CE7 · violeta suave #EDE9FE. */
+  --background: #F2F3F5;
+  --foreground: #0D0D0F;
   --card: #FFFFFF;
-  --card-foreground: #1A1A1A;
+  --card-foreground: #0D0D0F;
   --popover: #FFFFFF;
-  --popover-foreground: #1A1A1A;
-  --primary: #7B3FE4;
+  --popover-foreground: #0D0D0F;
+  --primary: #6C5CE7;
   --primary-foreground: #FFFFFF;
-  --secondary: #F1F1EE;
-  --secondary-foreground: #1A1A1A;
-  --muted: #F4F4F2;
-  --muted-foreground: #6B6B6B;
-  --accent: #F4F4F2;
-  --accent-foreground: #1A1A1A;
+  --secondary: #E7E8EC;
+  --secondary-foreground: #0D0D0F;
+  --muted: #E7E8EC;
+  --muted-foreground: #5C5C66;
+  --accent: #EDE9FE;
+  --accent-foreground: #4B3FB0;
   --destructive: #B42318;
-  --border: #E6E6E3;
-  --input: #DCDCD7;
-  --ring: #7B3FE4;
+  --border: #DEDFE5;
+  --input: #D2D3DB;
+  --ring: #6C5CE7;
   --chart-1: oklch(0.66 0.18 295);
   --chart-2: oklch(0.62 0.13 250);
   --chart-3: oklch(0.55 0.10 220);
   --chart-4: oklch(0.70 0.08 100);
   --chart-5: oklch(0.45 0.06 280);
   --radius: 0.5rem;
-  --sidebar: #F7F7F5;
-  --sidebar-foreground: #1A1A1A;
-  --sidebar-primary: #7B3FE4;
+  --sidebar: #F7F7F9;
+  --sidebar-foreground: #0D0D0F;
+  --sidebar-primary: #6C5CE7;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EDEDEA;
-  --sidebar-accent-foreground: #1A1A1A;
-  --sidebar-border: #E6E6E3;
-  --sidebar-ring: #7B3FE4;
+  --sidebar-accent: #E7E8EC;
+  --sidebar-accent-foreground: #0D0D0F;
+  --sidebar-border: #DEDFE5;
+  --sidebar-ring: #6C5CE7;
 
   /* ── Sistema de movimiento (motion) ──
      Duraciones y curvas semánticas. Reutilizar SIEMPRE estos tokens; no
@@ -66,76 +69,81 @@
   --motion-ease-emphasized: cubic-bezier(0.77, 0, 0.175, 1);  /* movimiento/morph en pantalla */
 
   /* --color-* para uso directo con var() */
-  --color-background: #FBFBFA;
-  --color-foreground: #1A1A1A;
+  --color-background: #F2F3F5;
+  --color-foreground: #0D0D0F;
   --color-card: #FFFFFF;
-  --color-card-foreground: #1A1A1A;
-  --color-primary: #7B3FE4;
+  --color-card-foreground: #0D0D0F;
+  --color-primary: #6C5CE7;
   --color-primary-foreground: #FFFFFF;
-  --color-secondary: #F1F1EE;
-  --color-secondary-foreground: #1A1A1A;
-  --color-muted: #F4F4F2;
-  --color-muted-foreground: #6B6B6B;
-  --color-accent: #F4F4F2;
-  --color-accent-foreground: #1A1A1A;
+  --color-secondary: #E7E8EC;
+  --color-secondary-foreground: #0D0D0F;
+  --color-muted: #E7E8EC;
+  --color-muted-foreground: #5C5C66;
+  --color-accent: #EDE9FE;
+  --color-accent-foreground: #4B3FB0;
   --color-destructive: #B42318;
   --color-destructive-foreground: #FFFFFF;
-  --color-border: #E6E6E3;
-  --color-input: #DCDCD7;
-  --color-ring: #7B3FE4;
+  --color-border: #DEDFE5;
+  --color-input: #D2D3DB;
+  --color-ring: #6C5CE7;
   --color-popover: #FFFFFF;
-  --color-popover-foreground: #1A1A1A;
+  --color-popover-foreground: #0D0D0F;
 
-  /* ECUBOX identidad visual (preservados como tokens, ya no se usan en chrome) */
-  --color-ecubox-principal: #1A1A1A;
-  --color-ecubox-marca: #1246A0;
-  --color-ecubox-acento: #2E6BE6;
-  --color-ecubox-acento-claro: #5B9CFF;
-  --color-ecubox-nuevo-acento: #7B3FE4;
+  /* ECUBOX identidad visual (paleta canónica del rebranding) */
+  --color-ecubox-carbon: #0D0D0F;
+  --color-ecubox-grafito: #2A2A30;
+  --color-ecubox-gris-claro: #F2F3F5;
+  --color-ecubox-violeta: #6C5CE7;
+  --color-ecubox-violeta-suave: #EDE9FE;
+  --color-ecubox-principal: #0D0D0F;
+  --color-ecubox-marca: #6C5CE7;
+  --color-ecubox-acento: #6C5CE7;
+  --color-ecubox-acento-claro: #9486F4;
+  --color-ecubox-nuevo-acento: #6C5CE7;
   --color-ecubox-lujo: #C9A84C;
-  --color-ecubox-fondo-claro: #F4F4F2;
-  --color-ecubox-blue: #1246A0;
-  --color-ecubox-purple: #7B3FE4;
-  --color-ecubox-purple-light: #9B6AF0;
+  --color-ecubox-fondo-claro: #F2F3F5;
+  --color-ecubox-blue: #6C5CE7;
+  --color-ecubox-purple: #6C5CE7;
+  --color-ecubox-purple-light: #9486F4;
   --color-ecubox-red: #B42318;
 
   /* Landing (mantener, neutralizado) */
-  --color-landing-bg: #FBFBFA;
+  --color-landing-bg: #F2F3F5;
   --color-landing-card: #FFFFFF;
-  --color-landing-card-muted: #F4F4F2;
-  --color-landing-border: #E6E6E3;
-  --color-landing-text: #1A1A1A;
-  --color-landing-text-muted: #6B6B6B;
-  --color-landing-overlay-a: rgb(123 63 228 / 0.06);
-  --color-landing-overlay-b: rgb(46 107 230 / 0.05);
+  --color-landing-card-muted: #E7E8EC;
+  --color-landing-border: #DEDFE5;
+  --color-landing-text: #0D0D0F;
+  --color-landing-text-muted: #5C5C66;
+  --color-landing-overlay-a: rgb(108 92 231 / 0.06);
+  --color-landing-overlay-b: rgb(108 92 231 / 0.04);
 
   /* Topbar dashboard */
-  --color-topbar-surface: #FBFBFA;
-  --color-topbar-search-bg: #F4F4F2;
-  --color-topbar-search-border: #E6E6E3;
-  --color-topbar-search-text: #1A1A1A;
-  --color-topbar-search-placeholder: #6B6B6B;
-  --color-topbar-kbd-bg: #EDEDEA;
-  --color-topbar-kbd-text: #6B6B6B;
-  --color-topbar-action-hover: #F1F1EE;
+  --color-topbar-surface: #F2F3F5;
+  --color-topbar-search-bg: #E7E8EC;
+  --color-topbar-search-border: #DEDFE5;
+  --color-topbar-search-text: #0D0D0F;
+  --color-topbar-search-placeholder: #5C5C66;
+  --color-topbar-kbd-bg: #E1E2E8;
+  --color-topbar-kbd-text: #5C5C66;
+  --color-topbar-action-hover: #E7E8EC;
 
   /* Command palette */
   --color-command-surface: #FFFFFF;
-  --color-command-border: #E6E6E3;
-  --color-command-input-bg: #FBFBFA;
-  --color-command-item-hover: #F4F4F2;
-  --color-command-item-active: #1A1A1A;
-  --color-command-item-active-text: #FBFBFA;
-  --color-command-item-text: #1A1A1A;
-  --color-command-heading: #6B6B6B;
+  --color-command-border: #DEDFE5;
+  --color-command-input-bg: #F2F3F5;
+  --color-command-item-hover: #E7E8EC;
+  --color-command-item-active: #0D0D0F;
+  --color-command-item-active-text: #F2F3F5;
+  --color-command-item-text: #0D0D0F;
+  --color-command-heading: #5C5C66;
 
   /* Sidebar */
-  --color-sidebar-background: #F7F7F5;
-  --color-sidebar-foreground: #1A1A1A;
-  --color-sidebar-muted: #EDEDEA;
-  --color-sidebar-border: #E6E6E3;
-  --color-sidebar-hover: #EDEDEA;
-  --color-sidebar-active: #7B3FE4;
+  --color-sidebar-background: #F7F7F9;
+  --color-sidebar-foreground: #0D0D0F;
+  --color-sidebar-muted: #E7E8EC;
+  --color-sidebar-border: #DEDFE5;
+  --color-sidebar-hover: #E7E8EC;
+  --color-sidebar-active: #6C5CE7;
   --color-sidebar-active-foreground: #FFFFFF;
 
   /* Semantic states */
@@ -157,91 +165,93 @@
    DARK MODE
    ──────────────────────────────────────────────────────── */
 .dark {
-  --background: #1A1A1A;
-  --foreground: #ECECEC;
-  --card: #232323;
-  --card-foreground: #ECECEC;
-  --popover: #232323;
-  --popover-foreground: #ECECEC;
-  --primary: #9B6AF0;
+  /* Modo oscuro rebranding: lienzo negro carbón #0D0D0F, superficies grafito,
+     violeta claro #8B7CF0 como primary para mantener contraste sobre carbón. */
+  --background: #0D0D0F;
+  --foreground: #ECECF0;
+  --card: #17171C;
+  --card-foreground: #ECECF0;
+  --popover: #17171C;
+  --popover-foreground: #ECECF0;
+  --primary: #8B7CF0;
   --primary-foreground: #FFFFFF;
-  --secondary: #2A2A2A;
-  --secondary-foreground: #ECECEC;
-  --muted: #2A2A2A;
-  --muted-foreground: #A0A0A0;
-  --accent: #2A2A2A;
-  --accent-foreground: #ECECEC;
+  --secondary: #2A2A30;
+  --secondary-foreground: #ECECF0;
+  --muted: #2A2A30;
+  --muted-foreground: #9A9AA5;
+  --accent: #2A2A30;
+  --accent-foreground: #ECECF0;
   --destructive: #DC2626;
-  --border: #333333;
-  --input: #3A3A3A;
-  --ring: #9B6AF0;
+  --border: #2E2E36;
+  --input: #3A3A42;
+  --ring: #8B7CF0;
   --chart-1: oklch(0.72 0.18 295);
   --chart-2: oklch(0.68 0.13 250);
   --chart-3: oklch(0.60 0.10 220);
   --chart-4: oklch(0.75 0.08 100);
   --chart-5: oklch(0.50 0.06 280);
-  --sidebar: #1F1F1F;
-  --sidebar-foreground: #ECECEC;
-  --sidebar-primary: #9B6AF0;
+  --sidebar: #121216;
+  --sidebar-foreground: #ECECF0;
+  --sidebar-primary: #8B7CF0;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #2A2A2A;
-  --sidebar-accent-foreground: #ECECEC;
-  --sidebar-border: #333333;
-  --sidebar-ring: #9B6AF0;
+  --sidebar-accent: #2A2A30;
+  --sidebar-accent-foreground: #ECECF0;
+  --sidebar-border: #2E2E36;
+  --sidebar-ring: #8B7CF0;
 
-  --color-background: #1A1A1A;
-  --color-foreground: #ECECEC;
-  --color-card: #232323;
-  --color-card-foreground: #ECECEC;
-  --color-primary: #9B6AF0;
+  --color-background: #0D0D0F;
+  --color-foreground: #ECECF0;
+  --color-card: #17171C;
+  --color-card-foreground: #ECECF0;
+  --color-primary: #8B7CF0;
   --color-primary-foreground: #FFFFFF;
-  --color-secondary: #2A2A2A;
-  --color-secondary-foreground: #ECECEC;
-  --color-muted: #2A2A2A;
-  --color-muted-foreground: #A0A0A0;
-  --color-accent: #2A2A2A;
-  --color-accent-foreground: #ECECEC;
+  --color-secondary: #2A2A30;
+  --color-secondary-foreground: #ECECF0;
+  --color-muted: #2A2A30;
+  --color-muted-foreground: #9A9AA5;
+  --color-accent: #2A2A30;
+  --color-accent-foreground: #ECECF0;
   --color-destructive: #DC2626;
   --color-destructive-foreground: #FFFFFF;
-  --color-border: #333333;
-  --color-input: #3A3A3A;
-  --color-ring: #9B6AF0;
-  --color-popover: #232323;
-  --color-popover-foreground: #ECECEC;
+  --color-border: #2E2E36;
+  --color-input: #3A3A42;
+  --color-ring: #8B7CF0;
+  --color-popover: #17171C;
+  --color-popover-foreground: #ECECF0;
 
-  --color-landing-bg: #1A1A1A;
-  --color-landing-card: #232323;
-  --color-landing-card-muted: #2A2A2A;
-  --color-landing-border: #333333;
-  --color-landing-text: #ECECEC;
-  --color-landing-text-muted: #A0A0A0;
-  --color-landing-overlay-a: rgb(155 106 240 / 0.08);
-  --color-landing-overlay-b: rgb(100 162 255 / 0.06);
+  --color-landing-bg: #0D0D0F;
+  --color-landing-card: #17171C;
+  --color-landing-card-muted: #2A2A30;
+  --color-landing-border: #2E2E36;
+  --color-landing-text: #ECECF0;
+  --color-landing-text-muted: #9A9AA5;
+  --color-landing-overlay-a: rgb(139 124 240 / 0.10);
+  --color-landing-overlay-b: rgb(139 124 240 / 0.06);
 
-  --color-topbar-surface: #1A1A1A;
-  --color-topbar-search-bg: #2A2A2A;
-  --color-topbar-search-border: #333333;
-  --color-topbar-search-text: #ECECEC;
-  --color-topbar-search-placeholder: #A0A0A0;
-  --color-topbar-kbd-bg: #333333;
-  --color-topbar-kbd-text: #A0A0A0;
-  --color-topbar-action-hover: #2A2A2A;
+  --color-topbar-surface: #0D0D0F;
+  --color-topbar-search-bg: #2A2A30;
+  --color-topbar-search-border: #2E2E36;
+  --color-topbar-search-text: #ECECF0;
+  --color-topbar-search-placeholder: #9A9AA5;
+  --color-topbar-kbd-bg: #2E2E36;
+  --color-topbar-kbd-text: #9A9AA5;
+  --color-topbar-action-hover: #2A2A30;
 
-  --color-command-surface: #232323;
-  --color-command-border: #333333;
-  --color-command-input-bg: #1F1F1F;
-  --color-command-item-hover: #2A2A2A;
-  --color-command-item-active: #ECECEC;
-  --color-command-item-active-text: #1A1A1A;
-  --color-command-item-text: #ECECEC;
-  --color-command-heading: #A0A0A0;
+  --color-command-surface: #17171C;
+  --color-command-border: #2E2E36;
+  --color-command-input-bg: #121216;
+  --color-command-item-hover: #2A2A30;
+  --color-command-item-active: #ECECF0;
+  --color-command-item-active-text: #0D0D0F;
+  --color-command-item-text: #ECECF0;
+  --color-command-heading: #9A9AA5;
 
-  --color-sidebar-background: #1F1F1F;
-  --color-sidebar-foreground: #ECECEC;
-  --color-sidebar-muted: #2A2A2A;
-  --color-sidebar-border: #333333;
-  --color-sidebar-hover: #2A2A2A;
-  --color-sidebar-active: #9B6AF0;
+  --color-sidebar-background: #121216;
+  --color-sidebar-foreground: #ECECF0;
+  --color-sidebar-muted: #2A2A30;
+  --color-sidebar-border: #2E2E36;
+  --color-sidebar-hover: #2A2A30;
+  --color-sidebar-active: #8B7CF0;
   --color-sidebar-active-foreground: #FFFFFF;
 
   --color-error: #DC2626;
@@ -273,6 +283,11 @@
     background-image: none;
     min-height: 100vh;
     @apply bg-background text-foreground;
+  }
+  /* Selección de texto con tinte de marca (violeta ECUBOX), desde token. */
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-primary) 22%, transparent);
+    color: var(--color-foreground);
   }
   * {
     scrollbar-width: thin;
@@ -871,7 +886,8 @@
    THEME INLINE  —  Tailwind utility bridge
    ──────────────────────────────────────────────────────── */
 @theme inline {
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Sora', system-ui, -apple-system, sans-serif;
+  --font-display: 'Sora', system-ui, -apple-system, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

@@ -22,10 +22,11 @@ export function CallToActionBanner() {
           Tu casillero te espera
         </span>
         <h2 id="cta-landing-heading" className="responsive-title relative mx-auto mt-4 max-w-2xl font-bold text-white">
-          Empieza a comprar en USA y recibe en Ecuador hoy mismo
+          Un solo flujo, infinitas posibilidades
         </h2>
         <p className="relative mx-auto mt-3 max-w-xl text-sm text-white/85 sm:text-base">
-          Crear tu casillero es gratis y te toma menos de 2 minutos. Sin tarjetas, sin
+          Tus compras de USA a Ecuador con seguimiento claro y entrega confiable.
+          Crear tu casillero es gratis y te toma menos de 2 minutos: sin tarjetas, sin
           mensualidad.
         </p>
 

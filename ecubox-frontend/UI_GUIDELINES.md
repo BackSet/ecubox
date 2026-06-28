@@ -23,8 +23,13 @@ Todos los colores, radios, sombras y tipografías se exponen como variables CSS:
 | `--color-border`                   | Bordes neutros                         |
 | `--color-card`                     | Fondo de tarjetas                      |
 | `--color-background`               | Fondo de página                        |
-| `--color-ecubox-acento`            | Acento ECUBOX (azul intenso)           |
-| `--color-ecubox-acento-claro`      | Acento ECUBOX claro                    |
+| `--color-ecubox-violeta`           | Violeta ECUBOX `#6C5CE7` (marca)        |
+| `--color-ecubox-violeta-suave`     | Violeta suave `#EDE9FE` (acento claro)  |
+| `--color-ecubox-carbon`            | Negro carbón `#0D0D0F`                  |
+| `--color-ecubox-grafito`           | Gris grafito `#2A2A30`                   |
+| `--color-ecubox-gris-claro`        | Gris claro `#F2F3F5`                     |
+| `--color-ecubox-acento`            | Acento ECUBOX (= violeta `#6C5CE7`)     |
+| `--color-ecubox-acento-claro`      | Acento ECUBOX claro (`#9486F4`)         |
 | `--color-landing-*`                | Tokens específicos para landing/público |
 
 > **Regla**: nunca uses colores literales de Tailwind como `bg-emerald-500`,
@@ -135,6 +140,56 @@ animación nueva queda cubierta automáticamente; en JS, usar además
 // Fila/KPI recién actualizado (una sola vez)
 <tr className={recienActualizado ? 'ui-motion-highlight' : undefined}>…</tr>
 ```
+
+---
+
+## 1.6 Identidad de marca (rebranding)
+
+> Fundamentos del rebranding (MVP 1). Detalle canónico y guía de uso en
+> [`docs/branding/IDENTIDAD_VISUAL.md`](../docs/branding/IDENTIDAD_VISUAL.md).
+
+**Dirección**: símbolo = monograma **«ec»** enlazado (lazo de conexión/infinito),
+wordmark **ECUBOX**, lema **«Conecta · Envía · Llega»**; estilo limpio, logístico,
+confiable y trazable. El logo es **monocromo** (símbolo + wordmark misma tinta).
+
+**Paleta** (mapeada a tokens, no usar los hex directos en componentes):
+
+| Color | Hex | Token / mapeo |
+| --- | --- | --- |
+| Negro carbón | `#0D0D0F` | `--color-foreground` (claro) / `--background` (oscuro) |
+| Gris grafito | `#2A2A30` | superficies en modo oscuro (`secondary`/`muted`) |
+| Gris claro | `#F2F3F5` | `--background` (claro) |
+| Violeta ECUBOX | `#6C5CE7` | `--primary`, `--ring`, `--color-ecubox-violeta` |
+| Violeta suave | `#EDE9FE` | `--accent`, `--color-ecubox-violeta-suave` |
+
+En modo oscuro el primary se aclara a `#8B7CF0` para conservar contraste sobre el
+carbón. **El icono de la app / avatar es negro carbón** (badge gradiente
+`#2A2A30→#0D0D0F`) con el símbolo en **blanco** — el violeta no se usa en el
+icono, se reserva como acento de UI (CTAs, estado activo).
+
+**Tipografía**: **Sora** (Google Fonts, licencia SIL OFL). Es la `--font-sans`
+global y también `--font-display`. Fallback `system-ui, -apple-system,
+sans-serif`. Se carga con `preload`+`onload` y respaldo `<noscript>` en
+`index.html`.
+
+**Logo** → usar siempre `EcuboxLogo` (`@/components/brand`), nunca incrustar el
+SVG a mano:
+
+- `<EcuboxLogo />` → lockup horizontal (símbolo + wordmark), claro/oscuro
+  automático.
+- `<EcuboxLogo iconOnly />` → solo el símbolo (sidebar colapsado, avatares).
+- `variant="onPurple"` → variante de tinta clara para fondos violeta.
+
+**Assets** (`src/assets/brand/`, fuente única `scripts/brand-glyphs.mjs`,
+regenerados por `npm run icons:generate`): `ecubox-symbol-{light,dark}.svg`,
+`ecubox-logo-horizontal-{light,dark}.svg`, `ecubox-logo-stacked-{light,dark}.svg`.
+Favicons e iconos PWA (`public/favicon*.svg`, `public/icons/*.png`) y el patrón
+`public/brand-pattern.svg` salen del mismo glifo. Sufijo `-light` = para fondos
+claros (tinta oscura); `-dark` = para fondos oscuros (tinta clara).
+
+> **No**: no recrear el wordmark con `<text>` ni con fuentes (los SVG van
+> vectorizados); no introducir un violeta literal en componentes (usar tokens);
+> no romper el modo oscuro.
 
 ---
 
@@ -586,7 +641,10 @@ Las páginas públicas comparten el lenguaje "landing":
 5. **Espaciado vertical raíz** → `page-stack` en lugar de `space-y-4`.
 6. **Public pages** → siempre `SiteHeader` + `SiteFooter` + `landing-shell`.
 7. **Formularios** → `FormSection` + `LabeledField`.
-8. **Botones** → `@/components/ui/button` con sus variantes.
+8. **Botones** → `@/components/ui/button`. La acción **primaria** es el violeta
+   de marca: `variant="default"` (= `primary`). Acciones neutras/secundarias →
+   `outline` / `ghost` / `secondary`. `contrast` reserva el botón carbón para
+   CTAs no-marca puntuales. Una sola acción primaria (violeta) por vista.
 9. **Iconografía** → `lucide-react`.
 10. **Dark mode**: las variables ya están definidas, no agregues clases
     `dark:*` específicas para colores semánticos.
