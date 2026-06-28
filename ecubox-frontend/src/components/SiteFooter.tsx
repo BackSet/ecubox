@@ -1,4 +1,4 @@
-﻿import { Link } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { Clock, MapPin, ShieldCheck } from 'lucide-react';
 import { EcuboxLogo } from '@/components/brand';
 
@@ -40,33 +40,33 @@ export function SiteFooter() {
             <div>
               <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider landing-text-muted">Servicios</h4>
               <ul className="flex flex-col gap-2 text-sm landing-text">
-                <li><Link to="/tracking" className="transition hover:text-[var(--color-primary)]">Rastreo</Link></li>
-                <li><Link to="/calculadora" className="transition hover:text-[var(--color-primary)]">Calculadora</Link></li>
-                <li><Link to="/enlaces" className="transition hover:text-[var(--color-primary)]">Enlaces y contacto</Link></li>
+                <li><Link to="/tracking" className="ui-transition hover:text-[var(--color-primary)]">Rastreo</Link></li>
+                <li><Link to="/calculadora" className="ui-transition hover:text-[var(--color-primary)]">Calculadora</Link></li>
+                <li><Link to="/enlaces" className="ui-transition hover:text-[var(--color-primary)]">Enlaces y contacto</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider landing-text-muted">Cuenta</h4>
               <ul className="flex flex-col gap-2 text-sm landing-text">
-                <li><Link to="/login" className="transition hover:text-[var(--color-primary)]">Iniciar sesión</Link></li>
-                <li><Link to="/registro" className="transition hover:text-[var(--color-primary)]">Registrarse</Link></li>
+                <li><Link to="/login" className="ui-transition hover:text-[var(--color-primary)]">Iniciar sesión</Link></li>
+                <li><Link to="/registro" className="ui-transition hover:text-[var(--color-primary)]">Registrarse</Link></li>
               </ul>
             </div>
             <div className="col-span-2 sm:col-span-1">
               <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider landing-text-muted">Legal</h4>
               <ul className="flex flex-col gap-2 text-sm landing-text">
                 <li>
-                  <Link to="/terminos-y-condiciones" className="transition hover:text-[var(--color-primary)]">
+                  <Link to="/terminos-y-condiciones" className="ui-transition hover:text-[var(--color-primary)]">
                     Términos y condiciones
                   </Link>
                 </li>
                 <li>
-                  <Link to="/politica-de-privacidad" className="transition hover:text-[var(--color-primary)]">
+                  <Link to="/politica-de-privacidad" className="ui-transition hover:text-[var(--color-primary)]">
                     Política de privacidad
                   </Link>
                 </li>
                 <li>
-                  <Link to="/politica-de-cookies" className="transition hover:text-[var(--color-primary)]">
+                  <Link to="/politica-de-cookies" className="ui-transition hover:text-[var(--color-primary)]">
                     Política de cookies
                   </Link>
                 </li>

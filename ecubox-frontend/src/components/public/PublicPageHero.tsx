@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,14 +24,14 @@ export function PublicPageHero({
   return (
     <header
       className={cn(
-        'flex flex-col gap-4 border-b border-[var(--color-landing-border)] pb-6 sm:flex-row sm:items-start sm:justify-between',
+        'flex flex-col gap-4 border-b border-[var(--color-landing-border)] pb-6 sm:flex-row sm:items-start sm:justify-between animate-in fade-in slide-in-from-bottom-3 duration-200 ease-out',
         className
       )}
     >
       <div className="flex min-w-0 gap-3 sm:gap-4">
         {Icon ? (
-          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-[var(--color-landing-border)] bg-[var(--color-landing-card)] text-[var(--color-primary)] sm:size-11">
-            <Icon className="size-5" aria-hidden />
+          <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-[var(--color-landing-border)] bg-[var(--color-landing-card)] text-[var(--color-primary)] shadow-xs sm:size-12">
+            <Icon className="size-5.5 sm:size-6" aria-hidden />
           </span>
         ) : null}
         <div className="min-w-0 space-y-2">
@@ -41,7 +41,7 @@ export function PublicPageHero({
               {badge}
             </span>
           ) : null}
-          <h1 className="responsive-title landing-text font-bold tracking-tight">{title}</h1>
+          <h1 className="responsive-title landing-text font-bold tracking-tight text-[var(--color-foreground)] sm:text-3xl">{title}</h1>
           <p className="landing-text-muted max-w-2xl text-sm leading-relaxed sm:text-base">
             {description}
           </p>

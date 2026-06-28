@@ -37,10 +37,10 @@ export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
   function navLinkClass(to: string, exact = false) {
     const active = exact ? pathname === to : pathname.startsWith(to);
     return cn(
-      'transition',
+      'ui-transition py-1.5 px-3 rounded-md',
       active
-        ? 'font-semibold text-[var(--color-primary)]'
-        : 'hover:text-[var(--color-primary)]'
+        ? 'font-medium text-[var(--color-primary)] bg-[var(--color-primary)]/5'
+        : 'text-[var(--color-landing-text-muted)] hover:text-[var(--color-landing-text)] hover:bg-[var(--color-landing-card-muted)]/40'
     );
   }
 
@@ -61,34 +61,34 @@ export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden items-center gap-6 text-sm font-medium landing-text lg:flex">
+        <nav className="hidden items-center gap-2 text-sm font-medium landing-text lg:flex">
           {showAnchors && ANCHOR_LINKS.map(l => (
-            <a key={l.hash} href={l.hash} className="transition hover:text-[var(--color-primary)]">{l.label}</a>
+            <a key={l.hash} href={l.hash} className="ui-transition py-1.5 px-3 rounded-md text-[var(--color-landing-text-muted)] hover:text-[var(--color-landing-text)] hover:bg-[var(--color-landing-card-muted)]/40">{l.label}</a>
           ))}
           {showAnchors && (
-            <span className="h-4 w-px bg-[var(--color-landing-border)]" aria-hidden />
+            <span className="h-4 w-px bg-[var(--color-landing-border)] mx-1" aria-hidden />
           )}
           {NAV_LINKS.map(l => (
             <Link key={l.to} to={l.to} className={navLinkClass(l.to)} aria-current={pathname.startsWith(l.to) ? 'page' : undefined}>{l.label}</Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 xl:gap-3 lg:flex">
-          <Button type="button" variant="outline" size="icon" className="landing-text" onClick={toggleTheme} aria-label="Cambiar tema">
+        <div className="hidden items-center gap-2.5 lg:flex">
+          <Button type="button" variant="outline" size="icon" className="ui-transition active:scale-95" onClick={toggleTheme} aria-label="Cambiar tema">
             {themeIcon}
           </Button>
           {showAccountButtons && (
             <>
-              <Link to="/login" className="rounded-lg border border-[var(--color-primary)]/45 px-4 py-2 text-sm font-medium landing-text transition hover:bg-[var(--color-primary)]/10">
+              <Link to="/login" className="rounded-lg border border-[var(--color-landing-border)] px-4 py-2 text-sm font-medium landing-text ui-transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 active:scale-[0.97]">
                 Iniciar sesión
               </Link>
-              <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary-foreground)] transition hover:opacity-90">
+              <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary-foreground)] ui-transition hover:bg-[var(--color-primary)]/90 hover:shadow-sm active:scale-[0.97]">
                 Registrarse
               </Link>
             </>
           )}
           {variant === 'auth' && (
-            <Link to="/" className="text-sm font-medium landing-text-muted transition hover:text-[var(--color-primary)]">
+            <Link to="/" className="text-sm font-medium landing-text-muted ui-transition hover:text-[var(--color-primary)] px-3 py-2 rounded-md hover:bg-[var(--color-landing-card-muted)]/40">
               Volver al inicio
             </Link>
           )}
@@ -99,7 +99,7 @@ export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
           type="button"
           variant="ghost"
           size="icon"
-          className="landing-text lg:hidden"
+          className="landing-text lg:hidden ui-transition active:scale-95"
           onClick={() => setMobileOpen((o) => !o)}
           aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={mobileOpen}
@@ -113,7 +113,7 @@ export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
       {mobileOpen && (
         <div
           id="site-header-mobile-nav"
-          className="border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-4 pb-6 pt-4 lg:hidden"
+          className="border-t border-[var(--color-landing-border)] bg-[var(--color-landing-bg)] px-4 pb-6 pt-4 lg:hidden animate-in fade-in slide-in-from-top-4 duration-150 ease-out"
           role="region"
           aria-label="Navegación móvil"
         >
@@ -140,16 +140,16 @@ export function SiteHeader({ variant = 'default' }: SiteHeaderProps) {
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium landing-text-muted uppercase tracking-wider">Tema</span>
-              <Button type="button" variant="outline" size="icon" className="landing-text" onClick={toggleTheme} aria-label="Cambiar tema">
+              <Button type="button" variant="outline" size="icon" className="ui-transition active:scale-95" onClick={toggleTheme} aria-label="Cambiar tema">
                 {themeIcon}
               </Button>
             </div>
             {showAccountButtons && (
               <>
-                <Link to="/login" className="rounded-lg border border-[var(--color-primary)]/45 px-4 py-2.5 text-center text-sm font-medium landing-text transition hover:bg-[var(--color-primary)]/10" onClick={() => setMobileOpen(false)}>
+                <Link to="/login" className="rounded-lg border border-[var(--color-landing-border)] px-4 py-2.5 text-center text-sm font-medium landing-text ui-transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 active:scale-[0.97]" onClick={() => setMobileOpen(false)}>
                   Iniciar sesión
                 </Link>
-                <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-center text-sm font-medium text-[var(--color-primary-foreground)] transition hover:opacity-90" onClick={() => setMobileOpen(false)}>
+                <Link to="/registro" className="rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-center text-sm font-medium text-[var(--color-primary-foreground)] ui-transition hover:bg-[var(--color-primary)]/90 hover:shadow-sm active:scale-[0.97]" onClick={() => setMobileOpen(false)}>
                   Registrarse
                 </Link>
               </>

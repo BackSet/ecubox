@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { SiteHeader, type SiteHeaderVariant } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SeasonBanner } from '@/components/public/SeasonBanner';
@@ -15,6 +15,7 @@ export interface PublicPageLayoutProps {
   mainClassName?: string;
   mainId?: string;
   topSlot?: ReactNode;
+  variant?: 'default' | 'compact';
 }
 
 export function PublicPageLayout({
@@ -25,12 +26,15 @@ export function PublicPageLayout({
   mainClassName,
   mainId = 'contenido-principal',
   topSlot,
+  variant = 'default',
 }: PublicPageLayoutProps) {
   const { data: tema } = useTemaTemporadaPublic();
   const activeSeason = useSeason({ override: tema?.override, ventanas: tema?.ventanas });
+  const isCompact = variant === 'compact';
+
   return (
     <div
-      className="landing-shell"
+      className={cn("landing-shell", isCompact && "min-h-screen flex flex-col justify-between")}
       data-season={activeSeason?.season.id}
       style={activeSeason?.style}
     >
@@ -45,16 +49,20 @@ export function PublicPageLayout({
         </a>
       )}
       {showOverlay ? <div className="landing-overlay" aria-hidden="true" /> : null}
-      <SiteHeader variant={headerVariant} />
+      {!isCompact && <SiteHeader variant={headerVariant} />}
       {activeSeason ? <SeasonBanner season={activeSeason.season} /> : null}
       <main
         id={mainId}
-        className={cn('relative z-10 flex-1', mainClassName)}
+        className={cn(
+          'relative z-10 flex-1',
+          isCompact && 'flex flex-col items-center justify-center py-8',
+          mainClassName
+        )}
         tabIndex={skipLink ? -1 : undefined}
       >
         {children}
       </main>
-      <SiteFooter />
+      {!isCompact && <SiteFooter />}
     </div>
   );
 }
