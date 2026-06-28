@@ -40,6 +40,10 @@ const PoliticaPrivacidadPage = lazyNamed(
   () => import('@/pages/legal/PoliticaPrivacidadPage'),
   'PoliticaPrivacidadPage',
 );
+const PoliticaCookiesPage = lazyNamed(
+  () => import('@/pages/legal/PoliticaCookiesPage'),
+  'PoliticaCookiesPage',
+);
 const DashboardLayout = lazyNamed(
   () => import('@/pages/dashboard/DashboardLayout'),
   'DashboardLayout',
@@ -415,28 +419,57 @@ const enlacesRoute = createRoute({
 
 const terminosRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/terminos',
+  path: '/terminos-y-condiciones',
   component: TerminosCondicionesPage,
   head: () =>
     buildPublicPageHead({
       title: 'Términos y condiciones | ECUBOX',
       description:
         'Condiciones de uso del casillero en USA, envíos a Ecuador, rastreo y servicios digitales ECUBOX. Aplicable al registro y a la relación con clientes.',
-      path: '/terminos',
+      path: '/terminos-y-condiciones',
     }) as RouteHeadResult,
 });
 
 const privacidadRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/privacidad',
+  path: '/politica-de-privacidad',
   component: PoliticaPrivacidadPage,
   head: () =>
     buildPublicPageHead({
       title: 'Política de privacidad | ECUBOX',
       description:
         'Cómo ECUBOX trata tus datos personales: cuenta, operación logística, derechos ARCO y seguridad, conforme a la normativa ecuatoriana.',
-      path: '/privacidad',
+      path: '/politica-de-privacidad',
     }) as RouteHeadResult,
+});
+
+const cookiesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/politica-de-cookies',
+  component: PoliticaCookiesPage,
+  head: () =>
+    buildPublicPageHead({
+      title: 'Política de cookies | ECUBOX',
+      description:
+        'Uso de cookies técnicas, almacenamiento local, PWA, Google Fonts y notificaciones Web Push en ECUBOX.',
+      path: '/politica-de-cookies',
+    }) as RouteHeadResult,
+});
+
+const terminosLegacyRedirect = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/terminos',
+  beforeLoad: () => {
+    throw redirect({ to: '/terminos-y-condiciones' });
+  },
+});
+
+const privacidadLegacyRedirect = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/privacidad',
+  beforeLoad: () => {
+    throw redirect({ to: '/politica-de-privacidad' });
+  },
 });
 
 // Panel routes (flat, with layout wrapper + auth)
@@ -749,6 +782,9 @@ const routeTree = rootRoute.addChildren([
   enlacesRoute,
   terminosRoute,
   privacidadRoute,
+  cookiesRoute,
+  terminosLegacyRedirect,
+  privacidadLegacyRedirect,
   inicioRoute,
   estadisticasRoute,
   casilleroRoute,

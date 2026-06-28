@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PublicPageHero } from '@/components/public/PublicPageHero';
 import { PublicPageLayout } from '@/components/public/PublicPageLayout';
+import { LEGAL_EFFECTIVE_DATE, LEGAL_REVIEW_NOTICE, LEGAL_VERSION } from '@/lib/legal';
 
 type LegalPageLayoutProps = {
   title: string;
@@ -33,9 +34,12 @@ export function LegalPageLayout({ title, subtitle, children }: LegalPageLayoutPr
           description={subtitle ?? 'Documento legal de ECUBOX.'}
         />
 
-        <p className="border-b border-[var(--color-landing-border)] pb-6 text-xs landing-text-muted">
-          Última actualización: 23 de abril de 2026
-        </p>
+        <div className="space-y-3 border-b border-[var(--color-landing-border)] pb-6 text-xs landing-text-muted">
+          <p>Última actualización: {LEGAL_EFFECTIVE_DATE} · Versión: {LEGAL_VERSION}</p>
+          <p className="rounded-md border border-[var(--color-warning)]/35 bg-[var(--color-warning)]/10 px-3 py-2 text-[var(--color-foreground)]">
+            {LEGAL_REVIEW_NOTICE}
+          </p>
+        </div>
 
         <article className="pb-4 text-sm leading-relaxed sm:text-[15px]">{children}</article>
       </div>

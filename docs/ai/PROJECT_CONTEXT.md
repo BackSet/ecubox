@@ -70,6 +70,7 @@ Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.js
 ### Frontend
 
 - `src/routes/router.tsx` declara rutas públicas y privadas con TanStack Router y carga diferida.
+- Rutas legales públicas canónicas: `/terminos-y-condiciones`, `/politica-de-privacidad` y `/politica-de-cookies`; `/terminos` y `/privacidad` redirigen por compatibilidad. La aceptación legal del registro es validación UI, sin persistencia backend confirmada.
 - `src/pages/` agrupa páginas por área funcional.
 - `src/components/` contiene componentes compartidos y primitivos UI.
 - `src/hooks/` encapsula consultas/mutaciones de TanStack Query y lógica reutilizable.
@@ -136,9 +137,12 @@ Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.js
 
 - PostgreSQL.
 - Railway como destino documentado/configurado.
+- Google Fonts (`fonts.googleapis.com`/`fonts.gstatic.com`) para Sora.
 - Web Push con VAPID, desactivable por configuración.
+- WhatsApp mediante enlaces `wa.me` y generación de mensajes operativos; no se encontró API de WhatsApp confirmada.
 - Couriers de entrega son dominio interno; no se encontró API externa de courier confirmada.
 - Generación local de PDF/XLSX; no se confirmó un servicio externo de archivos.
+- No se encontró uso de `document.cookie`, analítica ni cookies publicitarias en el código revisado; sí existen `localStorage`, `sessionStorage` y caché PWA.
 
 ## 5. Comandos confirmados
 

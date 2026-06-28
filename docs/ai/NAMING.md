@@ -52,6 +52,8 @@
 - Diferenciar “Agencia” ECUBOX de “Punto de entrega” perteneciente a un courier.
 - Mostrar los nombres de estados de rastreo recibidos desde configuración/API; no convertir nombres visibles actuales en constantes de negocio.
 - En rastreo público distinguir **Retiro en oficina**, **Punto de retiro del courier**, **Entrega a domicilio** y **Flujo alterno**. No usar “Retiro en agencia” para la oficina propia ECUBOX.
+- En documentos públicos legales usar rutas canónicas `/terminos-y-condiciones`, `/politica-de-privacidad` y `/politica-de-cookies`; `/terminos` y `/privacidad` quedan como compatibilidad/redirect.
+- En privacidad/cookies distinguir cookies de tecnologías similares: si el código no usa `document.cookie`, no afirmar cookies propias; documentar `localStorage`, `sessionStorage`, caché PWA, Google Fonts y Web Push cuando apliquen.
 - En «Aplicar estado» de envíos consolidados, los tres modos son términos canónicos: **«Transición operativa»** (una acción individual), **«Avance automático»** (un rango de acciones) y **«Estado de rastreo de paquetes»** (acción técnica sobre los paquetes).
 - En Avance automático, **«Hasta»** identifica la transición operativa final; el inicio se deriva del estado operativo común de la selección. El tracking de paquetes es un efecto configurado de cada transición.
 - Usar **«Estado aplicado a paquetes»** para el estado de rastreo asociado por configuración a una transición operativa.

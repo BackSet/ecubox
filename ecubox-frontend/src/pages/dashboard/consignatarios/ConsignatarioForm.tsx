@@ -296,6 +296,23 @@ export function ConsignatarioForm({
             </div>
           )}
 
+          {esCliente && (
+            <div className="flex items-start gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/25 px-3 py-2 text-[12px] leading-snug text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+              <span>
+                Si registras datos de otra persona, confirma que puedes usarlos para
+                gestionar sus envíos y entregas. Revisa la{' '}
+                <a
+                  href="/politica-de-privacidad"
+                  className="font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
+                >
+                  política de privacidad
+                </a>
+                .
+              </span>
+            </div>
+          )}
+
           {hasConsignatariosOperarioPerm && (
             <FormSection
               icon={<Users className="h-4 w-4" />}
