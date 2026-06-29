@@ -34,9 +34,9 @@ export function DashboardPage() {
     );
   }
 
-  const currentRole = activeRole && availableRoles.includes(activeRole)
-    ? activeRole
-    : availableRoles[0];
+  // availableRoles no está vacío (guard arriba), por eso el índice 0 es seguro.
+  const currentRole: Role =
+    activeRole && availableRoles.includes(activeRole) ? activeRole : availableRoles[0]!;
 
   return (
     <div className="space-y-4">

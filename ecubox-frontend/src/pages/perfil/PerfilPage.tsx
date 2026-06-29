@@ -61,7 +61,7 @@ function computeStrength(pwd: string): PasswordStrength {
   if (/\d/.test(pwd) && /[^A-Za-z0-9]/.test(pwd)) s++;
   const score = Math.min(4, s) as 0 | 1 | 2 | 3 | 4;
   const labels = ['Muy débil', 'Débil', 'Aceptable', 'Buena', 'Fuerte'];
-  return { score, label: labels[score] };
+  return { score, label: labels[score] ?? '' };
 }
 
 function FieldError({ message }: { message?: string }) {

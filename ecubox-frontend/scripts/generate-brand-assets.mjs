@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
 import {
   symbolSvg,
   SYMBOL_VIEWBOX,
@@ -27,6 +28,7 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const brandDir = path.join(root, 'src/assets/brand');
+const pdfDir = path.join(root, 'src/lib/pdf');
 const publicDir = path.join(root, 'public');
 
 const TONES = { light: INK_LIGHT, dark: INK_DARK };
@@ -84,6 +86,9 @@ function buildPattern() {
 }
 
 fs.mkdirSync(brandDir, { recursive: true });
+fs.mkdirSync(pdfDir, { recursive: true });
+
+const horizontalSvgs = {};
 
 for (const [tone, ink] of Object.entries(TONES)) {
   const files = [
@@ -94,9 +99,27 @@ for (const [tone, ink] of Object.entries(TONES)) {
   for (const [name, svg] of files) {
     fs.writeFileSync(path.join(brandDir, name), svg);
     console.log('Escrito', name);
+    if (name.startsWith('ecubox-logo-horizontal-')) {
+      horizontalSvgs[tone] = svg;
+    }
   }
 }
 
 fs.writeFileSync(path.join(publicDir, 'brand-pattern.svg'), buildPattern());
 console.log('Escrito brand-pattern.svg');
+
+const pdfLogoData = {};
+for (const [tone, svg] of Object.entries(horizontalSvgs)) {
+  const png = await sharp(Buffer.from(svg)).resize(420, 112).png().toBuffer();
+  pdfLogoData[tone] = `data:image/png;base64,${png.toString('base64')}`;
+}
+
+fs.writeFileSync(
+  path.join(pdfDir, 'generated-brand-logo-data.ts'),
+  `// Generado por scripts/generate-brand-assets.mjs. No editar a mano.\n` +
+    `// Fuente oficial: src/assets/brand/ecubox-logo-horizontal-{light,dark}.svg\n\n` +
+    `export const ECUBOX_LOGO_HORIZONTAL_LIGHT_DATA_URL = ${JSON.stringify(pdfLogoData.light)};\n` +
+    `export const ECUBOX_LOGO_HORIZONTAL_DARK_DATA_URL = ${JSON.stringify(pdfLogoData.dark)};\n`,
+);
+console.log('Escrito generated-brand-logo-data.ts');
 console.log('Assets de marca generados desde brand-glyphs.mjs');

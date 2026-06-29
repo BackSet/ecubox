@@ -10,7 +10,7 @@ afterEach(() => useBlockerMock.mockClear());
 describe('useUnsavedChangesBlocker', () => {
   it('shouldBlockFn y enableBeforeUnload reflejan isDirty=true', () => {
     useUnsavedChangesBlocker(true);
-    const opts = useBlockerMock.mock.calls[0][0] as {
+    const opts = useBlockerMock.mock.calls[0]![0] as {
       shouldBlockFn: () => boolean;
       enableBeforeUnload: () => boolean;
       withResolver: boolean;
@@ -23,7 +23,7 @@ describe('useUnsavedChangesBlocker', () => {
 
   it('no bloquea ni habilita beforeunload cuando isDirty=false', () => {
     useUnsavedChangesBlocker(false);
-    const opts = useBlockerMock.mock.calls[0][0] as {
+    const opts = useBlockerMock.mock.calls[0]![0] as {
       shouldBlockFn: () => boolean;
       enableBeforeUnload: () => boolean;
     };

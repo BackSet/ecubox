@@ -11,7 +11,7 @@ Tecnologías y librerías utilizadas en el proyecto ECUBOX (backend y frontend).
 | Tecnología | Versión | Uso |
 |------------|---------|-----|
 | **Java** | 25 | Lenguaje principal (Virtual Threads, Records, Pattern Matching) |
-| **Spring Boot** | 4.0.6 | Framework base |
+| **Spring Boot** | 4.0.7 | Framework base |
 
 ### Spring Boot starters
 
@@ -22,6 +22,7 @@ Tecnologías y librerías utilizadas en el proyecto ECUBOX (backend y frontend).
 | `spring-boot-starter-data-jpa` | Persistencia con JPA/Hibernate |
 | `spring-boot-starter-validation` | Validación (Jakarta Validation) |
 | `spring-boot-starter-flyway` | Migraciones de base de datos |
+| `spring-boot-starter-actuator` | Observabilidad: health/info/metrics (ver `docs/operacion/OBSERVABILIDAD.md`) |
 | `spring-boot-devtools` | Recarga en desarrollo (opcional) |
 
 ### Base de datos
@@ -113,7 +114,8 @@ El mapeo Entity — DTO se hace en los services (métodos privados) y con `Paque
 
 | Librería | Versión | Uso |
 |----------|---------|-----|
-| **Axios** | 1.14.x | Cliente HTTP (interceptores JWT) |
+| **openapi-fetch** | 0.17.x | Cliente HTTP tipado desde el contrato OpenAPI (JWT y manejo de errores por middleware) |
+| **openapi-typescript** | 7.13.x | Generación de tipos desde OpenAPI (dev, vía `npx`; no en `package.json`) |
 
 ### Exportación PDF
 
@@ -126,7 +128,7 @@ El mapeo Entity — DTO se hace en los services (métodos privados) y con `Paque
 
 ## Resumen rápido
 
-- **Backend:** Java 25 + Spring Boot 4.0.6 + JPA/Flyway 12.6/PostgreSQL 18 + JWT (jjwt 0.13.0) + Springdoc OpenAPI 3.0.3 + Lombok.
-- **Frontend:** React 19 + Vite 8 + TypeScript 6 + Tailwind 4 + TanStack Router & Query + Zustand + React Hook Form + Zod + Radix UI + Axios + Sonner + Lucide.
+- **Backend:** Java 25 + Spring Boot 4.0.7 + JPA/Flyway 12.6/PostgreSQL 18 + JWT (jjwt 0.13.0) + Springdoc OpenAPI 3.0.3 + Lombok.
+- **Frontend:** React 19 + Vite 8 + TypeScript 6 + Tailwind 4 + TanStack Router & Query + Zustand + React Hook Form + Zod + Radix UI + openapi-fetch + Sonner + Lucide.
 
 Las versiones exactas se mantienen en `ecubox-backend/pom.xml` y `ecubox-frontend/package.json`.

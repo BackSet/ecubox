@@ -1,5 +1,4 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
 import type {
   LoginRequest,
   LoginResponse,
@@ -8,26 +7,42 @@ import type {
 } from '@/types/auth';
 import type { CanjearAccesoResponse } from '@/types/acceso-enlace';
 
-export async function login(credentials: LoginRequest): Promise<LoginResponse> {
-  const { data } = await apiClient.post<LoginResponse>(
-    API_ENDPOINTS.auth.login,
-    credentials
-  );
-  return data;
-}
+/** Perfil derivado de la respuesta de autenticación (sin token). */
+type AuthProfile = Pick<LoginResponse, 'username' | 'email' | 'createdAt' | 'roles' | 'permissions'>;
 
-/** Obtiene el usuario actual (perfil, roles y permisos). El token se mantiene en el cliente. */
-export async function getCurrentUser(): Promise<
-  Pick<LoginResponse, 'username' | 'email' | 'createdAt' | 'roles' | 'permissions'>
-> {
-  const { data } = await apiClient.get<LoginResponse>(API_ENDPOINTS.auth.me);
+/**
+ * Normaliza la respuesta del contrato OpenAPI (propiedades opcionales) al tipo
+ * de dominio manual usado por el store y la UI. El backend siempre incluye
+ * `username` en respuestas de perfil.
+ */
+function toAuthProfile(data: {
+  username?: string;
+  email?: string;
+  createdAt?: string;
+  roles?: string[];
+  permissions?: string[];
+}): AuthProfile {
   return {
-    username: data.username,
+    username: data.username ?? '',
     email: data.email ?? null,
     createdAt: data.createdAt ?? null,
     roles: data.roles ?? [],
     permissions: data.permissions ?? [],
   };
+}
+
+export async function login(credentials: LoginRequest): Promise<LoginResponse> {
+  const data = await unwrap(openapiClient.POST('/api/auth/login', { body: credentials }));
+  return {
+    token: data.token ?? '',
+    ...toAuthProfile(data),
+  };
+}
+
+/** Obtiene el usuario actual (perfil, roles y permisos). El token se mantiene en el cliente. */
+export async function getCurrentUser(): Promise<AuthProfile> {
+  const data = await unwrap(openapiClient.GET('/api/auth/me'));
+  return toAuthProfile(data);
 }
 
 /**
@@ -35,26 +50,13 @@ export async function getCurrentUser(): Promise<
  * Solo se envian los campos definidos. El backend exige currentPassword si
  * newPassword esta presente.
  */
-export async function updateMe(
-  payload: MeUpdateRequest
-): Promise<Pick<LoginResponse, 'username' | 'email' | 'createdAt' | 'roles' | 'permissions'>> {
-  const { data } = await apiClient.put<LoginResponse>(
-    API_ENDPOINTS.auth.updateMe,
-    payload
-  );
-  return {
-    username: data.username,
-    email: data.email ?? null,
-    createdAt: data.createdAt ?? null,
-    roles: data.roles ?? [],
-    permissions: data.permissions ?? [],
-  };
+export async function updateMe(payload: MeUpdateRequest): Promise<AuthProfile> {
+  const data = await unwrap(openapiClient.PUT('/api/auth/me', { body: payload }));
+  return toAuthProfile(data);
 }
 
-export async function registerClienteSimple(
-  data: ClienteRegisterSimpleRequest
-): Promise<void> {
-  await apiClient.post(API_ENDPOINTS.auth.registerSimple, data);
+export async function registerClienteSimple(data: ClienteRegisterSimpleRequest): Promise<void> {
+  await ensureOk(openapiClient.POST('/api/auth/register/simple', { body: data }));
 }
 
 /**
@@ -62,9 +64,8 @@ export async function registerClienteSimple(
  * acotada a los consignatarios del enlace. Devuelve el JWT y un resumen.
  */
 export async function canjearAccesoEnlace(token: string): Promise<CanjearAccesoResponse> {
-  const { data } = await apiClient.post<CanjearAccesoResponse>(
-    API_ENDPOINTS.auth.accesoEnlace,
-    { token },
+  const data = await unwrap(
+    openapiClient.POST('/api/auth/acceso-enlace', { body: { token } }),
   );
-  return data;
+  return data as CanjearAccesoResponse;
 }

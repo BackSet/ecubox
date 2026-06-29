@@ -1,5 +1,5 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
+import type { components } from '@/lib/api/generated/schema';
 import type {
   EnvioConsolidado,
   EnvioConsolidadoCreateRequest,
@@ -11,7 +11,12 @@ import type {
 import type { PageResponse } from '@/types/page';
 import type { EstadoRastreo } from '@/types/estado-rastreo';
 
-const BASE = API_ENDPOINTS.enviosConsolidados;
+// Contrato y tipos de dominio difieren en null/optional/required: se conservan
+// los tipos de dominio en las firmas y se puentea con casts localizados (body →
+// tipo generado, respuesta → tipo de dominio). El payload no cambia.
+type S = components['schemas'];
+
+const BASE = '/api/envios-consolidados' as const;
 
 /** Filtro por estado operativo derivado del consolidado. */
 export type EstadoFiltro =
@@ -40,10 +45,10 @@ export interface ListarEnviosParams {
 }
 
 export async function listarEnviosConsolidados(
-  params: ListarEnviosParams = {}
+  params: ListarEnviosParams = {},
 ): Promise<PageResponse<EnvioConsolidado>> {
-  const { data } = await apiClient.get<PageResponse<EnvioConsolidado>>(BASE, { params });
-  return data;
+  const data = await unwrap(openapiClient.GET(BASE, { params: { query: params } }));
+  return data as PageResponse<EnvioConsolidado>;
 }
 
 export async function listarTodosEnviosConsolidados(): Promise<EnvioConsolidado[]> {
@@ -64,10 +69,8 @@ export async function listarTodosEnviosConsolidados(): Promise<EnvioConsolidado[
 }
 
 export async function listarCandidatosAvanceEstados(): Promise<EnvioConsolidado[]> {
-  const { data } = await apiClient.get<EnvioConsolidado[]>(
-    `${BASE}/candidatos-avance-estados`,
-  );
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/candidatos-avance-estados`));
+  return data as EnvioConsolidado[];
 }
 
 /**
@@ -83,8 +86,8 @@ export interface EnvioConsolidadoResumen {
 }
 
 export async function obtenerResumenEnviosConsolidados(): Promise<EnvioConsolidadoResumen> {
-  const { data } = await apiClient.get<EnvioConsolidadoResumen>(`${BASE}/resumen`);
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/resumen`));
+  return data as EnvioConsolidadoResumen;
 }
 
 export interface ListarDisponiblesRecepcionParams {
@@ -105,25 +108,26 @@ export interface ListarDisponiblesRecepcionParams {
  * recepción; al recibirlos quedan en `RECIBIDO_EN_BODEGA`.
  */
 export async function listarEnviosDisponiblesParaRecepcion(
-  params: ListarDisponiblesRecepcionParams = {}
+  params: ListarDisponiblesRecepcionParams = {},
 ): Promise<PageResponse<EnvioConsolidado>> {
-  const { data } = await apiClient.get<PageResponse<EnvioConsolidado>>(
-    `${BASE}/disponibles-recepcion`,
-    { params }
+  const data = await unwrap(
+    openapiClient.GET(`${BASE}/disponibles-recepcion`, { params: { query: params } }),
   );
-  return data;
+  return data as PageResponse<EnvioConsolidado>;
 }
 
 export async function obtenerEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
-  const { data } = await apiClient.get<EnvioConsolidado>(`${BASE}/${id}`);
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/{id}`, { params: { path: { id } } }));
+  return data as EnvioConsolidado;
 }
 
 export async function crearEnvioConsolidado(
-  body: EnvioConsolidadoCreateRequest
+  body: EnvioConsolidadoCreateRequest,
 ): Promise<EnvioConsolidadoCreateResponse> {
-  const { data } = await apiClient.post<EnvioConsolidadoCreateResponse>(BASE, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(BASE, { body: body as S['EnvioConsolidadoCreateRequest'] }),
+  );
+  return data as EnvioConsolidadoCreateResponse;
 }
 
 export interface BuscarPaquetesElegiblesParams {
@@ -139,49 +143,60 @@ export interface BuscarPaquetesElegiblesParams {
  * no es elegible. Resultado paginado.
  */
 export async function buscarPaquetesElegibles(
-  params: BuscarPaquetesElegiblesParams = {}
+  params: BuscarPaquetesElegiblesParams = {},
 ): Promise<PageResponse<PaqueteElegibleConsolidado>> {
-  const { data } = await apiClient.get<PageResponse<PaqueteElegibleConsolidado>>(
-    `${BASE}/paquetes-elegibles`,
-    {
+  const data = await unwrap(
+    openapiClient.GET(`${BASE}/paquetes-elegibles`, {
       params: {
-        q: params.q || undefined,
-        page: params.page ?? 0,
-        size: params.size ?? 20,
+        query: {
+          q: params.q || undefined,
+          page: params.page ?? 0,
+          size: params.size ?? 20,
+        },
       },
-    }
+    }),
   );
-  return data;
+  return data as PageResponse<PaqueteElegibleConsolidado>;
 }
 
 /** Cierra un envio consolidado para registro. */
 export async function cerrarConsolidadoEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
-  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/cerrar-consolidado`);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/{id}/cerrar-consolidado`, { params: { path: { id } } }),
+  );
+  return data as EnvioConsolidado;
 }
 
 /** Marca un envio consolidado como enviado desde USA. */
 export async function enviarDesdeUsaEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
-  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/enviar-usa`);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/{id}/enviar-usa`, { params: { path: { id } } }),
+  );
+  return data as EnvioConsolidado;
 }
 
 /** Registra el arribo del envio consolidado a Ecuador. */
 export async function arribarEcuadorEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
-  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/arribar-ecuador`);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/{id}/arribar-ecuador`, { params: { path: { id } } }),
+  );
+  return data as EnvioConsolidado;
 }
 
 /** Cancela un envio consolidado. */
 export async function cancelarEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
-  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/cancelar`);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/{id}/cancelar`, { params: { path: { id } } }),
+  );
+  return data as EnvioConsolidado;
 }
 
 /** Revierte la salida USA del consolidado (set fechaCerrado = null). */
 export async function reabrirEnvioConsolidado(id: number): Promise<EnvioConsolidado> {
-  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/reabrir`);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/{id}/reabrir`, { params: { path: { id } } }),
+  );
+  return data as EnvioConsolidado;
 }
 
 export interface AplicarTransicionConsolidadosPayload {
@@ -200,11 +215,12 @@ export interface AplicarTransicionConsolidadosResponse {
 export async function aplicarTransicionConsolidados(
   payload: AplicarTransicionConsolidadosPayload,
 ): Promise<AplicarTransicionConsolidadosResponse> {
-  const { data } = await apiClient.post<AplicarTransicionConsolidadosResponse>(
-    `${BASE}/aplicar-transicion-operativa`,
-    payload,
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/aplicar-transicion-operativa`, {
+      body: payload as S['AplicarTransicionConsolidadosRequest'],
+    }),
   );
-  return data;
+  return data as AplicarTransicionConsolidadosResponse;
 }
 
 /**
@@ -221,27 +237,37 @@ export async function eliminarEnvioConsolidado(
   id: number,
   eliminarPaquetes: boolean = false,
 ): Promise<void> {
-  await apiClient.delete(`${BASE}/${id}`, {
-    params: { eliminarPaquetes },
-  });
+  await ensureOk(
+    openapiClient.DELETE(`${BASE}/{id}`, {
+      params: { path: { id }, query: { eliminarPaquetes } },
+    }),
+  );
 }
 
 export async function agregarPaquetesEnvioConsolidado(
   id: number,
-  body: EnvioConsolidadoPaquetesRequest
+  body: EnvioConsolidadoPaquetesRequest,
 ): Promise<EnvioConsolidado> {
-  const { data } = await apiClient.post<EnvioConsolidado>(`${BASE}/${id}/paquetes`, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/{id}/paquetes`, {
+      params: { path: { id } },
+      body: body as S['EnvioConsolidadoPaquetesRequest'],
+    }),
+  );
+  return data as EnvioConsolidado;
 }
 
 export async function removerPaquetesEnvioConsolidado(
   id: number,
-  body: EnvioConsolidadoPaquetesRequest
+  body: EnvioConsolidadoPaquetesRequest,
 ): Promise<EnvioConsolidado> {
-  const { data } = await apiClient.delete<EnvioConsolidado>(`${BASE}/${id}/paquetes`, {
-    data: body,
-  });
-  return data;
+  const data = await unwrap(
+    openapiClient.DELETE(`${BASE}/{id}/paquetes`, {
+      params: { path: { id } },
+      body: body as S['EnvioConsolidadoPaquetesRequest'],
+    }),
+  );
+  return data as EnvioConsolidado;
 }
 
 export interface AplicarEstadoConsolidadosParams {
@@ -255,18 +281,19 @@ export interface AplicarEstadoConsolidadosResponse {
 }
 
 export async function aplicarEstadoEnConsolidados(
-  body: AplicarEstadoConsolidadosParams
+  body: AplicarEstadoConsolidadosParams,
 ): Promise<AplicarEstadoConsolidadosResponse> {
-  const { data } = await apiClient.post<AplicarEstadoConsolidadosResponse>(
-    `${BASE}/aplicar-estado`,
-    body
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/aplicar-estado`, {
+      body: body as S['AplicarEstadoEnConsolidadosRequest'],
+    }),
   );
-  return data;
+  return data as AplicarEstadoConsolidadosResponse;
 }
 
 export async function getEstadosAplicablesConsolidados(): Promise<EstadoRastreo[]> {
-  const { data } = await apiClient.get<EstadoRastreo[]>(`${BASE}/estados-aplicables`);
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/estados-aplicables`));
+  return data as EstadoRastreo[];
 }
 
 export interface AvanceEstadosConsolidadosPayload {
@@ -346,30 +373,30 @@ export interface AvanceEstadosConsolidadosResponse {
 }
 
 export async function getTransicionesOperativasConsolidados(): Promise<TransicionOperativaConsolidado[]> {
-  const { data } = await apiClient.get<TransicionOperativaConsolidado[]>(
-    `${BASE}/transiciones-operativas`,
-  );
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/transiciones-operativas`));
+  return data as TransicionOperativaConsolidado[];
 }
 
 export async function previewAvanceEstadosConsolidados(
   body: AvanceEstadosConsolidadosPayload,
 ): Promise<AvanceEstadosConsolidadosPreview> {
-  const { data } = await apiClient.post<AvanceEstadosConsolidadosPreview>(
-    `${BASE}/preview-secuencia-estados`,
-    body,
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/preview-secuencia-estados`, {
+      body: body as S['AvanceEstadosConsolidadosRequest'],
+    }),
   );
-  return data;
+  return data as AvanceEstadosConsolidadosPreview;
 }
 
 export async function aplicarAvanceEstadosConsolidados(
   body: AvanceEstadosConsolidadosPayload,
 ): Promise<AvanceEstadosConsolidadosResponse> {
-  const { data } = await apiClient.post<AvanceEstadosConsolidadosResponse>(
-    `${BASE}/aplicar-secuencia-estados`,
-    body,
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/aplicar-secuencia-estados`, {
+      body: body as S['AvanceEstadosConsolidadosRequest'],
+    }),
   );
-  return data;
+  return data as AvanceEstadosConsolidadosResponse;
 }
 
 // ---------------------------------------------------------------------------
@@ -425,37 +452,35 @@ export interface AvanceOperativoConsolidadosResponse {
 }
 
 export async function getDestinosAvanceOperativo(): Promise<DestinoAvanceOperativo[]> {
-  const { data } = await apiClient.get<DestinoAvanceOperativo[]>(
-    `${BASE}/destinos-avance-operativo`,
-  );
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/destinos-avance-operativo`));
+  return data as DestinoAvanceOperativo[];
 }
 
 export async function getCandidatosAvanceOperativo(): Promise<EnvioConsolidado[]> {
-  const { data } = await apiClient.get<EnvioConsolidado[]>(
-    `${BASE}/candidatos-avance-operativo`,
-  );
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/candidatos-avance-operativo`));
+  return data as EnvioConsolidado[];
 }
 
 export async function previewAvanceOperativoConsolidados(
   body: AvanceOperativoConsolidadosPayload,
 ): Promise<AvanceOperativoConsolidadosPreview> {
-  const { data } = await apiClient.post<AvanceOperativoConsolidadosPreview>(
-    `${BASE}/preview-avance-operativo`,
-    body,
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/preview-avance-operativo`, {
+      body: body as S['AvanceOperativoConsolidadosRequest'],
+    }),
   );
-  return data;
+  return data as AvanceOperativoConsolidadosPreview;
 }
 
 export async function aplicarAvanceOperativoConsolidados(
   body: AvanceOperativoConsolidadosPayload,
 ): Promise<AvanceOperativoConsolidadosResponse> {
-  const { data } = await apiClient.post<AvanceOperativoConsolidadosResponse>(
-    `${BASE}/aplicar-avance-operativo`,
-    body,
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/aplicar-avance-operativo`, {
+      body: body as S['AvanceOperativoConsolidadosRequest'],
+    }),
   );
-  return data;
+  return data as AvanceOperativoConsolidadosResponse;
 }
 
 /**
@@ -464,22 +489,28 @@ export async function aplicarAvanceOperativoConsolidados(
  * anterior (regla de "ir de 1 en 1").
  */
 export async function getElegiblesParaEstadoRastreo(estadoRastreoId: number): Promise<number[]> {
-  const { data } = await apiClient.get<number[]>(`${BASE}/elegibles-para-estado-rastreo`, {
-    params: { estadoRastreoId },
-  });
-  return data;
+  const data = await unwrap(
+    openapiClient.GET(`${BASE}/elegibles-para-estado-rastreo`, {
+      params: { query: { estadoRastreoId } },
+    }),
+  );
+  return data as number[];
 }
 
 export async function descargarManifiestoPdf(id: number): Promise<Blob> {
-  const { data } = await apiClient.get<Blob>(`${BASE}/${id}/manifiesto.pdf`, {
-    responseType: 'blob',
-  });
-  return data;
+  return unwrap(
+    openapiClient.GET(`${BASE}/{id}/manifiesto.pdf`, {
+      params: { path: { id } },
+      parseAs: 'blob',
+    }),
+  );
 }
 
 export async function descargarManifiestoXlsx(id: number): Promise<Blob> {
-  const { data } = await apiClient.get<Blob>(`${BASE}/${id}/manifiesto.xlsx`, {
-    responseType: 'blob',
-  });
-  return data;
+  return unwrap(
+    openapiClient.GET(`${BASE}/{id}/manifiesto.xlsx`, {
+      params: { path: { id } },
+      parseAs: 'blob',
+    }),
+  );
 }

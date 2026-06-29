@@ -22,7 +22,7 @@ type FormValues = z.infer<typeof tarifaDistribucionFormSchema>;
 function normalizeDecimalInput(value: string, maxDecimals = 4): string {
   const normalized = sanitizeNumericDecimal(value);
   if (!normalized.includes('.')) return normalized;
-  const [integerPart, decimalPart = ''] = normalized.split('.');
+  const [integerPart = '', decimalPart = ''] = normalized.split('.');
   const decimalLimited = decimalPart.slice(0, maxDecimals);
   if (decimalLimited.length > 0) return `${integerPart}.${decimalLimited}`;
   return normalized.endsWith('.') ? `${integerPart}.` : integerPart;

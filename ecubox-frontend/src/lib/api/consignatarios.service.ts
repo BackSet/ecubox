@@ -1,36 +1,47 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
+import type { components } from '@/lib/api/generated/schema';
 import type { Consignatario, ConsignatarioRequest } from '@/types/consignatario';
 
-const BASE = API_ENDPOINTS.misConsignatarios;
+// El tipo de dominio y el body generado difieren en `required`/optional; se
+// puentea con un cast localizado del body (payload idéntico).
+type ConsignatarioRequestDTO = components['schemas']['ConsignatarioRequest'];
 
 export async function getConsignatarios(): Promise<Consignatario[]> {
-  const { data } = await apiClient.get<Consignatario[]>(BASE);
-  return data;
+  const data = await unwrap(openapiClient.GET('/api/mis-consignatarios'));
+  return data as Consignatario[];
 }
 
 export async function getConsignatario(id: number): Promise<Consignatario> {
-  const { data } = await apiClient.get<Consignatario>(`${BASE}/${id}`);
-  return data;
+  const data = await unwrap(
+    openapiClient.GET('/api/mis-consignatarios/{id}', { params: { path: { id } } }),
+  );
+  return data as Consignatario;
 }
 
-export async function createConsignatario(
-  body: ConsignatarioRequest
-): Promise<Consignatario> {
-  const { data } = await apiClient.post<Consignatario>(BASE, body);
-  return data;
+export async function createConsignatario(body: ConsignatarioRequest): Promise<Consignatario> {
+  const data = await unwrap(
+    openapiClient.POST('/api/mis-consignatarios', { body: body as ConsignatarioRequestDTO }),
+  );
+  return data as Consignatario;
 }
 
 export async function updateConsignatario(
   id: number,
-  body: ConsignatarioRequest
+  body: ConsignatarioRequest,
 ): Promise<Consignatario> {
-  const { data } = await apiClient.put<Consignatario>(`${BASE}/${id}`, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.PUT('/api/mis-consignatarios/{id}', {
+      params: { path: { id } },
+      body: body as ConsignatarioRequestDTO,
+    }),
+  );
+  return data as Consignatario;
 }
 
 export async function deleteConsignatario(id: number): Promise<void> {
-  await apiClient.delete(`${BASE}/${id}`);
+  await ensureOk(
+    openapiClient.DELETE('/api/mis-consignatarios/{id}', { params: { path: { id } } }),
+  );
 }
 
 export interface SugerirCodigoParams {
@@ -39,15 +50,17 @@ export interface SugerirCodigoParams {
   excludeId?: number;
 }
 
-export async function sugerirCodigo(
-  params: SugerirCodigoParams
-): Promise<{ codigo: string }> {
-  const search = new URLSearchParams();
-  if (params.nombre != null) search.set('nombre', params.nombre);
-  if (params.canton != null) search.set('canton', params.canton);
-  if (params.excludeId != null) search.set('excludeId', String(params.excludeId));
-  const query = search.toString();
-  const url = query ? `${BASE}/sugerir-codigo?${query}` : `${BASE}/sugerir-codigo`;
-  const { data } = await apiClient.get<{ codigo: string }>(url);
-  return data;
+export async function sugerirCodigo(params: SugerirCodigoParams): Promise<{ codigo: string }> {
+  const data = await unwrap(
+    openapiClient.GET('/api/mis-consignatarios/sugerir-codigo', {
+      params: {
+        query: {
+          nombre: params.nombre ?? undefined,
+          canton: params.canton ?? undefined,
+          excludeId: params.excludeId ?? undefined,
+        },
+      },
+    }),
+  );
+  return data as { codigo: string };
 }

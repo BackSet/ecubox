@@ -131,7 +131,7 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
     if (lineas.length === 0) return;
     const cupo = MAX_MIS_GUIAS_BULK - fields.length;
     if (startIndex != null) {
-      setValue(`guias.${startIndex}.tracking`, lineas[0], {
+      setValue(`guias.${startIndex}.tracking`, lineas[0] ?? '', {
         shouldDirty: true,
         shouldValidate: true,
       });
@@ -199,12 +199,14 @@ export function RegistrarMisGuiasDialog({ onClose }: { onClose: () => void }) {
     let duplicadas = 0;
     const fallidos: string[] = [];
     for (let i = 0; i < trackings.length; i++) {
+      const tracking = trackings[i];
+      if (tracking === undefined) continue;
       try {
-        await registrarMiGuia({ trackingBase: trackings[i], consignatarioId: cid });
+        await registrarMiGuia({ trackingBase: tracking, consignatarioId: cid });
         ok += 1;
       } catch (err: unknown) {
         if (getApiStatus(err) === 409) duplicadas += 1;
-        else fallidos.push(trackings[i]);
+        else fallidos.push(tracking);
       }
       setProgreso((p) => ({ ...p, actual: i + 1 }));
     }

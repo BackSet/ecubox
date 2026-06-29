@@ -25,6 +25,6 @@ describe('FAQ pública · destinatarios', () => {
     };
     expect(payload['@type']).toBe('FAQPage');
     expect(payload.mainEntity).toHaveLength(FAQ_ITEMS.length);
-    expect(payload.mainEntity[0].name).toBe(FAQ_ITEMS[0].q);
+    expect(payload.mainEntity[0]!.name).toBe(FAQ_ITEMS[0]!.q);
   });
 });

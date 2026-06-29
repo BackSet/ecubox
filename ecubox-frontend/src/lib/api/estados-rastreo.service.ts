@@ -1,5 +1,5 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
+import type { components } from '@/lib/api/generated/schema';
 import type {
   EstadoRastreo,
   EstadoRastreoRequest,
@@ -8,65 +8,79 @@ import type {
   EstadosRastreoPorPuntoRequest,
 } from '@/types/estado-rastreo';
 
-const BASE = API_ENDPOINTS.operarioEstadosRastreo;
-const CONFIG_POR_PUNTO = API_ENDPOINTS.operarioConfigEstadosRastreoPorPunto;
+// El contrato y los tipos de dominio difieren en `null`/optional/`required`: se
+// conservan los tipos de dominio en las firmas y se puentea con casts
+// localizados (body → tipo generado, respuesta → tipo de dominio). El payload no
+// cambia: solo la aserción de tipo.
 
 export async function getEstadosRastreo(): Promise<EstadoRastreo[]> {
-  const { data } = await apiClient.get<EstadoRastreo[]>(BASE);
-  return data;
+  const data = await unwrap(openapiClient.GET('/api/operario/estados-rastreo'));
+  return data as EstadoRastreo[];
 }
 
 export async function getEstadosRastreoActivos(): Promise<EstadoRastreo[]> {
-  const { data } = await apiClient.get<EstadoRastreo[]>(`${BASE}/activos`);
-  return data;
+  const data = await unwrap(openapiClient.GET('/api/operario/estados-rastreo/activos'));
+  return data as EstadoRastreo[];
 }
 
-export async function createEstadoRastreo(
-  body: EstadoRastreoRequest
-): Promise<EstadoRastreo> {
-  const { data } = await apiClient.post<EstadoRastreo>(BASE, body);
-  return data;
+export async function createEstadoRastreo(body: EstadoRastreoRequest): Promise<EstadoRastreo> {
+  const data = await unwrap(
+    openapiClient.POST('/api/operario/estados-rastreo', {
+      body: body as components['schemas']['EstadoRastreoRequest'],
+    }),
+  );
+  return data as EstadoRastreo;
 }
 
 export async function updateEstadoRastreo(
   id: number,
-  body: EstadoRastreoRequest
+  body: EstadoRastreoRequest,
 ): Promise<EstadoRastreo> {
-  const { data } = await apiClient.put<EstadoRastreo>(`${BASE}/${id}`, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.PUT('/api/operario/estados-rastreo/{id}', {
+      params: { path: { id } },
+      body: body as components['schemas']['EstadoRastreoRequest'],
+    }),
+  );
+  return data as EstadoRastreo;
 }
 
-export async function desactivarEstadoRastreo(
-  id: number
-): Promise<EstadoRastreo> {
-  const { data } = await apiClient.patch<EstadoRastreo>(
-    `${BASE}/${id}/desactivar`
+export async function desactivarEstadoRastreo(id: number): Promise<EstadoRastreo> {
+  const data = await unwrap(
+    openapiClient.PATCH('/api/operario/estados-rastreo/{id}/desactivar', {
+      params: { path: { id } },
+    }),
   );
-  return data;
+  return data as EstadoRastreo;
 }
 
 export async function deleteEstadoRastreo(id: number): Promise<void> {
-  await apiClient.delete(`${BASE}/${id}`);
+  await ensureOk(
+    openapiClient.DELETE('/api/operario/estados-rastreo/{id}', { params: { path: { id } } }),
+  );
 }
 
 export async function getEstadosRastreoPorPunto(): Promise<EstadosRastreoPorPunto> {
-  const { data } = await apiClient.get<EstadosRastreoPorPunto>(CONFIG_POR_PUNTO);
-  return data;
+  const data = await unwrap(openapiClient.GET('/api/operario/config/estados-rastreo-por-punto'));
+  return data as EstadosRastreoPorPunto;
 }
 
 export async function updateEstadosRastreoPorPunto(
-  body: EstadosRastreoPorPuntoRequest
+  body: EstadosRastreoPorPuntoRequest,
 ): Promise<EstadosRastreoPorPunto> {
-  const { data } = await apiClient.put<EstadosRastreoPorPunto>(
-    CONFIG_POR_PUNTO,
-    body
+  const data = await unwrap(
+    openapiClient.PUT('/api/operario/config/estados-rastreo-por-punto', {
+      body: body as components['schemas']['EstadosRastreoPorPuntoRequest'],
+    }),
   );
-  return data;
+  return data as EstadosRastreoPorPunto;
 }
 
 export async function reorderTrackingEstadoRastreo(
-  body: EstadoRastreoOrdenTrackingRequest
+  body: EstadoRastreoOrdenTrackingRequest,
 ): Promise<EstadoRastreo[]> {
-  const { data } = await apiClient.put<EstadoRastreo[]>(`${BASE}/orden-tracking`, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.PUT('/api/operario/estados-rastreo/orden-tracking', { body }),
+  );
+  return data as EstadoRastreo[];
 }

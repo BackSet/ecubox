@@ -461,7 +461,7 @@ export function PaqueteBulkCreateForm({
     const cupo = MAX_PAQUETES_BULK - fields.length; // filas extra permitidas
 
     if (startIndex != null) {
-      setValue(`paquetes.${startIndex}.contenido`, lineas[0], {
+      setValue(`paquetes.${startIndex}.contenido`, lineas[0] ?? '', {
         shouldDirty: true,
         shouldValidate: true,
       });
@@ -706,6 +706,7 @@ export function PaqueteBulkCreateForm({
 
     for (let i = 0; i < values.paquetes.length; i++) {
       const item = values.paquetes[i];
+      if (!item) continue;
       const body: PaqueteCreateRequest = {
         consignatarioId: consignatarioId,
         guiaMasterId: guiaId,
@@ -762,6 +763,7 @@ export function PaqueteBulkCreateForm({
     const itemsAActualizar: { item: PaqueteItemValues; orig: OriginalSnapshot }[] = [];
     for (let i = 0; i < values.paquetes.length; i++) {
       const item = values.paquetes[i];
+      if (!item) continue;
       if (item.id == null) {
         itemsACrear.push({ item, index: i });
       } else {

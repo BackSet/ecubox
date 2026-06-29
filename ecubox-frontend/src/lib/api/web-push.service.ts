@@ -1,16 +1,20 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
+import type { components } from '@/lib/api/generated/schema';
 import type { WebPushPublicKey, WebPushSubscriptionPayload } from '@/types/web-push';
 
-const BASE = API_ENDPOINTS.push;
+const BASE = '/api/push' as const;
 
 export async function obtenerWebPushPublicKey(): Promise<WebPushPublicKey> {
-  const { data } = await apiClient.get<WebPushPublicKey>(`${BASE}/public-key`);
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/public-key`));
+  return data as WebPushPublicKey;
 }
 
 export async function registrarWebPushSubscription(
-  subscription: WebPushSubscriptionPayload
+  subscription: WebPushSubscriptionPayload,
 ): Promise<void> {
-  await apiClient.post(`${BASE}/subscriptions`, subscription);
+  await ensureOk(
+    openapiClient.POST(`${BASE}/subscriptions`, {
+      body: subscription as components['schemas']['WebPushSubscriptionRequest'],
+    }),
+  );
 }

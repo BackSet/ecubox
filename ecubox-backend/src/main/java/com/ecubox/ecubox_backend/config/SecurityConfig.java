@@ -66,6 +66,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register/simple", "/api/auth/acceso-enlace").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/health",
+                                // Sondas de Actuator para liveness/readiness (sin detalle por
+                                // defecto). El resto de /actuator/** queda autenticado.
+                                "/actuator/health",
+                                "/actuator/health/**",
                                 "/api/v1/tracking",
                                 "/api/v1/tracking/examples",
                                 "/api/v1/tracking/examples/**",

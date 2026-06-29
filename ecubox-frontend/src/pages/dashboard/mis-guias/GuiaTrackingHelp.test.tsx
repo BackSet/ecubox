@@ -69,8 +69,8 @@ describe('GuiaTrackingHelp · contenido detallado', () => {
     expect(screen.getByText('Amazon')).toBeInTheDocument();
     expect(screen.getByText('SHEIN')).toBeInTheDocument();
     // Códigos correctos ficticios.
-    expect(screen.getByText(EJEMPLO_AMAZON.ejemplosCorrectos[0])).toBeInTheDocument();
-    expect(screen.getByText(EJEMPLO_SHEIN.ejemplosCorrectos[0])).toBeInTheDocument();
+    expect(screen.getByText(EJEMPLO_AMAZON.ejemplosCorrectos[0]!)).toBeInTheDocument();
+    expect(screen.getByText(EJEMPLO_SHEIN.ejemplosCorrectos[0]!)).toBeInTheDocument();
     // El número de pedido se muestra como ejemplo INCORRECTO, no como guía.
     expect(screen.getByText(EJEMPLO_AMAZON.ejemploIncorrecto.valor)).toBeInTheDocument();
     expect(screen.getByText(EJEMPLO_SHEIN.ejemploIncorrecto.valor)).toBeInTheDocument();

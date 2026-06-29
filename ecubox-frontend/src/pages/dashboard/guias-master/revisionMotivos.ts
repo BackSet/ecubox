@@ -69,7 +69,7 @@ export function parsearMotivoRevision(motivo?: string | null): MotivoRevisionPar
   const tail = sepIdx >= 0 ? raw.slice(sepIdx + 1).trim() : '';
   if (CODIGOS.has(head)) {
     const codigo = head as MotivoRevisionCodigo;
-    const baseLabel = LABEL_BY_CODIGO[head];
+    const baseLabel = LABEL_BY_CODIGO[head] ?? head;
     return {
       codigo,
       observacion: tail,

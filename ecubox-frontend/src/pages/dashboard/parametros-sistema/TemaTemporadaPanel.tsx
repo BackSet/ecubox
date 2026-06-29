@@ -105,7 +105,10 @@ export function TemaTemporadaPanel() {
   const dirty = actual !== baseline;
 
   function setVentana(id: string, patch: Partial<VentanaEditable>) {
-    setVentanas((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+    setVentanas((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] ?? { diasAntes: 0, diasDespues: 0 }), ...patch },
+    }));
   }
 
   async function guardar() {
@@ -189,7 +192,7 @@ export function TemaTemporadaPanel() {
 
         <div className="mt-3 space-y-2">
           {SEASONS.map((s) => {
-            const v = ventanas[s.id];
+            const v = ventanas[s.id] ?? { diasAntes: s.diasAntes, diasDespues: s.diasDespues };
             const rango = computeRango(s, anio, ventanas);
             const finInclusivo = new Date(rango.fin);
             finInclusivo.setDate(finInclusivo.getDate() - 1);

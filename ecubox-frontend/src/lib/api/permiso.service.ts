@@ -1,20 +1,17 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap } from '@/lib/api/openapi-client';
 import type { PermisoDTO } from '@/types/rol';
 import type { PageQuery, PageResponse } from '@/types/page';
 
-const BASE = API_ENDPOINTS.permisos;
+const BASE = '/api/permisos' as const;
 
 export async function getPermisos(): Promise<PermisoDTO[]> {
-  const { data } = await apiClient.get<PermisoDTO[]>(BASE);
-  return data;
+  const data = await unwrap(openapiClient.GET(BASE));
+  return data as PermisoDTO[];
 }
 
 export async function listarPermisosPaginado(
   params: PageQuery = {},
 ): Promise<PageResponse<PermisoDTO>> {
-  const { data } = await apiClient.get<PageResponse<PermisoDTO>>(`${BASE}/page`, {
-    params,
-  });
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/page`, { params: { query: params } }));
+  return data as PageResponse<PermisoDTO>;
 }

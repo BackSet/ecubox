@@ -163,7 +163,7 @@ describe('GuiasMasterPage · bandejas', () => {
   it('abre el diálogo de aprobación desde Pendientes', () => {
     renderPage();
     fireEvent.click(screen.getByRole('tab', { name: /Pendientes/ }));
-    fireEvent.click(screen.getAllByRole('button', { name: /^aprobar$/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /^aprobar$/i })[0]!);
     expect(screen.getByText('Aprobar guía master')).toBeInTheDocument();
     expect(
       screen.getByText(/La guía quedará habilitada para la operación/i),

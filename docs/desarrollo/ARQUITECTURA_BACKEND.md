@@ -2,7 +2,7 @@
 
 Documento de referencia de la arquitectura del backend del proyecto ECUBOX (ecubox-backend). Sirve como guía para desarrolladores y onboarding.
 
-**Alcance:** backend Java/Spring Boot. Para tecnologías y versiones exactas, ver [TECH-STACK.md](TECH-STACK.md) (Java 25, Spring Boot 4.0.6, PostgreSQL, jjwt 0.13.0, etc.).
+**Alcance:** backend Java/Spring Boot. Para tecnologías y versiones exactas, ver [TECH-STACK.md](TECH-STACK.md) (Java 25, Spring Boot 4.0.7, PostgreSQL, jjwt 0.13.0, etc.).
 
 ---
 

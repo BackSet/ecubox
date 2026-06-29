@@ -69,7 +69,7 @@ describe('EstadosLeyendaDialog', () => {
     render(
       <EstadosLeyendaDialog
         title="Leyenda"
-        items={[items[2]]}
+        items={[items[2]!]}
         triggerLabel="Ver leyenda de estados"
       />,
     );
@@ -77,7 +77,7 @@ describe('EstadosLeyendaDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Ver leyenda de estados' }));
 
     expect(screen.getByText('Sin explicación')).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')[0].querySelector('p')).toBeNull();
+    expect(screen.getAllByRole('listitem')[0]!.querySelector('p')).toBeNull();
   });
 
   it('en estado de carga muestra el indicador y no los items', async () => {
