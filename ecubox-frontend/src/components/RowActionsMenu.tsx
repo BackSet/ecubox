@@ -132,13 +132,13 @@ function collapseSeparators(entries: RowActionEntry[]): RowActionEntry[] {
     if (e.type === 'separator') {
       if (out.length === 0) continue;
       const prev = out[out.length - 1];
-      if (prev.type === 'separator') continue;
+      if (prev?.type === 'separator') continue;
       out.push(e);
     } else {
       out.push(e);
     }
   }
-  while (out.length > 0 && out[out.length - 1].type === 'separator') {
+  while (out.length > 0 && out[out.length - 1]?.type === 'separator') {
     out.pop();
   }
   return out;

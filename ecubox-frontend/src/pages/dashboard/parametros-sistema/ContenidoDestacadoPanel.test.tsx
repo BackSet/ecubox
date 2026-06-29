@@ -71,7 +71,7 @@ describe('ContenidoDestacadoPanel', () => {
 
   it('abre el editor en "Nueva campaña" y alterna el tema de la vista previa', () => {
     render(<ContenidoDestacadoPanel />);
-    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]!);
     expect(screen.getByRole('heading', { name: 'Nueva campaña' })).toBeInTheDocument();
 
     const preview = screen.getByTestId('campania-preview');
@@ -82,7 +82,7 @@ describe('ContenidoDestacadoPanel', () => {
 
   it('la vista previa real refleja el título escrito', () => {
     render(<ContenidoDestacadoPanel />);
-    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]!);
     fireEvent.change(screen.getByPlaceholderText('Ej: 20% de descuento en envíos'), {
       target: { value: 'Mi oferta' },
     });
@@ -92,18 +92,18 @@ describe('ContenidoDestacadoPanel', () => {
 
   it('Guardar borrador crea la campaña', async () => {
     render(<ContenidoDestacadoPanel />);
-    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]!);
     fireEvent.change(screen.getByPlaceholderText('Ej: Promo Día de la Madre'), {
       target: { value: 'Campaña X' },
     });
     fireEvent.click(screen.getByRole('button', { name: /guardar borrador/i }));
     await waitFor(() => expect(crearMock).toHaveBeenCalledTimes(1));
-    expect(crearMock.mock.calls[0][0].nombreInterno).toBe('Campaña X');
+    expect(crearMock.mock.calls[0]![0].nombreInterno).toBe('Campaña X');
   });
 
   it('Publicar exige título y luego publica', async () => {
     render(<ContenidoDestacadoPanel />);
-    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]!);
     fireEvent.change(screen.getByPlaceholderText('Ej: Promo Día de la Madre'), {
       target: { value: 'Campaña Y' },
     });
@@ -117,7 +117,7 @@ describe('ContenidoDestacadoPanel', () => {
 
   it('clasifica los campos por obligatoriedad (no solo «*»)', () => {
     render(<ContenidoDestacadoPanel />);
-    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]!);
     // Etiquetas de obligatoriedad visibles.
     expect(screen.getAllByText('Obligatorio').length).toBeGreaterThan(0);
     expect(screen.getByText('Obligatorio para publicar')).toBeInTheDocument();
@@ -127,7 +127,7 @@ describe('ContenidoDestacadoPanel', () => {
 
   it('la tarjeta «Para publicar» deriva los requisitos pendientes', () => {
     render(<ContenidoDestacadoPanel />);
-    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]!);
     expect(screen.getByText('Para publicar')).toBeInTheDocument();
     // Sin título, el título aparece como pendiente.
     expect(screen.getByText(/Pendientes \(/)).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe('ContenidoDestacadoPanel', () => {
 
   it('Publicar incompleto se bloquea (no publica)', async () => {
     render(<ContenidoDestacadoPanel />);
-    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /nueva campaña/i })[0]!);
     fireEvent.change(screen.getByPlaceholderText('Ej: Promo Día de la Madre'), { target: { value: 'Solo nombre' } });
     // Sin título → publicar no debe llamar al endpoint.
     fireEvent.click(screen.getByRole('button', { name: /^publicar$/i }));

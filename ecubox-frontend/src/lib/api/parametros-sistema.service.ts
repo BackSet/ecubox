@@ -1,6 +1,4 @@
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
-import { apiClient } from '@/lib/api/client';
-import { resolveApiBaseUrl } from '@/lib/api/resolve-api-base-url';
+import { openapiClient, openapiPublicClient, unwrap } from '@/lib/api/openapi-client';
 import {
   normalizeCanalesFromApi,
   type CanalesComunicacion,
@@ -11,22 +9,18 @@ export interface MensajeWhatsAppDespacho {
   plantilla: string;
 }
 
-const BASE = API_ENDPOINTS.operarioMensajeWhatsAppDespacho;
-
 export async function getMensajeWhatsAppDespacho(): Promise<MensajeWhatsAppDespacho> {
-  const { data } = await apiClient.get<{ plantilla?: string }>(BASE);
-  return {
-    plantilla: data.plantilla ?? '',
-  };
+  const data = await unwrap(openapiClient.GET('/api/operario/config/mensaje-whatsapp-despacho'));
+  return { plantilla: data?.plantilla ?? '' };
 }
 
 export async function updateMensajeWhatsAppDespacho(body: {
   plantilla: string;
 }): Promise<MensajeWhatsAppDespacho> {
-  const { data } = await apiClient.put<{ plantilla?: string }>(BASE, body);
-  return {
-    plantilla: data.plantilla ?? '',
-  };
+  const data = await unwrap(
+    openapiClient.PUT('/api/operario/config/mensaje-whatsapp-despacho', { body }),
+  );
+  return { plantilla: data?.plantilla ?? '' };
 }
 
 export interface MensajeAgenciaEeuu {
@@ -34,46 +28,22 @@ export interface MensajeAgenciaEeuu {
 }
 
 export async function getMensajeAgenciaEeuu(): Promise<MensajeAgenciaEeuu> {
-  const { data } = await apiClient.get<{ mensaje?: string }>(API_ENDPOINTS.configMensajeAgenciaEeuu);
-  return {
-    mensaje: data.mensaje ?? '',
-  };
+  const data = await unwrap(openapiClient.GET('/api/config/mensaje-agencia-eeuu'));
+  return { mensaje: data?.mensaje ?? '' };
 }
 
 export async function updateMensajeAgenciaEeuu(body: {
   mensaje: string;
 }): Promise<MensajeAgenciaEeuu> {
-  const { data } = await apiClient.put<{ mensaje?: string }>(
-    API_ENDPOINTS.operarioMensajeAgenciaEeuu,
-    body
+  const data = await unwrap(
+    openapiClient.PUT('/api/operario/config/mensaje-agencia-eeuu', { body }),
   );
-  return {
-    mensaje: data.mensaje ?? '',
-  };
-}
-
-function buildPublicConfigUrl(path: string): string {
-  const base = resolveApiBaseUrl().replace(/\/+$/, '');
-  if (base.startsWith('http://') || base.startsWith('https://')) {
-    return `${base}${path}`;
-  }
-  const pathFromBase = `${base.replace(/\/+$/, '')}${path}`.replace(/\/+/g, '/');
-  if (typeof window !== 'undefined') {
-    return new URL(pathFromBase, window.location.origin).toString();
-  }
-  return pathFromBase;
+  return { mensaje: data?.mensaje ?? '' };
 }
 
 export async function getCanalesComunicacionPublic(): Promise<CanalesComunicacionPublic> {
-  const url = buildPublicConfigUrl('/config/canales-comunicacion');
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) {
-    throw new Error(res.statusText || 'Error al obtener canales de comunicación.');
-  }
-  return (await res.json()) as CanalesComunicacionPublic;
+  const data = await unwrap(openapiPublicClient.GET('/api/config/canales-comunicacion'));
+  return (data ?? {}) as CanalesComunicacionPublic;
 }
 
 export interface TemaTemporadaVentana {
@@ -96,16 +66,12 @@ function normalizeTema(data: Partial<TemaTemporada> | null | undefined): TemaTem
 }
 
 export async function getTemaTemporadaPublic(): Promise<TemaTemporada> {
-  const url = buildPublicConfigUrl('/config/tema-temporada');
-  const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
-  if (!res.ok) {
-    throw new Error(res.statusText || 'Error al obtener el tema de temporada.');
-  }
-  return normalizeTema((await res.json()) as Partial<TemaTemporada>);
+  const data = await unwrap(openapiPublicClient.GET('/api/config/tema-temporada'));
+  return normalizeTema(data);
 }
 
 export async function getTemaTemporada(): Promise<TemaTemporada> {
-  const { data } = await apiClient.get<Partial<TemaTemporada>>(API_ENDPOINTS.operarioTemaTemporada);
+  const data = await unwrap(openapiClient.GET('/api/operario/config/tema-temporada'));
   return normalizeTema(data);
 }
 
@@ -113,26 +79,24 @@ export async function updateTemaTemporada(body: {
   override: string;
   ventanas: Record<string, TemaTemporadaVentana>;
 }): Promise<TemaTemporada> {
-  const { data } = await apiClient.put<Partial<TemaTemporada>>(
-    API_ENDPOINTS.operarioTemaTemporada,
-    body,
+  const data = await unwrap(
+    openapiClient.PUT('/api/operario/config/tema-temporada', { body }),
   );
   return normalizeTema(data);
 }
 
 export async function getCanalesComunicacion(): Promise<CanalesComunicacion> {
-  const { data } = await apiClient.get<Partial<CanalesComunicacion>>(
-    API_ENDPOINTS.operarioCanalesComunicacion,
-  );
-  return normalizeCanalesFromApi(data);
+  const data = await unwrap(openapiClient.GET('/api/operario/config/canales-comunicacion'));
+  // El DTO del contrato tipa los items con campos opcionales; el normalizador
+  // tolera ausencias. Cast localizado para puentear la imprecisión.
+  return normalizeCanalesFromApi(data as Partial<CanalesComunicacion>);
 }
 
 export async function updateCanalesComunicacion(
   body: CanalesComunicacion,
 ): Promise<CanalesComunicacion> {
-  const { data } = await apiClient.put<Partial<CanalesComunicacion>>(
-    API_ENDPOINTS.operarioCanalesComunicacion,
-    body,
+  const data = await unwrap(
+    openapiClient.PUT('/api/operario/config/canales-comunicacion', { body }),
   );
-  return normalizeCanalesFromApi(data ?? body);
+  return normalizeCanalesFromApi((data ?? body) as Partial<CanalesComunicacion>);
 }

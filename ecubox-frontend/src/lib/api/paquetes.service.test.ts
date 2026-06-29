@@ -1,12 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock del cliente axios para inspeccionar los parámetros enviados.
-const get = vi.fn();
-const post = vi.fn();
-vi.mock('@/lib/api/client', () => ({
-  apiClient: {
-    get: (...args: unknown[]) => get(...args),
-    post: (...args: unknown[]) => post(...args),
+// Mock del cliente openapi-fetch para inspeccionar ruta, query y body enviados.
+const GET = vi.fn();
+const POST = vi.fn();
+vi.mock('@/lib/api/openapi-client', () => ({
+  openapiClient: {
+    GET: (...args: unknown[]) => GET(...args),
+    POST: (...args: unknown[]) => POST(...args),
+    PUT: vi.fn(),
+    PATCH: vi.fn(),
+    DELETE: vi.fn(),
+  },
+  unwrap: async (p: Promise<{ data: unknown }>) => (await p).data,
+  ensureOk: async (p: Promise<unknown>) => {
+    await p;
   },
 }));
 
@@ -18,12 +25,14 @@ import {
   resolverRevisionPaquete,
 } from './paquetes.service';
 
+type Call = [string, { params?: { query?: Record<string, unknown>; path?: Record<string, unknown> } }];
+
 describe('paquetes.service', () => {
   beforeEach(() => {
-    get.mockReset();
-    get.mockResolvedValue({ data: {} });
-    post.mockReset();
-    post.mockResolvedValue({ data: {} });
+    GET.mockReset();
+    GET.mockResolvedValue({ data: {} });
+    POST.mockReset();
+    POST.mockResolvedValue({ data: {} });
   });
 
   it('getPaqueteResumen envía los filtros estructurales (sin chip/page/size)', async () => {
@@ -35,9 +44,9 @@ describe('paquetes.service', () => {
       guiaMasterId: 3,
       bandeja: 'en_revision',
     });
-    const [url, config] = get.mock.calls[0];
+    const [url, opts] = GET.mock.calls[0] as Call;
     expect(url).toMatch(/\/resumen$/);
-    expect(config.params).toEqual({
+    expect(opts.params?.query).toEqual({
       q: 'abc',
       estado: 'REGISTRADO',
       consignatarioId: 7,
@@ -48,17 +57,17 @@ describe('paquetes.service', () => {
   });
 
   it('getPaquetesPaginated envía el chip "vencidos" al servidor (ya no se filtra en cliente)', async () => {
-    get.mockResolvedValue({ data: { content: [] } });
+    GET.mockResolvedValue({ data: { content: [] } });
     await getPaquetesPaginated({ chip: 'vencidos', page: 0, size: 25 });
-    const [, config] = get.mock.calls[0];
-    expect(config.params.chip).toBe('vencidos');
-    expect(config.params.bandeja).toBe('todos');
+    const [, opts] = GET.mock.calls[0] as Call;
+    expect(opts.params?.query?.chip).toBe('vencidos');
+    expect(opts.params?.query?.bandeja).toBe('todos');
   });
 
   it('getPaquetesPaginated envía la bandeja operativa antes de paginar', async () => {
     await getPaquetesPaginated({ bandeja: 'operativos', page: 2, size: 10 });
-    const [, config] = get.mock.calls[0];
-    expect(config.params).toMatchObject({ bandeja: 'operativos', page: 2, size: 10 });
+    const [, opts] = GET.mock.calls[0] as Call;
+    expect(opts.params?.query).toMatchObject({ bandeja: 'operativos', page: 2, size: 10 });
   });
 
   it('usa los endpoints canónicos de inicio, resolución e historial', async () => {
@@ -69,8 +78,14 @@ describe('paquetes.service', () => {
     await resolverRevisionPaquete(8, { observacion: 'Validado' });
     await getHistorialRevisionPaquete(8);
 
-    expect(post.mock.calls[0][0]).toMatch(/\/8\/revisiones$/);
-    expect(post.mock.calls[1][0]).toMatch(/\/8\/revisiones\/activa\/resolver$/);
-    expect(get.mock.calls[0][0]).toMatch(/\/8\/revisiones$/);
+    const iniciar = POST.mock.calls[0] as Call;
+    const resolver = POST.mock.calls[1] as Call;
+    const historial = GET.mock.calls[0] as Call;
+    expect(iniciar[0]).toMatch(/\/revisiones$/);
+    expect(iniciar[1].params?.path?.paqueteId).toBe(8);
+    expect(resolver[0]).toMatch(/\/revisiones\/activa\/resolver$/);
+    expect(resolver[1].params?.path?.paqueteId).toBe(8);
+    expect(historial[0]).toMatch(/\/revisiones$/);
+    expect(historial[1].params?.path?.paqueteId).toBe(8);
   });
 });

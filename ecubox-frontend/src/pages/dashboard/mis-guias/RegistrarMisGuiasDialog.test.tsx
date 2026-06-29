@@ -65,7 +65,7 @@ describe('RegistrarMisGuiasDialog · ayuda de número de guía', () => {
     await seleccionarDestinatario(user);
 
     const inputs = screen.getAllByPlaceholderText(/^Ej:/);
-    await user.type(inputs[0], '1Z999AA10123456784');
+    await user.type(inputs[0]!, '1Z999AA10123456784');
 
     await user.click(screen.getByRole('button', { name: /no sabes cuál número ingresar/i }));
     // Se abre la ayuda (contenido detallado) sin desmontar el formulario.
@@ -82,7 +82,7 @@ describe('RegistrarMisGuiasDialog · ayuda de número de guía', () => {
     renderDialog();
     await seleccionarDestinatario(user);
 
-    const input = screen.getAllByPlaceholderText(/^Ej:/)[0];
+    const input = screen.getAllByPlaceholderText(/^Ej:/)[0]!;
     await user.type(input, '114-1234567-1234567');
 
     // El aviso es advisory (role="status"), NO un error de validación que bloquee.
@@ -97,7 +97,7 @@ describe('RegistrarMisGuiasDialog · ayuda de número de guía', () => {
     renderDialog();
     await seleccionarDestinatario(user);
 
-    const input = screen.getAllByPlaceholderText(/^Ej:/)[0];
+    const input = screen.getAllByPlaceholderText(/^Ej:/)[0]!;
     await user.click(input);
     await user.paste('1Z111\n1Z222\n1Z333');
 

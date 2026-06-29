@@ -51,7 +51,7 @@ export function sanitizeNumericDecimal(value: string, decimalSeparator = '.'): s
   if (parts.length <= 1) return sanitizeNumeric(normalized);
   const [intPart, ...decParts] = parts;
   const decPart = decParts.join('');
-  const intClean = intPart.replace(/\D/g, '');
+  const intClean = (intPart ?? '').replace(/\D/g, '');
   const decClean = decPart.replace(/\D/g, '').slice(0, 10);
   if (decClean === '') {
     return hasTrailingDecimal ? `${intClean}${decimalSeparator}` : intClean;

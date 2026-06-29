@@ -398,9 +398,10 @@ export function ParametrosSistemaPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!seccion && visibleTabs.length > 0) {
+    const first = visibleTabs[0];
+    if (!seccion && first) {
       void navigate({
-        to: `/parametros-sistema/${visibleTabs[0].slug}`,
+        to: `/parametros-sistema/${first.slug}`,
         replace: true,
       });
     }
@@ -1445,7 +1446,10 @@ function EstadosRastreoView() {
       const target = idx + direction;
       if (idx < 0 || target < 0 || target >= prev.length) return prev;
       const next = [...prev];
-      [next[idx], next[target]] = [next[target], next[idx]];
+      // idx y target están dentro de rango (validado arriba).
+      const a = next[idx]!;
+      next[idx] = next[target]!;
+      next[target] = a;
       return next;
     });
   };
@@ -1504,7 +1508,8 @@ function EstadosRastreoView() {
         .filter((estado) => alternoAfterById[estado.id] != null)
         .map((estado) => ({
           estadoId: estado.id,
-          afterEstadoId: alternoAfterById[estado.id],
+          // El filter previo garantiza que no es null/undefined.
+          afterEstadoId: alternoAfterById[estado.id]!,
         }));
       await reorderMutation.mutateAsync({
         estadoIds: baseOrderIds,

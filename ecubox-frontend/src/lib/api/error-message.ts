@@ -1,12 +1,22 @@
-import type { AxiosError } from 'axios';
-
 type ApiErrorPayload = {
   message?: string;
 };
 
+/**
+ * Forma estructural mínima de un error de API con respuesta. Cubre tanto el
+ * {@link ApiError} de `openapi-client` (`{ response: { status, data } }`) como
+ * cualquier error que exponga esa forma, sin acoplar a una librería HTTP.
+ */
+type ErrorWithResponse = {
+  response?: {
+    status?: number;
+    data?: ApiErrorPayload;
+  };
+};
+
 export function getApiErrorMessage(error: unknown): string | undefined {
-  const axiosError = error as AxiosError<ApiErrorPayload> | undefined;
-  const message = axiosError?.response?.data?.message;
+  const apiError = error as ErrorWithResponse | undefined;
+  const message = apiError?.response?.data?.message;
   if (typeof message === 'string' && message.trim().length > 0) {
     return message.trim();
   }
@@ -18,6 +28,6 @@ export function getApiErrorMessage(error: unknown): string | undefined {
 }
 
 export function getApiStatus(error: unknown): number | undefined {
-  const axiosError = error as AxiosError<ApiErrorPayload> | undefined;
-  return axiosError?.response?.status;
+  const apiError = error as ErrorWithResponse | undefined;
+  return apiError?.response?.status;
 }

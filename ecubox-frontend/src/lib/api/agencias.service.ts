@@ -1,42 +1,46 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
+import type { components } from '@/lib/api/generated/schema';
 import type { Agencia, AgenciaRequest } from '@/types/despacho';
 import type { PageQuery, PageResponse } from '@/types/page';
 
-const BASE = API_ENDPOINTS.agencias;
+// Contrato laxo vs tipos de dominio: casts localizados (body → tipo generado,
+// respuesta → tipo de dominio). El payload no cambia.
+const BASE = '/api/agencias' as const;
 
 export async function getAgencias(): Promise<Agencia[]> {
-  const { data } = await apiClient.get<Agencia[]>(BASE);
-  return data;
+  const data = await unwrap(openapiClient.GET(BASE));
+  return data as Agencia[];
 }
 
 export async function listarAgenciasPaginado(
   params: PageQuery = {},
 ): Promise<PageResponse<Agencia>> {
-  const { data } = await apiClient.get<PageResponse<Agencia>>(`${BASE}/page`, {
-    params,
-  });
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/page`, { params: { query: params } }));
+  return data as PageResponse<Agencia>;
 }
 
 export async function getAgencia(id: number): Promise<Agencia> {
-  const { data } = await apiClient.get<Agencia>(`${BASE}/${id}`);
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/{id}`, { params: { path: { id } } }));
+  return data as Agencia;
 }
 
 export async function createAgencia(body: AgenciaRequest): Promise<Agencia> {
-  const { data } = await apiClient.post<Agencia>(BASE, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(BASE, { body: body as components['schemas']['AgenciaRequest'] }),
+  );
+  return data as Agencia;
 }
 
-export async function updateAgencia(
-  id: number,
-  body: AgenciaRequest
-): Promise<Agencia> {
-  const { data } = await apiClient.put<Agencia>(`${BASE}/${id}`, body);
-  return data;
+export async function updateAgencia(id: number, body: AgenciaRequest): Promise<Agencia> {
+  const data = await unwrap(
+    openapiClient.PUT(`${BASE}/{id}`, {
+      params: { path: { id } },
+      body: body as components['schemas']['AgenciaRequest'],
+    }),
+  );
+  return data as Agencia;
 }
 
 export async function deleteAgencia(id: number): Promise<void> {
-  await apiClient.delete(`${BASE}/${id}`);
+  await ensureOk(openapiClient.DELETE(`${BASE}/{id}`, { params: { path: { id } } }));
 }

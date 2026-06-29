@@ -29,7 +29,7 @@ describe('EquivalenciasEstadosClientePanel', () => {
     render(<EquivalenciasEstadosClientePanel />);
     const notas = screen.getAllByText(/Comparte la etiqueta «En camino a Ecuador»/i);
     expect(notas.length).toBeGreaterThan(0);
-    expect(notas[0].textContent).toMatch(/cantidades de paquetes/i);
+    expect(notas[0]!.textContent).toMatch(/cantidades de paquetes/i);
   });
 
   it('es de solo lectura: no contiene controles de edición', () => {

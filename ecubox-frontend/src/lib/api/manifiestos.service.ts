@@ -1,5 +1,5 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
+import type { components } from '@/lib/api/generated/schema';
 import type {
   Manifiesto,
   ManifiestoRequest,
@@ -7,48 +7,57 @@ import type {
   ManifiestoDespachoCandidato,
 } from '@/types/manifiesto';
 
-const BASE = API_ENDPOINTS.manifiestos;
+const BASE = '/api/manifiestos' as const;
 
 export async function getManifiestos(): Promise<Manifiesto[]> {
-  const { data } = await apiClient.get<Manifiesto[]>(BASE);
-  return data;
+  const data = await unwrap(openapiClient.GET(BASE));
+  return data as Manifiesto[];
 }
 
 export async function getManifiesto(id: number): Promise<Manifiesto> {
-  const { data } = await apiClient.get<Manifiesto>(`${BASE}/${id}`);
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/{id}`, { params: { path: { id } } }));
+  return data as Manifiesto;
 }
 
 export async function createManifiesto(body: ManifiestoRequest): Promise<Manifiesto> {
-  const { data } = await apiClient.post<Manifiesto>(BASE, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(BASE, { body: body as components['schemas']['ManifiestoRequest'] }),
+  );
+  return data as Manifiesto;
 }
 
-export async function updateManifiesto(
-  id: number,
-  body: ManifiestoRequest
-): Promise<Manifiesto> {
-  const { data } = await apiClient.put<Manifiesto>(`${BASE}/${id}`, body);
-  return data;
+export async function updateManifiesto(id: number, body: ManifiestoRequest): Promise<Manifiesto> {
+  const data = await unwrap(
+    openapiClient.PUT(`${BASE}/{id}`, {
+      params: { path: { id } },
+      body: body as components['schemas']['ManifiestoRequest'],
+    }),
+  );
+  return data as Manifiesto;
 }
 
 export async function deleteManifiesto(id: number): Promise<void> {
-  await apiClient.delete(`${BASE}/${id}`);
+  await ensureOk(openapiClient.DELETE(`${BASE}/{id}`, { params: { path: { id } } }));
 }
 
 export async function asignarDespachos(
   id: number,
-  body: AsignarDespachosRequest
+  body: AsignarDespachosRequest,
 ): Promise<Manifiesto> {
-  const { data } = await apiClient.post<Manifiesto>(`${BASE}/${id}/asignar-despachos`, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/{id}/asignar-despachos`, {
+      params: { path: { id } },
+      body: body as components['schemas']['AsignarDespachosRequest'],
+    }),
+  );
+  return data as Manifiesto;
 }
 
 export async function getDespachosCandidatosManifiesto(
   id: number,
 ): Promise<ManifiestoDespachoCandidato[]> {
-  const { data } = await apiClient.get<ManifiestoDespachoCandidato[]>(
-    `${BASE}/${id}/despachos-candidatos`,
+  const data = await unwrap(
+    openapiClient.GET(`${BASE}/{id}/despachos-candidatos`, { params: { path: { id } } }),
   );
-  return data;
+  return data as ManifiestoDespachoCandidato[];
 }

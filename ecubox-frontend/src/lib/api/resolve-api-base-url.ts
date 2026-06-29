@@ -1,5 +1,5 @@
 /**
- * Resuelve la URL base del backend para Axios y peticiones `fetch` manuales.
+ * Resuelve la URL base del backend para el cliente HTTP y peticiones `fetch` manuales.
  *
  * - Origen absoluto **sin** path (o solo `/`), p. ej. `http://localhost:8080` o
  *   `https://api.midominio.com`: se añade el prefijo `/api` (context path típico

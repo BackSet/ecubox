@@ -1,20 +1,24 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap } from '@/lib/api/openapi-client';
+import type { components } from '@/lib/api/generated/schema';
 import type {
   ConfigTarifaDistribucion,
   ConfigTarifaDistribucionRequest,
 } from '@/types/liquidacion';
 
-const BASE = API_ENDPOINTS.configTarifaDistribucion;
+const BASE = '/api/config/tarifa-distribucion' as const;
 
 export async function obtenerConfigTarifaDistribucion(): Promise<ConfigTarifaDistribucion> {
-  const { data } = await apiClient.get<ConfigTarifaDistribucion>(BASE);
-  return data;
+  const data = await unwrap(openapiClient.GET(BASE));
+  return data as ConfigTarifaDistribucion;
 }
 
 export async function actualizarConfigTarifaDistribucion(
   body: ConfigTarifaDistribucionRequest,
 ): Promise<ConfigTarifaDistribucion> {
-  const { data } = await apiClient.put<ConfigTarifaDistribucion>(BASE, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.PUT(BASE, {
+      body: body as components['schemas']['ConfigTarifaDistribucionRequest'],
+    }),
+  );
+  return data as ConfigTarifaDistribucion;
 }

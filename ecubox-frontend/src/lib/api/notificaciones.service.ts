@@ -1,24 +1,25 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
 import type { NotificacionUsuario, NotificacionesUnreadCount } from '@/types/notificacion';
 
-const BASE = API_ENDPOINTS.notificaciones;
+const BASE = '/api/notificaciones' as const;
 
 export async function listarNotificaciones(limit = 20): Promise<NotificacionUsuario[]> {
-  const { data } = await apiClient.get<NotificacionUsuario[]>(BASE, { params: { limit } });
-  return data;
+  const data = await unwrap(openapiClient.GET(BASE, { params: { query: { limit } } }));
+  return data as NotificacionUsuario[];
 }
 
 export async function contarNotificacionesNoLeidas(): Promise<NotificacionesUnreadCount> {
-  const { data } = await apiClient.get<NotificacionesUnreadCount>(`${BASE}/unread-count`);
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/unread-count`));
+  return data as NotificacionesUnreadCount;
 }
 
 export async function marcarNotificacionLeida(id: number): Promise<NotificacionUsuario> {
-  const { data } = await apiClient.patch<NotificacionUsuario>(`${BASE}/${id}/read`);
-  return data;
+  const data = await unwrap(
+    openapiClient.PATCH(`${BASE}/{id}/read`, { params: { path: { id } } }),
+  );
+  return data as NotificacionUsuario;
 }
 
 export async function marcarTodasNotificacionesLeidas(): Promise<void> {
-  await apiClient.patch(`${BASE}/read-all`);
+  await ensureOk(openapiClient.PATCH(`${BASE}/read-all`));
 }

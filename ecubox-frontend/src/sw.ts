@@ -38,8 +38,8 @@ registerRoute(
 // interceptan las del mismo origen (proxy `/api` en dev): en produccion el API
 // vive en otro origen (p. ej. api.ecubox.org) y el SW NO debe tocarlas. Si las
 // envolviera en NetworkOnly, un fallo de red/CORS se transformaria en un opaco
-// "no-response" del Service Worker en lugar de dejar que el navegador y axios
-// gestionen el error de forma nativa.
+// "no-response" del Service Worker en lugar de dejar que el navegador y el
+// cliente HTTP gestionen el error de forma nativa.
 registerRoute(
   ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/api/'),
   new NetworkOnly()

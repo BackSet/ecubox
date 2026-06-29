@@ -23,7 +23,7 @@ function normalizeTarifaInput(value: string): string {
   const normalized = sanitizeNumericDecimal(value);
   if (!normalized.includes('.')) return normalized;
   const hasTrailingDecimal = normalized.endsWith('.');
-  const [integerPart, decimalPart = ''] = normalized.split('.');
+  const [integerPart = '', decimalPart = ''] = normalized.split('.');
   const decimalLimited = decimalPart.slice(0, 4);
   if (decimalLimited.length > 0) return `${integerPart}.${decimalLimited}`;
   return hasTrailingDecimal ? `${integerPart}.` : integerPart;

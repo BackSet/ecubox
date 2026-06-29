@@ -1,25 +1,26 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { openapiClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
 import type {
   AccesoEnlace,
   GenerarAccesoEnlaceRequest,
   GenerarAccesoEnlaceResponse,
 } from '@/types/acceso-enlace';
 
-const BASE = API_ENDPOINTS.accesoEnlaces;
+// El contrato OpenAPI tipa las respuestas de forma laxa (propiedades opcionales,
+// `tipo` como string). Se conservan los tipos de dominio en las firmas y se
+// puentea la imprecisión con un cast localizado en el límite del servicio.
 
 export async function getAccesoEnlaces(): Promise<AccesoEnlace[]> {
-  const { data } = await apiClient.get<AccesoEnlace[]>(BASE);
-  return data;
+  const data = await unwrap(openapiClient.GET('/api/acceso-enlaces'));
+  return data as AccesoEnlace[];
 }
 
 export async function generarAccesoEnlace(
   body: GenerarAccesoEnlaceRequest,
 ): Promise<GenerarAccesoEnlaceResponse> {
-  const { data } = await apiClient.post<GenerarAccesoEnlaceResponse>(BASE, body);
-  return data;
+  const data = await unwrap(openapiClient.POST('/api/acceso-enlaces', { body }));
+  return data as GenerarAccesoEnlaceResponse;
 }
 
 export async function revocarAccesoEnlace(id: number): Promise<void> {
-  await apiClient.delete(`${BASE}/${id}`);
+  await ensureOk(openapiClient.DELETE('/api/acceso-enlaces/{id}', { params: { path: { id } } }));
 }

@@ -1,75 +1,76 @@
-import { apiClient } from '@/lib/api/client';
-import { API_ENDPOINTS } from '@/lib/api/endpoints';
-import { resolveApiBaseUrl } from '@/lib/api/resolve-api-base-url';
+import { openapiClient, openapiPublicClient, unwrap, ensureOk } from '@/lib/api/openapi-client';
+import type { components } from '@/lib/api/generated/schema';
 import type {
   CampaniaLanding,
   CampaniaLandingPublic,
   CampaniaLandingRequest,
 } from '@/types/campania-landing';
 
-const BASE = API_ENDPOINTS.campaniasLanding;
+// El contrato OpenAPI tipa request/response de forma laxa (propiedades
+// opcionales y sin `null`); se conservan los tipos de dominio en las firmas y se
+// puentea con casts localizados al tipo generado (body) o de dominio (respuesta).
+type CampaniaLandingRequestDTO = components['schemas']['CampaniaLandingRequest'];
+
+const BASE = '/api/parametros-sistema/campanias-landing' as const;
 
 // -------------------------------------------------------------- administración
 
 export async function listarCampanias(): Promise<CampaniaLanding[]> {
-  const { data } = await apiClient.get<CampaniaLanding[]>(BASE);
-  return data;
+  const data = await unwrap(openapiClient.GET(BASE));
+  return data as CampaniaLanding[];
 }
 
 export async function obtenerCampania(id: number): Promise<CampaniaLanding> {
-  const { data } = await apiClient.get<CampaniaLanding>(`${BASE}/${id}`);
-  return data;
+  const data = await unwrap(openapiClient.GET(`${BASE}/{id}`, { params: { path: { id } } }));
+  return data as CampaniaLanding;
 }
 
 export async function crearCampania(body: CampaniaLandingRequest): Promise<CampaniaLanding> {
-  const { data } = await apiClient.post<CampaniaLanding>(BASE, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(BASE, { body: body as CampaniaLandingRequestDTO }),
+  );
+  return data as CampaniaLanding;
 }
 
 export async function actualizarCampania(
   id: number,
   body: CampaniaLandingRequest,
 ): Promise<CampaniaLanding> {
-  const { data } = await apiClient.put<CampaniaLanding>(`${BASE}/${id}`, body);
-  return data;
+  const data = await unwrap(
+    openapiClient.PUT(`${BASE}/{id}`, {
+      params: { path: { id } },
+      body: body as CampaniaLandingRequestDTO,
+    }),
+  );
+  return data as CampaniaLanding;
 }
 
 export async function publicarCampania(id: number): Promise<CampaniaLanding> {
-  const { data } = await apiClient.post<CampaniaLanding>(`${BASE}/${id}/publicar`, {});
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/{id}/publicar`, { params: { path: { id } } }),
+  );
+  return data as CampaniaLanding;
 }
 
 export async function desactivarCampania(id: number): Promise<CampaniaLanding> {
-  const { data } = await apiClient.post<CampaniaLanding>(`${BASE}/${id}/desactivar`, {});
-  return data;
+  const data = await unwrap(
+    openapiClient.POST(`${BASE}/{id}/desactivar`, { params: { path: { id } } }),
+  );
+  return data as CampaniaLanding;
 }
 
 export async function eliminarCampania(id: number): Promise<void> {
-  await apiClient.delete(`${BASE}/${id}`);
+  await ensureOk(openapiClient.DELETE(`${BASE}/{id}`, { params: { path: { id } } }));
 }
 
 // --------------------------------------------------------------------- público
 
-function buildPublicUrl(path: string): string {
-  const base = resolveApiBaseUrl().replace(/\/+$/, '');
-  if (base.startsWith('http://') || base.startsWith('https://')) return `${base}${path}`;
-  const pathFromBase = `${base}${path}`.replace(/\/+/g, '/');
-  if (typeof window !== 'undefined') {
-    return new URL(pathFromBase, window.location.origin).toString();
-  }
-  return pathFromBase;
-}
-
 /**
- * Campaña pública vigente. Usa fetch directo (sin interceptor de auth) para no
- * arrastrar tokens ni provocar redirecciones por 401 en una vista pública.
- * Devuelve el patrón vacío (objeto) cuando no hay campaña.
+ * Campaña pública vigente. Usa el cliente público (sin token ni redirección por
+ * 401) para no arrastrar sesión en una vista pública. Devuelve el patrón vacío
+ * (objeto) cuando no hay campaña.
  */
 export async function getCampaniaLandingPublic(): Promise<CampaniaLandingPublic> {
-  const url = buildPublicUrl(API_ENDPOINTS.publicCampaniaLanding);
-  const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
-  if (!res.ok) {
-    throw new Error(res.statusText || 'Error al obtener la campaña de la landing.');
-  }
-  return ((await res.json()) ?? {}) as CampaniaLandingPublic;
+  const data = await unwrap(openapiPublicClient.GET('/api/public/campania-landing'));
+  return (data ?? {}) as CampaniaLandingPublic;
 }

@@ -141,7 +141,7 @@ describe('MisEntregasPage · listado de cliente', () => {
     misDespachosState.data = [despacho({ despachoId: 7 })];
     renderPage();
     const botones = screen.getAllByRole('button', { name: /ya lo recib/i });
-    fireEvent.click(botones[0]);
+    fireEvent.click(botones[0]!);
     await waitFor(() => expect(confirmarState.mutateAsync).toHaveBeenCalledWith(7));
   });
 
@@ -150,7 +150,7 @@ describe('MisEntregasPage · listado de cliente', () => {
     renderPage();
     const menus = screen.getAllByRole('button', { name: /más acciones de la entrega/i });
     expect(menus.length).toBeGreaterThan(0);
-    await userEvent.click(menus[0]);
+    await userEvent.click(menus[0]!);
     expect(await screen.findByText('Imprimir')).toBeInTheDocument();
     expect(screen.getByText('Exportar PDF')).toBeInTheDocument();
     expect(screen.getByText('Exportar Excel')).toBeInTheDocument();

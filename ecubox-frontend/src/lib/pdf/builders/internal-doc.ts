@@ -428,7 +428,7 @@ function drawTableHeader<R>(ctx: DocCtx, resolved: ResolvedColumns<R>) {
 
   let x = margin;
   resolved.cols.forEach((c, i) => {
-    const w = resolved.widths[i];
+    const w = resolved.widths[i] ?? 0;
     const tx =
       c.align === 'right'
         ? x + w - PDF_DOC.cellPadX
@@ -449,7 +449,7 @@ function measureRow<R>(
 ): number {
   let maxLines = 1;
   resolved.cols.forEach((c, i) => {
-    const w = resolved.widths[i] - PDF_DOC.cellPadX * 2;
+    const w = (resolved.widths[i] ?? 0) - PDF_DOC.cellPadX * 2;
     const txt = c.render(row, idx) || '';
     if (!txt) return;
     doc.setFont(c.mono ? 'courier' : 'helvetica', 'normal');
@@ -480,7 +480,7 @@ function drawRow<R>(
 
   let x = margin;
   resolved.cols.forEach((c, i) => {
-    const w = resolved.widths[i];
+    const w = resolved.widths[i] ?? 0;
     const innerW = w - PDF_DOC.cellPadX * 2;
     const tx =
       c.align === 'right'

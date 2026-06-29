@@ -106,7 +106,9 @@ function contenidoInputs(): HTMLInputElement[] {
 
 async function completarContenidos(user: ReturnType<typeof userEvent.setup>) {
   await waitFor(() => expect(contenidoInputs()).toHaveLength(2));
-  const [a, b] = contenidoInputs();
+  const inputs = contenidoInputs();
+  const a = inputs[0]!;
+  const b = inputs[1]!;
   await user.clear(a);
   await user.type(a, 'Zapatos');
   await user.clear(b);
@@ -167,13 +169,13 @@ describe('PaqueteBulkCreateForm', () => {
     await registrar(user);
 
     await waitFor(() => expect(createPaquete).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(createPaquete).mock.calls[0][0]).toMatchObject({
+    expect(vi.mocked(createPaquete).mock.calls[0]![0]).toMatchObject({
       consignatarioId: baseGuia.consignatarioId,
       guiaMasterId: baseGuia.id,
       contenido: 'Zapatos',
     });
-    expect(vi.mocked(createPaquete).mock.calls[0][0]).not.toHaveProperty('pesoLbs');
-    expect(vi.mocked(createPaquete).mock.calls[1][0]).not.toHaveProperty('pesoLbs');
+    expect(vi.mocked(createPaquete).mock.calls[0]![0]).not.toHaveProperty('pesoLbs');
+    expect(vi.mocked(createPaquete).mock.calls[1]![0]).not.toHaveProperty('pesoLbs');
   });
 
   it('no aplica el peso mientras se escribe: requiere pulsar "Aplicar a todos"', async () => {
@@ -202,7 +204,7 @@ describe('PaqueteBulkCreateForm', () => {
     await seleccionarGuia(user);
 
     // Peso manual en la primera fila.
-    await user.type(pesoLbsInputs()[0], '2');
+    await user.type(pesoLbsInputs()[0]!, '2');
     // Peso para todos y aplicar solo a sin peso.
     await user.type(screen.getByLabelText('Peso para todos los paquetes en libras'), '5.5');
     await user.click(screen.getByRole('button', { name: 'Aplicar solo a paquetes sin peso' }));
@@ -219,7 +221,7 @@ describe('PaqueteBulkCreateForm', () => {
     renderForm();
     await seleccionarGuia(user);
 
-    await user.type(pesoLbsInputs()[0], '2');
+    await user.type(pesoLbsInputs()[0]!, '2');
     await user.type(screen.getByLabelText('Peso para todos los paquetes en libras'), '5.5');
     await user.click(screen.getByRole('button', { name: 'Aplicar a todos' }));
 
@@ -247,7 +249,7 @@ describe('PaqueteBulkCreateForm', () => {
     await completarContenidos(user);
     await registrar(user);
     await waitFor(() => expect(createPaquete).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(createPaquete).mock.calls[0][0]).not.toHaveProperty('pesoLbs');
+    expect(vi.mocked(createPaquete).mock.calls[0]![0]).not.toHaveProperty('pesoLbs');
   });
 
   it('marca error y deshabilita aplicar cuando el peso para todos es 0', async () => {
@@ -266,7 +268,7 @@ describe('PaqueteBulkCreateForm', () => {
     await seleccionarGuia(user);
     await completarContenidos(user);
 
-    await user.type(pesoLbsInputs()[0], '0');
+    await user.type(pesoLbsInputs()[0]!, '0');
     await registrar(user);
 
     expect(await screen.findByText(/El peso debe ser mayor a 0/)).toBeInTheDocument();
@@ -278,7 +280,7 @@ describe('PaqueteBulkCreateForm', () => {
     renderForm();
     await seleccionarGuia(user);
 
-    const primera = contenidoInputs()[0];
+    const primera = contenidoInputs()[0]!;
     primera.focus();
     await user.paste('Camisa\nPantalon\nMedias');
 
@@ -319,7 +321,7 @@ describe('PaqueteBulkCreateForm', () => {
 
     await screen.findByText('Paquetes del lote');
     await waitFor(() => expect(contenidoInputs()).toHaveLength(1));
-    expect(contenidoInputs()[0].value).toBe('Tablet');
+    expect(contenidoInputs()[0]!.value).toBe('Tablet');
   });
 
   it('el modal usa contenedor flex con altura máxima y body scrolleable', async () => {

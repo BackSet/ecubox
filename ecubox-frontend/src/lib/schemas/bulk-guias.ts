@@ -34,6 +34,7 @@ export function parseGuiaList(text: string): ParseGuiaListResult {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (line === undefined) continue;
     if (line.length > MAX_NUMERO_GUIA) {
       errors.push(`Línea ${i + 1}: máximo ${MAX_NUMERO_GUIA} caracteres`);
       continue;

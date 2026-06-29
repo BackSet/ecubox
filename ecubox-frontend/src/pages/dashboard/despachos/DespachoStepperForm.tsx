@@ -441,7 +441,7 @@ export function DespachoStepperForm({
     if (sugeridas.length > 0) {
       const currentId = form.getValues('agenciaId');
       if (currentId == null || currentId <= 0) {
-        form.setValue('agenciaId', sugeridas[0].id);
+        form.setValue('agenciaId', sugeridas[0]!.id);
       }
     }
   }, [tipoEntrega, provinciaCantonRef?.provincia, provinciaCantonRef?.canton, agencias, form]);
@@ -656,7 +656,8 @@ export function DespachoStepperForm({
     let offset = 0;
     const baseId = Date.now().toString(36).toUpperCase();
     for (let i = 0; i < distribucion.length; i++) {
-      const slice = paqueteIds.slice(offset, offset + distribucion[i]);
+      const count = distribucion[i]!;
+      const slice = paqueteIds.slice(offset, offset + count);
       append({
         numeroOrden: `SAC-${baseId}-${String(i + 1).padStart(2, '0')}`,
         pesoLbs: undefined,
@@ -664,7 +665,7 @@ export function DespachoStepperForm({
         tamanio: tamanio ?? undefined,
         paqueteIds: slice,
       });
-      offset += distribucion[i];
+      offset += count;
     }
     setAgregarPaquetesDialog((prev) => ({ ...prev, open: false }));
   }
@@ -750,7 +751,7 @@ export function DespachoStepperForm({
     }
 
     if (values.tipoEntrega === 'AGENCIA_COURIER_ENTREGA' && paquetesDespacho.length > 0) {
-      const refDest = paquetesDespacho[0].consignatarioId;
+      const refDest = paquetesDespacho[0]!.consignatarioId;
       const todosMismoConsignatario = paquetesDespacho.every((p) => p.consignatarioId === refDest);
       if (!todosMismoConsignatario) {
         toast.error(UX_MESSAGES.agenciaCourierEntregaRegla);
@@ -2046,8 +2047,8 @@ export function DespachoStepperForm({
                         );
                         return sugeridas.length > 0 ? (
                           <p className="text-xs text-[var(--color-success)] dark:text-[var(--color-success)]">
-                            Sugerida por provincia/cantón: {sugeridas[0].nombre} (
-                            {sugeridas[0].codigo})
+                            Sugerida por provincia/cantón: {sugeridas[0]!.nombre} (
+                            {sugeridas[0]!.codigo})
                           </p>
                         ) : null;
                       })()}

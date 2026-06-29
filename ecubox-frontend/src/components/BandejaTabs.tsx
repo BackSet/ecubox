@@ -77,8 +77,9 @@ export function BandejaTabs<T extends string>({
     if (n === 0) return;
     for (let i = 1; i <= n; i++) {
       const idx = (desde + paso * i + n * i) % n;
-      if (!visibles[idx].disabled) {
-        onValueChange(visibles[idx].value);
+      const item = visibles[idx];
+      if (item && !item.disabled) {
+        onValueChange(item.value);
         refs.current[idx]?.focus();
         return;
       }
