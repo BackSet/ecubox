@@ -1,4 +1,5 @@
 import type { jsPDF } from 'jspdf';
+import { drawEcuboxPdfLogo } from '@/lib/pdf/brand-logo';
 import { ECUBOX_PDF_COLORS, type PdfRgb } from '@/lib/pdf/theme';
 
 const PAGE_W = 210;
@@ -102,20 +103,6 @@ export class TrackingDocumentRenderer {
     return clipped;
   }
 
-  private drawBrandLockup(x: number, baselineY: number, tone: 'light' | 'accent' = 'light') {
-    const ink = tone === 'light' ? this.colors.white : this.colors.primary;
-    this.doc.setTextColor(...ink);
-    this.doc.setDrawColor(...ink);
-    this.doc.setLineWidth(0.35);
-    this.doc.roundedRect(x, baselineY - 3.9, 8.4, 5.8, 1.4, 1.4, 'S');
-    this.setFont(6.4, true);
-    this.doc.text('ec', x + 4.2, baselineY, { align: 'center' });
-    this.setFont(8.5, true);
-    this.doc.text('ECUBOX', x + 11, baselineY - 1.2);
-    this.setFont(4.8, false);
-    this.doc.text('Conecta - Envia - Llega', x + 11, baselineY + 1.2);
-  }
-
   ensureSpace(heightNeeded: number) {
     if (this.y + heightNeeded <= this.contentMaxY) return;
     this.addPage();
@@ -193,7 +180,7 @@ export class TrackingDocumentRenderer {
 
     this.doc.setFillColor(...this.colors.primary);
     this.doc.roundedRect(x, startY, this.width, bandH, 2.4, 2.4, 'F');
-    this.drawBrandLockup(x + 4, startY + 5.8, 'light');
+    drawEcuboxPdfLogo(this.doc, { x: x + 4, y: startY + 1.1, width: 31, tone: 'dark' });
     this.setFont(7.2, false);
     this.doc.setTextColor(...this.colors.white);
     this.doc.text(options.docType, x + 45, startY + 5.8);
@@ -287,7 +274,7 @@ export class TrackingDocumentRenderer {
     const startY = this.y;
     this.doc.setFillColor(...this.colors.primarySoftFill);
     this.doc.roundedRect(x, startY, this.width, h, 1.8, 1.8, 'F');
-    this.drawBrandLockup(x + 3.5, startY + 6.2, 'accent');
+    drawEcuboxPdfLogo(this.doc, { x: x + 3.5, y: startY + 1.4, width: 28, tone: 'light' });
     this.setFont(7.2, false);
     this.doc.setTextColor(...this.colors.text);
     this.doc.text(reference, x + 37, startY + 6.2);
