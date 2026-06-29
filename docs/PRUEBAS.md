@@ -50,6 +50,25 @@ $env:ECUBOX_RUN_BOOT_CONTEXT_TEST = "true"
 
 Sin esa variable, el test se **omite** y el resto de la suite puede pasar en máquinas sin BD.
 
+### Pruebas de integración con PostgreSQL real (Testcontainers)
+
+Para validar el **arranque del contexto** y la **cadena de migraciones Flyway** contra un motor real (NO H2), el backend incluye pruebas de integración basadas en **Testcontainers**:
+
+- Base común: `src/test/java/.../integration/AbstractPostgresIntegrationTest.java` — levanta un contenedor **PostgreSQL 18** (`postgres:18-alpine`, alineado con dev/prod), inyecta el datasource vía `@DynamicPropertySource` y activa el perfil `test`.
+- Perfil `test`: `src/test/resources/application-test.properties` — Flyway aplica **solo las migraciones de producción** (`classpath:db/migration`, sin los seeds solo-dev de `db/dev`) y Hibernate corre con `ddl-auto=validate`. No contiene credenciales reales (el secreto JWT es un valor exclusivo de test).
+- Prueba inicial: `MigracionesContextoIntegrationTest` — verifica que el contexto arranca, que Flyway aplicó las migraciones versionadas, que existen las tablas núcleo del dominio y que los catálogos sembrados por migraciones (roles, permisos, estados de rastreo) se mapean correctamente con JPA.
+
+**Requisito:** estas pruebas necesitan **Docker** (o un runtime compatible) en la máquina. Donde Docker no esté disponible fallarán al arrancar el contenedor; el job de CI (`ubuntu-latest`) sí dispone de Docker y las ejecuta como parte de `./mvnw test`.
+
+```bash
+# Ejecutar solo las pruebas de integración (requiere Docker en marcha)
+cd ecubox-backend
+./mvnw test -Dtest='*IntegrationTest'
+
+# Ejecutar la suite excluyendo integración (máquinas sin Docker)
+./mvnw test '-Dtest=!*IntegrationTest'
+```
+
 ### Convenciones
 
 - Clases de test: `*Test.java` bajo `src/test/java`, mismo paquete lógico que el código bajo prueba.
@@ -66,7 +85,7 @@ Tras `mvn test`, los resultados XML/HTML quedan en:
 
 1. Priorizar lógica de dominio y validaciones (`jakarta.validation`) sin Spring.
 2. Añadir pruebas de contrato HTTP con `MockMvc` cuando el flujo lo merezca.
-3. Para integración real con BD, valorar **Testcontainers** + perfil `test` (no incluido aún); los comentarios en tests existentes pueden referenciar esa línea.
+3. Para integración real con BD usar la base **Testcontainers** + perfil `test` ya disponible (`AbstractPostgresIntegrationTest`); extender con pruebas de repositorio/servicio de alto valor sobre PostgreSQL real cuando el riesgo lo justifique.
 
 ---
 
@@ -124,7 +143,9 @@ El workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ejecuta:
 3. Tests Vitest.
 4. Build de producción.
 
-El test de contexto Spring solo se ejecutará si el job exporta `ECUBOX_RUN_BOOT_CONTEXT_TEST=true` **y** proporciona PostgreSQL (servicio Docker o similar).
+Las pruebas de integración con **Testcontainers** (`*IntegrationTest`) se ejecutan como parte de `./mvnw -B test` en el job de backend: `ubuntu-latest` provee Docker, por lo que el contenedor PostgreSQL se levanta automáticamente sin configuración adicional.
+
+El test de contexto Spring legado (`EcuboxSistemaDeGestionApplicationTests`) solo se ejecutará si el job exporta `ECUBOX_RUN_BOOT_CONTEXT_TEST=true` **y** proporciona PostgreSQL; la cobertura de arranque + migraciones queda cubierta por las pruebas Testcontainers.
 
 ---
 

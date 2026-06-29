@@ -42,13 +42,13 @@
 |---|---|
 | Navegación (sidebar) | `src/app/navigation/dashboardNav.ts`: **catálogo canónico `NAV`** + **composiciones por audiencia** (`CLIENTE_GROUPS`, `OPERARIO_GROUPS`, `ADMIN_GROUPS`, `MI_CUENTA_GROUP`) resueltas por permisos en `composeForAudience` (no por nombre de rol); rótulo por audiencia con `NavItem.labelFor`. Consumidores: `app/layout/Sidebar.tsx` y `components/GlobalCommandPalette.tsx` vía `getVisibleNavGroups`/`getVisibleNavItems`. Acceso por enlace usa `onlyWithPermission`. Tests: `dashboardNav.test.ts` |
 | Seguridad | Backend `config/SecurityConfig.java`, filtros JWT/rate limit, `security/`; frontend `authStore.ts`, guards del router |
-| Errores | Backend `exception/`; frontend `lib/api/error-message.ts`, interceptor Axios, estados de error de página |
+| Errores | Backend `exception/`; frontend `lib/api/error-message.ts`, middleware `openapi-fetch` (`http-feedback.ts`), estados de error de página |
 | Paginación/búsqueda | `PageResponse`, `Pageables`, `SearchSpecifications`, `useSearchPagination`, `createCrudQueryHooks` |
 | Diseño y movimiento | Frontend `src/index.css` (tokens de color/radio/**motion** + utilidades `.ui-transition`, `.ui-interactive`, `.ui-surface-hover`, `.ui-motion-*`, todas con `prefers-reduced-motion`); guía `ecubox-frontend/UI_GUIDELINES.md`; consumidas por `Button`, `Input`, `Switch`, `Table`, `ChipFiltro`, `KpiCard` y demás componentes compartidos |
 | Identidad de marca (rebranding) | Paleta canónica + tipografía **Sora** en `src/index.css` (`:root`/`.dark`); símbolo = monograma «ec» enlazado + wordmark monocromo en fuente única `ecubox-frontend/scripts/brand-glyphs.mjs`; lockups `src/assets/brand/ecubox-{symbol,logo-horizontal,logo-stacked}-{light,dark}.svg`; icono de la app = badge negro carbón + símbolo blanco (favicons/PWA); componente `src/components/brand/EcuboxLogo.tsx`; generadores `scripts/generate-{brand-assets,favicons,pwa-icons}.mjs`; sincronía de chrome `src/lib/theme-colors.ts`. Guía: `docs/branding/IDENTIDAD_VISUAL.md`, `UI_GUIDELINES.md` §1.6 |
 | Responsive | Estándar en `UI_GUIDELINES.md` §5.5. Controles compartidos endurecidos: `ui/select.tsx` (`SelectTrigger` `min-w-0 max-w-full` + valor truncable; `SelectContent` `max-w-[calc(100vw-2rem)]`), `ui/searchable-combobox.tsx` (trigger/valor `min-w-0`; popover acotado al viewport). `EstadosRastreoPorPuntoView` (`PuntoCard`) en `ParametrosSistemaPage.tsx` apila info+selector y usa `min-w-0` en el grid item |
 | Exportación | Frontend `lib/pdf`, `lib/xlsx`, `lib/exporters`; backend exportadores de consolidado/liquidación |
-| Observabilidad | Health, Micrometer, logs, health del proyector, ETag |
+| Observabilidad | Actuator (`/actuator/health` público + sondas; `info`/`metrics` autenticados), Micrometer, `/api/health` legacy, health del proyector, ETag, tracing OTEL por Java agent (opt-in) con `trace_id`/`span_id` en logs. Ver `docs/operacion/OBSERVABILIDAD.md` |
 | PWA | `vite.config.ts`, `src/sw.ts`, hooks PWA/Web Push, `public/manifest.webmanifest` e iconos `public/icons/*` (generados desde `scripts/brand-glyphs.mjs` vía `scripts/generate-pwa-icons.mjs`; cache-bust `?v=8`) |
 | Configuración | `application*.properties`, `.env.example`, Vite, Caddy, Docker, Railway |
 
@@ -171,6 +171,7 @@
 - Tests: `ecubox-backend/src/test/java`, `ecubox-frontend/src/**/*.test.{ts,tsx}`.
 - Configuración: `application*.properties`, `pom.xml`, `package.json`, `vite.config.ts`, `docker-compose.yml`, Dockerfiles, `.github/workflows`.
 - Documentación: `docs/nomenclatura.md`, `docs/desarrollo`, `docs/usuario`, `docs/despliegue`.
+- **Backend por capas (no por dominio)**: las clases se agrupan por capa técnica (`controller/`, `service/`, `repository/`, `entity/`, `dto/`, `mapper/`, `event/`, `projection/`, `security/`, `config/`, …); los dominios de la tabla viven como prefijos de nombre de clase dentro de esas capas. La auditoría Spring Modulith (MVP 8/8) lo confirma y reporta los ciclos entre capas; ver [docs/desarrollo/MODULITH_AUDITORIA.md](../desarrollo/MODULITH_AUDITORIA.md).
 
 ## 6. Pendientes de confirmar
 
@@ -194,4 +195,4 @@ Matriz de estados, transiciones, detonantes y exclusiones: [states_audit.md](sta
 
 **Regla 1 (despacho EN_TRANSITO/ENTREGADO):** la entidad `despacho` no tiene estado propio (`Despacho.java` carece de columna de estado), por lo que no existe fuente determinística para elevar un paquete a `EN_TRANSITO` por estar el despacho «en tránsito». El piso por despacho se fija en `estado_rastreo_en_despacho` y sólo se eleva a entrega cuando el propio paquete tiene evento de entrega. Esta es una limitación de modelo, no un defecto de la migración.
 
-Tests de la familia (servicio, nivel unitario Mockito): `ReparacionEstadoBodegaServiceTest`, `PaqueteServiceReparacionBodegaTest`, `PaqueteServiceCalcularEstadoMinimoTest`, `TrackingEventServiceReparacionTest`, `EstadoConsolidadoOperativoResolverTest`. **No hay arnés de ejecución de migraciones** (sin Testcontainers); la validación SQL de esta familia requiere `psql` contra un clon de dev dentro de `BEGIN … ROLLBACK`.
+Tests de la familia (servicio, nivel unitario Mockito): `ReparacionEstadoBodegaServiceTest`, `PaqueteServiceReparacionBodegaTest`, `PaqueteServiceCalcularEstadoMinimoTest`, `TrackingEventServiceReparacionTest`, `EstadoConsolidadoOperativoResolverTest`. Estos siguen siendo unitarios; para la **cadena de migraciones** existe el arnés Testcontainers (`MigracionesContextoIntegrationTest`, PostgreSQL 18 real, requiere Docker), pero la validación SQL fina de esta familia de reconciliación sigue siendo más directa con `psql` contra un clon de dev dentro de `BEGIN … ROLLBACK`.

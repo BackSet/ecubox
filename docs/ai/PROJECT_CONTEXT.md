@@ -40,7 +40,7 @@
 
 ### Backend
 
-- Java 25 y Spring Boot 4.0.6.
+- Java 25 y Spring Boot 4.0.7.
 - Maven Wrapper; manifiesto `ecubox-backend/pom.xml`.
 - Spring MVC, Security, Data JPA, Validation y Flyway.
 - PostgreSQL; imagen local `postgres:18-alpine`.
@@ -49,7 +49,9 @@
 - OpenAPI/Scalar con Springdoc 3.0.3.
 - Lombok 1.18.46 y MapStruct 1.6.3.
 - Bucket4j 8.19.0, Micrometer, PDFBox 3.0.7, Apache POI 5.5.1 y Web Push 5.1.2.
-- Tests mediante `spring-boot-starter-test` y Maven Surefire.
+- Observabilidad (MVP 7/8): `spring-boot-starter-actuator` (health/info/metrics). Tracing OTEL **vía Java agent** (opt-in por entorno, sin dependencias en el `pom.xml`); logs con `trace_id`/`span_id` cuando el agente inyecta el MDC. Ver [docs/operacion/OBSERVABILIDAD.md](../operacion/OBSERVABILIDAD.md).
+- Auditoría modular (MVP 8/8): **Spring Modulith 2.0.7** (alineado con Boot 4.0.x; `2.1.x`=Boot 4.1), solo en `scope test` (`spring-modulith-starter-test`, `spring-modulith-docs`). Test `ModulithStructureTest` (no arranca Spring). Ver [docs/desarrollo/MODULITH_AUDITORIA.md](../desarrollo/MODULITH_AUDITORIA.md).
+- Tests mediante `spring-boot-starter-test` y Maven Surefire; integración con PostgreSQL real vía Testcontainers (módulos `testcontainers-junit-jupiter` y `testcontainers-postgresql`, gestionados por el BOM de Spring Boot).
 
 ### Frontend
 
@@ -57,7 +59,8 @@
 - Node.js 22 en CI y Docker.
 - npm con lockfile `ecubox-frontend/package-lock.json`.
 - TanStack Router 1.170.16 y TanStack Query 5.101.1.
-- Axios 1.18.1, Zustand 5.0.13, React Hook Form 7.80.0 y Zod 4.4.3.
+- **`openapi-fetch` 0.17.0 es el único cliente HTTP** (Axios fue retirado por completo en MVP 6/8). Dos clientes: `openapiClient` (autenticado: JWT + 401/errores) y `openapiPublicClient` (sin token ni redirección, para endpoints públicos). Tipos generados desde OpenAPI con `openapi-typescript` (vía `npx`, no es dependencia del proyecto por incompatibilidad de peer con TypeScript 6).
+- Zustand 5.0.13, React Hook Form 7.80.0 y Zod 4.4.3.
 - Tailwind CSS 4.3.1, Radix UI/shadcn, Lucide y Sonner.
 - PWA con `vite-plugin-pwa`; generación de iconos con Sharp.
 - Exportación con jsPDF, ExcelJS y `html-to-image`.
@@ -74,7 +77,7 @@ Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.js
 - `src/pages/` agrupa páginas por área funcional.
 - `src/components/` contiene componentes compartidos y primitivos UI.
 - `src/hooks/` encapsula consultas/mutaciones de TanStack Query y lógica reutilizable.
-- `src/lib/api/` centraliza endpoints, cliente Axios y servicios por dominio.
+- `src/lib/api/` centraliza los clientes `openapi-fetch` (`openapi-client.ts`), los tipos generados (`generated/`) y los servicios por dominio.
 - `src/types/` define contratos TypeScript; `src/lib/schemas/` contiene validación Zod.
 - `src/stores/authStore.ts` y `themeStore.ts` manejan estado de cliente con Zustand.
 - La autorización de navegación se comprueba con permisos antes de cargar rutas; esto mejora UX, pero el backend sigue siendo la autoridad de seguridad.
@@ -103,7 +106,7 @@ Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.js
 - Contratos principales: DTOs Java, tipos/esquemas TypeScript, controllers y `docs/desarrollo/API_REFERENCE.md`.
 - Error estándar: `ApiErrorResponse(timestamp, status, error, message, errors)`.
 - `GlobalExceptionHandler` traduce validación y solicitudes inválidas a 400, autenticación a 401, autorización a 403, no encontrado a 404, conflictos/integridad/locking optimista a 409 y fallos no controlados a 500.
-- El frontend adjunta `Authorization: Bearer` mediante interceptor Axios; ante 401 limpia la sesión y redirige a `/login`.
+- El frontend adjunta `Authorization: Bearer` mediante middleware de `openapi-fetch` (`http-feedback.ts`); ante 401 limpia la sesión y redirige a `/login`.
 - Errores de red y 5xx muestran mensajes globales con limitación de frecuencia.
 
 ### Autenticación y autorización
@@ -131,7 +134,7 @@ Las versiones anteriores están **verificadas en Git** en `pom.xml`, `package.js
 - **Verificado en Git**: 34 tests de servicio de reconciliación verdes (`ReparacionEstadoBodegaServiceTest`, `PaqueteServiceReparacionBodegaTest`, `PaqueteServiceCalcularEstadoMinimoTest`, `TrackingEventServiceReparacionTest`, `EstadoConsolidadoOperativoResolverTest`).
 - **Verificado en DB de dev**: `V120` ejecutada en `BEGIN…ROLLBACK` con `psql` (no aplicada de forma permanente): corrigió 1 paquete (`LLEGA_A_ADUANA→EN_BODEGA`) y 1 guía (`ENVIO_PARCIAL→RECEPCION_PARCIAL`), `post_*`=0, sin degradación, segunda corrida = 0 filas.
 - **Pendiente de confirmar**: comportamiento de la familia de reconciliación contra datos de **producción** (la configuración de `estado_rastreo` puede diferir de dev; en dev `aduana` y `bodega` apuntan al mismo estado). No existe reporte de ejecución en producción; no afirmar que producción fue reparada.
-- El arnés de tests no ejecuta migraciones Flyway (los tests son unitarios Mockito y el test de contexto está gateado por `ECUBOX_RUN_BOOT_CONTEXT_TEST`); validar SQL de migraciones requiere `psql` contra un clon de dev.
+- El grueso de la suite es unitario (Mockito) y el test de contexto legado está gateado por `ECUBOX_RUN_BOOT_CONTEXT_TEST`. Desde el MVP 1/8 existe un arnés de **integración con Testcontainers** (`AbstractPostgresIntegrationTest` + `MigracionesContextoIntegrationTest`) que aplica las migraciones de producción (`db/migration`) contra un PostgreSQL 18 real y valida arranque + esquema; requiere Docker (disponible en CI). Validar una migración aislada antes de promoverla sigue siendo más rápido con `psql` en `BEGIN…ROLLBACK` contra un clon de dev.
 
 ### Integraciones externas confirmadas
 
@@ -158,10 +161,13 @@ Ejecutar desde la ruta indicada. No se documentan comandos no presentes en scrip
 | Tests frontend en watch | `npm run test:watch` | `ecubox-frontend/package.json` |
 | Cobertura frontend | `npm run test:coverage` | `ecubox-frontend/package.json` |
 | Lint de nomenclatura | `npm run lint:nomenclatura` | Script local específico; no existe lint general confirmado |
+| Generar tipos OpenAPI | `npm run api:generate` | `scripts/generate-openapi-types.mjs`; lee `OPENAPI_URL`/`OPENAPI_INPUT` (default `http://localhost:8080/v3/api-docs/all`); requiere backend en perfil `dev` o un schema exportado |
 | Desarrollo backend | `./mvnw spring-boot:run` | `README.md`, Maven Wrapper |
 | Tests backend | `./mvnw test` | `pom.xml`, CI |
 | Empaquetar backend | `./mvnw package` | Maven/Dockerfile |
 | Migrar con plugin Maven | `./mvnw flyway:migrate` | Plugin Flyway en `pom.xml`; requiere `FLYWAY_URL`, `FLYWAY_USER`, `FLYWAY_PASSWORD` |
+| Health (Actuator, público) | `curl localhost:8080/actuator/health` | Sondas en `/actuator/health/{liveness,readiness}`; `/api/health` legacy sigue activo |
+| Métricas (Actuator, autenticado) | `curl -H "Authorization: Bearer <jwt>" localhost:8080/actuator/metrics` | Solo expuesto si está en `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE` |
 | Stack local | `docker compose up --build` | `README.md`, `docker-compose.yml` |
 | Generar iconos | `npm run icons:generate` | `ecubox-frontend/package.json` |
 | Exportar OpenAPI en Windows | `powershell -ExecutionPolicy Bypass -File scripts/export-openapi.ps1` | Script existente; requiere backend accesible |
@@ -214,9 +220,19 @@ Variables por nombre, sin valores:
 - **Proyecciones por audiencia**: las vistas de cliente no reutilizan el DTO administrativo. Exponen un DTO propio (`MiGuia*`, `MiDespacho*`) acotado al cliente o al scope de enlace —conteos, peso y estados se calculan solo sobre sus paquetes, nunca con totales globales— y omiten datos operativos sensibles (precinto, sacas, observaciones internas, liquidación, usuario creador). Cuando un dato tiene snapshot histórico (SCD2), la vista de cliente lo resuelve por la **misma fuente histórica** que el back-office (p. ej. el destino del despacho en `/mis-entregas`). El vocabulario visible se separa del interno (ver NAMING: estados de guía, entregas/despachos).
 - Las revisiones administrativas que suspenden operabilidad se modelan como historial independiente del estado logístico; la condición activa se protege en servicio, base de datos y validadores operativos.
 - Una bandeja de trabajo separa consulta global, operación normal y atención especializada; filtros, conteos y paginación se resuelven en servidor. Cuando una pantalla tiene varias bandejas, cada una es una consulta distinta (la bandeja forma parte de la queryKey) y **no se conservan datos entre bandejas distintas**: al cambiar de bandeja se muestra esqueleto, no filas de la anterior, y se limpian selección masiva, acción elegida, página y filtros no aplicables (referencia: `/paquetes`, `/guias-master`).
-- `docs/desarrollo/TECH-STACK.md` está **alineado** con los manifiestos en las versiones mayores (Java 25, Spring Boot 4.0.6, React 19, Vite 8, TypeScript 6, Tailwind 4, jjwt 0.13.0, Zustand 5). Inconsistencia menor interna: declara Flyway `12.2.0` en una tabla y `12.6` en el resumen; `pom.xml` es la autoridad.
+- `docs/desarrollo/TECH-STACK.md` está **alineado** con los manifiestos en las versiones mayores (Java 25, Spring Boot 4.0.7, React 19, Vite 8, TypeScript 6, Tailwind 4, jjwt 0.13.0, Zustand 5). Inconsistencia menor interna: declara Flyway `12.2.0` en una tabla y `12.6` en el resumen; `pom.xml` es la autoridad.
 - **Contradicción (vigente)**: `docs/desarrollo/ARQUITECTURA_BACKEND.md` menciona `entity/enums` (los enums viven en `enums/` de nivel superior), `PermissionConstants`, `AuthService` y `PaqueteMapper`, que no existen en el árbol actual (el mapeo de paquete es inline; auth vive en `AuthController` + `UsuarioService`/`JwtService`).
 - **Contradicción**: `docs/nomenclatura.md` mapea algunos endpoints como `/api/consignatarios`, `/api/lotes-recepcion`, `/api/despachos` y `/api/casillero`; el código actual expone variantes como `/api/mis-consignatarios`, `/api/operario/consignatarios`, `/api/operario/lotes-recepcion`, `/api/operario/despachos`, y el casillero se obtiene por configuración.
 - **Pendiente de confirmar**: rama exacta conectada a cada servicio Railway.
 - **Pendiente de confirmar**: cobertura mínima exigida; no hay umbral configurado.
 - **Pendiente de confirmar**: estrategia E2E; no se encontraron Playwright/Cypress ni tests E2E.
+- **MVP 3/8 (hecho)**: `src/lib/api/generated/schema.d.ts` se regeneró desde el contrato real (`docs/openapi/openapi.json`, OpenAPI 3.1, 172 rutas). Migrados a `openapi-fetch` los servicios públicos/auth/config: `auth`, `acceso-enlaces`, `campania-landing`, `tarifa-calculadora`, `parametros-sistema`.
+- **MVP 4/8 (hecho)**: migrados los servicios operativos `paquetes`, `guias-master`, `envios-consolidados` (incl. descargas `manifiesto.pdf/.xlsx` vía `parseAs:'blob'`), `lotes-recepcion`, `estados-rastreo`, `consignatarios` (ya no importan Axios). Añadido `querySerializer` global comma-style (`form`/`explode:false`) en los clientes openapi-fetch para multivalor `List<...>` (p. ej. `estado=a,b`).
+- **Ruta problemática (MVP 4)**: `listarGuiasMaster` (GET `/api/guias-master` no paginado) enviaba históricamente el query param `estados` (plural), pero el backend lo nombra `estado` (`@RequestParam(name="estado")`), por lo que el filtro se ignoraba. Se preservó el request EXACTO (sin cambiar comportamiento); **corregir el nombre a `estado` es un cambio funcional pendiente** (validar impacto en listados).
+- **MVP 5/8 (hecho)**: migrados a `openapi-fetch` los servicios restantes (despacho/liquidación/reportes/admin): `operario-despachos`, `mis-despachos`, `manifiestos`, `liquidacion` (incl. descargas `exportar/pdf|xlsx` vía `parseAs:'blob'`), `estadisticas`, `notificaciones`, `web-push`, `mis-guias`, `couriers-entrega`, `puntos-entrega`, `agencias`, `usuario`, `rol`, `permiso`, `config-tarifa-distribucion`.
+- **MVP 6/8 (hecho)**: **Axios eliminado por completo** — borrados `src/lib/api/client.ts` y `src/lib/api/endpoints.ts` (`API_ENDPOINTS` ya no se usaba; los servicios usan rutas literales del contrato); `error-message.ts` desacoplado de `AxiosError` (tipo estructural); `axios` retirado de `package.json` y lockfile. Activado **`noUncheckedIndexedAccess`** (110 errores corregidos en ~30 archivos, sin `any`).
+- **Ruta problemática (MVP 5)**: `actualizarMiGuiaConsignatario` (en `mis-guias.service.ts`) apunta a `PUT /api/mis-guias/{id}/consignatario`, endpoint **inexistente** en el backend (solo existe `/{id}/destinatario`) → devuelve 404. Es **código muerto** (sin uso en UI). Se preservó el request exacto (cast de ruta) sin cambiar comportamiento; **corregir (repuntar a `/destinatario` o eliminar) es un cambio aparte**.
+- **Pendiente (MVP ≥7)**: `tracking.service.ts` sigue en `fetch` crudo (nunca usó Axios; diferido por UX bespoke 404/429 con `Retry-After` y test que mockea `fetch`). Es el único servicio fuera de `openapi-fetch`.
+- **Deuda de contrato (backend)**: springdoc emite respuestas con media type `*/*` y schemas laxos (propiedades opcionales, sin `null`, enums como `string`). Por eso los servicios migrados conservan los tipos de dominio manuales en sus firmas y usan casts localizados en el límite. Mejorar las anotaciones `@Schema`/`@ApiResponse` en backend permitiría eliminar esos casts (otro MVP).
+- **Hallazgo arquitectónico (MVP 8/8, Modulith)**: el backend está organizado **por capa técnica** (`controller`, `service`, `repository`, `entity`, …), no por dominio. Spring Modulith detecta esas 14 capas como "módulos" y reporta ciclos entre ellas (`config↔service`, `config↔security↔service`, `projection↔repository`), esperados para un layout por capas. **No es enforcement**: el test reporta sin fallar. Para modularidad por dominio real haría falta reorganizar a paquetes por dominio (refactor grande, fuera de alcance). Detalle en [MODULITH_AUDITORIA.md](../desarrollo/MODULITH_AUDITORIA.md).
+- **Pendiente (TS estricto)**: `exactOptionalPropertyTypes` queda **aplazado**. Medido en MVP 6/8: ~266 errores en ~83 archivos (props de componentes Radix/shadcn, hooks y objetos de query de servicios que pasan `{ x: undefined }` a `{ x?: T }`). Es un refactor amplio y de mayor riesgo (omitir claves vs. pasar `undefined` puede alterar runtime); se difiere a una iteración dedicada.

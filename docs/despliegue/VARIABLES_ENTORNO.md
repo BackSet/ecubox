@@ -40,6 +40,17 @@ Cargado automáticamente al arrancar Spring Boot desde el directorio de trabajo 
 | `WEB_PUSH_PUBLIC_KEY` | Condicional | Clave publica VAPID que el frontend usa para suscribirse. No es secreta. | Generada por ti | Generada por ti | Secreto/variable de plataforma |
 | `WEB_PUSH_PRIVATE_KEY` | Condicional | Clave privada VAPID. **Secreta; nunca va en frontend.** | Generada por ti | Generada por ti | Secreto de plataforma |
 | `WEB_PUSH_TTL_SECONDS` | No | Tiempo que el servicio push puede retener la notificacion si el dispositivo esta offline. | `86400` | `86400` | `86400` |
+| `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE` | No | Endpoints Actuator expuestos por HTTP. Defecto seguro `health,info`. No expongas `metrics`/`prometheus` sin protección de red. | `health,info,metrics` (dev) | `health,info` | `health,info` (añade `prometheus` solo si hay scraper protegido) |
+| `MANAGEMENT_HEALTH_SHOW_DETAILS` | No | Detalle de `/actuator/health` (componentes/DB). Defecto `never` para no filtrar infraestructura. | `always` (dev) | `never` | `never` o `when_authorized` |
+| `MANAGEMENT_HEALTH_SHOW_COMPONENTS` | No | Igual que el anterior, para la lista de componentes. | `always` (dev) | `never` | `never` |
+| `JAVA_TOOL_OPTIONS` | No | **Activa el OTEL Java agent** si la imagen lo incrusta (build con `OTEL_AGENT_VERSION`). Vacío = sin tracing. | — | — | `-javaagent:/app/opentelemetry-javaagent.jar` |
+| `OTEL_SERVICE_NAME` | No | Nombre del servicio en las trazas. | — | — | `ecubox-backend` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Collector OTLP (gRPC/HTTP). Sin esto y/o con `OTEL_TRACES_EXPORTER=none`, no se exporta nada. | — | — | `http://collector-ejemplo.invalid:4317` |
+| `OTEL_TRACES_EXPORTER` | No | Exportador de trazas (`otlp` para enviar, `none` para desactivar sin quitar el agente). | — | — | `otlp` |
+| `OTEL_METRICS_EXPORTER` / `OTEL_LOGS_EXPORTER` | No | Exportadores de métricas/logs del agente. Usa `none` para no enviarlos (las métricas de negocio siguen en Actuator). | — | — | `none` |
+
+> **Observabilidad:** detalles, decisión agent vs starter y comandos en
+> [docs/operacion/OBSERVABILIDAD.md](../operacion/OBSERVABILIDAD.md).
 
 Genera las claves VAPID una sola vez y reutilizalas:
 
